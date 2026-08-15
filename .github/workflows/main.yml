@@ -16,12 +16,15 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_path: bin/windows/bin
+            cache_path: C:\hxcpp_cache
           - os: ubuntu-latest
             target: linux
             artifact_path: bin/linux/bin
+            cache_path: ~/.hxcpp_cache
           - os: macos-latest
             target: mac
             artifact_path: bin/mac/bin
+            cache_path: ~/.hxcpp_cache
     
     runs-on: ${{ matrix.os }}
 
@@ -33,6 +36,14 @@ jobs:
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.4
+
+      - name: Cache HXCPP Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.cache_path }}
+          key: hxcpp-cache-${{ matrix.target }}-${{ hashFiles('**/Project.xml', '**/haxelib.json') }}
+          restore-keys: |
+            hxcpp-cache-${{ matrix.target }}-
 
       - name: Setup Haxelib (Windows)
         if: matrix.os == 'windows-latest'
@@ -60,11 +71,12 @@ jobs:
           haxelib install hxdiscord_rpc --quiet
           haxelib run lime setup -y
 
-      - name: Build Engine
-        run: haxelib run lime build ${{ matrix.target }} -release
+      - name: Apply macOS hxcpp SDK Fix
+        if: matrix.os == 'macos-latest'
+        run: |
+          haxelib git hxcpp https://github.com/joshtynjala/hxcpp.git fix/mac-dot-zero-sdk
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SoulScorch-${{ matrix.target }}
-          path: ${{ matrix.artifact_path }}
+      - name: Build Engine (Fast Parallel Compile)
+        run: haxelib run lime build ${{ matrix.target }} -release
+        env:
+          HXCPP_COMPILE_THREADS: 8
