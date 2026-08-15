@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
-	<app title="SoulScorch Engine" icon="art/iconOG.png" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios"/>
+	<app title="SoulScorch Engine" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios"/>
 
 	<haxelib name="lime"/>
 	<haxelib name="openfl"/>

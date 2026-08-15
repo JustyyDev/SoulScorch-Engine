@@ -42,7 +42,7 @@ class TitleState extends Scene {
     }
 
     function getIntroTextShit():Array<Array<String>> {
-        var path = ModLoader.getPath('assets/data/introText.txt');
+        var path = ModLoader.getPath('assets/data/config/introText.txt');
         var fullText:String = "";
         
         if (AssetResolver.exists(path)) {
