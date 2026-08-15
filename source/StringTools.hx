@@ -1,24 +1,4 @@
-/*
- * Copyright (C)2005-2019 Haxe Foundation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
+package;
 
 import haxe.iterators.StringIterator;
 import haxe.iterators.StringKeyValueIterator;
@@ -219,7 +199,7 @@ class StringTools {
 
 		If `start` is the empty String `""`, the result is true.
 	**/
-	public static #if (java || python || (js && js_es >= 6)) inline #end function startsWith(s:String, start:String):Bool {
+	public static #if (java || python || (js && js_es >= 6) || cpp) inline #end function startsWith(s:String, start:String):Bool {
 		#if java
 		return (cast s : java.NativeString).startsWith(start);
 		#elseif hl
@@ -231,7 +211,7 @@ class StringTools {
 		#elseif lua
 		return untyped __lua__("{0}:sub(1, #{1}) == {1}", s, start);
 		#elseif cpp
-		return untyped s.__StartsWith(start);
+		return cpp.NativeString.startsWith(s, start);
 		#else
 		return (s.length >= start.length && s.indexOf(start, 0) == 0);
 		#end
@@ -244,7 +224,7 @@ class StringTools {
 
 		If `end` is the empty String `""`, the result is true.
 	**/
-	public static #if (java || python || (js && js_es >= 6)) inline #end function endsWith(s:String, end:String):Bool {
+	public static #if (java || python || (js && js_es >= 6) || cpp) inline #end function endsWith(s:String, end:String):Bool {
 		#if java
 		return (cast s : java.NativeString).endsWith(end);
 		#elseif hl
@@ -258,7 +238,7 @@ class StringTools {
 		#elseif lua
 		return end == "" || untyped __lua__("{0}:sub(-#{1}) == {1}", s, end);
 		#elseif cpp
-		return untyped s.__EndsWith(end);
+		return cpp.NativeString.endsWith(s, end);
 		#else
 		var elen = end.length;
 		var slen = s.length;
@@ -336,17 +316,14 @@ class StringTools {
 		#if java
 		return (cast s : java.NativeString).trim();
 		#else
-		//return ltrim(rtrim(s));
 		var l = s.length;
 		var start = 0;
 		var end = l;
 
-		// Trim leading spaces
 		while (start < l && isSpace(s, start)) {
 			start++;
 		}
 
-		// Trim trailing spaces
 		while (end > start && isSpace(s, end - 1)) {
 			end--;
 		}
@@ -641,7 +618,6 @@ class StringTools {
     public static function formatSongPath(s:String):String {
         var formatted = s.toLowerCase();
         formatted = replace(formatted, " ", "-");
-        // Strip out illegal Windows characters
         var illegalChars = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*", "(", ")"];
         for (char in illegalChars) {
             formatted = replace(formatted, char, "");
