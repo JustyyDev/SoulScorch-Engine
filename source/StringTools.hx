@@ -199,7 +199,7 @@ class StringTools {
 
 		If `start` is the empty String `""`, the result is true.
 	**/
-	public static #if (java || python || (js && js_es >= 6) || cpp) inline #end function startsWith(s:String, start:String):Bool {
+	public static #if (java || python || (js && js_es >= 6)) inline #end function startsWith(s:String, start:String):Bool {
 		#if java
 		return (cast s : java.NativeString).startsWith(start);
 		#elseif hl
@@ -211,7 +211,7 @@ class StringTools {
 		#elseif lua
 		return untyped __lua__("{0}:sub(1, #{1}) == {1}", s, start);
 		#elseif cpp
-		return cpp.NativeString.startsWith(s, start);
+		return (s.length >= start.length && s.indexOf(start, 0) == 0);
 		#else
 		return (s.length >= start.length && s.indexOf(start, 0) == 0);
 		#end
@@ -224,7 +224,7 @@ class StringTools {
 
 		If `end` is the empty String `""`, the result is true.
 	**/
-	public static #if (java || python || (js && js_es >= 6) || cpp) inline #end function endsWith(s:String, end:String):Bool {
+	public static #if (java || python || (js && js_es >= 6)) inline #end function endsWith(s:String, end:String):Bool {
 		#if java
 		return (cast s : java.NativeString).endsWith(end);
 		#elseif hl
@@ -238,7 +238,9 @@ class StringTools {
 		#elseif lua
 		return end == "" || untyped __lua__("{0}:sub(-#{1}) == {1}", s, end);
 		#elseif cpp
-		return cpp.NativeString.endsWith(s, end);
+		var elen = end.length;
+		var slen = s.length;
+		return (slen >= elen && s.lastIndexOf(end, (slen - elen)) == (slen - elen));
 		#else
 		var elen = end.length;
 		var slen = s.length;
