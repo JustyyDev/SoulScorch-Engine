@@ -20,13 +20,13 @@ class DiscordRPC {
         #if desktop
         if (isInitialized) return;
 
-        handlers = DiscordEventHandlers.create();
+        handlers = cast {};
         handlers.ready = cpp.Function.fromStaticFunction(onReady);
         handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
         handlers.errored = cpp.Function.fromStaticFunction(onError);
 
-        // Client ID, Handlers Pointer, Auto-Register (1 = true), Steam App ID (null)
-        Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), 1, null);
+        // Client ID, Handlers Pointer, autoRegister (Bool), optional steamId (String)
+        Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), true, null);
         isInitialized = true;
         isRunning = true;
 
@@ -49,7 +49,7 @@ class DiscordRPC {
         #if desktop
         if (!isInitialized) return;
 
-        presence = DiscordRichPresence.create();
+        presence = cast {};
         presence.details = details;
         presence.state = state != null ? state : "";
         presence.largeImageKey = largeImageKey != null ? largeImageKey : "icon";
