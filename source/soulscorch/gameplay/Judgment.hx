@@ -7,12 +7,12 @@ enum abstract Judgment(String) from String to String {
     var SHIT = "Shit";
     var MISS = "Miss";
 
-    public static function fromDifference(milliseconds:Float, safeZone:Float):Judgment {
-        var difference = Math.abs(milliseconds);
-        if (difference <= safeZone * 0.25) return SICK;
-        if (difference <= safeZone * 0.50) return GOOD;
-        if (difference <= safeZone * 0.75) return BAD;
-        if (difference <= safeZone) return SHIT;
+    public static function fromDifference(diffMs:Float, safeZone:Float = 166.0):Judgment {
+        var diff = Math.abs(diffMs);
+        if (diff <= 45.0) return SICK;
+        if (diff <= 90.0) return GOOD;
+        if (diff <= 135.0) return BAD;
+        if (diff <= safeZone) return SHIT;
         return MISS;
     }
 
@@ -23,7 +23,7 @@ enum abstract Judgment(String) from String to String {
             case BAD: 100;
             case SHIT: 50;
             case MISS: -10;
-        }
+        };
     }
     
     public static function accuracyWeight(judgment:Judgment):Float {
@@ -33,16 +33,20 @@ enum abstract Judgment(String) from String to String {
             case BAD: 0.5;
             case SHIT: 0.25;
             case MISS: 0.0;
-        }
+        };
     }
 
     public static function healthModifier(judgment:Judgment):Float {
         return switch (judgment) {
             case SICK: 0.04;
-            case GOOD: 0.02;
+            case GOOD: 0.025;
             case BAD: 0.0;
-            case SHIT: -0.06;
-            case MISS: -0.15;
-        }
+            case SHIT: -0.05;
+            case MISS: -0.085;
+        };
+    }
+
+    public static function triggersSplash(judgment:Judgment):Bool {
+        return judgment == SICK;
     }
 }

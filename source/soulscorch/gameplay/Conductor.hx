@@ -1,29 +1,47 @@
 package soulscorch.gameplay;
 
+import soulscorch.gameplay.Chart.BPMChangeEvent;
+
 class Conductor {
-    public static var songPosition:Float = 0;
-    public var safeZoneOffset:Float = 45; // Standard FNF hit window
-    public var bpm:Float = 100;
-    public var crochet:Float = ((60 / 100) * 1000);
-    public var stepCrochet:Float = (((60 / 100) * 1000) / 4);
-    public var songOffset:Float = 0;
+    public static var bpm:Float = 100.0;
+    public static var crochet:Float = ((60.0 / 100.0) * 1000.0);
+    public static var stepCrochet:Float = crochet / 4.0;
+    public static var songPosition:Float = 0.0;
+    public static var safeZoneOffset:Float = 166.0;
+    public static var bpmChangeMap:Array<BPMChangeEvent> = [];
+    public static var timeScale:Float = 1.0;
 
-    public function new(bpm:Float) {
-        this.bpm = bpm;
-        updateBpm(bpm);
-        songPosition = 0;
-    }
-
-    public function updateBpm(newBpm:Float):Void {
+    public static function changeBPM(newBpm:Float):Void {
         bpm = newBpm;
-        crochet = ((60 / bpm) * 1000);
-        stepCrochet = crochet / 4;
+        crochet = ((60.0 / bpm) * 1000.0);
+        stepCrochet = crochet / 4.0;
     }
 
-    public function update(elapsed:Float):Void {
-        songPosition += elapsed * 1000;
+    public static function mapBpmChanges(chart:Chart):Void {
+        bpmChangeMap = [];
+        var curBPM:Float = chart.bpm;
+        var totalSteps:Int = 0;
+        var totalTime:Float = 0.0;
+
+        for (change in chart.bpmChanges) {
+            if (change.bpm != curBPM) {
+                curBPM = change.bpm;
+                bpmChangeMap.push({
+                    stepTime: totalSteps,
+                    time: totalTime,
+                    bpm: curBPM
+                });
+            }
+        }
     }
 
-    public function mapBpmChanges(chart:Dynamic):Void {
+    public static function getBPMAtTime(time:Float):Float {
+        var lastBPM = bpm;
+        for (change in bpmChangeMap) {
+            if (time >= change.time) {
+                lastBPM = change.bpm;
+            }
+        }
+        return lastBPM;
     }
 }

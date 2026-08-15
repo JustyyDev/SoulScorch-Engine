@@ -30,6 +30,9 @@ class TitleState extends Scene {
 
     override public function create():Void {
         super.create();
+        #if desktop
+        soulscorch.backend.DiscordRPC.changePresence("In the Menus", "Title Screen");
+        #end
 
         curWacky = FlxG.random.getObject(getIntroTextShit());
 

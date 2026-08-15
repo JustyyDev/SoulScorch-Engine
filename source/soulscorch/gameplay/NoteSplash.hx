@@ -1,36 +1,38 @@
 package soulscorch.gameplay;
 
 import flixel.FlxSprite;
-import flixel.graphics.frames.FlxAtlasFrames;
-import soulscorch.assets.AssetResolver;
-import soulscorch.modding.ModLoader;
+import soulscorch.assets.AssetHelper;
 
 class NoteSplash extends FlxSprite {
-    public function new(x:Float, y:Float, direction:Int) {
+    public function new(x:Float = 0, y:Float = 0, direction:Int = 0) {
         super(x, y);
-        
-        var rawPath = 'assets/images/gameplay/noteSplashes';
-        var resolvedPath = ModLoader.getPath(rawPath);
+        loadSplashes();
+        setup(x, y, direction);
+    }
 
-        if (AssetResolver.exists('$resolvedPath.xml')) {
-            frames = FlxAtlasFrames.fromSparrow('$resolvedPath.png', '$resolvedPath.xml');
-            
+    public function loadSplashes():Void {
+        var loaded = AssetHelper.loadSparrowSafely(this, "assets/images/gameplay/splashes/noteSplashes.png", "assets/images/gameplay/splashes/noteSplashes.xml");
+
+        if (loaded) {
+            animation.addByPrefix('note0', 'note splash purple', 24, false);
             animation.addByPrefix('note1', 'note splash blue', 24, false);
             animation.addByPrefix('note2', 'note splash green', 24, false);
-            animation.addByPrefix('note0', 'note splash purple', 24, false);
             animation.addByPrefix('note3', 'note splash red', 24, false);
-            
-            setup(direction);
+        } else {
+            makeGraphic(140, 140, 0x99FFFFFF);
         }
         antialiasing = true;
     }
 
-    public function setup(direction:Int):Void {
-        animation.play('note' + direction, true);
-        updateHitbox();
-        
-        offset.set(width * 0.3, height * 0.3);
-        alpha = 0.6;
+    public function setup(x:Float, y:Float, direction:Int):Void {
+        setPosition(x, y);
+        alpha = 0.85;
+
+        if (animation.getByName('note' + direction) != null) {
+            animation.play('note' + direction, true);
+            updateHitbox();
+            offset.set(width * 0.28, height * 0.28);
+        }
     }
 
     override public function update(elapsed:Float):Void {

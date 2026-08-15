@@ -3,99 +3,91 @@ package soulscorch.ui.menus;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.effects.FlxFlicker;
+import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import flixel.effects.FlxFlicker;
 import soulscorch.core.Scene;
-import soulscorch.core.Runtime;
+import soulscorch.assets.AssetHelper;
+import soulscorch.input.InputMap;
 import soulscorch.gameplay.PlayState;
+import soulscorch.ui.ScriptedState;
 
 class MainMenuState extends Scene {
-    var menuItems:FlxTypedGroup<FlxSprite>;
     var optionShit:Array<String> = ['story_mode', 'freeplay', 'options'];
     var curSelected:Int = 0;
+    var menuItems:FlxTypedGroup<FlxSprite>;
+    var bg:FlxSprite;
     var magenta:FlxSprite;
-    var camFollow:FlxSprite;
+    var selectedSomethin:Bool = false;
 
     override public function create():Void {
         super.create();
 
-        persistentUpdate = persistentDraw = true;
+        #if desktop
+        soulscorch.backend.DiscordRPC.changePresence("In the Menus", "Main Menu");
+        #end
 
-        var bg:FlxSprite = new FlxSprite(-80).loadGraphic('assets/images/ui/menuBG.png');
+        bg = new FlxSprite(-80).loadGraphic('assets/images/menuBG.png');
         bg.scrollFactor.set(0, 0.18);
-        bg.setGraphicSize(Std.int(bg.width * 1.1));
+        bg.setGraphicSize(Std.int(bg.width * 1.175));
         bg.updateHitbox();
         bg.screenCenter();
-        bg.antialiasing = Runtime.engine.config.antialiasing;
+        bg.antialiasing = true;
         add(bg);
 
-        magenta = new FlxSprite(-80).loadGraphic('assets/images/ui/menuDesat.png');
+        magenta = new FlxSprite(-80).loadGraphic('assets/images/menuDesat.png');
         magenta.scrollFactor.set(0, 0.18);
-        magenta.setGraphicSize(Std.int(magenta.width * 1.1));
+        magenta.setGraphicSize(Std.int(magenta.width * 1.175));
         magenta.updateHitbox();
         magenta.screenCenter();
         magenta.visible = false;
-        magenta.antialiasing = Runtime.engine.config.antialiasing;
-        magenta.color = 0xFFfd719b;
+        magenta.antialiasing = true;
+        magenta.color = 0xFFFD719B;
         add(magenta);
-
-        camFollow = new FlxSprite(0, 0).makeGraphic(1, 1, 0x00000000);
-        add(camFollow);
 
         menuItems = new FlxTypedGroup<FlxSprite>();
         add(menuItems);
 
         for (i in 0...optionShit.length) {
-            var menuItem:FlxSprite = new FlxSprite(0, (i * 140) + 90);
-            menuItem.frames = flixel.graphics.frames.FlxAtlasFrames.fromSparrow('assets/images/ui/main_menu.png', 'assets/images/ui/main_menu.xml');
+            var menuItem:FlxSprite = new FlxSprite(0, 60 + (i * 160));
+            AssetHelper.loadSparrowSafely(menuItem, 'assets/images/mainmenu/menu_' + optionShit[i] + '.png', 'assets/images/mainmenu/menu_' + optionShit[i] + '.xml');
             menuItem.animation.addByPrefix('idle', optionShit[i] + " basic", 24);
             menuItem.animation.addByPrefix('selected', optionShit[i] + " white", 24);
             menuItem.animation.play('idle');
             menuItem.ID = i;
             menuItem.screenCenter(X);
             menuItems.add(menuItem);
-            menuItem.scrollFactor.set(0, 0.25);
-            menuItem.antialiasing = Runtime.engine.config.antialiasing;
+            menuItem.antialiasing = true;
         }
 
-        FlxG.camera.follow(camFollow, null, 0.06);
-        changeItem();
+        changeItem(0);
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (!isTransitioning) {
-            if (FlxG.keys.justPressed.UP) changeItem(-1);
-            if (FlxG.keys.justPressed.DOWN) changeItem(1);
+        if (!selectedSomethin) {
+            if (InputMap.justPressed("up")) changeItem(-1);
+            if (InputMap.justPressed("down")) changeItem(1);
 
-            if (FlxG.keys.justPressed.ENTER) {
-                isTransitioning = true;
-                FlxG.sound.play('assets/sounds/confirmMenu.ogg');
+            if (InputMap.justPressed("accept")) {
+                selectedSomethin = true;
+                AssetHelper.playSoundSafely('assets/sounds/confirmMenu.ogg', 0.7);
 
-                if (Runtime.engine.config.flashingLights) {
-                    FlxFlicker.flicker(magenta, 1.1, 0.15, false);
-                }
+                if (magenta != null) FlxFlicker.flicker(magenta, 1.1, 0.15, false);
 
                 menuItems.forEach(function(spr:FlxSprite) {
                     if (curSelected != spr.ID) {
-                        FlxTween.tween(spr, {alpha: 0}, 0.4, {
-                            ease: FlxEase.quadOut,
-                            onComplete: function(twn:FlxTween) {
-                                spr.kill();
-                            }
-                        });
+                        FlxTween.tween(spr, {alpha: 0}, 0.4, {ease: FlxEase.quadOut});
                     } else {
                         FlxFlicker.flicker(spr, 1, 0.06, false, false, function(flick:FlxFlicker) {
                             var daChoice:String = optionShit[curSelected];
                             switch (daChoice) {
-                                case 'story_mode':
-                                    switchScene(new StoryMenuState());
-                                case 'freeplay':
-                                    switchScene(new FreeplayState());
+                                case 'story_mode' | 'freeplay':
+                                    FlxG.switchState(new PlayState());
                                 case 'options':
-                                    switchScene(new OptionsState());
+                                    FlxG.switchState(new ScriptedState("OptionsState"));
                             }
                         });
                     }
@@ -114,9 +106,6 @@ class MainMenuState extends Scene {
             spr.updateHitbox();
             if (spr.ID == curSelected) {
                 spr.animation.play('selected');
-                var add:Float = 0;
-                if (menuItems.length > 4) add = menuItems.length * 8;
-                camFollow.setPosition(spr.getGraphicMidpoint().x, spr.getGraphicMidpoint().y - add);
                 spr.centerOffsets();
             }
         });

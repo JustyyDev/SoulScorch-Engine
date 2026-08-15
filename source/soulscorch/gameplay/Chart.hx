@@ -15,23 +15,19 @@ typedef BPMChangeEvent = {
 }
 
 class Chart {
-    public var bpm:Float;
-    public var notes:Array<NoteData>;
-    public var bpmChanges:Array<BPMChangeEvent>;
+    public var bpm:Float = 100.0;
+    public var scrollSpeed:Float = 2.0;
+    public var notes:Array<Note> = [];
+    public var bpmChanges:Array<BPMChangeEvent> = [];
 
-    public function new(bpm:Float = 140.0) {
+    public function new(bpm:Float = 140.0, scrollSpeed:Float = 2.0) {
         this.bpm = bpm;
-        notes = [];
-        bpmChanges = [];
+        this.scrollSpeed = scrollSpeed;
+        this.notes = [];
+        this.bpmChanges = [];
     }
 
-    public function addNote(time:Float, direction:Int, sustainLength:Float = 0, type:String = "", mustPress:Bool = true):Void {
-        notes.push({ 
-            time: time, 
-            direction: direction, 
-            sustainLength: sustainLength,
-            type: type,
-            mustPress: mustPress
-        });
+    public function addNote(time:Float, direction:Int, sustainLength:Float = 0, type:String = "Default", mustPress:Bool = true):Void {
+        notes.push(new Note(time, direction, sustainLength, mustPress, false, type));
     }
 }

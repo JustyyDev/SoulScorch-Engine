@@ -1,47 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
-	<app title="SoulScorch Engine" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios"/>
+	<!-- Application Metadata -->
+	<app title="SoulScorch Engine" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios" />
 
-	<haxelib name="lime"/>
-	<haxelib name="openfl"/>
-	<haxelib name="flixel"/>
-	<haxelib name="flixel-addons"/>
-	<haxelib name="flixel-ui"/>
-	<haxelib name="format"/>
-	<haxelib name="flixel-animate"/>
-	<haxelib name="hscript-improved"/>
-	<haxelib name="funkin-modchart"/>
-
-	<window width="1280" height="720" background="#000000" hardware="true" vsync="false"/>
-	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true"/>
-	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
-
-	<source name="source"/>
+	<!-- Core Libraries (Required for Lime template generation) -->
+	<haxelib name="lime" />
+	<haxelib name="openfl" />
+	<haxelib name="flixel" />
 	
-	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web"/>
-	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web"/>
-	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web"/>
-	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web"/>
-	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.ogg" if="web"/>
-	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.mp3" unless="web"/>
+	<!-- Discord Rich Presence -->
+	<haxelib name="hxdiscord_rpc" if="desktop" />
 
-	<assets path="art/iconOG.png" id="iconOG"/>
+	<!-- Custom Application Icons -->
+	<icon path="art/iconOG.png" />
+	<assets path="art/iconOG.png" id="iconOG" />
 
-	<haxedef name="FLX_NO_DEBUG" unless="debug"/>
-	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN"/>
-	<haxedef name="analyzer-optimize" unless="debug"/>
-	<haxedef name="HXCPP_NO_PCH"/>
-	<haxedef name="message.reporting" value="pretty"/>
-	<haxedef name="NAPE_RELEASE_BUILD" unless="debug"/>
-	
-	<haxedef name="hscriptPos"/>
+	<!-- Window Configuration -->
+	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" fps="60" />
+	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" />
+	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false" />
 
+	<!-- Source Roots (Haxe will prioritize this local folder over haxelibs) -->
+	<source path="source" />
+
+	<!-- Dynamic External Directories -->
+	<assets path="mods" embed="false" />
+
+	<!-- Core Asset Pipelines -->
+	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
+	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" />
+	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
+	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" />
+	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.ogg" if="web" />
+	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.mp3" unless="web" />
+
+	<!-- Engine Optimization Flags -->
+	<haxedef name="FLX_NO_DEBUG" unless="debug" />
+	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
+	<haxedef name="analyzer-optimize" unless="debug" />
+	<haxedef name="message.reporting" value="pretty" />
+	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />
+	<haxedef name="hscriptPos" />
+
+	<!-- Desktop Crash & Stack Tracing -->
 	<section if="desktop">
-		<haxedef name="HXCPP_CHECK_POINTER" if="debug"/>
-		<haxedef name="HXCPP_STACK_LINE" if="debug"/>
+		<haxedef name="HXCPP_CHECK_POINTER" if="debug" />
+		<haxedef name="HXCPP_STACK_LINE" if="debug" />
 	</section>
 
+	<!-- High-Speed Windows C++ Build Optimizations -->
 	<section if="windows">
-		<haxedef name="HXCPP_M64"/>
+		<haxedef name="HXCPP_M64" />
+		<haxedef name="HXCPP_GC_BIG_BLOCKS" />
+
+		<!-- Native Windows Libraries for NativeAPI (Dark mode & Popups) -->
+		<dependency name="dwmapi.lib" />
+		<dependency name="user32.lib" />
+		<dependency name="shell32.lib" />
+
+		<!-- Enable Pre-Compiled Headers for Rapid Incremental Compilation -->
+		<set name="HXCPP_PCH" value="1" />
+		<set name="HXCPP_VERBOSE" value="1" />
+
+		<!-- Multi-Threaded C++ Compilation -->
+		<set name="HXCPP_COMPILE_THREADS" value="%NUMBER_OF_PROCESSORS%" />
+
+		<!-- Strip Unnecessary Subsystems to Reduce Binary Footprint -->
+		<haxedef name="openfl-disable-mouse" if="mobile" />
+		<haxedef name="disable-cffi" if="cppia" />
 	</section>
 </project>
