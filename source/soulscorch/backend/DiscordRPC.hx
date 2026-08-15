@@ -20,28 +20,34 @@ class DiscordRPC {
         #if desktop
         if (isInitialized) return;
 
-        handlers = cast {};
-        handlers.ready = cpp.Function.fromStaticFunction(onReady);
-        handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
-        handlers.errored = cpp.Function.fromStaticFunction(onError);
+        try {
+            handlers = cast {};
+            handlers.ready = cpp.Function.fromStaticFunction(onReady);
+            handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
+            handlers.errored = cpp.Function.fromStaticFunction(onError);
 
-        // Client ID, Handlers Pointer, autoRegister (Bool), optional steamId (String)
-        Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), true, null);
-        isInitialized = true;
-        isRunning = true;
+            Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), true, null);
+            isInitialized = true;
+            isRunning = true;
 
-        // Background worker thread for non-blocking RPC callbacks
-        Thread.create(function() {
-            while (isRunning) {
-                #if cpp
-                Discord.RunCallbacks();
-                #end
-                Sys.sleep(1.0);
-            }
-        });
+            // Background worker thread for non-blocking RPC callbacks
+            Thread.create(function() {
+                while (isRunning) {
+                    #if cpp
+                    try {
+                        Discord.RunCallbacks();
+                    } catch (e:Dynamic) {}
+                    #end
+                    Sys.sleep(1.0);
+                }
+            });
 
-        Sys.println('[DISCORD] RPC initialized with Client ID: ' + CLIENT_ID);
-        changePresence("In the Menus", "Main Menu");
+            Sys.println('[DISCORD] RPC initialized with Client ID: ' + CLIENT_ID);
+            changePresence("In the Menus", "Main Menu");
+        } catch (e:Dynamic) {
+            Sys.println('[DISCORD] Failed to initialize Rich Presence: ' + e);
+            isInitialized = false;
+        }
         #end
     }
 

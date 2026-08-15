@@ -1,4 +1,4 @@
-name: Build Engine
+name: Executables Only (Raw Build)
 
 on:
   push:
@@ -8,48 +8,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-binaries:
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             target: windows
-            artifact_path: bin/windows/bin
-            cache_path: C:\hxcpp_cache
+            artifact_name: SoulScorch-Windows-Binaries
+            output_path: bin/windows/bin
           - os: ubuntu-latest
             target: linux
-            artifact_path: bin/linux/bin
-            cache_path: ~/.hxcpp_cache
-          - os: macos-latest
+            artifact_name: SoulScorch-Linux-Binaries
+            output_path: bin/linux/bin
+          - os: macos-14
             target: mac
-            artifact_path: bin/mac/bin
-            cache_path: ~/.hxcpp_cache
-    
+            artifact_name: SoulScorch-Mac-Binaries
+            output_path: bin/mac/bin
+
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.4
-
-      - name: Select Stable Xcode Version (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '15.4'
-
-      - name: Cache HXCPP Build Artifacts
-        uses: actions/cache@v4
-        with:
-          path: ${{ matrix.cache_path }}
-          key: hxcpp-cache-${{ matrix.target }}-${{ hashFiles('**/Project.xml', '**/haxelib.json') }}
-          restore-keys: |
-            hxcpp-cache-${{ matrix.target }}-
 
       - name: Setup Haxelib (Windows)
         if: matrix.os == 'windows-latest'
@@ -77,13 +63,13 @@ jobs:
           haxelib install hxdiscord_rpc --quiet
           haxelib run lime setup -y
 
-      - name: Build Engine (Fast Parallel Compile)
+      - name: Build Engine
         run: haxelib run lime build ${{ matrix.target }} -release
         env:
           HXCPP_COMPILE_THREADS: 8
 
-      - name: Upload Artifact
+      - name: Upload Raw Executable Build
         uses: actions/upload-artifact@v4
         with:
-          name: SoulScorch-${{ matrix.target }}
-          path: ${{ matrix.artifact_path }}
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.output_path }}
