@@ -1,4 +1,4 @@
-name: Executables Only (Raw Build)
+name: Release Builds
 
 on:
   push:

@@ -40,11 +40,9 @@ class Main extends Sprite {
     public static var fpsCounter:TextField;
     public static var fileWatcher:FileWatcher;
     
-
     public function new() {
         super();
 
-        // Intercept all unhandled runtime exceptions
         Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtError);
 
         if (stage != null) {
@@ -60,11 +58,6 @@ class Main extends Sprite {
     }
 
     private function init():Void {
-        #if windows
-        NativeAPI.setDarkMode(true);
-        #end
-
-        // Start Discord Rich Presence
         #if desktop
         soulscorch.backend.DiscordRPC.initialize();
         openfl.Lib.current.stage.application.onExit.add(function(exitCode:Int) {
@@ -86,26 +79,28 @@ class Main extends Sprite {
             gameHeight = Math.ceil(stageHeight / zoom);
         }
 
-        // Initialize game container
         var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
         addChild(game);
 
-        // Configure stage properties
+        soulscorch.core.Runtime.setupFlixel();
+
         Lib.current.stage.align = StageAlign.TOP_LEFT;
         Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-        // In-game Developer Console overlay
         var devConsole = new DevConsole();
         addChild(devConsole);
 
-        // Hardware Performance & Memory Overlay
         setupPerformanceOverlay();
 
-        // Initialize hot-reloading watcher
         fileWatcher = new FileWatcher();
 
-        // Global frame tick listener for background audio spectra and file monitors
         addEventListener(Event.ENTER_FRAME, onEnterFrame);
+
+        haxe.Timer.delay(function() {
+            #if windows
+            NativeAPI.setDarkMode(true);
+            #end
+        }, 100);
     }
 
     private function setupPerformanceOverlay():Void {
@@ -120,15 +115,12 @@ class Main extends Sprite {
     }
 
     private function onEnterFrame(event:Event):Void {
-        // Update audio frequency spectrum buffers
         AudioSpectrum.update();
 
-        // Tick hot-reload monitors
         if (fileWatcher != null) {
             fileWatcher.update(FlxG.elapsed);
         }
 
-        // Real-time FPS & Memory calculation
         var now = openfl.Lib.getTimer();
         frameCount++;
         if (now - lastTime >= 1000) {

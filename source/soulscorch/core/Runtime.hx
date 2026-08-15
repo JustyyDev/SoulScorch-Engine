@@ -12,18 +12,26 @@ class Runtime {
         engine = Engine.boot(config);
         engine.init();
 
+        // Setup global crash handler early
+        Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onCrash);
+
+        return engine;
+    }
+
+    // Call this AFTER new FlxGame() is added to the stage
+    public static function setupFlixel():Void {
         FlxG.save.bind("soulscorch_system");
         FlxG.fixedTimestep = false;
-        FlxG.updateFramerate = config.framerate;
-        FlxG.drawFramerate = config.framerate;
+        
+        if (engine.config != null) {
+            FlxG.updateFramerate = engine.config.framerate;
+            FlxG.drawFramerate = engine.config.framerate;
+        }
+        
         FlxG.autoPause = false;
         FlxG.mouse.visible = false;
         
         FlxG.signals.preStateSwitch.add(engine.notifyStateSwitch);
-
-        Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onCrash);
-
-        return engine;
     }
 
     public static function setupInitialState():Void {
