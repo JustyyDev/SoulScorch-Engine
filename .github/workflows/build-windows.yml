@@ -1,0 +1,41 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@v3
+        with:
+          haxe-version: 4.3.4
+
+      - name: Setup Haxelib
+        run: |
+          haxelib setup C:/haxelib
+          haxelib install lime 8.1.2
+          haxelib install openfl 9.3.3
+          haxelib install flixel 5.5.0
+          haxelib install flixel-addons 3.2.3
+          haxelib install flixel-ui 2.5.0
+          haxelib install hxcpp 4.3.2
+
+      - name: Compile Engine
+        run: haxelib run lime build windows -release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Engine-Windows-Build
+          path: export/release/windows/bin
