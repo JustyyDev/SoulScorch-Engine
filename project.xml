@@ -61,6 +61,8 @@
 		<!-- Enable Pre-Compiled Headers for Rapid Incremental Compilation -->
 		<set name="HXCPP_PCH" value="1" />
 		<set name="HXCPP_VERBOSE" value="1" />
+		<!-- Automatically copy Discord RPC DLL to the bin folder -->
+    	<copy file=".haxelib/hxdiscord_rpc/git/lib/windows/discord-rpc.dll" to="discord-rpc.dll" />
 
 		<!-- Multi-Threaded C++ Compilation -->
 		<set name="HXCPP_COMPILE_THREADS" value="%NUMBER_OF_PROCESSORS%" />
