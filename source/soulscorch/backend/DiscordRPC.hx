@@ -26,7 +26,7 @@ class DiscordRPC {
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
             handlers.errored = cpp.Function.fromStaticFunction(onError);
 
-            Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), 1, null);
+            Discord.Initialize(CLIENT_ID, cpp.RawPointer.addressOf(handlers), cast 1, null);
             isInitialized = true;
             isRunning = true;
 
