@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+	<app title="SoulScorch Engine" icon="art/iconOG.png" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios"/>
+
+	<haxelib name="lime"/>
+	<haxelib name="openfl"/>
+	<haxelib name="flixel"/>
+	<haxelib name="flixel-addons"/>
+	<haxelib name="flixel-ui"/>
+	<haxelib name="format"/>
+	<haxelib name="flixel-animate"/>
+	<haxelib name="hscript-improved"/>
+	<haxelib name="funkin-modchart"/>
+
+	<window width="1280" height="720" background="#000000" hardware="true" vsync="false"/>
+	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true"/>
+	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false"/>
+
+	<source name="source"/>
+	
+	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web"/>
+	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web"/>
+	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web"/>
+	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web"/>
+	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.ogg" if="web"/>
+	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.mp3" unless="web"/>
+
+	<assets path="art/iconOG.png" id="iconOG"/>
+
+	<haxedef name="FLX_NO_DEBUG" unless="debug"/>
+	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN"/>
+	<haxedef name="analyzer-optimize" unless="debug"/>
+	<haxedef name="HXCPP_NO_PCH"/>
+	<haxedef name="message.reporting" value="pretty"/>
+	<haxedef name="NAPE_RELEASE_BUILD" unless="debug"/>
+	
+	<haxedef name="hscriptPos"/>
+
+	<section if="desktop">
+		<haxedef name="HXCPP_CHECK_POINTER" if="debug"/>
+		<haxedef name="HXCPP_STACK_LINE" if="debug"/>
+	</section>
+
+	<section if="windows">
+		<haxedef name="HXCPP_M64"/>
+	</section>
+</project>

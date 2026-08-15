@@ -1,3 +1,9 @@
+# Dev tooling
+.vscode/
 .haxelib/
-.haxelsp/recording/
+vendor/
+# Project build output
+build/
+dist/
 dump/
+bin/

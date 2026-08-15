@@ -1,0 +1,18 @@
+{
+  "title": "Engine Test",
+  "bpm": 120,
+  "notes": [
+    { "time": 2000, "direction": 0 },
+    { "time": 2500, "direction": 1 },
+    { "time": 3000, "direction": 2 },
+    { "time": 3500, "direction": 3 },
+    { "time": 4000, "direction": 2 },
+    { "time": 4500, "direction": 1 },
+    { "time": 5000, "direction": 0 },
+    { "time": 5500, "direction": 3 },
+    { "time": 6000, "direction": 0 },
+    { "time": 6500, "direction": 1 },
+    { "time": 7000, "direction": 2 },
+    { "time": 7500, "direction": 3 }
+  ]
+}

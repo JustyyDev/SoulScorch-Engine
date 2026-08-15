@@ -1,0 +1,12 @@
+{
+  "songs": [
+    {
+      "id": "engine-test",
+      "title": "Engine Test",
+      "bpm": 120,
+      "difficulties": ["normal"],
+      "stage": "stage",
+      "scrollSpeed": 0.3
+    }
+  ]
+}
