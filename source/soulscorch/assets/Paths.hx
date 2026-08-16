@@ -86,7 +86,12 @@ class Paths {
 
         var imagePath = image(target, ext != null ? ext : "png");
         var xmlPath = xml(target);
-        return FlxAtlasFrames.fromSparrow(imagePath, xmlPath);
+        if (!AssetResolver.exists(imagePath) || !AssetResolver.exists(xmlPath)) return null;
+        try {
+            return FlxAtlasFrames.fromSparrow(imagePath, AssetResolver.getText(xmlPath));
+        } catch (error:Dynamic) {
+            return null;
+        }
     }
 
     public static inline function exists(path:String):Bool {

@@ -8,6 +8,7 @@ import flixel.math.FlxPoint;
 import soulscorch.core.Scene;
 import soulscorch.gameplay.Character;
 import soulscorch.assets.Paths;
+import soulscorch.assets.AssetHelper;
 #if sys
 import sys.io.File;
 #end
@@ -34,7 +35,8 @@ class CharacterEditorState extends Scene {
         super.create();
         FlxG.mouse.visible = true;
 
-        var bg = new FlxSprite(-600, -200).loadGraphic(Paths.getPath('images/stages/stageback.png'));
+        var bg = new FlxSprite(-600, -200);
+        AssetHelper.loadGraphicSafely(bg, 'images/stages/default/stageback.png');
         bg.scrollFactor.set(0.9, 0.9);
         add(bg);
 

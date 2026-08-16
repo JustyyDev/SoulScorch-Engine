@@ -11,6 +11,7 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.core.Runtime;
 import soulscorch.core.Logger;
 import soulscorch.assets.Paths;
+import soulscorch.assets.AssetHelper;
 import soulscorch.ui.Alphabet;
 import soulscorch.gameplay.Conductor;
 
@@ -94,36 +95,19 @@ class TitleState extends MusicBeatState {
             add(glowBar);
 
             gfDance = new FlxSprite(FlxG.width * 0.38, FlxG.height * 0.12);
-            var gfPng = Paths.image('images/menus/titlescreen/gf');
-            var gfXml = Paths.xml('images/menus/titlescreen/gf');
-            
-            #if sys
-            if (sys.FileSystem.exists(gfPng) && sys.FileSystem.exists(gfXml)) {
-                gfDance.frames = FlxAtlasFrames.fromSparrow(gfPng, gfXml);
+            if (AssetHelper.loadSparrowSafely(gfDance, 'images/menus/titlescreen/gf.png', 'images/menus/titlescreen/gf.xml')) {
                 gfDance.animation.addByIndices('danceLeft', 'gfDance', [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
                 gfDance.animation.addByIndices('danceRight', 'gfDance', [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
                 gfDance.animation.play('danceLeft');
-            } else {
-                gfDance.makeGraphic(160, 220, 0xFF8718D8);
             }
-            #end
             gfDance.antialiasing = Runtime.engine.config.antialiasing;
             add(gfDance);
 
             logoBl = new FlxSprite(FlxG.width * 0.5 - 250, FlxG.height * 0.05);
-            var logoPng = Paths.image('images/menus/titlescreen/logo');
-            var logoXml = Paths.xml('images/menus/titlescreen/logo');
-            
-            #if sys
-            if (sys.FileSystem.exists(logoPng) && sys.FileSystem.exists(logoXml)) {
-                logoBl.frames = FlxAtlasFrames.fromSparrow(logoPng, logoXml);
+            if (AssetHelper.loadSparrowSafely(logoBl, 'images/menus/titlescreen/logo.png', 'images/menus/titlescreen/logo.xml')) {
                 logoBl.animation.addByPrefix('bump', 'logo bumpin', 24, false);
                 logoBl.animation.play('bump');
-            } else {
-                logoBl.makeGraphic(300, 180, 0xFFB317FF);
-                logoBl.color = 0xFFB317FF;
             }
-            #end
             logoBl.antialiasing = Runtime.engine.config.antialiasing;
             add(logoBl);
 

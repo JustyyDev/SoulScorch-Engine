@@ -117,10 +117,10 @@ class Main extends Sprite {
         fpsCounter.width = 220;
         fpsCounter.height = 120;
         fpsCounter.background = true;
-        fpsCounter.backgroundColor = 0x9A0A0A0A;
+        fpsCounter.backgroundColor = 0x27410000;
         fpsCounter.border = true;
-        fpsCounter.borderColor = 0xFFB31010;
-        fpsCounter.defaultTextFormat = new TextFormat("_sans", 14, 0xFFFFFF, true);
+        fpsCounter.borderColor = 0x65FF0000;
+        fpsCounter.defaultTextFormat = new TextFormat("_sans", 14, 0xFF8800, true);
         fpsCounter.text = "FPS: 0\nRAM: 0 MB";
         addChild(fpsCounter);
     }

@@ -48,7 +48,7 @@ jobs:
           haxelib install flixel-ui 2.5.0 --quiet
           haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
-          haxelib install hxdiscord_rpc --quiet
+          haxelib git hxdiscord_rpc https://github.com/CodenameCrew/cne-hxdiscord_rpc.git aa0edf55115c0cb7222a973af82a39c785c7103e --quiet
           haxelib run lime setup -y
 
       - name: Setup Haxelib (Unix / Linux / macOS)
@@ -62,7 +62,7 @@ jobs:
           haxelib install flixel-ui 2.5.0 --quiet
           haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
-          haxelib install hxdiscord_rpc --quiet
+          haxelib git hxdiscord_rpc https://github.com/CodenameCrew/cne-hxdiscord_rpc.git aa0edf55115c0cb7222a973af82a39c785c7103e --quiet
           haxelib run lime setup -y
 
       - name: Build Engine

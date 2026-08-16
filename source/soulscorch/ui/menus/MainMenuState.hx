@@ -19,7 +19,7 @@ import soulscorch.ui.menus.credits.SoulCreditsState;
 class MainMenuState extends MusicBeatState {
     var curSelected:Int = 0;
     var menuItems:FlxGroup;
-    var optionShit:Array<String> = ["story mode", "freeplay", "credits", "mods", "options"];
+    var optionShit:Array<String> = ["story mode", "freeplay", "credits", "options"];
     
     var bg:FlxSprite;
     var magenta:FlxSprite;
@@ -94,16 +94,10 @@ class MainMenuState extends MusicBeatState {
             var menuItem:FlxSprite = new FlxSprite(0, (i * 120) + offset);
             menuItem.scale.x = scale;
             menuItem.scale.y = scale;
-            var menuPath:String = 'images/menus/mainmenu/menu_' + optionShit[i];
-            if (Paths.exists(menuPath + '.png') && Paths.exists(menuPath + '.xml')) {
-                menuItem.frames = Paths.getFrames(menuPath);
-                menuItem.animation.addByPrefix('idle', optionShit[i] + " basic", 24);
-                menuItem.animation.addByPrefix('selected', optionShit[i] + " white", 24);
-            } else {
-                menuItem.makeGraphic(300, 56, 0xFF1B3854);
-                menuItem.animation.add('idle', [0], 0, false);
-                menuItem.animation.add('selected', [0], 0, false);
-            }
+            var menuPath:String = 'images/menus/mainmenu/' + optionShit[i];
+            menuItem.frames = Paths.getFrames(menuPath);
+            menuItem.animation.addByPrefix('idle', optionShit[i] + " basic", 24);
+            menuItem.animation.addByPrefix('selected', optionShit[i] + " white", 24);
             menuItem.animation.play('idle');
             menuItem.ID = i;
             menuItem.alpha = 0.72;

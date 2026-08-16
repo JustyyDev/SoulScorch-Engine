@@ -145,7 +145,8 @@ class StoryMenuState extends MusicBeatState {
 
     private function loadWeekBanner():Void {
         if (weekBanner == null) return;
-        var path:String = ModManager.getPath('images/menus/storymenu/weeks/week${curWeek + 1}.png');
+        var bannerName:String = curWeek == 0 ? "tutorial" : "week1";
+        var path:String = ModManager.getPath('images/menus/storymenu/weeks/$bannerName.png');
         #if sys
         if (path != null && FileSystem.exists(path)) {
             weekBanner.loadGraphic(path);
@@ -162,9 +163,8 @@ class StoryMenuState extends MusicBeatState {
         var imagePath:String = ModManager.getPath('images/menus/storymenu/characters/$id.png');
         var xmlPath:String = ModManager.getPath('images/menus/storymenu/characters/$id.xml');
         #if sys
-        if (FileSystem.exists(imagePath) && FileSystem.exists(xmlPath)) {
+        if (AssetHelper.loadSparrowSafely(character, 'images/menus/storymenu/characters/$id.png', 'images/menus/storymenu/characters/$id.xml')) {
             try {
-                character.frames = FlxAtlasFrames.fromSparrow(imagePath, AssetResolver.getText(xmlPath));
                 character.animation.addByPrefix("idle", prefix, 12, false);
                 character.animation.play("idle");
                 character.setGraphicSize(Std.int(character.width * 0.25));

@@ -8,6 +8,7 @@ import soulscorch.core.Scene;
 import soulscorch.core.Runtime;
 import soulscorch.core.NotificationManager;
 import soulscorch.assets.Paths;
+import soulscorch.assets.AssetHelper;
 import soulscorch.ui.Alphabet;
 
 class OptionsState extends Scene {
@@ -21,7 +22,8 @@ class OptionsState extends Scene {
     override public function create():Void {
         super.create();
 
-        var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('images/ui/menuDesat'));
+        var bg:FlxSprite = new FlxSprite();
+        AssetHelper.loadGraphicSafely(bg, 'images/menus/menuDesat');
         bg.color = 0xFF1B1531;
         bg.screenCenter();
         add(bg);
@@ -46,9 +48,9 @@ class OptionsState extends Scene {
             grpOptions.add(optionText);
 
             var checkbox:FlxSprite = new FlxSprite(optionText.x - 100, optionText.y);
-            checkbox.frames = Paths.getFrames('images/ui/checkbox');
-            checkbox.animation.addByPrefix('unchecked', 'checkbox0', 24, false);
-            checkbox.animation.addByPrefix('checked', 'checkbox finish', 24, false);
+            checkbox.frames = Paths.getFrames('images/menus/options/checkboxThingie');
+            checkbox.animation.addByPrefix('unchecked', 'Check Box unselected', 24, false);
+            checkbox.animation.addByPrefix('checked', 'Check Box Selected Static', 24, false);
             checkbox.antialiasing = Runtime.engine.config.antialiasing;
             checkbox.ID = i;
             checkboxGroup.add(checkbox);
@@ -102,12 +104,14 @@ class OptionsState extends Scene {
             case 'Antialiasing':
                 Runtime.engine.config.antialiasing = !Runtime.engine.config.antialiasing;
         }
-        FlxG.sound.play(Paths.sound('sounds/scrollMenu'));
+        FlxG.sound.play(Paths.sound('sounds/menu/scroll'));
         updateCheckboxes();
     }
 
     function updateCheckboxes():Void {
-        checkboxGroup.forEach(function(box:FlxSprite) {
+        checkboxGroup.forEach(function(basic:flixel.FlxBasic):Void {
+            var box:FlxSprite = cast basic;
+            if (box == null) return;
             var isChecked:Bool = false;
             switch (options[box.ID]) {
                 case 'Downscroll': isChecked = Runtime.engine.config.downscroll;

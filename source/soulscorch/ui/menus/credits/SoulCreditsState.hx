@@ -10,6 +10,7 @@ import flixel.tweens.FlxEase;
 import soulscorch.core.Scene;
 import soulscorch.core.Runtime;
 import soulscorch.assets.Paths;
+import soulscorch.assets.AssetHelper;
 import soulscorch.ui.Alphabet;
 import soulscorch.ui.menus.MainMenuState;
 
@@ -32,7 +33,8 @@ class SoulCreditsState extends Scene {
         #end
 
         // Dark atmospheric background matching SoulScorch identity
-        bg = new FlxSprite().loadGraphic(Paths.image('images/menus/menuBG'));
+        bg = new FlxSprite();
+        AssetHelper.loadGraphicSafely(bg, 'images/menus/menuBG');
         bg.scrollFactor.set(0, 0);
         bg.color = 0xFF1A1830;
         bg.screenCenter();
@@ -86,16 +88,16 @@ class SoulCreditsState extends Scene {
         super.update(elapsed);
 
         if (FlxG.keys.justPressed.UP) {
-            FlxG.sound.play(Paths.sound('sounds/scrollMenu'));
+            FlxG.sound.play(Paths.sound('sounds/menu/scroll'));
             changeSelection(-1);
         }
         if (FlxG.keys.justPressed.DOWN) {
-            FlxG.sound.play(Paths.sound('sounds/scrollMenu'));
+            FlxG.sound.play(Paths.sound('sounds/menu/scroll'));
             changeSelection(1);
         }
 
         if (FlxG.keys.justPressed.BACKSPACE || FlxG.keys.justPressed.ESCAPE) {
-            FlxG.sound.play(Paths.sound('sounds/cancelMenu'));
+            FlxG.sound.play(Paths.sound('sounds/menu/cancel'));
             FlxG.switchState(new MainMenuState());
         }
     }

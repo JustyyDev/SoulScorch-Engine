@@ -11,6 +11,7 @@ import soulscorch.core.SaveData;
 import soulscorch.core.Achievements;
 import soulscorch.gameplay.SongStats;
 import soulscorch.assets.Paths;
+import soulscorch.assets.AssetHelper;
 
 /**
  * Post-song results screen. Shows score, accuracy, rating, and new best state.
@@ -32,7 +33,8 @@ class ResultsState extends Scene {
     override public function create():Void {
         super.create();
 
-        bg = new FlxSprite().loadGraphic(Paths.image('images/menus/menuBG'));
+        bg = new FlxSprite();
+        AssetHelper.loadGraphicSafely(bg, 'images/menus/menuBG');
         bg.scrollFactor.set(0, 0);
         bg.screenCenter();
         bg.antialiasing = true;
