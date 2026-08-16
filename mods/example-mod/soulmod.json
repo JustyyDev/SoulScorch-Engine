@@ -1,0 +1,10 @@
+{
+    "name": "Example Mod",
+    "version": "1.0.0",
+    "api_version": "0.1.0",
+    "description": "Reference mod demonstrating asset overrides and global scripting.",
+    "color": "#7AD1FF",
+    "global_scripts": ["example_features.hx"],
+    "flags": [],
+    "load_priority": 0
+}

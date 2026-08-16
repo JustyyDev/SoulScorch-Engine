@@ -86,6 +86,12 @@ class PlayState extends Scene {
         super.create();
         instance = this;
 
+        // Freeplay/menu song previews use FlxG.sound.music directly; make sure they don't keep playing under gameplay audio.
+        if (FlxG.sound.music != null) {
+            FlxG.sound.music.stop();
+            FlxG.sound.music = null;
+        }
+
         GameplayFlags.initDefaults();
         GameplayFlags.resolveModFlags();
         applyGameplayFlags();
@@ -686,4 +692,3 @@ class PlayState extends Scene {
         super.destroy();
     }
 }
-

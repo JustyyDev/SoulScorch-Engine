@@ -26,7 +26,7 @@ class AssetHelper {
     }
 
     public static function loadGraphicSafely(sprite:FlxSprite, path:String):Bool {
-        var resolved = Paths.getPath(path);
+        var resolved = Paths.image(path);
         if (AssetResolver.exists(resolved)) {
             sprite.loadGraphic(resolved);
             return true;

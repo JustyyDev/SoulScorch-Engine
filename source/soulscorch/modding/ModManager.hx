@@ -2,47 +2,81 @@ package soulscorch.modding;
 
 import soulscorch.modding.SoulModParser.SoulModData;
 import haxe.io.Path;
+import flixel.FlxG;
 #if sys
 import sys.FileSystem;
 #end
 
 class ModManager {
+    // All mods found on disk (regardless of which one is currently selected/active)
+    public static var allMods:Array<String> = [];
+    // Mods actually applied to asset resolution: empty when "Mods Disabled" is selected
     public static var activeMods:Array<String> = [];
     public static var modConfigs:Map<String, SoulModData> = new Map();
+    // null/"" means "Mods Disabled"
+    public static var selectedMod:String = null;
 
     public static function reloadMods():Void {
-        activeMods = [];
+        allMods = [];
         modConfigs.clear();
 
         #if sys
         var modsDir = "mods/";
         if (!FileSystem.exists(modsDir)) {
             FileSystem.createDirectory(modsDir);
-            return;
-        }
-
-        var folders = FileSystem.readDirectory(modsDir);
-        for (folder in folders) {
-            if (FileSystem.isDirectory(Path.join([modsDir, folder]))) {
-                var config = SoulModParser.parse(folder);
-                modConfigs.set(folder, config);
-                activeMods.push(folder);
-                
-                if (soulscorch.ui.DevConsole.instance != null) {
-                    soulscorch.ui.DevConsole.instance.log('[MOD MANAGER] Loaded: ' + config.name + ' (v' + config.version + ')');
+        } else {
+            var folders = FileSystem.readDirectory(modsDir);
+            for (folder in folders) {
+                if (FileSystem.isDirectory(Path.join([modsDir, folder]))) {
+                    var config = SoulModParser.parse(folder);
+                    modConfigs.set(folder, config);
+                    allMods.push(folder);
                 }
             }
-        }
 
-        // Sort mods by load_priority (higher number loads first)
-        activeMods.sort(function(a, b) {
-            var configA = modConfigs.get(a);
-            var configB = modConfigs.get(b);
-            if (configA.load_priority > configB.load_priority) return -1;
-            if (configA.load_priority < configB.load_priority) return 1;
-            return 0;
-        });
+            // Sort mods by load_priority (higher number loads first)
+            allMods.sort(function(a, b) {
+                var configA = modConfigs.get(a);
+                var configB = modConfigs.get(b);
+                if (configA.load_priority > configB.load_priority) return -1;
+                if (configA.load_priority < configB.load_priority) return 1;
+                return 0;
+            });
+        }
         #end
+
+        if (selectedMod == null && FlxG.save != null && FlxG.save.data.selectedMod != null) {
+            selectedMod = cast FlxG.save.data.selectedMod;
+        }
+        applySelection();
+    }
+
+    // Rebuilds activeMods to reflect selectedMod ("" or null == Mods Disabled)
+    private static function applySelection():Void {
+        if (selectedMod != null && selectedMod.length > 0 && allMods.contains(selectedMod)) {
+            activeMods = [selectedMod];
+            if (soulscorch.ui.DevConsole.instance != null) {
+                var config = modConfigs.get(selectedMod);
+                soulscorch.ui.DevConsole.instance.log('[MOD MANAGER] Active mod: ' + (config != null ? config.name : selectedMod));
+            }
+        } else {
+            selectedMod = null;
+            activeMods = [];
+            if (soulscorch.ui.DevConsole.instance != null) {
+                soulscorch.ui.DevConsole.instance.log('[MOD MANAGER] Mods Disabled');
+            }
+        }
+    }
+
+    // Pass null or "" to disable mods entirely ("Mods Disabled")
+    public static function setSelectedMod(modName:String):Void {
+        selectedMod = (modName == null || modName.length == 0) ? null : modName;
+        applySelection();
+
+        if (FlxG.save != null) {
+            FlxG.save.data.selectedMod = selectedMod;
+            FlxG.save.flush();
+        }
     }
 
     private static function normalizeAssetPath(localPath:String):String {

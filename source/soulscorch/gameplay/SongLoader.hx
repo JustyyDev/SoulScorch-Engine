@@ -6,9 +6,17 @@ import soulscorch.modding.ModLoader;
 
 class SongLoader {
     public static function load(songId:String, difficulty:String = "normal"):Song {
-        var diffSuffix = (difficulty.toLowerCase() == "normal" || difficulty == "") ? "" : '-$difficulty';
-        
-        var chartPath = ModLoader.getPath('assets/songs/$songId/chart$diffSuffix.json');
+        var diffName = (difficulty == null || difficulty.length == 0) ? "normal" : difficulty.toLowerCase();
+        var diffSuffix = (diffName == "normal") ? "" : '-$diffName';
+
+        // Actual on-disk layout is assets/songs/{songId}/charts/{difficulty}.json
+        var chartPath = ModLoader.getPath('assets/songs/$songId/charts/$diffName.json');
+        if (!AssetResolver.exists(chartPath)) {
+            chartPath = ModLoader.getPath('assets/songs/$songId/charts/normal.json');
+        }
+        if (!AssetResolver.exists(chartPath)) {
+            chartPath = ModLoader.getPath('assets/songs/$songId/chart$diffSuffix.json');
+        }
         if (!AssetResolver.exists(chartPath)) {
             chartPath = ModLoader.getPath('assets/songs/$songId/$songId$diffSuffix.json');
         }

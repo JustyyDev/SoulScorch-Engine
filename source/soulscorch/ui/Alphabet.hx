@@ -11,7 +11,7 @@ import sys.FileSystem;
 
 class Alphabet extends FlxSpriteGroup {
     private static var frameCache:Map<String, FlxAtlasFrames> = new Map();
-    private static var xmlCache:Map<String, String> = new Map();
+    private static var nameSetCache:Map<String, Map<String, Bool>> = new Map();
 
     public var text(default, set):String = "";
     public var isBold(default, set):Bool = false;
@@ -52,7 +52,7 @@ class Alphabet extends FlxSpriteGroup {
         var previous:String = "";
         var atlasKey:String = isBold ? "bold" : "regular";
         var atlas:FlxAtlasFrames = loadAtlas(atlasKey);
-        var xml:String = xmlCache.get(atlasKey);
+        var names:Map<String, Bool> = nameSetCache.get(atlasKey);
 
         for (character in text.split("")) {
             if (character == "\n") {
@@ -70,7 +70,7 @@ class Alphabet extends FlxSpriteGroup {
             var prefix:String = symbolPrefix(character, isBold);
             var glyph:FlxSprite = new FlxSprite(xPos, yPos);
             var advance:Float = (isBold ? 38.0 : 32.0) * scaleMultiplier;
-            var valid:Bool = atlas != null && xml != null && xml.indexOf('name="' + prefix) >= 0;
+            var valid:Bool = atlas != null && names != null && names.exists(prefix);
             if (valid) {
                 glyph.frames = atlas;
                 glyph.animation.addByPrefix("idle", prefix, 24, false);
@@ -100,11 +100,27 @@ class Alphabet extends FlxSpriteGroup {
             var xml:String = AssetResolver.getText(xmlPath);
             var frames:FlxAtlasFrames = FlxAtlasFrames.fromSparrow(imagePath, xml);
             frameCache.set(key, frames);
-            xmlCache.set(key, xml);
+            nameSetCache.set(key, buildNameSet(xml));
             return frames;
         } catch (error:Dynamic) {
             return null;
         }
+    }
+
+    // Parses all name="..." attributes once so per-character lookups are O(1) instead of scanning the whole XML string.
+    // Sparrow atlases store numbered animation frames per glyph (e.g. "character-a0000"), so the trailing digits are stripped
+    // to recover the shared prefix used by symbolPrefix()/animation.addByPrefix().
+    private static var trailingDigits:EReg = ~/[0-9]+$/;
+
+    private static function buildNameSet(xml:String):Map<String, Bool> {
+        var names:Map<String, Bool> = new Map();
+        var nameRegex:EReg = ~/name="([^"]+)"/;
+        var rest:String = xml;
+        while (nameRegex.match(rest)) {
+            names.set(trailingDigits.replace(nameRegex.matched(1), ""), true);
+            rest = nameRegex.matchedRight();
+        }
+        return names;
     }
 
     private function kerningValue(previous:String, current:String):Float {

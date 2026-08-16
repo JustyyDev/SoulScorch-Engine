@@ -3,19 +3,19 @@ package soulscorch.ui.menus;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.sound.FlxSound;
-import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.core.EventBus;
 import soulscorch.core.Runtime;
 import soulscorch.modding.ModManager;
+import soulscorch.ui.Alphabet;
 #if sys
 import sys.FileSystem;
 #end
 
 class PauseSubState extends MusicBeatSubstate {
     var menuItems:Array<String> = ['Resume', 'Restart Song', 'Change Difficulty', 'Toggle Practice Mode', 'Exit to Menu'];
-    var grpMenuShit:Array<FlxText> = [];
+    var grpMenuShit:Array<Alphabet> = [];
     var curSelected:Int = 0;
     var overlay:FlxSprite;
     var fadeAlpha:Float = 0.0;
@@ -31,7 +31,8 @@ class PauseSubState extends MusicBeatSubstate {
         add(overlay);
 
         for (i in 0...menuItems.length) {
-            var text = new FlxText(20, 122 + (48 * i), 0, menuItems[i], 26);
+            var text = new Alphabet(0, 120 + (50 * i), menuItems[i], true);
+            text.scaleMultiplier = 0.5;
             text.screenCenter(X);
             text.ID = i;
             add(text);
@@ -102,6 +103,7 @@ class PauseSubState extends MusicBeatSubstate {
         if (grpMenuShit.length > 3) {
             var practice:Bool = Runtime.engine != null && Runtime.engine.config != null && Runtime.engine.config.botplay;
             grpMenuShit[3].text = practice ? "Practice Mode: ON" : "Practice Mode: OFF";
+            grpMenuShit[3].screenCenter(X);
         }
     }
 

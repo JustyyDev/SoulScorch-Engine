@@ -2,6 +2,7 @@ package soulscorch.ui.menus;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.group.FlxGroup;
 import flixel.input.keyboard.FlxKey;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
@@ -11,6 +12,10 @@ import soulscorch.core.EventBus;
 import soulscorch.modding.ModManager;
 
 class OptionsMenuState extends MusicBeatState {
+    private static inline var ROW_HEIGHT:Int = 44;
+    private static inline var ROW_START_Y:Int = 130;
+    private static inline var ROW_WIDTH:Int = 760;
+
     private var entries:Array<String> = [];
     private var tabEntries:Array<Array<String>> = [
         ["Downscroll", "Ghost Tapping", "Flashing Lights", "Antialiasing", "Framerate Limit", "Note Splashes"],
@@ -19,11 +24,12 @@ class OptionsMenuState extends MusicBeatState {
     ];
     private var tabNames:Array<String> = ["PREFERENCES", "KEYBINDS", "AUDIO & TIMING"];
     private var tabIndex:Int = 0;
-    private var tabText:FlxText;
-    private var labels:Array<FlxText> = [];
-    private var values:Array<FlxText> = [];
+    private var tabLabels:Array<FlxText> = [];
+    private var tabUnderline:FlxSprite;
+    private var rows:Array<OptionRow> = [];
     private var selected:Int = 0;
     private var rebinding:Bool = false;
+    private var rebindHint:FlxText;
     private var noteSplashes:Bool = true;
     private var ghostTapping:Bool = true;
     private var noteOffset:Float = 0.0;
@@ -34,25 +40,48 @@ class OptionsMenuState extends MusicBeatState {
         super.create();
         loadValues();
         entries = tabEntries[tabIndex];
-        var background:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF101820);
+
+        var background:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF0E1620);
         add(background);
-        var title:FlxText = new FlxText(0, 34, 0, "OPTIONS", 30);
-        title.setFormat(null, 30, FlxColor.CYAN, CENTER);
+
+        var headerPanel:FlxSprite = new FlxSprite(0, 0).makeGraphic(FlxG.width, 96, 0xFF162536);
+        headerPanel.alpha = 0.9;
+        add(headerPanel);
+
+        var title:FlxText = new FlxText(0, 20, 0, "OPTIONS", 32);
+        title.setFormat(null, 32, 0xFF7AD1FF, CENTER, FlxTextBorderStyle.OUTLINE, 0xFF10222E);
+        title.borderSize = 2;
         title.screenCenter(X);
         add(title);
-        tabText = new FlxText(0, 72, 0, "", 16);
-        tabText.setFormat(null, 16, 0xFF78C7E7, CENTER);
-        tabText.screenCenter(X);
-        add(tabText);
-        for (i in 0...6) {
-            var label:FlxText = new FlxText(130, 92 + i * 42, 500, entries[i], 20);
-            var value:FlxText = new FlxText(650, 92 + i * 42, 420, "", 20);
-            value.alignment = RIGHT;
-            labels.push(label);
-            values.push(value);
-            add(label);
-            add(value);
+
+        var tabsY:Float = 62;
+        var tabWidth:Float = FlxG.width / tabNames.length;
+        for (i in 0...tabNames.length) {
+            var tabLabel:FlxText = new FlxText(tabWidth * i, tabsY, tabWidth, tabNames[i], 16);
+            tabLabel.setFormat(null, 16, FlxColor.WHITE, CENTER);
+            tabLabels.push(tabLabel);
+            add(tabLabel);
         }
+
+        tabUnderline = new FlxSprite(0, tabsY + 22).makeGraphic(Std.int(tabWidth), 3, 0xFF7AD1FF);
+        add(tabUnderline);
+
+        var panelBg:FlxSprite = new FlxSprite((FlxG.width - ROW_WIDTH) / 2, ROW_START_Y - 20).makeGraphic(ROW_WIDTH, tabEntries[0].length * ROW_HEIGHT + 30, 0xFF17222E);
+        panelBg.alpha = 0.5;
+        add(panelBg);
+
+        var rowX:Float = (FlxG.width - ROW_WIDTH) / 2;
+        for (i in 0...tabEntries[0].length) {
+            var row = new OptionRow(rowX, ROW_START_Y + i * ROW_HEIGHT, ROW_WIDTH, "");
+            rows.push(row);
+            add(row);
+        }
+
+        rebindHint = new FlxText(0, FlxG.height - 40, 0, "ENTER Toggle/Rebind   Q/E Change Tab   ESC Save & Back", 14);
+        rebindHint.setFormat(null, 14, 0xFF8FA6B8, CENTER);
+        rebindHint.screenCenter(X);
+        add(rebindHint);
+
         refreshView();
     }
 
@@ -76,7 +105,7 @@ class OptionsMenuState extends MusicBeatState {
     }
 
     override public function beatHit(beat:Int):Void {
-        if (selected >= 0 && selected < labels.length) labels[selected].scale.set(1.04, 1.04);
+        if (selected >= 0 && selected < rows.length) rows[selected].label.scale.set(1.04, 1.04);
     }
 
     private function loadValues():Void {
@@ -117,7 +146,7 @@ class OptionsMenuState extends MusicBeatState {
     private function activate():Void {
         if (tabIndex == 1) {
             rebinding = true;
-            values[selected].text = "PRESS A KEY";
+            rows[selected].setValue("PRESS A KEY");
             return;
         }
         changeValue(1);
@@ -152,13 +181,34 @@ class OptionsMenuState extends MusicBeatState {
     }
 
     private function refreshView():Void {
-        if (tabText != null) tabText.text = "Q/E  CHANGE TAB    " + tabNames[tabIndex];
-        for (i in 0...entries.length) {
-            labels[i].color = i == selected ? FlxColor.CYAN : FlxColor.WHITE;
-            labels[i].alpha = i == selected ? 1.0 : 0.7;
-            values[i].text = valueFor(i);
-            values[i].color = i == selected ? 0xFFFFFF00 : 0xFF808080;
+        for (i in 0...tabNames.length) {
+            tabLabels[i].color = (i == tabIndex) ? 0xFF7AD1FF : 0xFF8FA6B8;
         }
+        var tabWidth:Float = FlxG.width / tabNames.length;
+        tabUnderline.x = tabWidth * tabIndex;
+
+        for (i in 0...rows.length) {
+            var isVisible = i < entries.length;
+            rows[i].setRowVisible(isVisible);
+            if (!isVisible) continue;
+
+            rows[i].label.text = entries[i];
+            rows[i].setActive(i == selected);
+            rows[i].setValue(valueFor(i), boolFor(i));
+        }
+    }
+
+    // Returns null when the row isn't a simple ON/OFF toggle (numeric/keybind values).
+    private function boolFor(index:Int):Null<Bool> {
+        if (tabIndex != 0 || Runtime.engine == null || Runtime.engine.config == null) return null;
+        return switch (index) {
+            case 0: Runtime.engine.config.downscroll;
+            case 1: ghostTapping;
+            case 2: Runtime.engine.config.flashingLights;
+            case 3: Runtime.engine.config.antialiasing;
+            case 5: noteSplashes;
+            default: null;
+        };
     }
 
     private function valueFor(index:Int):String {

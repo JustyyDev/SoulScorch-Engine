@@ -35,6 +35,14 @@ class Scene extends FlxState {
         Runtime.engine.updateModules(elapsed);
     }
 
+    // NotificationManager/DebugConsole are shared singletons re-added to every Scene; detach them here
+    // instead of letting FlxState.destroy() cascade-destroy them, or every later scene using them would crash.
+    override public function destroy():Void {
+        if (NotificationManager.instance != null) remove(NotificationManager.instance);
+        if (DebugConsole.instance != null) remove(DebugConsole.instance);
+        super.destroy();
+    }
+
     public function stepHit(step:Int):Void {
         curStep = step;
         if (curStep % 4 == 0) {

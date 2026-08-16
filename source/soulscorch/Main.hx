@@ -10,6 +10,8 @@ import openfl.events.UncaughtErrorEvent;
 import openfl.Lib;
 import openfl.text.TextField;
 import openfl.text.TextFormat;
+import openfl.events.KeyboardEvent;
+import openfl.ui.Keyboard;
 import haxe.CallStack;
 import haxe.io.Path;
 #if sys
@@ -25,6 +27,8 @@ import soulscorch.modding.FileWatcher;
 import soulscorch.ui.DevConsole;
 import soulscorch.ui.DebugConsole;
 import soulscorch.ui.menus.TitleState;
+import soulscorch.ui.menus.ModSwitchMenu;
+import soulscorch.ui.menus.EditorPickerMenu;
 import soulscorch.utils.EngineUtils;
 
 class Main extends Sprite {
@@ -97,6 +101,8 @@ class Main extends Sprite {
         EngineUtils.setFramerate(framerate);
         setupPerformanceOverlay();
 
+        Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+
         fileWatcher = new FileWatcher();
 
         addEventListener(Event.ENTER_FRAME, onEnterFrame);
@@ -123,6 +129,20 @@ class Main extends Sprite {
         fpsCounter.defaultTextFormat = new TextFormat("_sans", 14, 0xFF8800, true);
         fpsCounter.text = "FPS: 0\nRAM: 0 MB";
         addChild(fpsCounter);
+    }
+
+    private function onKeyDown(event:KeyboardEvent):Void {
+        if (event.keyCode == Keyboard.F3 && fpsCounter != null) {
+            fpsCounter.visible = !fpsCounter.visible;
+        }
+
+        if (event.keyCode == Keyboard.TAB && FlxG.state != null && FlxG.state.subState == null) {
+            FlxG.state.openSubState(new ModSwitchMenu());
+        }
+
+        if (event.keyCode == Keyboard.NUMBER_7 && FlxG.state != null && FlxG.state.subState == null) {
+            FlxG.state.openSubState(new EditorPickerMenu());
+        }
     }
 
     private function onEnterFrame(event:Event):Void {

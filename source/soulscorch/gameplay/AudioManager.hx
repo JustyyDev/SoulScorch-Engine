@@ -20,7 +20,11 @@ class AudioManager {
     public function loadSong(songId:String, ?customStems:Array<String>):Void {
         clear();
 
-        var instPath = ModLoader.getPath('assets/songs/$songId/Inst.ogg');
+        // Actual on-disk layout is assets/songs/{songId}/song/{Inst,Voices}.ogg
+        var instPath = ModLoader.getPath('assets/songs/$songId/song/Inst.ogg');
+        if (!AssetResolver.exists(instPath)) {
+            instPath = ModLoader.getPath('assets/songs/$songId/Inst.ogg');
+        }
         if (AssetResolver.exists(instPath)) {
             inst = FlxG.sound.load(instPath);
             inst.onComplete = onSongComplete;
@@ -36,7 +40,10 @@ class AudioManager {
         }
 
         for (stemName in defaultStemList) {
-            var stemPath = ModLoader.getPath('assets/songs/$songId/$stemName.ogg');
+            var stemPath = ModLoader.getPath('assets/songs/$songId/song/$stemName.ogg');
+            if (!AssetResolver.exists(stemPath)) {
+                stemPath = ModLoader.getPath('assets/songs/$songId/$stemName.ogg');
+            }
             if (AssetResolver.exists(stemPath)) {
                 var sound = FlxG.sound.load(stemPath);
                 stems.set(stemName, sound);

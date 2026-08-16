@@ -64,7 +64,7 @@ class DevConsole extends Sprite {
     }
 
     private function onKeyDown(e:KeyboardEvent):Void {
-        if (e.keyCode == 192 || e.keyCode == Keyboard.F3) { // Tilde (~) or F3
+        if (e.keyCode == 192 || e.keyCode == Keyboard.F2) { // Tilde (~) or F2
             visible = !visible;
         }
     }
