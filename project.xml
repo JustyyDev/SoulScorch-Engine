@@ -9,6 +9,9 @@
 	<haxelib name="flixel" />
 	<haxelib name="flixel-addons" />
 	<haxelib name="away3d" />
+	<!-- Optional scripting backends. Install and define SOULSCORCH_IRIS or SOULSCORCH_LUAJIT to enable. -->
+	<haxelib name="hscript-iris" if="SOULSCORCH_IRIS" />
+	<haxelib name="linc_luajit" if="SOULSCORCH_LUAJIT" />
 	
 	<!-- Discord Rich Presence -->
 	<haxelib name="hxdiscord_rpc" if="desktop" />
@@ -50,6 +53,7 @@
 	<haxedef name="SOULSCORCH_MODS_ENABLED" />
 	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
+	<!-- Optional integrations remain disabled unless explicitly supplied by a target. -->
 
 	<!-- Desktop Crash & Stack Tracing -->
 	<section if="desktop">

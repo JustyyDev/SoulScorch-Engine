@@ -31,7 +31,9 @@ class Stage extends FlxGroup {
     }
 
     public function load():Void {
-        Logger.info("stage", 'Stage "$id" loaded (${stageSprites.length} sprites).');
+        var spriteCount:Int = 0;
+        for (name in stageSprites.keys()) spriteCount++;
+        Logger.info("stage", 'Stage "$id" loaded ($spriteCount sprites).');
         EventBus.publish("stage/loaded", {id: id});
     }
 }

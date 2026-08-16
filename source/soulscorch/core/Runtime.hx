@@ -4,6 +4,7 @@ import flixel.FlxG;
 import openfl.events.UncaughtErrorEvent;
 import openfl.Lib;
 import soulscorch.ui.menus.TitleState;
+import soulscorch.backend.CrashHandler;
 
 class Runtime {
     public static var engine(default, null):Engine;
@@ -11,6 +12,7 @@ class Runtime {
     public static function bootstrap(config:GameConfig):Engine {
         engine = Engine.boot(config);
         engine.init();
+        CrashHandler.install();
 
         // Setup global crash handler early
         Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onCrash);

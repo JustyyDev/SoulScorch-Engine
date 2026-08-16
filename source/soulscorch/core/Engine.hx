@@ -4,6 +4,8 @@ import soulscorch.modding.ModRegistry;
 import soulscorch.modding.ModLoader;
 import flixel.util.FlxSignal.FlxTypedSignal;
 import openfl.system.System;
+import soulscorch.scripting.ScriptManager;
+import soulscorch.backend.localization.LanguageManager;
 
 class Engine {
     public static var instance(default, null):Engine;
@@ -61,6 +63,8 @@ class Engine {
         register("scheduler", new Scheduler());
         register("i18n", new Localization());
         register("notifications", new NotificationManager());
+        register("scripts", new ScriptManager());
+        LanguageManager.instance.load();
 
         registerModule(new EngineProfiler());
 
@@ -84,6 +88,8 @@ class Engine {
     }
 
     public function updateModules(elapsed:Float):Void {
+        var scripts:ScriptManager = resolve("scripts");
+        if (scripts != null) scripts.updateHotReload();
         for (module in modules) {
             if (module.active) module.update(elapsed);
         }

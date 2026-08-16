@@ -20,7 +20,10 @@ class AudioAnalyzer {
 
     public function update(?elapsed:Float = 0.0):Void {
         try {
-            SoundMixer.computeSpectrum(bytes, true, 0);
+            var mixer:Dynamic = SoundMixer;
+            var computeSpectrum:Dynamic = Reflect.field(mixer, "computeSpectrum");
+            if (computeSpectrum == null) return;
+            Reflect.callMethod(mixer, computeSpectrum, [bytes, true, 0]);
         } catch (e:Dynamic) {
             return;
         }
