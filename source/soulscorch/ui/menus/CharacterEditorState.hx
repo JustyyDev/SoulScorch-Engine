@@ -7,6 +7,7 @@ import flixel.text.FlxText;
 import flixel.math.FlxPoint;
 import soulscorch.core.Scene;
 import soulscorch.gameplay.Character;
+import soulscorch.assets.Paths;
 #if sys
 import sys.io.File;
 #end
@@ -33,7 +34,7 @@ class CharacterEditorState extends Scene {
         super.create();
         FlxG.mouse.visible = true;
 
-        var bg = new FlxSprite(-600, -200).loadGraphic('assets/images/stages/stageback.png');
+        var bg = new FlxSprite(-600, -200).loadGraphic(Paths.getPath('images/stages/stageback.png'));
         bg.scrollFactor.set(0.9, 0.9);
         add(bg);
 
@@ -135,18 +136,20 @@ class CharacterEditorState extends Scene {
         for (anim in animList) {
             var offset = charSprite.animOffsets.get(anim);
             var loopStatus = false;
-            if (charSprite.animation.getByName(anim) != null) {
-                loopStatus = charSprite.animation.getByName(anim).looped;
+            var animFrame = charSprite.animation.getByName(anim);
+            if (animFrame != null) {
+                loopStatus = animFrame.looped;
             }
 
-            charData.animations.push({
-                anim: anim,
-                name: charSprite.animation.getByName(anim) != null ? charSprite.animation.getByName(anim).frames[0].name.split("0")[0] : anim,
-                fps: 24,
-                loop: loopStatus,
-                indices: [],
-                offsets: [offset[0], offset[1]]
-            });
+            var animData:Dynamic = {};
+            Reflect.setField(animData, "anim", anim);
+            Reflect.setField(animData, "name", anim);
+            Reflect.setField(animData, "fps", 24);
+            Reflect.setField(animData, "loop", loopStatus);
+            Reflect.setField(animData, "indices", []);
+            Reflect.setField(animData, "offsets", [offset != null ? offset[0] : 0, offset != null ? offset[1] : 0]);
+
+            charData.animations.push(animData);
         }
 
         File.saveContent('assets/data/characters/$charId.json', Json.stringify(charData, "\t"));

@@ -6,6 +6,7 @@ import openfl.text.TextFormat;
 import openfl.events.KeyboardEvent;
 import openfl.ui.Keyboard;
 import soulscorch.modding.Script;
+import soulscorch.core.Logger;
 
 class DevConsole extends Sprite {
     public static var instance:DevConsole;
@@ -59,6 +60,7 @@ class DevConsole extends Sprite {
         logs.push(msg);
         if (logs.length > maxLogs) logs.shift();
         logText.text = logs.join("\n");
+        Logger.info("devconsole", msg);
     }
 
     private function onKeyDown(e:KeyboardEvent):Void {

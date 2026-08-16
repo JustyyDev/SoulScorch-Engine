@@ -9,6 +9,7 @@ import flixel.util.FlxColor;
 import soulscorch.core.Scene;
 import soulscorch.gameplay.Conductor;
 import soulscorch.gameplay.NoteSprite;
+import soulscorch.gameplay.Note;
 import soulscorch.gameplay.EventMarker;
 import soulscorch.gameplay.Chart.NoteData;
 import soulscorch.gameplay.Chart.BPMChangeEvent;
@@ -30,7 +31,6 @@ class ChartingState extends Scene {
     var propertiesText:FlxText;
 
     var curSong:String;
-    var conductor:Conductor;
     var gridSnap:Int = 16;
     var currentSV:Float = 1.0;
     
@@ -54,7 +54,7 @@ class ChartingState extends Scene {
         super.create();
 
         FlxG.mouse.visible = true;
-        conductor = new Conductor(190); 
+        Conductor.changeBPM(190);
 
         gridGroup = new FlxTypedGroup<FlxSprite>();
         add(gridGroup);
@@ -115,19 +115,19 @@ class ChartingState extends Scene {
         }
 
         if (isPlaying) {
-            conductor.update(elapsed);
+            Conductor.songPosition += elapsed * 1000;
         } else {
             if (FlxG.mouse.wheel != 0) {
-                conductor.update((FlxG.mouse.wheel * -0.05) * (1 / currentSV));
+                Conductor.songPosition += (FlxG.mouse.wheel * -0.05) * (1 / currentSV) * 1000;
             }
         }
 
-        if (conductor.songPosition < 0) conductor.update(-conductor.songPosition / 1000);
+        if (Conductor.songPosition < 0) Conductor.songPosition = 0;
 
         handleMouseInput();
         updateVisualRendering();
-        
-        infoText.text = 'TIMELINE\n\nPos: ${Math.floor(conductor.songPosition)}ms\nSnap: 1/$gridSnap\nSV: ${currentSV}x';
+
+        infoText.text = 'TIMELINE\n\nPos: ${Math.floor(Conductor.songPosition)}ms\nSnap: 1/$gridSnap\nSV: ${currentSV}x';
 
         if (FlxG.keys.justPressed.ESCAPE) {
             FlxG.mouse.visible = false;
@@ -139,8 +139,8 @@ class ChartingState extends Scene {
         var mouseX = FlxG.mouse.x;
         var mouseY = FlxG.mouse.y;
         var timeOffset = (strumLine.y - mouseY) / (currentSV * 0.45);
-        var hoverTime = conductor.songPosition + timeOffset;
-        var snapTime = Math.round(hoverTime / (conductor.stepCrochet / (gridSnap / 4))) * (conductor.stepCrochet / (gridSnap / 4));
+        var hoverTime = Conductor.songPosition + timeOffset;
+        var snapTime = Math.round(hoverTime / (Conductor.stepCrochet / (gridSnap / 4))) * (Conductor.stepCrochet / (gridSnap / 4));
 
         if (mouseX >= gridBG.x && mouseX <= gridBG.x + gridBG.width) {
             var col = Math.floor((mouseX - gridBG.x) / GRID_SIZE);
@@ -224,7 +224,7 @@ class ChartingState extends Scene {
     function refreshVisuals():Void {
         noteGroup.clear();
         for (n in chartNotes) {
-            var spr = new NoteSprite(n);
+            var spr = new NoteSprite(new Note(n.time, n.direction, n.sustainLength, n.mustPress));
             spr.setGraphicSize(GRID_SIZE, GRID_SIZE);
             spr.updateHitbox();
             noteGroup.add(spr);
@@ -234,20 +234,20 @@ class ChartingState extends Scene {
     function updateVisualRendering():Void {
         for (spr in noteGroup.members) {
             if (spr == null) continue;
-            var col = spr.data.direction + (spr.data.mustPress ? 4 : 0);
+            var col = spr.noteData.direction + (spr.noteData.mustPress ? 4 : 0);
             spr.x = gridBG.x + (col * GRID_SIZE);
-            spr.y = strumLine.y + ((conductor.songPosition - spr.data.time) * (currentSV * 0.45));
+            spr.y = strumLine.y + ((Conductor.songPosition - spr.noteData.strumTime) * (currentSV * 0.45));
         }
 
         for (marker in eventGroup.members) {
             if (marker == null) continue;
             var col = marker.type == "BPM" ? 0 : 1;
             marker.x = eventLaneBG.x + (col * GRID_SIZE);
-            marker.y = strumLine.y + ((conductor.songPosition - marker.time) * (currentSV * 0.45));
+            marker.y = strumLine.y + ((Conductor.songPosition - marker.time) * (currentSV * 0.45));
             marker.alpha = marker == selectedEvent ? 1.0 : 0.7;
         }
 
-        var gridScrollOffset = (conductor.songPosition * (currentSV * 0.45)) % GRID_SIZE;
+        var gridScrollOffset = (Conductor.songPosition * (currentSV * 0.45)) % GRID_SIZE;
         gridBG.y = -gridScrollOffset;
         eventLaneBG.y = -gridScrollOffset;
     }

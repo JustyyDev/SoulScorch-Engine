@@ -1,85 +1,71 @@
 package soulscorch.ui;
 
-import flixel.group.FlxSpriteGroup;
 import flixel.FlxSprite;
-import flixel.util.FlxColor;
-import soulscorch.assets.AssetHelper;
-
-class AlphaCharacter extends FlxSprite {
-    public static var alphabet:String = "abcdefghijklmnopqrstuvwxyz";
-    public static var numbers:String = "1234567890";
-    public static var symbols:String = "|~#$%()*+-:;<=>@[]^_.,'!?";
-
-    public var row:Int = 0;
-
-    public function new(x:Float, y:Float) {
-        super(x, y);
-        AssetHelper.loadSparrowSafely(this, "assets/images/alphabet.png", "assets/images/alphabet.xml");
-        antialiasing = true;
-    }
-
-    public function createLetter(letter:String, isBold:Bool = false):Void {
-        var letterLower = letter.toLowerCase();
-        
-        if (isBold) {
-            if (alphabet.indexOf(letterLower) != -1) {
-                animation.addByPrefix('letter', letter.toUpperCase() + " bold", 24);
-            } else if (numbers.indexOf(letterLower) != -1 || symbols.indexOf(letterLower) != -1) {
-                animation.addByPrefix('letter', letter + " bold", 24);
-            }
-        } else {
-            if (alphabet.indexOf(letterLower) != -1) {
-                if (letter == letter.toLowerCase()) {
-                    animation.addByPrefix('letter', letter + " lowercase", 24);
-                } else {
-                    animation.addByPrefix('letter', letter + " uppercase", 24);
-                }
-            } else {
-                animation.addByPrefix('letter', letter, 24);
-            }
-        }
-
-        if (animation.getByName('letter') != null) {
-            animation.play('letter');
-            updateHitbox();
-        }
-    }
-}
+import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.group.FlxSpriteGroup;
+import soulscorch.assets.Paths;
 
 class Alphabet extends FlxSpriteGroup {
     public var text:String = "";
     public var isBold:Bool = false;
-    public var spacing:Float = 20;
 
-    public function new(x:Float, y:Float, text:String = "", isBold:Bool = false) {
+    public function new(x:Float, y:Float, text:String, ?isBold:Bool = false) {
         super(x, y);
+        this.text = text;
         this.isBold = isBold;
-        setText(text);
+        reloadAlphabet();
     }
 
-    public function setText(newText:String):Void {
-        clearLetters();
-        this.text = newText;
-        var curX:Float = 0;
+    public function reloadAlphabet():Void {
+        // Clear existing letters if reloading
+        clear();
 
-        for (i in 0...newText.length) {
-            var char = newText.charAt(i);
-            if (char == " ") {
-                curX += spacing * 1.5;
+        var xPos:Float = 0;
+        var yPos:Float = 0;
+
+        // Determine correct paths based on whether it's bold or regular font sheet
+        var imagePath = isBold ? 'images/menus/alphabet-bold.png' : 'images/menus/alphabet.png';
+        var xmlPath = isBold ? 'images/menus/alphabet-bold.xml' : 'images/menus/alphabet.xml';
+
+        var resolvedImage = Paths.getPath(imagePath);
+        var resolvedXml = Paths.getPath(xmlPath);
+
+        #if sys
+        if (!sys.FileSystem.exists(resolvedImage) || !sys.FileSystem.exists(resolvedXml)) {
+            // Fallback check for root images directory if menus folder is bypassed
+            resolvedImage = Paths.getPath(isBold ? 'images/alphabet-bold.png' : 'images/alphabet.png');
+            resolvedXml = Paths.getPath(isBold ? 'images/alphabet-bold.xml' : 'images/alphabet.xml');
+        }
+        #end
+
+        var dadText:Array<String> = text.split("");
+
+        for (character in dadText) {
+            if (character == "\n") {
+                xPos = 0;
+                yPos += 40;
                 continue;
             }
 
-            var letter = new AlphaCharacter(curX, 0);
-            letter.createLetter(char, isBold);
-            add(letter);
-            curX += letter.width + (isBold ? 2 : 4);
-        }
-    }
+            if (character != " ") {
+                var letter:FlxSprite = new FlxSprite(xPos, yPos);
+                
+                #if sys
+                if (sys.FileSystem.exists(resolvedImage) && sys.FileSystem.exists(resolvedXml)) {
+                    letter.frames = FlxAtlasFrames.fromSparrow(resolvedImage, resolvedXml);
+                    letter.animation.addByPrefix('idle', character, 24);
+                    letter.animation.play('idle');
+                } else {
+                    // Fallback block graphic if alphabet asset is entirely missing
+                    letter.makeGraphic(20, 20, 0xFFFF00FF);
+                }
+                #end
 
-    public function clearLetters():Void {
-        while (members.length > 0) {
-            var member = members.pop();
-            if (member != null) member.destroy();
+                add(letter);
+                xPos += 30; // Spacing adjustment per character
+            } else {
+                xPos += 20; // Space width
+            }
         }
     }
 }

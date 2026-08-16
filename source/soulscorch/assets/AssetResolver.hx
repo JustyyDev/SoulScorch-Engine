@@ -8,6 +8,7 @@ import flixel.FlxG;
 import haxe.Json;
 import soulscorch.core.Engine;
 import soulscorch.modding.ModLoader;
+import StringTools;
 
 #if sys
 import sys.io.File;
@@ -17,14 +18,29 @@ import sys.FileSystem;
 class AssetResolver {
     
     public static function exists(path:String):Bool {
+        if (path == null || StringTools.trim(path).length == 0 || StringTools.trim(path) == "/") {
+            return false;
+        }
+        #if sys
+        if (path != null && FileSystem.exists(path)) {
+            return true;
+        }
+        #end
         return resolveModPath(path) != null || Assets.exists(path);
     }
 
     public static function getText(path:String):String {
+        if (path == null || StringTools.trim(path).length == 0 || StringTools.trim(path) == "/") {
+            return "";
+        }
+
         var modPath = resolveModPath(path);
         #if sys
-        if (modPath != null) {
+        if (modPath != null && FileSystem.exists(modPath)) {
             return File.getContent(modPath);
+        }
+        if (path != null && FileSystem.exists(path)) {
+            return File.getContent(path);
         }
         #end
 
@@ -48,12 +64,12 @@ class AssetResolver {
         var returnGraphic:FlxGraphic = null;
 
         #if sys
-        if (modPath != null && FileSystem.exists(modPath)) {
-            var bitmap = BitmapData.fromFile(modPath);
+        var resolvedFile = modPath != null && FileSystem.exists(modPath) ? modPath : (path != null && FileSystem.exists(path) ? path : null);
+        if (resolvedFile != null) {
+            var bitmap = BitmapData.fromFile(resolvedFile);
             if (bitmap != null) {
-                // Creates a cached FlxGraphic so it doesn't leak memory if called repeatedly
-                returnGraphic = FlxGraphic.fromBitmapData(bitmap, false, modPath);
-                returnGraphic.persist = true; 
+                returnGraphic = FlxGraphic.fromBitmapData(bitmap, false, resolvedFile);
+                returnGraphic.persist = true;
             }
         }
         #end
@@ -69,8 +85,9 @@ class AssetResolver {
         var modPath = resolveModPath(path);
         
         #if sys
-        if (modPath != null && FileSystem.exists(modPath)) {
-            return Sound.fromFile(modPath);
+        var resolvedFile = modPath != null && FileSystem.exists(modPath) ? modPath : (path != null && FileSystem.exists(path) ? path : null);
+        if (resolvedFile != null) {
+            return Sound.fromFile(resolvedFile);
         }
         #end
 
@@ -82,6 +99,10 @@ class AssetResolver {
     }
 
     static function resolveModPath(path:String):Null<String> {
+        if (path == null || StringTools.trim(path).length == 0 || StringTools.trim(path) == "/") {
+            return null;
+        }
+
         if (Engine.instance == null) {
             return null;
         }

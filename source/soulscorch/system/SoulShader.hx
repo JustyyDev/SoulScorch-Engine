@@ -5,6 +5,8 @@ import soulscorch.assets.AssetResolver;
 import soulscorch.modding.ModLoader;
 
 class SoulShader extends FlxShader {
+    public var shaderName:String = "SoulShader";
+
     public function new(fragFile:String = "", vertFile:String = "") {
         var fragSource = "";
         var vertSource = "";
@@ -20,6 +22,8 @@ class SoulShader extends FlxShader {
 
         if (fragSource != "") this.glFragmentSource = fragSource;
         if (vertSource != "") this.glVertexSource = vertSource;
+
+        if (fragFile != "") shaderName = fragFile;
 
         super();
     }

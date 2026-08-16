@@ -7,6 +7,8 @@
 	<haxelib name="lime" />
 	<haxelib name="openfl" />
 	<haxelib name="flixel" />
+	<haxelib name="flixel-addons" />
+	<haxelib name="away3d" />
 	
 	<!-- Discord Rich Presence -->
 	<haxelib name="hxdiscord_rpc" if="desktop" />
@@ -25,6 +27,9 @@
 
 	<!-- Dynamic External Directories -->
 	<assets path="mods" embed="false" />
+	
+	<!-- Maps assets/preload contents directly into the export assets directory -->
+	<assets path="assets/preload" rename="assets" />
 
 	<!-- Core Asset Pipelines -->
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
@@ -41,6 +46,10 @@
 	<haxedef name="message.reporting" value="pretty" />
 	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />
 	<haxedef name="hscriptPos" />
+	<!-- Custom Engine Flags -->
+	<haxedef name="SOULSCORCH_MODS_ENABLED" />
+	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
+	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
 
 	<!-- Desktop Crash & Stack Tracing -->
 	<section if="desktop">

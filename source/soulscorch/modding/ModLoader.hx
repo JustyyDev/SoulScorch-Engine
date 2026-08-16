@@ -5,6 +5,7 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 import haxe.Json;
+import StringTools;
 
 typedef ModMetadata = {
     var id:String;
@@ -44,12 +45,112 @@ class ModLoader {
         #end
     }
 
+    private static function normalizeAssetPath(assetPath:String):String {
+        if (assetPath == null) {
+            return "";
+        }
+
+        var normalized = StringTools.replace(StringTools.trim(assetPath), "\\", "/");
+        while (normalized.indexOf("./") == 0) {
+            normalized = normalized.substr(2);
+        }
+
+        if (normalized.length == 0 || normalized == "/") {
+            return "";
+        }
+
+        if (normalized.indexOf("assets/preload/") == 0) {
+            normalized = "assets/" + normalized.substr("assets/preload/".length);
+        } else if (normalized.indexOf("assets/") != 0 && normalized.indexOf("mods/") != 0 && normalized.indexOf("http://") != 0 && normalized.indexOf("https://") != 0) {
+            normalized = "assets/" + normalized;
+        }
+
+        return normalized;
+    }
+
+    private static function getAssetCandidates(assetPath:String):Array<String> {
+        var normalized = normalizeAssetPath(assetPath);
+        if (normalized.length == 0) return [];
+        var candidates:Array<String> = [];
+        var seen:Map<String, Bool> = new Map();
+
+        function addCandidate(candidate:String):Void {
+            if (candidate == null || candidate.length == 0) return;
+            var clean = StringTools.replace(candidate, "\\", "/");
+            if (!seen.exists(clean)) {
+                candidates.push(clean);
+                seen.set(clean, true);
+            }
+        }
+
+        addCandidate(normalized);
+
+        if (normalized.indexOf("assets/") == 0) {
+            addCandidate("assets/preload/" + normalized.substr("assets/".length));
+        } else {
+            addCandidate("assets/" + normalized);
+            addCandidate("assets/preload/" + normalized);
+        }
+
+        if (normalized.indexOf("assets/preload/") == 0) {
+            addCandidate("assets/" + normalized.substr("assets/preload/".length));
+        }
+
+        return candidates;
+    }
+
+    private static function getModCandidates(assetPath:String):Array<String> {
+        var normalized = normalizeAssetPath(assetPath);
+        if (normalized.length == 0) return [];
+        var relative = normalized;
+
+        if (relative.indexOf("assets/") == 0) {
+            relative = relative.substr("assets/".length);
+        }
+
+        var candidates:Array<String> = [];
+        var seen:Map<String, Bool> = new Map();
+
+        function addCandidate(candidate:String):Void {
+            if (candidate == null || candidate.length == 0) return;
+            var clean = StringTools.replace(candidate, "\\", "/");
+            if (!seen.exists(clean)) {
+                candidates.push(clean);
+                seen.set(clean, true);
+            }
+        }
+
+        addCandidate(relative);
+        addCandidate("assets/" + relative);
+        addCandidate("assets/preload/" + relative);
+        addCandidate("mods/" + relative);
+        addCandidate("mods/assets/" + relative);
+        addCandidate("mods/assets/preload/" + relative);
+
+        return candidates;
+    }
+
     public function resolveAsset(path:String):Null<String> {
+        if (path == null || StringTools.trim(path).length == 0) {
+            return null;
+        }
         #if sys
+        var normalized = normalizeAssetPath(path);
+        if (normalized.length == 0) {
+            return null;
+        }
+        for (candidate in getAssetCandidates(normalized)) {
+            if (FileSystem.exists(candidate)) {
+                return candidate;
+            }
+        }
+
         for (dir in modDirectories) {
-            var checkPath = dir + "/" + path;
-            if (FileSystem.exists(checkPath)) {
-                return checkPath;
+            for (candidate in getModCandidates(normalized)) {
+                var checkPath = dir + "/" + candidate;
+                if (FileSystem.exists(checkPath)) {
+                    return checkPath;
+                }
             }
         }
         #end
@@ -57,14 +158,29 @@ class ModLoader {
     }
 
     public static function getPath(assetPath:String):String {
+        if (assetPath == null || StringTools.trim(assetPath).length == 0) {
+            return "";
+        }
+        var normalized = normalizeAssetPath(assetPath);
+        if (normalized.length == 0) {
+            return "";
+        }
         #if sys
+        for (candidate in getAssetCandidates(normalized)) {
+            if (FileSystem.exists(candidate)) {
+                return candidate;
+            }
+        }
+
         for (dir in modDirectories) {
-            var checkPath = dir + "/" + assetPath;
-            if (FileSystem.exists(checkPath)) {
-                return checkPath;
+            for (candidate in getModCandidates(normalized)) {
+                var checkPath = dir + "/" + candidate;
+                if (FileSystem.exists(checkPath)) {
+                    return checkPath;
+                }
             }
         }
         #end
-        return assetPath;
+        return normalized;
     }
 }

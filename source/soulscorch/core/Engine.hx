@@ -48,11 +48,24 @@ class Engine {
 
         register("config", config);
         register("mods", new ModRegistry());
-        
+
         var modLoader = new ModLoader();
         modLoader.scan();
         register("modLoader", modLoader);
-        
+
+        register("save", new SaveData());
+        register("achievements", new Achievements());
+
+        register("logger", new Logger());
+        register("events", new EventBus());
+        register("scheduler", new Scheduler());
+        register("i18n", new Localization());
+        register("notifications", new NotificationManager());
+
+        registerModule(new EngineProfiler());
+
+        Logger.info("engine", "SoulScorch " + Version.fullVersion() + " initialized.");
+
         initialized = true;
         onInit.dispatch();
     }

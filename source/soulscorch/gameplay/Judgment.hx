@@ -25,7 +25,11 @@ enum abstract Judgment(String) from String to String {
             case MISS: -10;
         };
     }
-    
+
+    public static function getScore(judgment:Judgment):Int {
+        return score(judgment);
+    }
+
     public static function accuracyWeight(judgment:Judgment):Float {
         return switch (judgment) {
             case SICK: 1.0;
@@ -34,6 +38,10 @@ enum abstract Judgment(String) from String to String {
             case SHIT: 0.25;
             case MISS: 0.0;
         };
+    }
+
+    public static function getAccuracyWeight(judgment:Judgment):Float {
+        return accuracyWeight(judgment);
     }
 
     public static function healthModifier(judgment:Judgment):Float {
@@ -46,7 +54,15 @@ enum abstract Judgment(String) from String to String {
         };
     }
 
+    public static function getHealthModifier(judgment:Judgment):Float {
+        return healthModifier(judgment);
+    }
+
     public static function triggersSplash(judgment:Judgment):Bool {
         return judgment == SICK;
+    }
+
+    public static function doesTriggerSplash(judgment:Judgment):Bool {
+        return triggersSplash(judgment);
     }
 }

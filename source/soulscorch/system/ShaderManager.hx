@@ -3,6 +3,8 @@ package soulscorch.system;
 import flixel.FlxG;
 import flixel.FlxCamera;
 import openfl.filters.ShaderFilter;
+import soulscorch.core.EventBus;
+import soulscorch.core.Logger;
 
 class ShaderManager {
     public var filters:Array<ShaderFilter> = [];
@@ -16,12 +18,15 @@ class ShaderManager {
         filters.push(filter);
 
         var cam = camera != null ? camera : FlxG.camera;
-        
+
         if (cam.filters == null) {
             cam.setFilters([filter]);
         } else {
             cam.filters.push(filter);
         }
+
+        EventBus.publish("shader/added", {name: shader.shaderName});
+        Logger.info("shader", 'Added shader filter (total: ${shaders.length})');
     }
 
     public function update(elapsed:Float):Void {
@@ -40,8 +45,9 @@ class ShaderManager {
         cam.setFilters([]);
         filters = [];
         shaders = [];
+        EventBus.publish("shader/cleared", {});
     }
-    
+
     public function destroy():Void {
         clearShaders();
     }

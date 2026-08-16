@@ -3,22 +3,37 @@ package soulscorch.ui.menus;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.text.FlxText;
 import soulscorch.core.Scene;
 import soulscorch.core.Runtime;
+import soulscorch.core.NotificationManager;
+import soulscorch.assets.Paths;
+import soulscorch.ui.Alphabet;
 
 class OptionsState extends Scene {
     var options:Array<String> = ['Downscroll', 'Ghost Tapping', 'Flashing Lights', 'Antialiasing'];
     var grpOptions:FlxTypedGroup<Alphabet>;
     var checkboxGroup:FlxTypedGroup<FlxSprite>;
+    var headerText:FlxText;
+    var panel:FlxSprite;
     var curSelected:Int = 0;
 
     override public function create():Void {
         super.create();
 
-        var bg:FlxSprite = new FlxSprite().loadGraphic('assets/images/ui/menuDesat.png');
-        bg.color = 0xFFea71fd;
+        var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('images/ui/menuDesat'));
+        bg.color = 0xFF1B1531;
         bg.screenCenter();
         add(bg);
+
+        panel = new FlxSprite(120, 80).makeGraphic(FlxG.width - 240, FlxG.height - 160, 0x16000000);
+        add(panel);
+
+        headerText = new FlxText(0, 52, 0, "SETTINGS", 28);
+        headerText.setFormat(null, 28, 0xFFBFE8FF, CENTER, FlxTextBorderStyle.OUTLINE, 0xFF123D7A);
+        headerText.borderSize = 2;
+        headerText.screenCenter(X);
+        add(headerText);
 
         grpOptions = new FlxTypedGroup<Alphabet>();
         add(grpOptions);
@@ -27,11 +42,11 @@ class OptionsState extends Scene {
         add(checkboxGroup);
 
         for (i in 0...options.length) {
-            var optionText:Alphabet = new Alphabet(150, (70 * i) + 50, options[i], true, false);
+            var optionText:Alphabet = new Alphabet(150, (70 * i) + 50, options[i], true);
             grpOptions.add(optionText);
 
             var checkbox:FlxSprite = new FlxSprite(optionText.x - 100, optionText.y);
-            checkbox.frames = flixel.graphics.frames.FlxAtlasFrames.fromSparrow('assets/images/ui/checkbox.png', 'assets/images/ui/checkbox.xml');
+            checkbox.frames = Paths.getFrames('images/ui/checkbox');
             checkbox.animation.addByPrefix('unchecked', 'checkbox0', 24, false);
             checkbox.animation.addByPrefix('checked', 'checkbox finish', 24, false);
             checkbox.antialiasing = Runtime.engine.config.antialiasing;
@@ -54,6 +69,9 @@ class OptionsState extends Scene {
 
         if (FlxG.keys.justPressed.ESCAPE) {
             Runtime.engine.config.save();
+            if (NotificationManager.instance != null) {
+                NotificationManager.instance.notify("Settings Saved", "Your preferences were saved.");
+            }
             FlxG.switchState(new MainMenuState());
         }
     }
@@ -65,8 +83,10 @@ class OptionsState extends Scene {
 
         for (i in 0...grpOptions.length) {
             grpOptions.members[i].alpha = 0.6;
+            grpOptions.members[i].color = 0xFFCFEAFF;
         }
         grpOptions.members[curSelected].alpha = 1;
+        grpOptions.members[curSelected].color = 0xFF7AE8FF;
 
         updateCheckboxes();
     }
@@ -82,7 +102,7 @@ class OptionsState extends Scene {
             case 'Antialiasing':
                 Runtime.engine.config.antialiasing = !Runtime.engine.config.antialiasing;
         }
-        FlxG.sound.play('assets/sounds/scrollMenu.ogg');
+        FlxG.sound.play(Paths.sound('sounds/scrollMenu'));
         updateCheckboxes();
     }
 

@@ -3,12 +3,13 @@ package soulscorch.input;
 import flixel.FlxG;
 import flixel.input.keyboard.FlxKey;
 import soulscorch.core.Runtime;
+import soulscorch.core.EventBus;
 
 class InputMap {
     public static function pressed(action:String):Bool {
         var binds = getBinds(action);
         if (binds == null) return false;
-        
+
         for (key in binds) {
             if (FlxG.keys.checkStatus(key, PRESSED)) return true;
         }
@@ -18,9 +19,12 @@ class InputMap {
     public static function justPressed(action:String):Bool {
         var binds = getBinds(action);
         if (binds == null) return false;
-        
+
         for (key in binds) {
-            if (FlxG.keys.checkStatus(key, JUST_PRESSED)) return true;
+            if (FlxG.keys.checkStatus(key, JUST_PRESSED)) {
+                EventBus.publish("input/pressed", {action: action, key: key});
+                return true;
+            }
         }
         return false;
     }
@@ -28,9 +32,12 @@ class InputMap {
     public static function justReleased(action:String):Bool {
         var binds = getBinds(action);
         if (binds == null) return false;
-        
+
         for (key in binds) {
-            if (FlxG.keys.checkStatus(key, JUST_RELEASED)) return true;
+            if (FlxG.keys.checkStatus(key, JUST_RELEASED)) {
+                EventBus.publish("input/released", {action: action, key: key});
+                return true;
+            }
         }
         return false;
     }
@@ -39,7 +46,7 @@ class InputMap {
         if (Runtime.engine == null || Runtime.engine.config == null) {
             return getDefaultBinds(action);
         }
-        
+
         var binds = Runtime.engine.config.binds.get(action);
         return binds != null ? binds : getDefaultBinds(action);
     }

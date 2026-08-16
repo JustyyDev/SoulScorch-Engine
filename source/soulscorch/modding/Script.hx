@@ -6,6 +6,7 @@ import hscript.Parser;
 import hscript.Expr;
 import soulscorch.assets.AssetResolver;
 import soulscorch.gameplay.Conductor;
+import StringTools;
 
 class Script {
 	public var interp:Interp;
@@ -28,7 +29,17 @@ class Script {
 	}
 
 	public function load():Void {
-		var fullPath = ModLoader.getPath(scriptPath);
+		if (scriptPath == null || StringTools.trim(scriptPath).length == 0) {
+			active = false;
+			return;
+		}
+
+		var fullPath = ModLoader.getPath(StringTools.trim(scriptPath));
+		if (fullPath == null || fullPath.length == 0 || StringTools.endsWith(fullPath, "/")) {
+			active = false;
+			return;
+		}
+
 		if (!AssetResolver.exists(fullPath)) {
 			active = false;
 			return;

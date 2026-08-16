@@ -3,6 +3,9 @@ package soulscorch.core;
 import flixel.FlxState;
 import flixel.FlxG;
 import flixel.FlxSubState;
+import soulscorch.ui.DebugConsole;
+import soulscorch.core.NotificationManager;
+import soulscorch.core.Scheduler;
 
 class Scene extends FlxState {
     public var curStep:Int = 0;
@@ -17,11 +20,18 @@ class Scene extends FlxState {
 
     override public function create():Void {
         super.create();
+        if (DebugConsole.instance != null) {
+            add(DebugConsole.instance);
+        }
+        if (NotificationManager.instance != null) {
+            add(NotificationManager.instance);
+        }
         Runtime.engine.onSceneCreate.dispatch(this);
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (Scheduler.instance != null) Scheduler.instance.update(elapsed);
         Runtime.engine.updateModules(elapsed);
     }
 

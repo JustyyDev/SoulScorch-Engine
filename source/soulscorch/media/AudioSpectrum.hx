@@ -1,6 +1,7 @@
 package soulscorch.media;
 
 import flixel.FlxG;
+import soulscorch.core.EventBus;
 
 class AudioSpectrum {
     public static var bands:Array<Float> = [for (i in 0...16) 0.0];
@@ -20,6 +21,8 @@ class AudioSpectrum {
         for (i in 0...bands.length) {
             bands[i] = Math.max(0.0, bands[i] - (FlxG.elapsed * 2.5));
         }
+
+        EventBus.publish("audio/spectrum", {bass: bass, mid: mid, treble: treble});
     }
 
     public static function feedBeat(intensity:Float = 1.0):Void {

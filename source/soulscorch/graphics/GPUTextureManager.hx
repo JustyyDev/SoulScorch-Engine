@@ -6,6 +6,7 @@ import flixel.FlxG;
 import flixel.graphics.FlxGraphic;
 import soulscorch.assets.AssetResolver;
 import soulscorch.modding.ModLoader;
+import soulscorch.core.Logger;
 
 class GPUTextureManager {
     static var trackedGraphics:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
@@ -18,7 +19,7 @@ class GPUTextureManager {
         }
 
         if (!AssetResolver.exists(resolvedPath)) {
-            Sys.println('[WARN] Texture not found: $resolvedPath');
+            Logger.warn("gpu", 'Texture not found: $resolvedPath');
             return null;
         }
 

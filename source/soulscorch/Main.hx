@@ -23,7 +23,9 @@ import soulscorch.backend.NativeAPI;
 import soulscorch.media.AudioSpectrum;
 import soulscorch.modding.FileWatcher;
 import soulscorch.ui.DevConsole;
+import soulscorch.ui.DebugConsole;
 import soulscorch.ui.menus.TitleState;
+import soulscorch.utils.EngineUtils;
 
 class Main extends Sprite {
     var gameWidth:Int = 1280;
@@ -90,6 +92,9 @@ class Main extends Sprite {
         var devConsole = new DevConsole();
         addChild(devConsole);
 
+        DebugConsole.instance = new DebugConsole();
+
+        EngineUtils.setFramerate(framerate);
         setupPerformanceOverlay();
 
         fileWatcher = new FileWatcher();
@@ -106,10 +111,16 @@ class Main extends Sprite {
     private function setupPerformanceOverlay():Void {
         fpsCounter = new TextField();
         fpsCounter.x = 10;
-        fpsCounter.y = 5;
+        fpsCounter.y = 10;
         fpsCounter.selectable = false;
         fpsCounter.mouseEnabled = false;
-        fpsCounter.defaultTextFormat = new TextFormat("_sans", 12, 0xFFFFFF);
+        fpsCounter.width = 220;
+        fpsCounter.height = 120;
+        fpsCounter.background = true;
+        fpsCounter.backgroundColor = 0x9A0A0A0A;
+        fpsCounter.border = true;
+        fpsCounter.borderColor = 0xFFB31010;
+        fpsCounter.defaultTextFormat = new TextFormat("_sans", 14, 0xFFFFFF, true);
         fpsCounter.text = "FPS: 0\nRAM: 0 MB";
         addChild(fpsCounter);
     }
@@ -130,12 +141,8 @@ class Main extends Sprite {
         }
 
         if (fpsCounter != null && fpsCounter.visible) {
-            #if cpp
-            var mem:Float = Math.round((cpp.vm.Gc.memInfo64(cpp.vm.Gc.MEM_INFO_USAGE) / (1024 * 1024)) * 100) / 100;
-            #else
-            var mem:Float = Math.round((openfl.system.System.totalMemory / (1024 * 1024)) * 100) / 100;
-            #end
-            fpsCounter.text = 'FPS: ${currentFPS}\nRAM: ${mem} MB';
+            var mem:Float = EngineUtils.getSystemMemoryMB();
+            fpsCounter.text = 'FPS: ${currentFPS}\nRAM: ${EngineUtils.formatMemoryMB(mem * 1024 * 1024)}';
         }
     }
 

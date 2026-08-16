@@ -21,7 +21,7 @@ class DiscordRPC {
         if (isInitialized) return;
 
         try {
-            handlers = cast {};
+            handlers = DiscordEventHandlers.create();
             handlers.ready = cpp.Function.fromStaticFunction(onReady);
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
             handlers.errored = cpp.Function.fromStaticFunction(onError);
@@ -30,7 +30,6 @@ class DiscordRPC {
             isInitialized = true;
             isRunning = true;
 
-            // Background worker thread for non-blocking RPC callbacks
             Thread.create(function() {
                 while (isRunning) {
                     #if cpp
@@ -42,7 +41,7 @@ class DiscordRPC {
                 }
             });
 
-            Sys.println('[DISCORD] RPC initialized with Client ID: ' + CLIENT_ID);
+            Sys.println('[DISCORD] RPC initialized successfully with Client ID: ' + CLIENT_ID);
             changePresence("In the Menus", "Main Menu");
         } catch (e:Dynamic) {
             Sys.println('[DISCORD] Failed to initialize Rich Presence: ' + e);
@@ -55,26 +54,30 @@ class DiscordRPC {
         #if desktop
         if (!isInitialized) return;
 
-        presence = cast {};
-        presence.details = details;
-        presence.state = state != null ? state : "";
-        presence.largeImageKey = largeImageKey != null ? largeImageKey : "icon";
-        presence.largeImageText = "SoulScorch Engine";
+        try {
+            presence = DiscordRichPresence.create();
+            presence.details = details;
+            presence.state = state != null ? state : "";
+            presence.largeImageKey = largeImageKey != null ? largeImageKey : "icon";
+            presence.largeImageText = "SoulScorch Engine";
 
-        if (smallImageKey != null && smallImageKey != "") {
-            presence.smallImageKey = smallImageKey;
-            presence.smallImageText = smallImageKey;
+            if (smallImageKey != null && smallImageKey != "") {
+                presence.smallImageKey = smallImageKey;
+                presence.smallImageText = smallImageKey;
+            }
+
+            if (hasStartTimestamp) {
+                presence.startTimestamp = Std.int(Sys.time());
+            }
+
+            if (endTimestamp > 0) {
+                presence.endTimestamp = Std.int(endTimestamp);
+            }
+
+            Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence));
+        } catch (e:Dynamic) {
+            Sys.println('[DISCORD] Failed to update presence: ' + e);
         }
-
-        if (hasStartTimestamp) {
-            presence.startTimestamp = Std.int(Sys.time());
-        }
-
-        if (endTimestamp > 0) {
-            presence.endTimestamp = Std.int(endTimestamp);
-        }
-
-        Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence));
         #end
     }
 

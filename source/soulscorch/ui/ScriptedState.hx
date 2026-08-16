@@ -5,6 +5,7 @@ import soulscorch.core.Scene;
 import soulscorch.modding.Script;
 import soulscorch.assets.AssetResolver;
 import soulscorch.modding.ModLoader;
+import soulscorch.core.Logger;
 
 class ScriptedState extends Scene {
     public var scriptName:String;
@@ -39,7 +40,7 @@ class ScriptedState extends Scene {
             script.call("createPost");
             script.call("onCreatePost");
         } else {
-            Sys.println('[WARN] ScriptedState could not find $scriptPath, falling back.');
+            Logger.warn("script", 'ScriptedState could not find $scriptPath, falling back.');
         }
     }
 

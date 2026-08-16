@@ -8,6 +8,7 @@ import soulscorch.core.Scene;
 import soulscorch.assets.AssetResolver;
 import soulscorch.modding.ModLoader;
 import soulscorch.assets.AssetHelper;
+import soulscorch.core.Logger;
 import haxe.xml.Access;
 
 class XMLState extends Scene {
@@ -29,7 +30,7 @@ class XMLState extends Scene {
         var resolvedPath = ModLoader.getPath('assets/data/ui/' + xmlPath + '.xml');
         
         if (!AssetResolver.exists(resolvedPath)) {
-            Sys.println('[ERROR] XML UI file not found: $resolvedPath');
+            Logger.error("xml", 'XML UI file not found: $resolvedPath');
             var errorText = new FlxText(0, 0, FlxG.width, 'MISSING XML: $xmlPath', 32);
             errorText.screenCenter();
             errorText.color = FlxColor.RED;
@@ -46,7 +47,7 @@ class XMLState extends Scene {
                 buildElement(node);
             }
         } catch (e:Dynamic) {
-            Sys.println('[ERROR] Failed to parse XML UI $xmlPath: $e');
+            Logger.error("xml", 'Failed to parse XML UI $xmlPath: $e');
         }
     }
 

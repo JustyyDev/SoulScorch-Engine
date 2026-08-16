@@ -5,6 +5,7 @@ import flixel.group.FlxSpriteGroup;
 import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
 import soulscorch.assets.AssetResolver;
+import soulscorch.assets.Paths;
 
 class HealthBar extends FlxSpriteGroup {
     public var bg:FlxSprite;
@@ -18,8 +19,8 @@ class HealthBar extends FlxSpriteGroup {
         super(x, y);
 
         bg = new FlxSprite(0, 0);
-        if (AssetResolver.exists('assets/images/ui/healthBar.png')) {
-            bg.loadGraphic('assets/images/ui/healthBar.png');
+        if (AssetResolver.exists(Paths.image('images/ui/healthBar'))) {
+            bg.loadGraphic(Paths.image('images/ui/healthBar'));
         } else {
             bg.makeGraphic(600, 19, FlxColor.BLACK);
         }

@@ -4,6 +4,7 @@ import haxe.Json;
 import flixel.FlxSprite;
 import soulscorch.assets.AssetResolver;
 import soulscorch.stage.Stage;
+import soulscorch.core.Logger;
 
 typedef StageLayer = {
     var name:String;
@@ -32,6 +33,7 @@ class StageLoader {
         var jsonPath = '$STAGE_ROOT/$stageId.json';
 
         if (!AssetResolver.exists(jsonPath)) {
+            Logger.warn("stage", 'No stage JSON for "$stageId", using fallback.');
             return buildFallbackStage(stage);
         }
 
@@ -74,7 +76,8 @@ class StageLoader {
                 stage.addSprite(spriteName, sprite);
             }
         }
-
+stage.load();
+        
         return stage;
     }
 
@@ -95,7 +98,8 @@ class StageLoader {
         front.updateHitbox();
         front.antialiasing = true;
         front.active = false;
-        stage.addSprite("stagefront", front);
+
+        stage.load();stage.addSprite("stagefront", front);
         
         return stage;
     }
