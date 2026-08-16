@@ -9,14 +9,14 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.math.FlxMath;
-import soulscorch.core.Scene;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.core.Runtime;
 import soulscorch.core.Version;
 import soulscorch.assets.Paths;
 import soulscorch.assets.AssetHelper;
 import soulscorch.ui.menus.credits.SoulCreditsState;
 
-class MainMenuState extends Scene {
+class MainMenuState extends MusicBeatState {
     var curSelected:Int = 0;
     var menuItems:FlxGroup;
     var optionShit:Array<String> = ["story mode", "freeplay", "credits", "mods", "options"];
@@ -66,6 +66,10 @@ class MainMenuState extends Scene {
         versionText.setFormat(null, 14, 0x88BEEBFF, CENTER);
         versionText.screenCenter(X);
         add(versionText);
+
+        var watermark:FlxText = new FlxText(FlxG.width - 250, FlxG.height - 42, 230, "SoulScorch Engine\nCodename UI Base", 11);
+        watermark.setFormat(null, 11, 0xFF84A6B9, RIGHT);
+        add(watermark);
 
         magenta = new FlxSprite(-80);
         AssetHelper.loadGraphicSafely(magenta, 'images/menus/menuBGMagenta');
@@ -187,6 +191,7 @@ class MainMenuState extends Scene {
                 spr.alpha = 1;
                 spr.color = 0xFF7AE8FF;
                 spr.centerOffsets();
+                FlxG.camera.follow(spr, LOCKON, 0.15);
             }
         });
     }

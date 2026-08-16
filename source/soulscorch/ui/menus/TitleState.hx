@@ -7,14 +7,14 @@ import flixel.group.FlxGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
-import soulscorch.core.Scene;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.core.Runtime;
 import soulscorch.core.Logger;
 import soulscorch.assets.Paths;
 import soulscorch.ui.Alphabet;
 import soulscorch.gameplay.Conductor;
 
-class TitleState extends Scene {
+class TitleState extends MusicBeatState {
     var initialized:Bool = false;
     var skippedIntro:Bool = false;
 
@@ -201,7 +201,7 @@ class TitleState extends Scene {
                 }
 
                 FlxG.camera.flash(FlxColor.WHITE, 1);
-                var confirmSound = Paths.sound('sounds/confirmMenu');
+                var confirmSound = Paths.sound('sounds/menu/confirm');
                 #if sys
                 if (sys.FileSystem.exists(confirmSound)) {
                     FlxG.sound.play(confirmSound, 0.7);
@@ -209,7 +209,7 @@ class TitleState extends Scene {
                 #end
 
                 new FlxTimer().start(2.0, function(tmr:FlxTimer) {
-                    switchScene(new MainMenuState());
+                    FlxG.switchState(new MainMenuState());
                 });
             }
         }
@@ -228,8 +228,8 @@ class TitleState extends Scene {
             case 1: createCoolText(["SoulScorch Engine"]);
             case 3: addMoreText("present");
             case 4: deleteCoolText();
-            case 5: createCoolText([curWacky[0]]);
-            case 7: addMoreText(curWacky[1]);
+            case 5: createCoolText([curWacky.length > 0 ? curWacky[0] : "SoulScorch"]);
+            case 7: addMoreText(curWacky.length > 1 ? curWacky[1] : "Engine");
             case 8: deleteCoolText();
             case 9: createCoolText(["Codename Style"]);
             case 11: addMoreText("Engine Framework");

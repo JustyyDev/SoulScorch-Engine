@@ -7,7 +7,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.math.FlxMath;
-import soulscorch.core.Scene;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.core.Runtime;
 import soulscorch.core.SaveData;
 import soulscorch.core.EventBus;
@@ -15,10 +15,14 @@ import soulscorch.assets.Paths;
 import soulscorch.assets.AssetHelper;
 import soulscorch.ui.Alphabet;
 import soulscorch.gameplay.PlayState;
+import soulscorch.modding.ModManager;
+#if sys
+import sys.FileSystem;
+#end
 
-class FreeplayState extends Scene {
+class FreeplayState extends MusicBeatState {
     var curSelected:Int = 0;
-    var songs:Array<String> = ["Test Song", "Soulburn", "Scorch", "Extinction"];
+    var songs:Array<String> = ["tutorial", "bopeebo", "fresh", "dadbattle"];
     var grpSongs:FlxTypedGroup<Alphabet>;
     var bg:FlxSprite;
     var scoreText:FlxText;
@@ -26,6 +30,7 @@ class FreeplayState extends Scene {
     var panel:FlxSprite;
     var lerpScore:Int = 0;
     var intendedScore:Int = 0;
+    var intendedAccuracy:Float = 0.0;
     var difficultyText:FlxText;
     var difficultyIndex:Int = 1;
     var difficulties:Array<String> = [
@@ -33,6 +38,7 @@ class FreeplayState extends Scene {
         "normal",
         "hard"
     ];
+    var previewSongId:String = "";
 
     override public function create():Void {
         super.create();
@@ -91,7 +97,7 @@ class FreeplayState extends Scene {
         }
 
         lerpScore = Std.int(FlxMath.lerp(lerpScore, intendedScore, 0.4));
-        scoreText.text = "PERSONAL BEST: " + lerpScore;
+        scoreText.text = "PERSONAL BEST: " + lerpScore + "\nACCURACY: " + Std.int(intendedAccuracy * 100) + "%";
 
         if (FlxG.keys.justPressed.UP) {
             FlxG.sound.play(Paths.sound('sounds/menu/scroll'));
@@ -130,6 +136,9 @@ class FreeplayState extends Scene {
         var songId = StringTools.replace(songs[curSelected].toLowerCase(), " ", "-");
         var best = SaveData.instance.getBest(songId, difficulties[difficultyIndex]);
         intendedScore = best != null ? best.score : 0;
+        intendedAccuracy = best != null ? best.accuracy : 0.0;
+        applySongPalette();
+        previewSelectedSong(songId);
 
         var bullShit:Int = 0;
         grpSongs.forEach(function(basic:flixel.FlxBasic):Void {
@@ -145,6 +154,26 @@ class FreeplayState extends Scene {
             }
         });
         if (difficultyText != null) difficultyText.text = "DIFFICULTY  < " + difficulties[difficultyIndex].toUpperCase() + " >";
+    }
+
+    private function applySongPalette():Void {
+        var palette:Array<Int> = [0xFF1D5472, 0xFF6B3A78, 0xFF3F6F55, 0xFF7A4C32];
+        var tint:Int = palette[curSelected % palette.length];
+        bg.color = tint;
+        panel.color = 0xFFFFFFFF;
+        headerText.color = 0xFFBEEBFF;
+    }
+
+    private function previewSelectedSong(songId:String):Void {
+        if (songId == previewSongId) return;
+        previewSongId = songId;
+        var path:String = ModManager.getPath('songs/$songId/song/Inst.ogg');
+        #if sys
+        if (path != null && FileSystem.exists(path)) {
+            FlxG.sound.playMusic(path, 0.0);
+            if (FlxG.sound.music != null) FlxG.sound.music.fadeIn(1.2, 0.0, 0.45);
+        }
+        #end
     }
 
     function changeDifficulty(change:Int):Void {

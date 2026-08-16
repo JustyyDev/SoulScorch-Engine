@@ -1,9 +1,9 @@
 package soulscorch.modding;
 
 import soulscorch.modding.SoulModParser.SoulModData;
+import haxe.io.Path;
 #if sys
 import sys.FileSystem;
-import haxe.io.Path;
 #end
 
 class ModManager {

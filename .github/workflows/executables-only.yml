@@ -46,6 +46,7 @@ jobs:
           haxelib install flixel 5.5.0 --quiet
           haxelib install flixel-addons 3.2.3 --quiet
           haxelib install flixel-ui 2.5.0 --quiet
+          haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
           haxelib install hxdiscord_rpc --quiet
           haxelib run lime setup -y
@@ -59,6 +60,7 @@ jobs:
           haxelib install flixel 5.5.0 --quiet
           haxelib install flixel-addons 3.2.3 --quiet
           haxelib install flixel-ui 2.5.0 --quiet
+          haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
           haxelib install hxdiscord_rpc --quiet
           haxelib run lime setup -y

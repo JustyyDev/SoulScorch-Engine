@@ -2,16 +2,22 @@ package soulscorch.ui.menus;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import soulscorch.core.Scene;
+import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.group.FlxGroup.FlxTypedGroup;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.core.EventBus;
 import soulscorch.gameplay.PlayState;
 import soulscorch.assets.Paths;
 import soulscorch.assets.AssetHelper;
+import soulscorch.modding.ModManager;
+import soulscorch.assets.AssetResolver;
+#if sys
+import sys.FileSystem;
+#end
 
-class StoryMenuState extends Scene {
+class StoryMenuState extends MusicBeatState {
     var scoreText:FlxText;
     var curDifficulty:Int = 1;
     var curWeek:Int = 0;
@@ -21,10 +27,12 @@ class StoryMenuState extends Scene {
     var difficultyText:FlxText;
     var hintText:FlxText;
     var weekPanel:FlxSprite;
+    var characterGroup:FlxTypedGroup<FlxSprite>;
+    var weekBanner:FlxSprite;
     
     var weekNames:Array<String> = ["Tutorial", "Week 1"];
     var weekSongs:Array<Array<String>> = [["tutorial"], ["bopeebo", "fresh", "dadbattle"]];
-    var diffs:Array<String> = ["easy", "normal", "hard"];
+    var diffs:Array<String> = ["easy", "normal", "hard", "custom"];
 
     override public function create():Void {
         super.create();
@@ -40,6 +48,16 @@ class StoryMenuState extends Scene {
 
         weekPanel = new FlxSprite(72, 112).makeGraphic(FlxG.width - 144, FlxG.height - 210, 0xCC102638);
         add(weekPanel);
+
+        weekBanner = new FlxSprite(FlxG.width * 0.5 - 150, 125);
+        loadWeekBanner();
+        add(weekBanner);
+
+        characterGroup = new FlxTypedGroup<FlxSprite>();
+        add(characterGroup);
+        characterGroup.add(loadCharacter("dad", 260, 275, "Dad idle dance BLACK LINE"));
+        characterGroup.add(loadCharacter("bf", 680, 330, "BF HEY!!"));
+        characterGroup.add(loadCharacter("gf", 485, 325, "GF Dancing Beat WHITE"));
 
         scoreText = new FlxText(78, 28, 0, "WEEK SCORE: 0", 20);
         scoreText.color = FlxColor.CYAN;
@@ -90,6 +108,15 @@ class StoryMenuState extends Scene {
         }
     }
 
+    override public function beatHit(beat:Int):Void {
+        super.beatHit(beat);
+        if (characterGroup == null) return;
+        characterGroup.forEach(function(basic:flixel.FlxBasic):Void {
+            var character:FlxSprite = cast basic;
+            if (character != null && character.frames != null && character.animation.getByName("idle") != null) character.animation.play("idle", true);
+        });
+    }
+
     function changeWeek(change:Int = 0):Void {
         curWeek += change;
         if (curWeek >= weekNames.length) curWeek = 0;
@@ -97,6 +124,7 @@ class StoryMenuState extends Scene {
         
         txtWeekTitle.text = weekNames[curWeek].toUpperCase();
         updateWeekDetails();
+        loadWeekBanner();
     }
 
     function changeDifficulty(change:Int = 0):Void {
@@ -113,5 +141,39 @@ class StoryMenuState extends Scene {
         songListText.text = "TRACKLIST\n\n" + lines.join("\n");
         difficultyText.text = "DIFFICULTY   <  " + diffs[curDifficulty].toUpperCase() + "  >";
         scoreText.text = "WEEK SCORE: 0\n" + weekSongs[curWeek].length + " TRACKS";
+    }
+
+    private function loadWeekBanner():Void {
+        if (weekBanner == null) return;
+        var path:String = ModManager.getPath('images/menus/storymenu/weeks/week${curWeek + 1}.png');
+        #if sys
+        if (path != null && FileSystem.exists(path)) {
+            weekBanner.loadGraphic(path);
+            weekBanner.setGraphicSize(300);
+            weekBanner.updateHitbox();
+            return;
+        }
+        #end
+        weekBanner.makeGraphic(300, 64, 0xFF1E6684);
+    }
+
+    private function loadCharacter(id:String, x:Float, y:Float, prefix:String):FlxSprite {
+        var character:FlxSprite = new FlxSprite(x, y);
+        var imagePath:String = ModManager.getPath('images/menus/storymenu/characters/$id.png');
+        var xmlPath:String = ModManager.getPath('images/menus/storymenu/characters/$id.xml');
+        #if sys
+        if (FileSystem.exists(imagePath) && FileSystem.exists(xmlPath)) {
+            try {
+                character.frames = FlxAtlasFrames.fromSparrow(imagePath, AssetResolver.getText(xmlPath));
+                character.animation.addByPrefix("idle", prefix, 12, false);
+                character.animation.play("idle");
+                character.setGraphicSize(Std.int(character.width * 0.25));
+                character.updateHitbox();
+                return character;
+            } catch (error:Dynamic) {}
+        }
+        #end
+        character.makeGraphic(110, 180, id == "dad" ? 0xFF7C4BA5 : id == "bf" ? 0xFF3D7DCE : 0xFFD96BAA);
+        return character;
     }
 }
