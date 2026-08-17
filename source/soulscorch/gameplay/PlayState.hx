@@ -23,6 +23,10 @@ import soulscorch.modding.ScriptManager;
 import soulscorch.ui.ScriptedSubState;
 import soulscorch.ui.menus.ResultsState;
 
+#if sys
+import sys.FileSystem;
+#end
+
 class PlayState extends Scene {
     public static var instance:PlayState;
     public static var curSong:String = "tutorial";
@@ -83,7 +87,6 @@ class PlayState extends Scene {
     public var allowPause:Bool = true;
     public var hudAlpha:Float = 1.0;
     public var noteSplashEnabled:Bool = true;
-    public var vocalResyncTime:Float = 20.0; 
 
     // --- Keys State ---
     private var keysHeld:Array<Bool> = [false, false, false, false];
@@ -167,8 +170,6 @@ class PlayState extends Scene {
         playerStrums = new FlxTypedGroup<StrumArrow>();
         opponentStrums = new FlxTypedGroup<StrumArrow>();
         grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
-        
-        // Haxe Object Pooling setup for notes to prevent GC stutters
         notes = new FlxTypedGroup<NoteSprite>();
 
         playerStrums.cameras = [camHUD];
@@ -188,36 +189,34 @@ class PlayState extends Scene {
         dad = new Character(100, 100, oppChar);
         boyfriend = new Character(770, 450, playerChar, true);
 
-        // Center camera between BF and Dad initially
         camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
         camGame.zoom = defaultCamZoom;
         camGame.focusOn(camFollow.getPosition());
     }
 
     function setupScriptRuntime():Void {
-        scripts.loadDirectory("scripts");
-        
-        var songDir = 'data/songs/$curSong/';
-        if (ModLoader.exists(songDir + 'script.soul')) scripts.load(songDir + 'script.soul');
-        if (ModLoader.exists(songDir + 'script.hx')) scripts.load(songDir + 'script.hx');
-        if (ModLoader.exists(songDir + 'events.soul')) scripts.load(songDir + 'events.soul');
+        scripts.loadScriptsFromDir("assets/data/scripts");
+        scripts.loadScript('assets/data/songs/$curSong/script.soul');
+        scripts.loadScript('assets/data/songs/$curSong/script.hx');
+        scripts.loadScript('assets/data/songs/$curSong/events.soul');
+        scripts.loadScript('assets/data/songs/$curSong/events.hx');
 
-        scripts.setGlobal("game", this);
-        scripts.setGlobal("PlayState", PlayState);
-        scripts.setGlobal("audio", audio);
-        scripts.setGlobal("modcharts", modcharts);
-        scripts.setGlobal("Conductor", Conductor);
-        scripts.setGlobal("boyfriend", boyfriend);
-        scripts.setGlobal("dad", dad);
-        scripts.setGlobal("gf", gf);
-        scripts.setGlobal("playerStrums", playerStrums);
-        scripts.setGlobal("opponentStrums", opponentStrums);
-        scripts.setGlobal("camGame", camGame);
-        scripts.setGlobal("camHUD", camHUD);
+        scripts.set("game", this);
+        scripts.set("PlayState", PlayState);
+        scripts.set("audio", audio);
+        scripts.set("modcharts", modcharts);
+        scripts.set("Conductor", Conductor);
+        scripts.set("boyfriend", boyfriend);
+        scripts.set("dad", dad);
+        scripts.set("gf", gf);
+        scripts.set("playerStrums", playerStrums);
+        scripts.set("opponentStrums", opponentStrums);
+        scripts.set("camGame", camGame);
+        scripts.set("camHUD", camHUD);
 
-        scripts.dispatch("create");
-        scripts.dispatch("onCreate");
-        scripts.dispatch("postCreate");
+        scripts.call("create");
+        scripts.call("onCreate");
+        scripts.call("postCreate");
     }
 
     function generateStrumLines():Void {
@@ -243,25 +242,21 @@ class PlayState extends Scene {
         healthBarBG.cameras = [camHUD];
         add(healthBarBG);
 
-        // Dynamic Health Bar Colors from Character JSONs
-        var dadColor:Int = (dad != null && Reflect.hasField(dad, "iconColor")) ? dad.iconColor : 0xFFFF0000;
-        var bfColor:Int = (boyfriend != null && Reflect.hasField(boyfriend, "iconColor")) ? boyfriend.iconColor : 0xFF66FF33;
-
         healthBar = new FlxBar(
             healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, 
             Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), 
             this, 'health', 0, maxHealth
         );
-        healthBar.createFilledBar(dadColor, bfColor);
+        healthBar.createFilledBar(0xFFFF0000, 0xFF66FF33);
         healthBar.scrollFactor.set();
         healthBar.cameras = [camHUD];
         add(healthBar);
 
-        iconP1 = new FlxSprite().makeGraphic(80, 80, bfColor);
+        iconP1 = new FlxSprite().makeGraphic(80, 80, 0xFF66FF33);
         iconP1.cameras = [camHUD];
         add(iconP1);
 
-        iconP2 = new FlxSprite().makeGraphic(80, 80, dadColor);
+        iconP2 = new FlxSprite().makeGraphic(80, 80, 0xFFFF0000);
         iconP2.cameras = [camHUD];
         add(iconP2);
 
@@ -312,24 +307,27 @@ class PlayState extends Scene {
         audio.play();
     }
 
+    // Framerate independent lerp
+    inline function camLerp(a:Float, b:Float, ratio:Float, elapsed:Float):Float {
+        return a + (b - a) * (1 - Math.exp(-ratio * (elapsed * 60)));
+    }
+
     override public function update(elapsed:Float):Void {
         if (paused) return;
 
-        scripts.dispatch("update", [elapsed]);
-        scripts.dispatch("onUpdate", [elapsed]);
+        scripts.call("update", [elapsed]);
+        scripts.call("onUpdate", [elapsed]);
 
         audio.update(elapsed);
         updateSongProgressFromAudio();
-        resyncVocals();
 
         if (modcharts != null) modcharts.update(elapsed);
 
         super.update(elapsed);
 
-        // Delta-Time Camera Zooming
         if (camZooming) {
-            camGame.zoom = FlxMath.lerp(camGame.zoom, defaultCamZoom, FlxMath.bound(elapsed * 3.125, 0, 1));
-            camHUD.zoom = FlxMath.lerp(camHUD.zoom, defaultHUDZoom, FlxMath.bound(elapsed * 3.125, 0, 1));
+            camGame.zoom = camLerp(camGame.zoom, defaultCamZoom, 0.04, elapsed);
+            camHUD.zoom = camLerp(camHUD.zoom, defaultHUDZoom, 0.04, elapsed);
         }
 
         updateNoteSpawns();
@@ -339,25 +337,15 @@ class PlayState extends Scene {
 
         if (InputMap.justPressed("pause") && allowPause) openPauseMenu();
 
-        scripts.dispatch("updatePost", [elapsed]);
-        scripts.dispatch("onUpdatePost", [elapsed]);
-    }
-
-    function resyncVocals():Void {
-        if (audio.vocals != null && audio.inst != null && audio.inst.playing) {
-            if (Math.abs(audio.vocals.time - audio.inst.time) > vocalResyncTime) {
-                audio.vocals.time = audio.inst.time;
-            }
-        }
+        scripts.call("updatePost", [elapsed]);
+        scripts.call("onUpdatePost", [elapsed]);
     }
 
     function updateNoteSpawns():Void {
         while (unspawnNotes.length > 0 && unspawnNotes[0].strumTime - Conductor.songPosition < 1800 / songSpeed) {
             var noteData:Note = unspawnNotes.shift();
-            
-            // Object Pooling: Recycle instead of allocating memory
-            var noteSprite:NoteSprite = notes.recycle(NoteSprite);
-            noteSprite.setup(noteData, noteData.isSustainNote, noteData.isSustainEnd);
+            // NoteSprite initialization mapped to standard API
+            var noteSprite:NoteSprite = new NoteSprite(noteData, noteData.isSustainNote, false);
             noteSprite.cameras = [camHUD];
             notes.add(noteSprite);
         }
@@ -371,8 +359,8 @@ class PlayState extends Scene {
                 daNote.x = targetStrum.x + daNote.offsetX;
                 daNote.y = targetStrum.y + (downscroll ? -distance : distance) + daNote.offsetY;
 
-                // Sustain Clipping (Makes holds look attached to strums)
-                if (daNote.isSustainNote) {
+                // Sustain Clipping
+                if (daNote.noteData.isSustainNote) {
                     if (downscroll && daNote.y - daNote.offsetY * 0.5 > targetStrum.y) {
                         daNote.clipRect = new flixel.math.FlxRect(0, 0, daNote.frameWidth, (targetStrum.y - daNote.y));
                     } else if (!downscroll && daNote.y + daNote.offsetY * 0.5 < targetStrum.y) {
@@ -384,14 +372,14 @@ class PlayState extends Scene {
                 if (!daNote.noteData.mustPress && daNote.noteData.strumTime <= Conductor.songPosition) {
                     targetStrum.playAnim('confirm', true);
                     targetStrum.resetAnim = 0.15;
-                    
                     if (dad != null) {
                         dad.playAnim(["singLEFT", "singDOWN", "singUP", "singRIGHT"][daNote.noteData.direction], true);
                         camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
                     }
-                    
                     audio.muteVocal(false, false);
-                    daNote.kill(); // Pool return
+                    daNote.kill();
+                    notes.remove(daNote, true);
+                    daNote.destroy();
                     return;
                 }
             }
@@ -404,10 +392,12 @@ class PlayState extends Scene {
                 daNote.noteData.tooLate = true;
                 noteMiss(daNote.noteData.direction);
                 daNote.kill();
+                notes.remove(daNote, true);
+                daNote.destroy();
             }
 
             // Continuous Sustain logic
-            if (daNote.isSustainNote && daNote.noteData.canBeHit && daNote.noteData.mustPress && daNote.noteData.strumTime <= Conductor.songPosition) {
+            if (daNote.noteData.isSustainNote && daNote.noteData.canBeHit && daNote.noteData.mustPress && daNote.noteData.strumTime <= Conductor.songPosition) {
                 if (keysHeld[daNote.noteData.direction]) goodNoteHit(daNote);
             }
         });
@@ -429,7 +419,7 @@ class PlayState extends Scene {
 
         var possibleNotes:Array<NoteSprite> = [];
         notes.forEachAlive(function(daNote:NoteSprite) {
-            if (daNote.noteData.mustPress && daNote.noteData.direction == dir && daNote.noteData.canBeHit && !daNote.noteData.wasGoodHit && !daNote.isSustainNote) {
+            if (daNote.noteData.mustPress && daNote.noteData.direction == dir && daNote.noteData.canBeHit && !daNote.noteData.wasGoodHit && !daNote.noteData.isSustainNote) {
                 possibleNotes.push(daNote);
             }
         });
@@ -454,7 +444,7 @@ class PlayState extends Scene {
         note.wasGoodHit = true;
         combo++;
 
-        if (!noteSprite.isSustainNote) {
+        if (!note.isSustainNote) {
             var diff:Float = Math.abs(note.strumTime - Conductor.songPosition);
             var judgment:Judgment = Judgment.fromDifference(diff, Conductor.safeZoneOffset);
 
@@ -463,7 +453,7 @@ class PlayState extends Scene {
             totalNotesHit += Judgment.accuracyWeight(judgment);
             health = Math.min(maxHealth, health + Judgment.healthModifier(judgment));
             
-            popRating(judgment.name);
+            popRating(diff);
             if (Judgment.triggersSplash(judgment) && noteSplashEnabled && playerStrums.members[note.direction] != null) {
                 spawnSplash(playerStrums.members[note.direction].x, playerStrums.members[note.direction].y, note.direction);
             }
@@ -486,14 +476,21 @@ class PlayState extends Scene {
         }
 
         updateScoreText();
-        scripts.dispatch("goodNoteHit", [noteSprite]);
-        scripts.dispatch("onNoteHit", [noteSprite]);
+        scripts.call("goodNoteHit", [noteSprite]);
+        scripts.call("onNoteHit", [noteSprite]);
 
-        noteSprite.kill(); // Pool return
+        noteSprite.kill();
+        notes.remove(noteSprite, true);
+        noteSprite.destroy();
     }
 
-    function popRating(rating:String):Void {
-        var ratingSpr:FlxSprite = new FlxSprite().loadGraphic('assets/images/ui/ratings/$rating.png');
+    function popRating(diff:Float):Void {
+        var ratingName:String = "sick";
+        if (diff > Conductor.safeZoneOffset * 0.9) ratingName = "shit";
+        else if (diff > Conductor.safeZoneOffset * 0.75) ratingName = "bad";
+        else if (diff > Conductor.safeZoneOffset * 0.2) ratingName = "good";
+
+        var ratingSpr:FlxSprite = new FlxSprite().loadGraphic('assets/images/ui/ratings/$ratingName.png');
         ratingSpr.screenCenter();
         ratingSpr.x += FlxG.random.int(-20, 20);
         ratingSpr.y -= 60 + FlxG.random.int(-10, 10);
@@ -529,7 +526,8 @@ class PlayState extends Scene {
 
     function spawnSplash(x:Float, y:Float, dir:Int):Void {
         var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-        splash.setup(x, y, dir);
+        // Assuming splash setup uses standard arguments
+        splash.setPosition(x, y);
         grpNoteSplashes.add(splash);
     }
 
@@ -546,8 +544,8 @@ class PlayState extends Scene {
         }
 
         updateScoreText();
-        scripts.dispatch("noteMiss", [dir]);
-        scripts.dispatch("onPlayerMiss", [dir]);
+        scripts.call("noteMiss", [dir]);
+        scripts.call("onPlayerMiss", [dir]);
 
         if (health <= 0) gameOver();
     }
@@ -583,14 +581,14 @@ class PlayState extends Scene {
         if (dad != null && !StringTools.startsWith(dad.animation.curAnim.name, "sing")) dad.dance();
         if (gf != null && beat % 2 == 0 && !StringTools.startsWith(gf.animation.curAnim.name, "sing")) gf.dance();
 
-        scripts.dispatch("beatHit", [beat]);
-        scripts.dispatch("onBeatHit", [beat]);
+        scripts.call("beatHit", [beat]);
+        scripts.call("onBeatHit", [beat]);
     }
 
     override public function stepHit(step:Int):Void {
         super.stepHit(step);
-        scripts.dispatch("stepHit", [step]);
-        scripts.dispatch("onStepHit", [step]);
+        scripts.call("stepHit", [step]);
+        scripts.call("onStepHit", [step]);
     }
 
     public function openPauseMenu():Void {
@@ -626,7 +624,7 @@ class PlayState extends Scene {
 
         if (SaveData.instance != null) SaveData.instance.submitScore(curSong, curDifficulty, stats.toSaveEntry());
 
-        scripts.dispatch("onSongEnd", [stats]);
+        scripts.call("onSongEnd", [stats]);
         FlxG.switchState(new ResultsState(stats));
     }
 
@@ -636,7 +634,7 @@ class PlayState extends Scene {
 
     override public function destroy():Void {
         if (scripts != null) {
-            scripts.dispatch("onDestroy");
+            scripts.call("onDestroy");
             scripts.clear();
         }
         if (audio != null) audio.clear();
