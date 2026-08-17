@@ -1,4 +1,4 @@
-package soulscorch.menus.substate;
+package soulscorch.ui.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -6,12 +6,13 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.gameplay.PlayState;
-import soulscorch.menus.states.MainMenuState;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class PauseSubState extends MusicBeatSubstate {
     public static var curSelected:Int = 0;

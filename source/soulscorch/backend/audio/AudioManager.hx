@@ -5,7 +5,7 @@ import flixel.sound.FlxSound;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 class AudioManager {
     public var inst:FlxSound;

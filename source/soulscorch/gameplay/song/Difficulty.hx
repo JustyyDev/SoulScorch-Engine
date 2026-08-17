@@ -1,5 +1,7 @@
 package soulscorch.gameplay.song;
 
+using StringTools;
+
 class Difficulty {
     public static var defaultList:Array<String> = ["easy", "normal", "hard", "erect", "nightmare"];
 
@@ -14,7 +16,8 @@ class Difficulty {
     }
 
     public static function getColor(diff:String):Int {
-        return switch (diff.toLowerCase().trim()) {
+        var clean = (diff == null || diff.length == 0) ? "normal" : diff.toLowerCase().trim();
+        return switch (clean) {
             case "easy": 0xFF55E055;
             case "normal": 0xFFE0E055;
             case "hard": 0xFFE04040;

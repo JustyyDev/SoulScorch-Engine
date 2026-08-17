@@ -44,9 +44,9 @@ class ModRegistry {
             var prioA = dataA != null ? dataA.load_priority : 0;
             var prioB = dataB != null ? dataB.load_priority : 0;
 
-            if (prioA > prioB) return -1;[cite: 62]
-            if (prioA < prioB) return 1;[cite: 62]
-            return 0;[cite: 62]
+            if (prioA > prioB) return -1;
+            if (prioA < prioB) return 1;
+            return 0;
         });
     }
 

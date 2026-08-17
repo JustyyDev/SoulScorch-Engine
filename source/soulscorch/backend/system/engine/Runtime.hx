@@ -1,8 +1,8 @@
 package soulscorch.backend.system.engine;
 
 import flixel.FlxG;
-import soulscorch.backend.system.GameConfig;
-import soulscorch.ui.menus.TitleState;
+import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.ui.menus.states.TitleState;
 
 class Runtime {
     public static var engine(default, null):Engine;

@@ -4,6 +4,9 @@ import flixel.FlxG;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModLoader;
+
+using StringTools;
 
 class ScriptedState extends Scene {
     public var scriptName:String;

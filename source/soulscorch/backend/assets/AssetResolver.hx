@@ -1,18 +1,17 @@
 package soulscorch.backend.assets;
 
-import flixel.FlxG;
 import flixel.graphics.FlxGraphic;
-import haxe.Json;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
-import openfl.utils.Assets as OpenFLAssets;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 #end
+
+using StringTools;
 
 class AssetResolver {
     public static function exists(path:String):Bool {
@@ -22,94 +21,73 @@ class AssetResolver {
         if (FileSystem.exists(path)) return true;
         #end
 
-        var modPath = ModLoader.getPath(path);
-        #if sys
-        if (modPath != null && FileSystem.exists(modPath)) return true;
-        #end
-
-        return OpenFLAssets.exists(path);
+        return openfl.utils.Assets.exists(path);
     }
 
     public static function getText(path:String):String {
         if (path == null || path.trim().length == 0) return "";
 
-        var resolved = ModLoader.getPath(path);
         #if sys
-        if (resolved != null && FileSystem.exists(resolved)) {
-            return File.getContent(resolved);
-        }
         if (FileSystem.exists(path)) {
-            return File.getContent(path);
+            try {
+                return File.getContent(path);
+            } catch (e:Dynamic) {
+                Logger.error('Failed reading text file at $path: $e', "assets");
+            }
         }
         #end
 
-        if (OpenFLAssets.exists(path)) {
-            return OpenFLAssets.getText(path);
+        if (openfl.utils.Assets.exists(path)) {
+            var raw = openfl.utils.Assets.getText(path);
+            if (raw != null && raw.trim().length > 0) {
+                return raw;
+            }
         }
 
         return "";
     }
 
-    public static function getJson(path:String):Dynamic {
-        var raw = getText(path);
-        if (raw != null && raw.trim().length > 0) {
+    public static function getSound(path:String):Null<Sound> {
+        if (path == null || path.trim().length == 0) return null;
+
+        #if sys
+        if (FileSystem.exists(path)) {
             try {
-                return Json.parse(raw);
+                return Sound.fromFile(path);
             } catch (e:Dynamic) {
-                Logger.error('Failed parsing JSON at $path: $e');
-            }
-        }
-        return null;
-    }
-
-    public static function getImage(path:String, ?persist:Bool = true):FlxGraphic {
-        if (path == null || path.trim().length == 0) return null;
-
-        var resolved = ModLoader.getPath(path);
-
-        // Check Flixel graphic cache first
-        if (FlxG.bitmap.checkCache(resolved)) {
-            return FlxG.bitmap.get(resolved);
-        }
-
-        #if sys
-        var targetFile = (resolved != null && FileSystem.exists(resolved)) ? resolved : (FileSystem.exists(path) ? path : null);
-        if (targetFile != null) {
-            var bitmap = BitmapData.fromFile(targetFile);
-            if (bitmap != null) {
-                var graphic = FlxGraphic.fromBitmapData(bitmap, false, targetFile);
-                graphic.persist = persist;
-                graphic.destroyOnNoUse = !persist;
-                return graphic;
+                Logger.error('Failed loading native sound from $path: $e', "assets");
             }
         }
         #end
 
-        if (OpenFLAssets.exists(path)) {
-            return FlxG.bitmap.add(path, false, path);
+        if (openfl.utils.Assets.exists(path)) {
+            return openfl.utils.Assets.getSound(path);
         }
 
-        Logger.warn('Image not found: $path');
         return null;
     }
 
-    public static function getSound(path:String):Sound {
+    public static function getBitmapData(path:String):Null<BitmapData> {
         if (path == null || path.trim().length == 0) return null;
 
-        var resolved = ModLoader.getPath(path);
-
         #if sys
-        var targetFile = (resolved != null && FileSystem.exists(resolved)) ? resolved : (FileSystem.exists(path) ? path : null);
-        if (targetFile != null) {
-            return Sound.fromFile(targetFile);
+        if (FileSystem.exists(path)) {
+            try {
+                return BitmapData.fromFile(path);
+            } catch (e:Dynamic) {
+                Logger.error('Failed loading native bitmap from $path: $e', "assets");
+            }
         }
         #end
 
-        if (OpenFLAssets.exists(path)) {
-            return OpenFLAssets.getSound(path);
+        if (openfl.utils.Assets.exists(path)) {
+            return openfl.utils.Assets.getBitmapData(path);
         }
 
-        Logger.warn('Sound not found: $path');
         return null;
+    }
+
+    public static function getImage(path:String):Null<BitmapData> {
+        return getBitmapData(path);
     }
 }

@@ -1,16 +1,19 @@
 package soulscorch.gameplay.song;
 
+import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.system.apis.FileSystemAPI;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongMetadata;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 #end
+
+using StringTools;
 
 typedef RegisteredSong = {
     var id:String;
@@ -32,10 +35,8 @@ class SongRegistry {
         var scannedIds:Map<String, Bool> = new Map();
 
         #if sys
-        // 1. Scan Base songs
         scanFolder("assets/songs", scannedIds);
 
-        // 2. Scan active mods
         for (mod in ModLoader.activeMods) {
             scanFolder('mods/$mod/songs', scannedIds);
             scanFolder('mods/$mod/assets/songs', scannedIds);
@@ -75,7 +76,13 @@ class SongRegistry {
                         if (meta.player2 != null) char = meta.player2;
                         if (meta.freeplayIcon != null) char = meta.freeplayIcon;
                         if (meta.difficulties != null && meta.difficulties.length > 0) diffs = meta.difficulties;
-                    } catch (e:Dynamic) {}
+                        if (meta.color != null) {
+                            var parsedColor = FlxColor.fromString(meta.color);
+                            if (parsedColor != null) color = parsedColor;
+                        }
+                    } catch (e:Dynamic) {
+                        Logger.warn('Failed parsing meta in $metaPath: $e', "registry");
+                    }
                 }
 
                 songs.push({

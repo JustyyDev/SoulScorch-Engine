@@ -1,13 +1,14 @@
-package soulscorch.menus.substate;
+package soulscorch.ui.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.gameplay.PlayState;
-import soulscorch.menus.states.MainMenuState;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class GameOverSubState extends MusicBeatSubstate {
     private var bfDead:FlxSprite;
@@ -31,7 +32,7 @@ class GameOverSubState extends MusicBeatSubstate {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
+        if (bfDead.animation.curAnim != null && bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
             bfDead.animation.play("deathLoop");
             FlxG.sound.playMusic(Paths.music("gameOver"), 0.7);
         }
@@ -39,7 +40,7 @@ class GameOverSubState extends MusicBeatSubstate {
         if (Controls.instance.ACCEPT && !isEnding) {
             isEnding = true;
             bfDead.animation.play("deathConfirm");
-            FlxG.sound.music.stop();
+            if (FlxG.sound.music != null) FlxG.sound.music.stop();
             AssetHelper.playSoundSafely("gameOverEnd", 0.8);
 
             new flixel.util.FlxTimer().start(2.0, function(_) {
@@ -50,7 +51,7 @@ class GameOverSubState extends MusicBeatSubstate {
 
         if (Controls.instance.BACK && !isEnding) {
             isEnding = true;
-            FlxG.sound.music.stop();
+            if (FlxG.sound.music != null) FlxG.sound.music.stop();
             if (PlayState.instance != null) PlayState.instance.paused = false;
             MusicBeatState.switchState(new MainMenuState());
         }

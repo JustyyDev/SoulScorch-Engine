@@ -13,6 +13,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.scoring.SongStats;
+import soulscorch.ui.menus.states.FreeplayState;
 
 class ResultsState extends MusicBeatState {
     private var stats:SongStats;

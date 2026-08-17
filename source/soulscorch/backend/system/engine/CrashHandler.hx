@@ -1,6 +1,7 @@
 package soulscorch.backend.system.engine;
 
 import haxe.CallStack;
+import openfl.errors.Error;
 import openfl.events.UncaughtErrorEvent;
 import openfl.Lib;
 import soulscorch.backend.system.apis.NativeAPI;

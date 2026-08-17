@@ -5,6 +5,8 @@ import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
 
+using StringTools;
+
 class InputMap {
     public static var keyBinds:Map<String, Array<FlxKey>> = new Map();
     public static var padBinds:Map<String, Array<FlxGamepadInputID>> = new Map();

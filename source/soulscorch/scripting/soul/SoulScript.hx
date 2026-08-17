@@ -1,9 +1,8 @@
 package soulscorch.scripting.soul;
 
-package soulscorch.scripting.soul;
-
 import flixel.FlxG;
 import flixel.math.FlxMath;
+import flixel.util.FlxColor;
 import hscript.Expr;
 import hscript.Interp;
 import hscript.Parser;
@@ -14,8 +13,10 @@ import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.mod.ModLoader;
+
+using StringTools;
 
 class SoulScript implements ScriptInstance {
     public var active:Bool = false;
@@ -57,12 +58,26 @@ class SoulScript implements ScriptInstance {
         set("FlxTween", flixel.tweens.FlxTween);
         set("FlxEase", flixel.tweens.FlxEase);
         set("FlxTimer", flixel.util.FlxTimer);
-        set("FlxColor", flixel.util.FlxColor);
+        set("FlxColor", {
+            BLACK: 0xFF000000,
+            WHITE: 0xFFFFFFFF,
+            RED: 0xFFFF0000,
+            GREEN: 0xFF00FF00,
+            BLUE: 0xFF0000FF,
+            CYAN: 0xFF00FFFF,
+            MAGENTA: 0xFFFF00FF,
+            YELLOW: 0xFFFFFF00,
+            TRANSPARENT: 0x00000000,
+            fromRGB: FlxColor.fromRGB,
+            fromHSL: FlxColor.fromHSL,
+            fromString: FlxColor.fromString,
+            colorLookup: FlxColor.colorLookup
+        });
 
         set("Runtime", Runtime.engine);
         set("Conductor", Conductor);
         set("Paths", Paths);
-        set("EventBus", EventBus);
+        set("EventBus", EventBus.instance);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
 
@@ -71,12 +86,12 @@ class SoulScript implements ScriptInstance {
     }
 
     public function load():Bool {
-        if (path == null || StringTools.trim(path).length == 0) {
+        if (path == null || path.trim().length == 0) {
             active = false;
             return false;
         }
 
-        var fullPath = ModLoader.getPath(StringTools.trim(path));
+        var fullPath = ModLoader.getPath(path.trim());
         if (!AssetResolver.exists(fullPath)) {
             active = false;
             return false;

@@ -1,4 +1,4 @@
-package soulscorch.menus.states;
+package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -13,6 +13,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
+import soulscorch.ui.menus.states.MainMenuState;
 
 typedef WeekData = {
     var id:String;
@@ -34,7 +35,7 @@ class StoryMenuState extends MusicBeatState {
         },
         {
             id: "week1",
-            name: "SCORCHED EMBERS",
+            name: "SCORCHED WEEK IDK",
             songs: ["Bopeebo", "Fresh", "Dad Battle"],
             characters: ["dad", "bf", "gf"]
         }

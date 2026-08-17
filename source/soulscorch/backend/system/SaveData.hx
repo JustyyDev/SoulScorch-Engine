@@ -1,6 +1,10 @@
 package soulscorch.backend.system;
 
+import flixel.FlxG;
 import flixel.util.FlxSave;
+import soulscorch.backend.utils.Logger;
+
+using StringTools;
 
 typedef SongScoreEntry = {
     var score:Int;

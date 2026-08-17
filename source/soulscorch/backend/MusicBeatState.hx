@@ -9,10 +9,6 @@ import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
 
 class MusicBeatState extends Scene implements IBeatReceiver {
-    private var curStep:Int = 0;
-    private var curBeat:Int = 0;
-    private var curMeasure:Int = 0;
-
     public static var defaultTransition:TransitionData = new TransitionData(FADE, IN, 0.4);
 
     override public function update(elapsed:Float):Void {
@@ -39,7 +35,7 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         curMeasure = Math.floor(curBeat / 4);
     }
 
-    public function stepHit(step:Int):Void {
+    override public function stepHit(step:Int):Void {
         if (step % 4 == 0) {
             beatHit(curBeat);
         }
@@ -48,8 +44,8 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         }
     }
 
-    public function beatHit(beat:Int):Void {}
-    public function measureHit(measure:Int):Void {}
+    override public function beatHit(beat:Int):Void {}
+    override public function measureHit(measure:Int):Void {}
 
     public static function switchState(nextState:FlxState, ?transData:TransitionData):Void {
         var transition = transData != null ? transData : defaultTransition;

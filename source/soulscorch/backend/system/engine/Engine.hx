@@ -5,17 +5,16 @@ import openfl.system.System;
 import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.Achievements;
 import soulscorch.backend.system.EventBus;
-import soulscorch.backend.system.GameConfig;
-import soulscorch.backend.system.Module;
 import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.Scene;
-import soulscorch.backend.system.framerate.EngineProfiler;
+import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.backend.system.modules.Module;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
-import soulscorch.scripting.ModLoader;
-import soulscorch.scripting.ModRegistry;
 import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModRegistry;
 
 class Engine {
     public static var instance(default, null):Engine;
@@ -65,14 +64,12 @@ class Engine {
 
         register("save", new SaveData());
         register("achievements", new Achievements());
-        register("events", EventBus);
+        register("events", EventBus.instance);
         register("scheduler", new Scheduler());
         register("notifications", new NotificationManager());
         register("scripts", new ScriptManager());
         
         LanguageManager.instance.load();
-
-        registerModule(new EngineProfiler());
 
         Logger.info('${Version.fullVersion()} initialized.');
 
@@ -81,7 +78,7 @@ class Engine {
     }
 
     public function registerModule(module:Module):Void {
-        if (modules.exists(module.name)) return;
+        if (module == null || modules.exists(module.name)) return;
         module.initialize();
         modules.set(module.name, module);
     }

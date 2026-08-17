@@ -1,4 +1,4 @@
-package soulscorch.menus.states;
+package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;

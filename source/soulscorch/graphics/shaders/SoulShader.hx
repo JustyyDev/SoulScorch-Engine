@@ -1,9 +1,9 @@
-package soulscorch.system;
+package soulscorch.graphics.shaders;
 
 import flixel.system.FlxAssets.FlxShader;
 import openfl.display.BitmapData;
-import soulscorch.assets.AssetResolver;
-import soulscorch.modding.ModLoader;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.scripting.mod.ModLoader;
 
 class SoulShader extends FlxShader {
     public var shaderName:String = "SoulShader";
@@ -21,7 +21,6 @@ class SoulShader extends FlxShader {
             if (AssetResolver.exists(path)) vertSource = AssetResolver.getText(path);
         }
 
-        // Auto-inject OpenFL/Flixel standard header if #pragma header is used in .frag/.vert
         if (fragSource != "") {
             this.glFragmentSource = expandPragmaHeader(fragSource);
             this.shaderName = fragFile;
@@ -33,14 +32,12 @@ class SoulShader extends FlxShader {
         super();
     }
 
-    // 1. Texture / Sampler2D support (Crucial for noise textures, LUTs, and masks)
     public function setSampler2D(name:String, bitmap:BitmapData):Void {
         if (Reflect.hasField(this.data, name)) {
             Reflect.field(this.data, name).input = bitmap;
         }
     }
 
-    // 2. Uniform Getters (Allows SoulScript / HScript to tween values smoothly)
     public function getFloat(name:String):Float {
         if (Reflect.hasField(this.data, name)) {
             var val:Array<Float> = Reflect.field(this.data, name).value;

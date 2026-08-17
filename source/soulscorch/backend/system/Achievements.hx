@@ -74,8 +74,8 @@ class Achievements {
 
         var def = definitions.get(id);
         Logger.info('Achievement Unlocked: ${def.title} (${def.id})');
-        EventBus.emit("achievement/unlocked", def);
-
+        EventBus.instance.emit("achievement/unlocked", def);
+        
         popupQueue.push(def);
         if (!isDisplayingPopup) {
             displayNextPopup();

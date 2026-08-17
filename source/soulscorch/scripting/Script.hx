@@ -1,8 +1,8 @@
 package soulscorch.scripting;
 
 import flixel.FlxG;
-import flixel.FlxSprite;
 import flixel.math.FlxMath;
+import flixel.util.FlxColor;
 import hscript.Expr;
 import hscript.Interp;
 import hscript.Parser;
@@ -11,8 +11,13 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.engine.DevConsole;
+import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.mod.ModLoader;
+
+using StringTools;
 
 class Script implements ScriptInstance {
     public var active:Bool = false;
@@ -40,79 +45,70 @@ class Script implements ScriptInstance {
     }
 
     public function setupGlobals():Void {
-        // Core Haxe Types
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
-        set("Date", Date);
         #if sys set("Sys", Sys); #end
 
-        // Flixel Core & Hierarchy
         set("FlxG", FlxG);
         set("FlxSprite", flixel.FlxSprite);
-        set("FlxBasic", flixel.FlxBasic);
         set("FlxCamera", flixel.FlxCamera);
-        set("FlxObject", flixel.FlxObject);
-        set("FlxGroup", flixel.group.FlxGroup);
-        set("FlxTypedGroup", flixel.group.FlxGroup.FlxTypedGroup);
-        set("FlxSpriteGroup", flixel.group.FlxSpriteGroup);
         set("FlxText", flixel.text.FlxText);
-
-        // Flixel Tweens, Timers & Math
         set("FlxMath", flixel.math.FlxMath);
-        set("FlxTimer", flixel.util.FlxTimer);
         set("FlxTween", flixel.tweens.FlxTween);
         set("FlxEase", flixel.tweens.FlxEase);
-        set("FlxColor", flixel.util.FlxColor);
+        set("FlxTimer", flixel.util.FlxTimer);
+        set("FlxColor", {
+            BLACK: 0xFF000000,
+            WHITE: 0xFFFFFFFF,
+            RED: 0xFFFF0000,
+            GREEN: 0xFF00FF00,
+            BLUE: 0xFF0000FF,
+            CYAN: 0xFF00FFFF,
+            MAGENTA: 0xFFFF00FF,
+            YELLOW: 0xFFFFFF00,
+            TRANSPARENT: 0x00000000,
+            fromRGB: FlxColor.fromRGB,
+            fromHSL: FlxColor.fromHSL,
+            fromString: FlxColor.fromString,
+            colorLookup: FlxColor.colorLookup
+        });
 
-        // Flixel Audio
-        set("FlxSound", flixel.sound.FlxSound);
-        set("FlxSoundGroup", flixel.sound.FlxSoundGroup);
-
-        // SoulScorch Backend Systems
         set("Runtime", Runtime.engine);
-        set("Engine", soulscorch.backend.system.engine.Engine.instance);
+        set("Engine", Engine.instance);
         set("Conductor", Conductor);
         set("Paths", Paths);
-        set("EventBus", EventBus);
+        set("EventBus", EventBus.instance);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
         set("ModManager", ModLoader);
-        set("script", this);
-        set("scriptPath", path);
 
-        #if desktop
-        set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
-        #end
+        set("game", FlxG.state);
+        set("state", FlxG.state);
     }
 
     public function load():Bool {
-        if (path == null || StringTools.trim(path).length == 0) {
+        if (path == null || path.trim().length == 0) {
             active = false;
             return false;
         }
 
-        var fullPath = ModLoader.getPath(StringTools.trim(path));
-        if (fullPath == null || fullPath.length == 0 || StringTools.endsWith(fullPath, "/")) {
-            active = false;
-            return false;
-        }
-
+        var fullPath = ModLoader.getPath(path.trim());
         if (!AssetResolver.exists(fullPath)) {
             active = false;
             return false;
         }
 
         try {
-            var code = AssetResolver.getText(fullPath);
-            ast = parser.parseString(code);
+            var rawCode = AssetResolver.getText(fullPath);
+            ast = parser.parseString(rawCode);
             interp.execute(ast);
             active = true;
             return true;
         } catch (e:Dynamic) {
-            Logger.error('Script parse/execute error in $path: $e', "script");
+            Logger.error('Script parse/runtime error in $path: $e', "script");
             if (DevConsole.instance != null) {
-                DevConsole.instance.log('[HSCRIPT ERROR] $path: ' + Std.string(e));
+                DevConsole.instance.log('[SCRIPT ERROR] $path: ' + Std.string(e));
             }
             active = false;
             return false;
@@ -126,10 +122,7 @@ class Script implements ScriptInstance {
     }
 
     public function get(key:String):Dynamic {
-        if (interp != null) {
-            return interp.variables.get(key);
-        }
-        return null;
+        return (interp != null) ? interp.variables.get(key) : null;
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
@@ -140,10 +133,7 @@ class Script implements ScriptInstance {
             try {
                 return Reflect.callMethod(null, fn, (args != null) ? args : []);
             } catch (e:Dynamic) {
-                Logger.error('Runtime error executing $func in $path: $e', "script");
-                if (DevConsole.instance != null) {
-                    DevConsole.instance.log('[HSCRIPT RUNTIME] $path ($func): ' + Std.string(e));
-                }
+                Logger.error('Runtime error in script $func ($path): $e', "script");
             }
         }
         return null;

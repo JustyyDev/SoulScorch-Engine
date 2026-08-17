@@ -48,7 +48,6 @@ class EventBus {
     public function emit(event:String, ?data:Dynamic):Void {
         if (!handlers.exists(event)) return;
 
-        // Copy array to prevent mutation errors if listeners remove themselves during dispatch
         var list = handlers.get(event).copy();
         for (handler in list) {
             if (handler != null) {
@@ -76,6 +75,15 @@ class EventBus {
     }
 
     public static inline function publish(event:String, ?data:Dynamic):Void {
+        instance.emit(event, data);
+    }
+
+    public static inline function emitEvent(event:String, ?data:Dynamic):Void {
+        instance.emit(event, data);
+    }
+
+    @:overload(function(event:String, ?data:Dynamic):Void {})
+    public static function emitStatic(event:String, ?data:Dynamic):Void {
         instance.emit(event, data);
     }
 }

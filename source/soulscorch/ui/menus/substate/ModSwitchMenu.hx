@@ -1,4 +1,4 @@
-package soulscorch.menus.substate;
+package soulscorch.ui.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -55,7 +55,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
         descText.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, LEFT);
         add(descText);
 
-        var help = new FlxText(20, FlxG.height - 40, FlxG.width - 40, "[SPACE] Toggle Mod | [W/S] Reorder Priority | [ESC] Apply & Exit", 16);
+        var help = new FlxText(20, FlxG.height - 40, FlxG.width - 40, "[SPACE] Toggle Mod | [W/S] Shift Priority | [ESC] Apply & Exit", 16);
         help.setFormat(Paths.font("vcr"), 16, 0xFFAAAAAA, CENTER);
         add(help);
 
@@ -99,7 +99,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
             changeSelection();
         }
 
-        // Shift priority up/down
         if (FlxG.keys.justPressed.W && curSelected > 0) {
             var temp = modList[curSelected];
             modList[curSelected] = modList[curSelected - 1];

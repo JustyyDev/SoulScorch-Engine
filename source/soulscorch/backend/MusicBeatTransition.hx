@@ -15,7 +15,7 @@ class MusicBeatTransition extends FlxSpriteGroup {
     public static var isTransitioning:Bool = false;
 
     private var gradient:FlxSprite;
-    private var solid:FlxSprite;
+    private var solidBg:FlxSprite;
     private var data:TransitionData;
     private var onFinish:Void->Void;
 
@@ -39,23 +39,23 @@ class MusicBeatTransition extends FlxSpriteGroup {
         var height = FlxG.height;
 
         if (data.type == FADE) {
-            solid = new FlxSprite().makeGraphic(width, height, data.color);
-            solid.alpha = (data.direction == IN) ? 0.0 : 1.0;
-            add(solid);
+            solidBg = new FlxSprite().makeGraphic(width, height, data.color);
+            solidBg.alpha = (data.direction == IN) ? 0.0 : 1.0;
+            add(solidBg);
 
             var targetAlpha = (data.direction == IN) ? 1.0 : 0.0;
-            FlxTween.tween(solid, {alpha: targetAlpha}, data.duration, {
+            FlxTween.tween(solidBg, {alpha: targetAlpha}, data.duration, {
                 ease: data.ease,
                 onComplete: function(_) complete()
             });
         } else {
             gradient = FlxGradient.createGradientFlxSprite(width, Std.int(height * 0.5), [data.color, FlxColor.TRANSPARENT]);
-            solid = new FlxSprite().makeGraphic(width, height, data.color);
+            solidBg = new FlxSprite().makeGraphic(width, height, data.color);
 
             if (data.direction == IN) {
                 gradient.y = -gradient.height;
-                solid.y = -solid.height - gradient.height;
-                add(solid);
+                solidBg.y = -solidBg.height - gradient.height;
+                add(solidBg);
                 add(gradient);
 
                 FlxTween.tween(this, {y: height + gradient.height}, data.duration, {
@@ -65,8 +65,8 @@ class MusicBeatTransition extends FlxSpriteGroup {
             } else {
                 gradient.flipY = true;
                 gradient.y = height;
-                solid.y = 0;
-                add(solid);
+                solidBg.y = 0;
+                add(solidBg);
                 add(gradient);
 
                 FlxTween.tween(this, {y: height + gradient.height}, data.duration, {

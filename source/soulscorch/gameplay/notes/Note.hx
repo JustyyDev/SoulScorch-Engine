@@ -9,10 +9,10 @@ import soulscorch.backend.audio.Conductor;
 
 class Note extends FlxSprite {
     public static inline var LANE_COUNT:Int = 4;
-    public static inline var NOTE_SIZE:Int = 112; // Standard base note width[cite: 71]
-    public static inline var PIXELS_PER_MS:Float = 0.45; // Pixel scroll factor[cite: 69]
+    public static inline var NOTE_SIZE:Int = 112; // Standard base note width  
+    public static inline var PIXELS_PER_MS:Float = 0.45; // Pixel scroll factor  
 
-    public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];[cite: 71]
+    public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];  
 
     public var strumTime:Float;
     public var noteData(default, set):Int;
@@ -29,9 +29,9 @@ class Note extends FlxSprite {
     public var noteType:String = "Default";
     public var downscroll:Bool = false;
 
-    public var hitHealth:Float = 0.025;[cite: 71]
-    public var missHealth:Float = 0.0475;[cite: 71]
-    public var hitWindow:Float = 160.0;[cite: 69]
+    public var hitHealth:Float = 0.025;  
+    public var missHealth:Float = 0.0475;  
+    public var hitWindow:Float = 160.0;  
     public var sustainScale:Float = 1.0;
 
     public var offsetX:Float = 0.0;
@@ -50,7 +50,7 @@ class Note extends FlxSprite {
         super();
         this.strumTime = strumTime;
         this.noteData = noteData;
-        this.sustainLength = Math.max(0.0, sustainLength);[cite: 69]
+        this.sustainLength = Math.max(0.0, sustainLength);  
         this.parentNote = parentNote;
         this.isSustainNote = isSustainNote;
         this.isSustainEnd = isSustainEnd;
@@ -83,29 +83,29 @@ class Note extends FlxSprite {
         if (loaded) {
             if (isSustainEnd) {
                 if (noteData % LANE_COUNT == 0) {
-                    animation.addByPrefix('holdend', 'pruple end hold', 24, true);[cite: 71]
+                    animation.addByPrefix('holdend', 'pruple end hold', 24, true);  
                 } else {
-                    animation.addByPrefix('holdend', dirName + ' hold end', 24, true);[cite: 71]
+                    animation.addByPrefix('holdend', dirName + ' hold end', 24, true);  
                 }
                 animation.play('holdend');
             } else if (isSustainNote) {
-                animation.addByPrefix('holdpiece', dirName + ' hold piece', 24, true);[cite: 71]
+                animation.addByPrefix('holdpiece', dirName + ' hold piece', 24, true);  
                 animation.play('holdpiece');
             } else {
-                animation.addByPrefix('scroll', dirName + '0', 24, true);[cite: 71]
+                animation.addByPrefix('scroll', dirName + '0', 24, true);  
                 animation.play('scroll');
             }
 
-            setGraphicSize(Std.int(width * 0.7));[cite: 71, 73]
+            setGraphicSize(Std.int(width * 0.7));  
             updateHitbox();
         } else {
-            makeGraphic(NOTE_SIZE, NOTE_SIZE, colorForDirection(noteData));[cite: 71]
-            setGraphicSize(Std.int(width * 0.7));[cite: 71]
+            makeGraphic(NOTE_SIZE, NOTE_SIZE, colorForDirection(noteData));  
+            setGraphicSize(Std.int(width * 0.7));  
             updateHitbox();
         }
 
         if (isSustainNote) {
-            alpha = 0.6;[cite: 71]
+            alpha = 0.6;  
         }
 
         antialiasing = true;
@@ -119,7 +119,7 @@ class Note extends FlxSprite {
         this.downscroll = downscroll;
         var songPos = Conductor.songPosition;
         var speedMod = scrollSpeed * PIXELS_PER_MS;
-        var distance:Float = (strumTime - songPos) * speedMod;[cite: 69]
+        var distance:Float = (strumTime - songPos) * speedMod;  
 
         x = receptorX + offsetX;
 
@@ -135,7 +135,7 @@ class Note extends FlxSprite {
         // Timing validation
         var safeZone = (Conductor.safeZoneOffset > 0) ? Conductor.safeZoneOffset : hitWindow;
         canBeHit = (strumTime <= songPos + safeZone && strumTime >= songPos - (safeZone * 0.5));
-        tooLate = (songPos - strumTime > safeZone && !wasGoodHit);[cite: 69]
+        tooLate = (songPos - strumTime > safeZone && !wasGoodHit);  
 
         // Handle sustain clipping when held past target receptor
         if (isSustainNote && wasGoodHit && songPos > strumTime) {
@@ -155,10 +155,10 @@ class Note extends FlxSprite {
 
     public static function colorForDirection(direction:Int):FlxColor {
         return switch (direction % LANE_COUNT) {
-            case 0: 0xFFC24B99; // Left (Purple)[cite: 71]
-            case 1: 0xFF00FFFF; // Down (Cyan)[cite: 71]
-            case 2: 0xFF12FA05; // Up (Green)[cite: 71]
-            default: 0xFFF9393F; // Right (Red)[cite: 71]
+            case 0: 0xFFC24B99; // Left (Purple)  
+            case 1: 0xFF00FFFF; // Down (Cyan)  
+            case 2: 0xFF12FA05; // Up (Green)  
+            default: 0xFFF9393F; // Right (Red)  
         };
     }
 }

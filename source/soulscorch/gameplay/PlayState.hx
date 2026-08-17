@@ -36,9 +36,9 @@ import soulscorch.gameplay.scoring.SongStats;
 import soulscorch.gameplay.song.SongLoader;
 import soulscorch.gameplay.stage.Stage;
 import soulscorch.scripting.ScriptManager;
-import soulscorch.menus.states.ResultsState;
-import soulscorch.menus.substate.GameOverSubState;
-import soulscorch.menus.substate.PauseSubState;
+import soulscorch.ui.menus.states.ResultsState;
+import soulscorch.ui.menus.substate.GameOverSubState;
+import soulscorch.ui.menus.substate.PauseSubState;
 
 class PlayState extends MusicBeatState {
     public static var instance:PlayState;
@@ -86,6 +86,7 @@ class PlayState extends MusicBeatState {
     public var iconP1:HealthIcon;
     public var iconP2:HealthIcon;
     public var scoreTxt:FlxText;
+    public var botplayTxt:FlxText;
 
     // --- Configuration State ---
     public var songSpeed:Float = 2.2;
@@ -94,6 +95,7 @@ class PlayState extends MusicBeatState {
     public var startedCountdown:Bool = false;
     public var ghostTapping:Bool = true;
     public var downscroll:Bool = false;
+    public var botplay:Bool = false;
     public var cameraZoomOnBeat:Bool = true;
     public var allowPause:Bool = true;
     public var noteSplashEnabled:Bool = true;
@@ -146,6 +148,7 @@ class PlayState extends MusicBeatState {
 
         ghostTapping = GameplayFlags.getBool("ghostTapping", true);
         downscroll = GameplayFlags.getBool("downscroll", false);
+        botplay = GameplayFlags.getBool("botplay", false);
         allowPause = GameplayFlags.getBool("allowPause", true);
         cameraZoomOnBeat = GameplayFlags.getBool("cameraZoomOnBeat", true);
         noteSplashEnabled = GameplayFlags.getBool("noteSplash", true);
@@ -262,6 +265,14 @@ class PlayState extends MusicBeatState {
         scoreTxt.cameras = [camHUD];
         add(scoreTxt);
 
+        botplayTxt = new FlxText(0, healthBarBG.y + (downscroll ? 55 : -35), FlxG.width, "BOTPLAY", 24);
+        botplayTxt.setFormat(Paths.font("vcr"), 24, 0xFFFFCC00, CENTER, OUTLINE, FlxColor.BLACK);
+        botplayTxt.borderSize = 1.5;
+        botplayTxt.scrollFactor.set(0, 0);
+        botplayTxt.cameras = [camHUD];
+        botplayTxt.visible = botplay;
+        add(botplayTxt);
+
         updateIconPositions();
     }
 
@@ -370,31 +381,34 @@ class PlayState extends MusicBeatState {
             if (targetStrum != null) {
                 daNote.updatePosition(targetStrum.x, targetStrum.y, songSpeed, downscroll);
 
-                // Apply dynamic modchart trajectory
                 if (modcharts != null) {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
                 }
 
-                // Opponent auto-hit
-                if (!daNote.mustPress && daNote.strumTime <= Conductor.songPosition) {
-                    targetStrum.playAnim("confirm", true);
-                    targetStrum.resetAnim = 0.15;
+                // Botplay & Opponent auto-hit
+                if ((!daNote.mustPress || botplay) && daNote.strumTime <= Conductor.songPosition) {
+                    if (daNote.mustPress) {
+                        goodNoteHit(daNote);
+                    } else {
+                        targetStrum.playAnim("confirm", true);
+                        targetStrum.resetAnim = 0.15;
 
-                    if (dad != null) {
-                        dad.playSingAnim(daNote.noteData);
-                        camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
+                        if (dad != null) {
+                            dad.playSingAnim(daNote.noteData);
+                            camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
+                        }
+
+                        audio.muteVocal(false, false);
+                        daNote.kill();
+                        notes.remove(daNote, true);
+                        daNote.destroy();
                     }
-
-                    audio.muteVocal(false, false);
-                    daNote.kill();
-                    notes.remove(daNote, true);
-                    daNote.destroy();
                     return;
                 }
             }
 
-            // Miss detection
-            if (daNote.mustPress && daNote.strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !daNote.wasGoodHit) {
+            // Player miss detection
+            if (daNote.mustPress && !botplay && daNote.strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !daNote.wasGoodHit) {
                 daNote.tooLate = true;
                 noteMiss(daNote.noteData);
                 daNote.kill();
@@ -405,12 +419,24 @@ class PlayState extends MusicBeatState {
     }
 
     private function handleInput():Void {
+        if (botplay) return;
+
         var keyNames = ["left", "down", "up", "right"];
         for (i in 0...keyNames.length) {
             keysHeld[i] = InputMap.pressed(keyNames[i]);
 
             if (InputMap.justPressed(keyNames[i])) pressStrum(i);
             if (InputMap.justReleased(keyNames[i])) releaseStrum(i);
+
+            if (keysHeld[i]) {
+                notes.forEachAlive(function(daNote:Note) {
+                    if (daNote.mustPress && daNote.noteData == i && daNote.isSustainNote && daNote.canBeHit && !daNote.wasGoodHit) {
+                        if (daNote.strumTime <= Conductor.songPosition + (Conductor.stepCrochet * 0.5)) {
+                            goodNoteHit(daNote);
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -584,7 +610,7 @@ class PlayState extends MusicBeatState {
         }
 
         scripts.callAll("onSongEnd", [stats]);
-        FlxG.switchState(new ResultsState(stats));
+        MusicBeatState.switchState(new ResultsState(stats));
     }
 
     override public function destroy():Void {

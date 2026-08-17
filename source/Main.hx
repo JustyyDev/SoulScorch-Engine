@@ -22,15 +22,15 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
-import soulscorch.backend.system.engine.Runtime;
+import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
-import soulscorch.menus.states.TitleState;
-import soulscorch.menus.substate.ModSwitchMenu;
 import soulscorch.scripting.FileWatcher;
 import soulscorch.ui.menus.editors.EditorPickerMenu;
+import soulscorch.ui.menus.states.TitleState;
+import soulscorch.ui.menus.substate.ModSwitchMenu;
 
 class Main extends Sprite {
     var gameWidth:Int = 1280;
@@ -62,11 +62,12 @@ class Main extends Sprite {
     }
 
     private function init():Void {
-        var engineInstance = Engine.instance;
-        Runtime.init();
+        var config = new GameConfig();
+        config.framerate = framerate;
+        Engine.boot(config).init();
 
         #if desktop
-        DiscordRPC.initialize();
+        DiscordRPC.changePresence("Starting Engine...", "Booting");
         Lib.current.stage.application.onExit.add(function(exitCode:Int) {
             DiscordRPC.shutdown();
         });

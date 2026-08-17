@@ -15,14 +15,16 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.mod.ModLoader;
 
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
 import llua.State;
 #end
+
+using StringTools;
 
 class LuaScript implements ScriptInstance {
     public var active:Bool = false;
@@ -72,7 +74,6 @@ class LuaScript implements ScriptInstance {
             return false;
         }
         #else
-        // Fallback simulated environment when compiled without native LuaJIT
         variables.set("FlxG", FlxG);
         variables.set("game", FlxG.state);
         variables.set("Conductor", Conductor);
@@ -83,7 +84,6 @@ class LuaScript implements ScriptInstance {
 
     #if (cpp && LUA_ALLOWED)
     private function registerLuaCallbacks():Void {
-        // --- Core Properties ---
         Lua_helper.add_callback(luaState, "getProperty", function(variable:String) {
             return getProperty(FlxG.state, variable);
         });
@@ -92,7 +92,6 @@ class LuaScript implements ScriptInstance {
             setProperty(FlxG.state, variable, value);
         });
 
-        // --- Sprites ---
         Lua_helper.add_callback(luaState, "makeLuaSprite", makeLuaSprite);
         Lua_helper.add_callback(luaState, "makeAnimatedLuaSprite", makeAnimatedLuaSprite);
         Lua_helper.add_callback(luaState, "addLuaSprite", addLuaSprite);
@@ -100,7 +99,6 @@ class LuaScript implements ScriptInstance {
         Lua_helper.add_callback(luaState, "setScrollFactor", setScrollFactor);
         Lua_helper.add_callback(luaState, "scaleObject", scaleObject);
 
-        // --- Tweens & Camera ---
         Lua_helper.add_callback(luaState, "doTweenX", doTweenX);
         Lua_helper.add_callback(luaState, "doTweenY", doTweenY);
         Lua_helper.add_callback(luaState, "doTweenAngle", doTweenAngle);
@@ -109,7 +107,6 @@ class LuaScript implements ScriptInstance {
         Lua_helper.add_callback(luaState, "cameraShake", cameraShake);
         Lua_helper.add_callback(luaState, "cameraFlash", cameraFlash);
 
-        // --- Audio ---
         Lua_helper.add_callback(luaState, "playSound", playSound);
     }
     #end

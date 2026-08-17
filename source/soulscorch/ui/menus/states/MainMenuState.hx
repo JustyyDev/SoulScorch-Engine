@@ -1,4 +1,4 @@
-package soulscorch.menus.states;
+package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -15,8 +15,11 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.menus.credits.CreditsState;
-import soulscorch.menus.option.OptionsMenuState;
+import soulscorch.ui.menus.credits.CreditsState;
+import soulscorch.ui.menus.option.OptionsMenuState;
+import soulscorch.ui.menus.states.FreeplayState;
+import soulscorch.ui.menus.states.StoryMenuState;
+import soulscorch.ui.menus.states.TitleState;
 
 class MainMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -37,7 +40,7 @@ class MainMenuState extends MusicBeatState {
         persistentUpdate = persistentDraw = true;
 
         bg = new FlxSprite(-80);
-        AssetHelper.loadGraphicSafely(bg, "menus/menuBG");
+        AssetHelper.loadGraphicSafely(bg, "menuBG");
         bg.scrollFactor.set(0, 0.15);
         bg.setGraphicSize(Std.int(bg.width * 1.175));
         bg.updateHitbox();
@@ -46,7 +49,7 @@ class MainMenuState extends MusicBeatState {
         add(bg);
 
         magenta = new FlxSprite(-80);
-        AssetHelper.loadGraphicSafely(magenta, "menus/menuDesat");
+        AssetHelper.loadGraphicSafely(magenta, "menuDesat");
         magenta.scrollFactor.set(0, 0.15);
         magenta.setGraphicSize(Std.int(magenta.width * 1.175));
         magenta.updateHitbox();

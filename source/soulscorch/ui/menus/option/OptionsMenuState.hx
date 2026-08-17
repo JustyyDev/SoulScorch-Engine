@@ -14,8 +14,8 @@ import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.gameplay.GameplayFlags;
-import soulscorch.menus.states.MainMenuState;
 import soulscorch.ui.menus.option.OptionCategory.OptionData;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class OptionsMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -36,7 +36,7 @@ class OptionsMenuState extends MusicBeatState {
         DiscordRPC.changePresence("Options Menu", "Adjusting Preferences");
 
         bg = new FlxSprite();
-        AssetHelper.loadGraphicSafely(bg, "menus/menuDesat");
+        AssetHelper.loadGraphicSafely(bg, "menuDesat");
         bg.color = 0xFF384252;
         bg.screenCenter();
         bg.antialiasing = true;

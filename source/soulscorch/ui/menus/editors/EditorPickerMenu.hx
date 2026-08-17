@@ -11,7 +11,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.menus.states.MainMenuState;
+import soulscorch.ui.menus.states.MainMenuState;
 import soulscorch.ui.menus.editors.character.CharacterEditorState;
 import soulscorch.ui.menus.editors.chart.ChartEditor;
 import soulscorch.ui.menus.editors.modchart.ModchartEditorState;

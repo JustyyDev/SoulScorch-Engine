@@ -1,4 +1,4 @@
-package soulscorch.menus.states;
+package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -17,6 +17,7 @@ import soulscorch.gameplay.actors.HealthIcon;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongRegistry;
 import soulscorch.gameplay.song.SongRegistry.RegisteredSong;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class FreeplayState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -44,7 +45,7 @@ class FreeplayState extends MusicBeatState {
         songs = SongRegistry.songs;
 
         bg = new FlxSprite();
-        AssetHelper.loadGraphicSafely(bg, "menus/menuDesat");
+        AssetHelper.loadGraphicSafely(bg, "menuDesat");
         bg.screenCenter();
         bg.antialiasing = true;
         add(bg);

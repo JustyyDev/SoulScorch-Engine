@@ -11,7 +11,7 @@ class ModState extends Scene {
     public function new(stateName:String, scriptPath:String) {
         super();
         this.stateName = stateName;
-        this.script = new HScriptIris(scriptPath);[cite: 59, 64]
+        this.script = new HScriptIris(scriptPath);
     }
 
     override public function create():Void {
@@ -19,10 +19,10 @@ class ModState extends Scene {
 
         if (script != null) {
             script.set("state", this);
-            script.set("add", this.add);[cite: 64]
-            script.set("remove", this.remove);[cite: 64]
-            script.set("insert", this.insert);[cite: 64]
-            script.set("members", this.members);[cite: 64]
+            script.set("add", this.add);
+            script.set("remove", this.remove);
+            script.set("insert", this.insert);
+            script.set("members", this.members);
             script.set("switchState", function(nextState) {
                 FlxG.switchState(nextState);
             });
@@ -31,7 +31,7 @@ class ModState extends Scene {
             });
 
             script.call("create");
-            script.call("onCreate");[cite: 64]
+            script.call("onCreate");
             script.call("postCreate");
             script.call("onCreatePost");
         }
@@ -40,7 +40,7 @@ class ModState extends Scene {
     override public function update(elapsed:Float):Void {
         if (script != null && script.active) {
             script.call("update", [elapsed]);
-            script.call("onUpdate", [elapsed]);[cite: 64]
+            script.call("onUpdate", [elapsed]);
         }
 
         super.update(elapsed);
@@ -55,7 +55,7 @@ class ModState extends Scene {
         super.beatHit(beat);
         if (script != null && script.active) {
             script.call("beatHit", [beat]);
-            script.call("onBeatHit", [beat]);[cite: 64]
+            script.call("onBeatHit", [beat]);
         }
     }
 
@@ -63,14 +63,14 @@ class ModState extends Scene {
         super.stepHit(step);
         if (script != null && script.active) {
             script.call("stepHit", [step]);
-            script.call("onStepHit", [step]);[cite: 64]
+            script.call("onStepHit", [step]);
         }
     }
 
     override public function destroy():Void {
         if (script != null) {
             script.call("destroy");
-            script.call("onDestroy");[cite: 64]
+            script.call("onDestroy");
             script.destroy();
             script = null;
         }

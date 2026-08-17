@@ -27,19 +27,18 @@ import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.apis.FileSystemAPI;
 import soulscorch.backend.system.apis.ModelAPI;
 import soulscorch.backend.system.apis.NativeAPI;
-import soulscorch.backend.system.apis.ShaderAPI;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
-import soulscorch.scripting.ModLoader;
 import soulscorch.scripting.Script;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.ScriptedSubState;
+import soulscorch.scripting.mod.ModLoader;
 
 class HScriptIris implements ScriptInstance {
     public var active:Bool = false;
@@ -109,7 +108,6 @@ class HScriptIris implements ScriptInstance {
         set("ShaderFilter", ShaderFilter);
         set("SoulShader", SoulShader);
         set("CustomShader", SoulShader);
-        set("ShaderAPI", ShaderAPI);
         set("Away3DManager", Away3DManager);
         set("ModelAPI", ModelAPI);
 
@@ -118,7 +116,7 @@ class HScriptIris implements ScriptInstance {
         set("Engine", Engine.instance);
         set("Conductor", Conductor);
         set("Paths", Paths);
-        set("EventBus", EventBus);
+        set("EventBus", EventBus.instance);
         set("Logger", Logger);
         set("NativeAPI", NativeAPI);
         set("FileSystem", FileSystemAPI);

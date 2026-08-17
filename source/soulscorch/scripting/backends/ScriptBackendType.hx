@@ -3,6 +3,8 @@ package soulscorch.scripting.backends;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.soul.SoulScript;
 
+using StringTools;
+
 enum abstract ScriptBackendType(String) from String to String {
     var HSCRIPT = "hscript";
     var LUA = "lua";

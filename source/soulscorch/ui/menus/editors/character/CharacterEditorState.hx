@@ -2,42 +2,81 @@ package soulscorch.ui.menus.editors.character;
 
 import flixel.FlxCamera;
 import flixel.FlxG;
+import flixel.FlxObject;
 import flixel.FlxSprite;
-import flixel.addons.display.FlxGridOverlay;
+import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import haxe.Json;
-import lime.system.Clipboard;
 import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
-import soulscorch.backend.system.engine.DevConsole;
+import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.actors.Character;
-import soulscorch.scripting.ModLoader;
+import soulscorch.gameplay.stage.Stage;
+import soulscorch.scripting.mod.ModLoader;
+import soulscorch.ui.menus.editors.EditorPickerMenu;
+
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+#end
+
+using StringTools;
 
 class CharacterEditorState extends MusicBeatState {
-    public var curCharName:String = "bf";
-    public var character:Character;
+    public var char:Character;
     public var ghostChar:Character;
+    public var charName:String = "bf";
+    public var isPlayer:Bool = true;
 
-    public var camGame:FlxCamera;
-    public var camHUD:FlxCamera;
+    private var camGame:FlxCamera;
+    private var camHUD:FlxCamera;
+    private var camFollow:FlxObject;
 
-    public var animList:Array<String> = [];
-    public var curAnimIndex:Int = 0;
+    private var stage:Stage;
+    private var animList:Array<String> = [];
+    private var curAnimIndex:Int = 0;
 
-    private var crosshair:FlxSprite;
-    private var camFollowPointer:FlxSprite;
     private var infoText:FlxText;
     private var helpText:FlxText;
+    private var animListText:FlxText;
+    private var ghostText:FlxText;
+
+    private var crosshair:FlxSprite;
+    private var ghostAnimName:String = "";
+
+    public function new(charName:String = "bf", isPlayer:Bool = true) {
+        super();
+        this.charName = charName;
+        this.isPlayer = isPlayer;
+    }
 
     override public function create():Void {
         super.create();
 
-        DiscordRPC.changePresence("Character Editor", 'Editing: $curCharName');
+        DiscordRPC.changePresence("Character Editor", 'Editing: $charName');
 
+        setupCameras();
+
+        stage = new Stage("stage");
+        stage.load();
+        add(stage);
+
+        spawnGhostCharacter();
+        spawnMainCharacter();
+
+        setupCrosshair();
+        setupHUD();
+
+        changeAnim(0);
+    }
+
+    private function setupCameras():Void {
         camGame = new FlxCamera();
         camHUD = new FlxCamera();
         camHUD.bgColor.alpha = 0;
@@ -46,68 +85,85 @@ class CharacterEditorState extends MusicBeatState {
         FlxG.cameras.add(camHUD, false);
         FlxG.cameras.setDefaultDrawTarget(camGame, true);
 
-        var grid = FlxGridOverlay.create(40, 40, 3200, 2400, true, 0xFF2A2A38, 0xFF1D1D28);
-        grid.screenCenter();
-        add(grid);
-
-        // Origin Crosshair
-        crosshair = new FlxSprite().makeGraphic(12, 12, 0xFFFF0000);
-        crosshair.screenCenter();
-        add(crosshair);
-
-        // Camera Offset Target Marker
-        camFollowPointer = new FlxSprite().makeGraphic(16, 16, 0xFF00FFFF);
-        add(camFollowPointer);
-
-        reloadCharacter(curCharName);
-
-        setupUI();
+        camFollow = new FlxObject(0, 0, 1, 1);
+        add(camFollow);
+        camGame.follow(camFollow, LOCKON, 0.04);
+        camGame.zoom = 0.9;
     }
 
-    private function reloadCharacter(charName:String):Void {
-        if (character != null) remove(character, true);
-        if (ghostChar != null) remove(ghostChar, true);
+    private function spawnGhostCharacter():Void {
+        if (ghostChar != null) {
+            remove(ghostChar, true);
+            ghostChar.destroy();
+        }
 
-        this.curCharName = charName;
-
-        // Ghost character for alignment comparison
-        ghostChar = new Character(FlxG.width * 0.5, FlxG.height * 0.5, charName, false);
+        ghostChar = new Character(0, 0, charName, isPlayer);
         ghostChar.alpha = 0.35;
-        ghostChar.color = 0xFF4444FF;
+        ghostChar.color = 0xFF8888FF;
+        ghostChar.visible = false;
         add(ghostChar);
+    }
 
-        character = new Character(FlxG.width * 0.5, FlxG.height * 0.5, charName, false);
-        character.debugMode = true;
-        add(character);
+    private function spawnMainCharacter():Void {
+        if (char != null) {
+            remove(char, true);
+            char.destroy();
+        }
+
+        char = new Character(0, 0, charName, isPlayer);
+        char.debugMode = true;
+        add(char);
 
         animList = [];
-        for (animKey in character.animOffsets.keys()) {
-            animList.push(animKey);
+        for (anim in char.animation.getNameList()) {
+            animList.push(anim);
         }
 
-        if (animList.length == 0) {
-            animList.push("idle");
+        if (stage != null) {
+            if (isPlayer) {
+                stage.positionCharacters(char, null, null);
+                stage.positionCharacters(ghostChar, null, null);
+            } else {
+                stage.positionCharacters(null, char, null);
+                stage.positionCharacters(null, ghostChar, null);
+            }
         }
 
-        curAnimIndex = 0;
-        playCurrentAnim();
-        updateCamFollowPointer();
+        camFollow.setPosition(char.getMidpoint().x, char.getMidpoint().y - 50);
     }
 
-    private function setupUI():Void {
-        var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 40, 0xCC0E141E);
+    private function setupCrosshair():Void {
+        crosshair = new FlxSprite(char.x, char.y).makeGraphic(16, 16, 0xFFFF3333);
+        crosshair.screenCenter();
+        add(crosshair);
+    }
+
+    private function setupHUD():Void {
+        var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 45, 0xAA0E141F);
         topBar.cameras = [camHUD];
         add(topBar);
 
-        infoText = new FlxText(15, 8, FlxG.width - 30, "", 18);
-        infoText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, LEFT);
+        infoText = new FlxText(20, 12, FlxG.width - 40, "", 20);
+        infoText.setFormat(Paths.font("vcr"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         infoText.cameras = [camHUD];
         add(infoText);
 
-        helpText = new FlxText(15, FlxG.height - 110, FlxG.width - 30,
-            "[W/S] Cycle Animation | [Arrows] Shift Offset (Hold Shift: x10)\n[SPACE] Replay Animation | [C] Update Camera Target | [R] Reset Camera\n[E/Q] Zoom Camera | [CTRL + S] Export JSON to Clipboard | [ESC] Exit",
-            16);
-        helpText.setFormat(Paths.font("vcr"), 16, 0xFFFFCC00, LEFT, OUTLINE, FlxColor.BLACK);
+        animListText = new FlxText(FlxG.width - 260, 60, 240, "", 16);
+        animListText.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+        animListText.cameras = [camHUD];
+        add(animListText);
+
+        ghostText = new FlxText(20, 60, 300, "Ghost: None", 16);
+        ghostText.setFormat(Paths.font("vcr"), 16, 0xFF8888FF, LEFT, OUTLINE, FlxColor.BLACK);
+        ghostText.cameras = [camHUD];
+        add(ghostText);
+
+        var helpBg = new FlxSprite(0, FlxG.height - 40).makeGraphic(FlxG.width, 40, 0xDD0E141F);
+        helpBg.cameras = [camHUD];
+        add(helpBg);
+
+        helpText = new FlxText(20, FlxG.height - 30, FlxG.width - 40, "[W/S] Anim | [ARROWS] Nudge Offset | [SPACE] Play | [G] Ghost | [CTRL+S] Save | [ESC] Exit", 15);
+        helpText.setFormat(Paths.font("vcr"), 15, 0xFFAAAAAA, CENTER);
         helpText.cameras = [camHUD];
         add(helpText);
 
@@ -117,111 +173,148 @@ class CharacterEditorState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        var shiftMult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
+        // Zoom Controls
+        if (FlxG.keys.pressed.E) camGame.zoom += elapsed * 0.5;
+        if (FlxG.keys.pressed.Q) camGame.zoom = Math.max(0.2, camGame.zoom - (elapsed * 0.5));
 
-        // Camera dragging and zooming
-        if (FlxG.mouse.pressedRight) {
-            camGame.scroll.x -= FlxG.mouse.deltaX / camGame.zoom;
-            camGame.scroll.y -= FlxG.mouse.deltaY / camGame.zoom;
-        }
+        // Camera Pan
+        if (FlxG.keys.pressed.I) camFollow.y -= elapsed * 400.0;
+        if (FlxG.keys.pressed.K) camFollow.y += elapsed * 400.0;
+        if (FlxG.keys.pressed.J) camFollow.x -= elapsed * 400.0;
+        if (FlxG.keys.pressed.L) camFollow.x += elapsed * 400.0;
 
-        if (FlxG.keys.justPressed.E) camGame.zoom += 0.1;
-        if (FlxG.keys.justPressed.Q) camGame.zoom = Math.max(0.2, camGame.zoom - 0.1);
-        if (FlxG.keys.justPressed.R) {
-            camGame.zoom = 1.0;
-            camGame.focusOn(character.getMidpoint());
-        }
-
-        // Animation Cycling
+        // Animation Switching
         if (FlxG.keys.justPressed.W) changeAnim(-1);
         if (FlxG.keys.justPressed.S) changeAnim(1);
-        if (FlxG.keys.justPressed.SPACE) playCurrentAnim();
+
+        if (FlxG.keys.justPressed.SPACE) {
+            playCurrentAnim();
+        }
+
+        // Ghost Frame Capture
+        if (FlxG.keys.justPressed.G && animList.length > 0) {
+            toggleGhost();
+        }
 
         // Offset Nudging
-        var curAnim = animList[curAnimIndex];
-        var offsets = character.animOffsets.get(curAnim);
-        if (offsets == null) {
-            offsets = [0.0, 0.0];
-            character.animOffsets.set(curAnim, offsets);
-        }
+        var shiftMult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
+        if (FlxG.keys.justPressed.LEFT) shiftOffset(shiftMult, 0);
+        if (FlxG.keys.justPressed.RIGHT) shiftOffset(-shiftMult, 0);
+        if (FlxG.keys.justPressed.UP) shiftOffset(0, shiftMult);
+        if (FlxG.keys.justPressed.DOWN) shiftOffset(0, -shiftMult);
 
-        if (FlxG.keys.justPressed.LEFT) { offsets[0] += 1 * shiftMult; character.playAnim(curAnim, true); }
-        if (FlxG.keys.justPressed.RIGHT) { offsets[0] -= 1 * shiftMult; character.playAnim(curAnim, true); }
-        if (FlxG.keys.justPressed.UP) { offsets[1] += 1 * shiftMult; character.playAnim(curAnim, true); }
-        if (FlxG.keys.justPressed.DOWN) { offsets[1] -= 1 * shiftMult; character.playAnim(curAnim, true); }
-
-        // Camera Point Adjustment
-        if (FlxG.keys.justPressed.C) {
-            character.cameraOffset[0] = Math.round(FlxG.mouse.x - character.x);
-            character.cameraOffset[1] = Math.round(FlxG.mouse.y - character.y);
-            updateCamFollowPointer();
-        }
-
+        // Save Offsets
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
-            exportCharacterJson();
+            saveCharacterData();
         }
 
         if (Controls.instance.BACK) {
             MusicBeatState.switchState(new EditorPickerMenu());
         }
 
-        updateText();
-    }
-
-    private function changeAnim(change:Int):Void {
-        curAnimIndex = FlxMath.wrap(curAnimIndex + change, 0, animList.length - 1);
-        playCurrentAnim();
-    }
-
-    private function playCurrentAnim():Void {
-        if (animList.length > 0) {
-            var anim = animList[curAnimIndex];
-            character.playAnim(anim, true);
-            ghostChar.playAnim(anim, true);
+        if (char != null) {
+            crosshair.setPosition(char.x - 8, char.y - 8);
         }
     }
 
-    private function updateCamFollowPointer():Void {
-        var mid = character.getMidpoint();
-        camFollowPointer.setPosition(mid.x + character.cameraOffset[0], mid.y + character.cameraOffset[1]);
+    private function changeAnim(change:Int):Void {
+        if (animList.length == 0) return;
+        curAnimIndex = FlxMath.wrap(curAnimIndex + change, 0, animList.length - 1);
+        playCurrentAnim();
+        updateText();
+    }
+
+    private function playCurrentAnim():Void {
+        if (animList.length == 0) return;
+        var anim = animList[curAnimIndex];
+        char.playAnim(anim, true);
+    }
+
+    private function toggleGhost():Void {
+        var currentAnim = animList[curAnimIndex];
+        if (ghostChar.visible && ghostAnimName == currentAnim) {
+            ghostChar.visible = false;
+            ghostAnimName = "";
+            ghostText.text = "Ghost: None";
+        } else {
+            ghostChar.visible = true;
+            ghostAnimName = currentAnim;
+            ghostChar.playAnim(currentAnim, true);
+            ghostText.text = 'Ghost: $currentAnim';
+        }
+    }
+
+    private function shiftOffset(x:Float, y:Float):Void {
+        if (animList.length == 0) return;
+        var anim = animList[curAnimIndex];
+        var off = char.animOffsets.get(anim);
+        var curOff:Array<Float> = (off != null) ? off : [0.0, 0.0];
+
+        curOff[0] += x;
+        curOff[1] += y;
+        char.animOffsets.set(anim, curOff);
+        char.playAnim(anim, true);
+
+        updateText();
     }
 
     private function updateText():Void {
-        var anim = animList.length > 0 ? animList[curAnimIndex] : "None";
-        var curOffset = character.animOffsets.get(anim);
-        var xOff:Float = curOffset != null ? curOffset[0] : 0.0;
-        var yOff:Float = curOffset != null ? curOffset[1] : 0.0;
+        if (animList.length == 0) return;
+        var anim = animList[curAnimIndex];
+        var off = char.animOffsets.get(anim);
+        var curOff:Array<Float> = (off != null) ? off : [0.0, 0.0];
 
-        infoText.text = 'Character: $curCharName | Anim: $anim ($curAnimIndex/${animList.length}) | Offset: [$xOff, $yOff] | Cam: [${character.cameraOffset[0]}, ${character.cameraOffset[1]}]';
+        infoText.text = 'Character: $charName | Anim: $anim | Offset: [${curOff[0]}, ${curOff[1]}]';
+
+        var listStr = "ANIMATIONS\n";
+        for (i in 0...animList.length) {
+            var prefix = (i == curAnimIndex) ? "> " : "  ";
+            listStr += prefix + animList[i] + "\n";
+        }
+        animListText.text = listStr;
     }
 
-    private function exportCharacterJson():Void {
+    private function saveCharacterData():Void {
+        #if sys
+        var charJsonPath = ModLoader.getPath('assets/data/characters/$charName.json');
+        if (!AssetResolver.exists(charJsonPath)) {
+            charJsonPath = 'assets/data/characters/$charName.json';
+        }
+
         var animArray:Array<Dynamic> = [];
         for (animName in animList) {
-            var off = character.animOffsets.get(animName);
+            var off = char.animOffsets.get(animName);
+            var offsetVal:Array<Float> = (off != null) ? off : [0.0, 0.0];
+
             animArray.push({
                 anim: animName,
                 name: animName,
                 fps: 24,
                 loop: false,
-                offsets: off != null ? off : [0, 0]
+                offsets: offsetVal
             });
         }
 
-        var schema:Dynamic = {
-            image: curCharName,
-            scale: character.scale.x,
-            singDuration: character.singDuration,
-            healthIcon: character.healthIcon,
-            flipX: character.flipX,
-            antialiasing: character.antialiasing,
-            cameraOffset: character.cameraOffset,
-            positionOffset: character.positionOffset,
-            animations: animArray
+        var cameraOff = (char.positionOffset != null) ? [char.positionOffset[0], char.positionOffset[1]] : [0.0, 0.0];
+
+        var dataToSave = {
+            animations: animArray,
+            image: 'characters/$charName',
+            scale: char.scale.x,
+            sing_duration: char.singDuration,
+            healthicon: char.healthIcon,
+            flip_x: char.flipX,
+            no_antialiasing: !char.antialiasing,
+            camera_position: cameraOff
         };
 
-        var output = Json.stringify(schema, "\t");
-        Clipboard.text = output;
-        FlxG.camera.flash(FlxColor.GREEN, 0.4);
+        try {
+            var rawJson = Json.stringify(dataToSave, "\t");
+            File.saveContent(charJsonPath, rawJson);
+            NativeAPI.showMessageInfo("SoulScorch Character Editor", 'Saved offsets for "$charName" successfully to:\n$charJsonPath');
+        } catch (e:Dynamic) {
+            NativeAPI.showMessageError("Character Editor Error", 'Failed saving character JSON:\n$e');
+        }
+        #end
     }
 }

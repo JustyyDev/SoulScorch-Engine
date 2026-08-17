@@ -2,7 +2,7 @@ package soulscorch.backend.system.apis;
 
 import haxe.io.Path;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 #if sys
 import sys.FileSystem;

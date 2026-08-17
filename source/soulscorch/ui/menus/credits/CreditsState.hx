@@ -1,4 +1,4 @@
-package soulscorch.menus.credits;
+package soulscorch.ui.menus.credits;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -11,7 +11,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.menus.states.MainMenuState;
+import soulscorch.ui.menus.states.MainMenuState;
 
 typedef CreditEntry = {
     var name:String;
@@ -60,7 +60,7 @@ class CreditsState extends MusicBeatState {
         DiscordRPC.changePresence("Credits Menu", "Browsing Developers");
 
         bg = new FlxSprite();
-        AssetHelper.loadGraphicSafely(bg, "menus/menuDesat");
+        AssetHelper.loadGraphicSafely(bg, "menuDesat");
         bg.color = 0xFF2A2A38;
         bg.screenCenter();
         bg.antialiasing = true;
@@ -70,8 +70,8 @@ class CreditsState extends MusicBeatState {
         add(grpCredits);
 
         for (i in 0...credits.length) {
-            var item = new FlxText(100, (i * 80) + 120, 0, credits[i].name, 36);
-            item.setFormat(Paths.font("vcr"), 36, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+            var item = new FlxText(100, (i * 80) + 120, 0, credits[i].name, 32);
+            item.setFormat(Paths.font("vcr"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
             item.borderSize = 2.0;
             item.ID = i;
             grpCredits.add(item);

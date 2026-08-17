@@ -1,72 +1,69 @@
 package soulscorch.gameplay.song;
 
-import haxe.Json;
 import flixel.util.FlxColor;
+import haxe.Json;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.chart.Chart;
 import soulscorch.gameplay.chart.ChartParser;
-import soulscorch.gameplay.song.Song;
+import soulscorch.gameplay.chart.Song;
 import soulscorch.gameplay.song.SongMetadata;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
+
+using StringTools;
 
 class SongLoader {
-    /**
-     * Resolves chart JSON and metadata across mods and base assets to return a structured Song instance.
-     */
-    public static function load(songId:String, difficulty:String = "normal"):Song {
-        var diffName = (difficulty == null || difficulty.length == 0) ? "normal" : difficulty.toLowerCase().trim();
-        var diffSuffix = Difficulty.getSuffix(diffName);
+    public static function load(songId:String, ?difficulty:String = "normal"):Song {
+        var cleanSong = (songId == null || songId.length == 0) ? "tutorial" : songId.toLowerCase().trim();
+        var cleanDiff = (difficulty == null || difficulty.length == 0) ? "normal" : difficulty.toLowerCase().trim();
 
-        var possibleChartPaths = [
-            'assets/songs/$songId/charts/$diffName.json',
-            'assets/songs/$songId/charts/normal.json',
-            'assets/songs/$songId/chart$diffSuffix.json',
-            'assets/songs/$songId/$songId$diffSuffix.json',
-            'assets/songs/$songId/chart.json',
-            'assets/songs/$songId/$songId.json'
-        ];
+        var jsonPath = 'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json';
+        if (cleanDiff == "normal" && !AssetResolver.exists(ModLoader.getPath(jsonPath))) {
+            jsonPath = 'assets/songs/$cleanSong/$cleanSong.json';
+        }
 
-        var chartPath:String = null;
-        for (path in possibleChartPaths) {
-            var resolved = ModLoader.getPath(path);
-            if (AssetResolver.exists(resolved)) {
-                chartPath = resolved;
-                break;
+        var resolved = ModLoader.getPath(jsonPath);
+        if (!AssetResolver.exists(resolved)) {
+            resolved = ModLoader.getPath('data/charts/$cleanSong/$cleanDiff.json');
+        }
+
+        if (!AssetResolver.exists(resolved)) {
+            Logger.error('Failed to resolve song chart for: $cleanSong ($cleanDiff)', "song");
+            var blankSong = new Song(cleanSong, cleanSong);
+            blankSong.chart = new Chart();
+            return blankSong;
+        }
+
+        try {
+            var rawJson = AssetResolver.getText(resolved);
+            var parsedSong:Song = ChartParser.parse(rawJson);
+
+            var metaPath = ModLoader.getPath('assets/songs/$cleanSong/meta.json');
+            if (AssetResolver.exists(metaPath)) {
+                try {
+                    var metaRaw = AssetResolver.getText(metaPath);
+                    var meta:SongMetadata = Json.parse(metaRaw);
+
+                    if (meta.title != null) parsedSong.title = meta.title;
+                    if (meta.artist != null) parsedSong.artist = meta.artist;
+                    if (meta.charter != null) parsedSong.charter = meta.charter;
+                    if (meta.stage != null) parsedSong.stage = meta.stage;
+                    if (meta.player1 != null) parsedSong.player1 = meta.player1;
+                    if (meta.player2 != null) parsedSong.player2 = meta.player2;
+                    if (meta.gfVersion != null) parsedSong.gfVersion = meta.gfVersion;
+                    if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices;
+                    if (meta.color != null) parsedSong.color = FlxColor.fromString(meta.color);
+                } catch (err:Dynamic) {
+                    Logger.warn('Could not read meta.json for $cleanSong: $err', "song");
+                }
             }
+
+            return parsedSong;
+        } catch (e:Dynamic) {
+            Logger.error('Exception parsing chart for $cleanSong: $e', "song");
+            var blankSong = new Song(cleanSong, cleanSong);
+            blankSong.chart = new Chart();
+            return blankSong;
         }
-
-        if (chartPath == null) {
-            Logger.error('Missing chart file for song "$songId" [$diffName]', "loader");
-            throw 'Chart file missing for: $songId ($diffName)';
-        }
-
-        var chartRaw = AssetResolver.getText(chartPath);
-        var song = ChartParser.parse(chartRaw);
-        song.id = songId;
-        song.difficulty = diffName;
-
-        // Apply metadata overrides if present
-        var metaPath = ModLoader.getPath('assets/songs/$songId/meta.json');
-        if (AssetResolver.exists(metaPath)) {
-            try {
-                var metaRaw = AssetResolver.getText(metaPath);
-                var meta:SongMetadata = Json.parse(metaRaw);
-
-                if (meta.title != null) song.title = meta.title;
-                if (meta.artist != null) song.artist = meta.artist;
-                if (meta.charter != null) song.charter = meta.charter;
-                if (meta.stage != null) song.stage = meta.stage;
-                if (meta.player1 != null) song.player1 = meta.player1;
-                if (meta.player2 != null) song.player2 = meta.player2;
-                if (meta.gfVersion != null) song.gfVersion = meta.gfVersion;
-                if (meta.needsVoices != null) song.needsVoices = meta.needsVoices;
-                if (meta.color != null) song.color = FlxColor.fromString(meta.color);
-            } catch (e:Dynamic) {
-                Logger.warn('Failed parsing song metadata for $songId: $e', "loader");
-            }
-        }
-
-        Logger.info('Song "$songId" [$diffName] loaded successfully (BPM: ${song.bpm}, Speed: ${song.scrollSpeed}).', "loader");
-        return song;
     }
 }

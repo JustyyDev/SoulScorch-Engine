@@ -2,7 +2,7 @@ package soulscorch.backend.localization;
 
 import haxe.Json;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 #if sys
 import sys.FileSystem;

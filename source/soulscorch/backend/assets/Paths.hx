@@ -2,7 +2,7 @@ package soulscorch.backend.assets;
 
 import flixel.graphics.frames.FlxAtlasFrames;
 import openfl.utils.Assets as OpenFLAssets;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 using StringTools;
 

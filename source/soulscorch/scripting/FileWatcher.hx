@@ -1,109 +1,87 @@
 package soulscorch.scripting;
 
-import flixel.FlxG;
-import haxe.ds.StringMap;
 import haxe.io.Path;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.EventBus;
-import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModLoader;
 
 #if sys
 import sys.FileSystem;
+import sys.io.File;
 #end
 
-typedef WatchTarget = {
-    var path:String;
-    var lastModified:Float;
-}
-
 class FileWatcher {
-    public static var instance(get, null):FileWatcher;
-    private static var _instance:FileWatcher;
-
-    var targets:StringMap<WatchTarget> = new StringMap<WatchTarget>();
-    var checkInterval:Float = 0.5;
-    var timer:Float = 0.0;
-    public var autoTrackMods:Bool = true;
+    private var fileTimestamps:Map<String, Float> = new Map();
+    private var watchedDirectories:Array<String> = [];
+    private var checkTimer:Float = 0.0;
+    public var checkInterval:Float = 1.0;
 
     public function new() {
-        _instance = this;
+        initWatchedDirectories();
+        scanInitialTimestamps();
     }
 
-    public static inline function get_instance():FileWatcher {
-        if (_instance == null) {
-            _instance = new FileWatcher();
+    private function initWatchedDirectories():Void {
+        watchedDirectories = ["assets/scripts", "assets/data", "assets/songs"];
+
+        #if sys
+        for (mod in ModLoader.activeMods) {
+            watchedDirectories.push('mods/$mod/scripts');
+            watchedDirectories.push('mods/$mod/data');
+            watchedDirectories.push('mods/$mod/songs');
         }
-        return _instance;
+        #end
+    }
+
+    private function scanInitialTimestamps():Void {
+        #if sys
+        for (dir in watchedDirectories) {
+            scanDirectory(dir, false);
+        }
+        #end
     }
 
     public function update(elapsed:Float):Void {
         #if sys
-        timer += elapsed;
-        if (timer >= checkInterval) {
-            timer = 0.0;
-            if (autoTrackMods) scanActiveMods();
-            checkModifications();
+        checkTimer += elapsed;
+        if (checkTimer >= checkInterval) {
+            checkTimer = 0.0;
+            for (dir in watchedDirectories) {
+                scanDirectory(dir, true);
+            }
         }
         #end
     }
 
     #if sys
-    function scanActiveMods():Void {
-        for (mod in ModLoader.activeMods) {
-            var modDir = Path.join(["mods", mod]);
-            scanDirectory(modDir);
-        }
-    }
+    private function scanDirectory(path:String, notifyOnChange:Bool):Void {
+        if (!FileSystem.exists(path) || !FileSystem.isDirectory(path)) return;
 
-    function scanDirectory(dir:String):Void {
-        if (!FileSystem.exists(dir)) return;
+        var entries = FileSystem.readDirectory(path);
+        for (entry in entries) {
+            var fullPath = Path.join([path, entry]);
+            if (FileSystem.isDirectory(fullPath)) {
+                scanDirectory(fullPath, notifyOnChange);
+            } else {
+                var stat = FileSystem.stat(fullPath);
+                var mtime = stat.mtime.getTime();
 
-        var files = FileSystem.readDirectory(dir);
-        for (file in files) {
-            var path = Path.join([dir, file]);
-            if (FileSystem.isDirectory(path)) {
-                scanDirectory(path);
-            } else if (StringTools.endsWith(path, ".hx") || StringTools.endsWith(path, ".xml") || StringTools.endsWith(path, ".json")) {
-                var stat = FileSystem.stat(path);
-                var lastMod = stat.mtime.getTime();
-
-                if (!targets.exists(path)) {
-                    targets.set(path, {path: path, lastModified: lastMod});
+                if (!fileTimestamps.exists(fullPath)) {
+                    fileTimestamps.set(fullPath, mtime);
+                } else if (fileTimestamps.get(fullPath) != mtime) {
+                    fileTimestamps.set(fullPath, mtime);
+                    if (notifyOnChange) {
+                        onFileModified(fullPath);
+                    }
                 }
             }
         }
     }
 
-    function checkModifications():Void {
-        for (key in targets.keys()) {
-            var target = targets.get(key);
-            if (FileSystem.exists(target.path)) {
-                var currentModified = FileSystem.stat(target.path).mtime.getTime();
-                if (currentModified > target.lastModified) {
-                    target.lastModified = currentModified;
-                    onFileChanged(target.path);
-                }
-            }
-        }
+    private function onFileModified(filePath:String):Void {
+        Logger.info('HotReload detected change in: $filePath', "watcher");
+        EventBus.instance.emit("script/modified", {path: filePath});
     }
     #end
-
-    private function onFileChanged(path:String):Void {
-        Logger.info('Hot-Reload modification detected: $path', "hotreload");
-
-        if (DevConsole.instance != null) {
-            DevConsole.instance.log('[HOT-RELOAD] Modification detected: ' + path);
-        }
-
-        EventBus.emit("script/modified", {path: path});
-
-        if (Std.isOfType(FlxG.state, ScriptedState)) {
-            var currentState:ScriptedState = cast FlxG.state;
-            FlxG.switchState(new ScriptedState(currentState.scriptName));
-        }
-    }
-
-    public function clear():Void {
-        targets.clear();
-    }
 }

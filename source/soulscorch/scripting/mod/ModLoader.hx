@@ -1,5 +1,6 @@
 package soulscorch.scripting.mod;
 
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.SoulModData;
 
 class ModLoader {
@@ -11,7 +12,7 @@ class ModLoader {
 
     public function new() {}
 
-    public function scan():Void {
+    public static function scan():Void {
         ModManager.reloadMods();
     }
 
@@ -26,5 +27,13 @@ class ModLoader {
     public static inline function resolveAsset(path:String):Null<String> {
         var resolved = ModManager.getPath(path);
         return (resolved != null && resolved.length > 0) ? resolved : null;
+    }
+
+    public static inline function getActiveModDirectories():Array<String> {
+        return ModManager.getActiveModDirectories();
+    }
+
+    public static inline function getModConfig(modFolder:String):Null<SoulModData> {
+        return ModManager.modConfigs.get(modFolder);
     }
 }

@@ -8,7 +8,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModLoader;
 
 typedef CharacterAnimation = {
     var anim:String;

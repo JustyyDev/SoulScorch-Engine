@@ -4,6 +4,9 @@ import flixel.FlxG;
 import flixel.FlxSubState;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModLoader;
+
+using StringTools;
 
 class ScriptedSubState extends FlxSubState {
     public var scriptName:String;
