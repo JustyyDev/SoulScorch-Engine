@@ -1,15 +1,19 @@
 package soulscorch.backend;
 
+import flixel.FlxCamera;
+import flixel.FlxG;
 import flixel.FlxState;
-import flixel.FlxBasic;
-import soulscorch.gameplay.Conductor;
+import soulscorch.backend.TransitionData;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
+import soulscorch.backend.system.Scene;
 
-class MusicBeatState extends FlxState {
+class MusicBeatState extends Scene implements IBeatReceiver {
     private var curStep:Int = 0;
     private var curBeat:Int = 0;
-    private var decStep:Float = 0;
-    private var decBeat:Float = 0;
+    private var curMeasure:Int = 0;
+
+    public static var defaultTransition:TransitionData = new TransitionData(FADE, IN, 0.4);
 
     override public function update(elapsed:Float):Void {
         var oldStep:Int = curStep;
@@ -25,35 +29,36 @@ class MusicBeatState extends FlxState {
     }
 
     private function updateCurStep():Void {
-        if (Conductor.bpm <= 0) return;
-        decStep = Conductor.songPosition / (60 / Conductor.bpm * 1000) * 4;
-        curStep = Std.int(decStep);
+        var lastChange = Conductor.getBPMAtTime(Conductor.songPosition);
+        var crochet = ((60.0 / lastChange) * 1000.0) / 4.0;
+        curStep = Math.floor(Conductor.songPosition / crochet);
     }
 
     private function updateBeat():Void {
-        curBeat = Std.int(curStep / 4);
-        decBeat = decStep / 4;
+        curBeat = Math.floor(curStep / 4);
+        curMeasure = Math.floor(curBeat / 4);
     }
 
     public function stepHit(step:Int):Void {
-        // Automatically broadcast step events to any registered IBeatReceiver
-        forEachAlive(function(basic:FlxBasic) {
-            if (Std.isOfType(basic, IBeatReceiver)) {
-                cast(basic, IBeatReceiver).stepHit(step);
-            }
-        });
-
         if (step % 4 == 0) {
-            beatHit(Std.int(step / 4));
+            beatHit(curBeat);
+        }
+        if (step % 16 == 0) {
+            measureHit(curMeasure);
         }
     }
 
-    public function beatHit(beat:Int):Void {
-        // Automatically broadcast beat events to any registered IBeatReceiver
-        forEachAlive(function(basic:FlxBasic) {
-            if (Std.isOfType(basic, IBeatReceiver)) {
-                cast(basic, IBeatReceiver).beatHit(beat);
-            }
-        });
+    public function beatHit(beat:Int):Void {}
+    public function measureHit(measure:Int):Void {}
+
+    public static function switchState(nextState:FlxState, ?transData:TransitionData):Void {
+        var transition = transData != null ? transData : defaultTransition;
+
+        if (MusicBeatTransition.isTransitioning) return;
+        MusicBeatTransition.isTransitioning = true;
+
+        FlxG.state.openSubState(new MusicBeatSubstate(function() {
+            FlxG.switchState(nextState);
+        }, transition));
     }
 }

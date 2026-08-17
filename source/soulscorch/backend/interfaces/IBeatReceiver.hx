@@ -1,6 +1,7 @@
 package soulscorch.backend.interfaces;
 
 interface IBeatReceiver {
-    function beatHit(beat:Int):Void;
-    function stepHit(step:Int):Void;
+    public function stepHit(step:Int):Void;
+    public function beatHit(beat:Int):Void;
+    public function measureHit(measure:Int):Void;
 }

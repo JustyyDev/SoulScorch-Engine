@@ -3,41 +3,61 @@ package soulscorch.gameplay.notes;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.util.FlxColor;
-import soulscorch.modding.ModManager;
-#if sys
-import sys.FileSystem;
-#end
+import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 
 class Note extends FlxSprite {
     public static inline var LANE_COUNT:Int = 4;
-    public static inline var NOTE_SIZE:Int = 48;
-    public static inline var PIXELS_PER_MS:Float = 0.45;
+    public static inline var NOTE_SIZE:Int = 112; // Standard base note width[cite: 71]
+    public static inline var PIXELS_PER_MS:Float = 0.45; // Pixel scroll factor[cite: 69]
+
+    public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];[cite: 71]
 
     public var strumTime:Float;
     public var noteData(default, set):Int;
     public var isSustainNote:Bool;
+    public var isSustainEnd:Bool;
     public var sustainLength:Float;
     public var parentNote:Note;
+    public var tail:Array<Note> = [];
+
     public var canBeHit:Bool = false;
     public var wasGoodHit:Bool = false;
     public var tooLate:Bool = false;
     public var mustPress:Bool = true;
     public var noteType:String = "Default";
     public var downscroll:Bool = false;
-    public var sustainScale:Float = 1.0;
-    public var hitWindow:Float = 160.0;
 
-    public function new(strumTime:Float, noteData:Int, sustainLength:Float = 0.0, ?parentNote:Note, isSustainNote:Bool = false, mustPress:Bool = true, noteType:String = "Default") {
+    public var hitHealth:Float = 0.025;[cite: 71]
+    public var missHealth:Float = 0.0475;[cite: 71]
+    public var hitWindow:Float = 160.0;[cite: 69]
+    public var sustainScale:Float = 1.0;
+
+    public var offsetX:Float = 0.0;
+    public var offsetY:Float = 0.0;
+
+    public function new(
+        strumTime:Float,
+        noteData:Int,
+        sustainLength:Float = 0.0,
+        ?parentNote:Note,
+        isSustainNote:Bool = false,
+        isSustainEnd:Bool = false,
+        mustPress:Bool = true,
+        noteType:String = "Default"
+    ) {
         super();
         this.strumTime = strumTime;
         this.noteData = noteData;
-        this.sustainLength = Math.max(0.0, sustainLength);
+        this.sustainLength = Math.max(0.0, sustainLength);[cite: 69]
         this.parentNote = parentNote;
         this.isSustainNote = isSustainNote;
+        this.isSustainEnd = isSustainEnd;
         this.mustPress = mustPress;
-        this.noteType = noteType == null ? "Default" : noteType;
+        this.noteType = (noteType == null || noteType.length == 0) ? "Default" : noteType;
+
         loadSkin();
-        updateVisualScale();
     }
 
     private function set_noteData(value:Int):Int {
@@ -47,53 +67,98 @@ class Note extends FlxSprite {
         return normalized;
     }
 
-    private function loadSkin():Void {
-        var skinPath:String = ModManager.getPath("images/gameplay/notes/default.png");
-        var loaded:Bool = false;
-        #if sys
-        if (skinPath != null && FileSystem.exists(skinPath)) {
-            loaded = loadGraphic(skinPath, false, NOTE_SIZE, NOTE_SIZE) != null;
+    /**
+     * Loads Sparrow atlas skins with fallback to colored primitive graphics.
+     */
+    public function loadSkin():Void {
+        var dirName = colArray[noteData % LANE_COUNT];
+        var customSkinPath = (noteType != "Default" && noteType != "") ? 'notes/$noteType' : "notes/NOTE_assets";
+
+        if (!Paths.exists(Paths.xml(customSkinPath))) {
+            customSkinPath = "notes/NOTE_assets";
         }
-        #end
-        if (!loaded) makeGraphic(NOTE_SIZE, NOTE_SIZE, colorForLane(noteData));
-        antialiasing = true;
-    }
 
-    public function updateForSong(songPosition:Float, scrollSpeed:Float, downscroll:Bool):Void {
-        this.downscroll = downscroll;
-        var distance:Float = (strumTime - songPosition) * PIXELS_PER_MS * scrollSpeed;
-        y = downscroll ? FlxG.height * 0.72 - distance : FlxG.height * 0.28 + distance;
-        canBeHit = Math.abs(strumTime - songPosition) <= hitWindow;
-        tooLate = songPosition - strumTime > hitWindow;
-        updateVisualScale();
-    }
+        var loaded = AssetHelper.loadSparrowSafely(this, customSkinPath);
 
-    public function updateVisualScale():Void {
-        if (!isSustainNote) {
-            scale.set(1.0, 1.0);
+        if (loaded) {
+            if (isSustainEnd) {
+                if (noteData % LANE_COUNT == 0) {
+                    animation.addByPrefix('holdend', 'pruple end hold', 24, true);[cite: 71]
+                } else {
+                    animation.addByPrefix('holdend', dirName + ' hold end', 24, true);[cite: 71]
+                }
+                animation.play('holdend');
+            } else if (isSustainNote) {
+                animation.addByPrefix('holdpiece', dirName + ' hold piece', 24, true);[cite: 71]
+                animation.play('holdpiece');
+            } else {
+                animation.addByPrefix('scroll', dirName + '0', 24, true);[cite: 71]
+                animation.play('scroll');
+            }
+
+            setGraphicSize(Std.int(width * 0.7));[cite: 71, 73]
+            updateHitbox();
         } else {
-            scale.set(1.0, Math.max(0.1, sustainLength * PIXELS_PER_MS * sustainScale / NOTE_SIZE));
+            makeGraphic(NOTE_SIZE, NOTE_SIZE, colorForDirection(noteData));[cite: 71]
+            setGraphicSize(Std.int(width * 0.7));[cite: 71]
+            updateHitbox();
         }
-        updateHitbox();
+
+        if (isSustainNote) {
+            alpha = 0.6;[cite: 71]
+        }
+
+        antialiasing = true;
+        scrollFactor.set(0, 0);
     }
 
-    public function setScrollSpeed(value:Float):Void {
-        sustainScale = Math.max(0.1, value);
-        updateVisualScale();
+    /**
+     * Updates hit logic and visual positioning relative to target receptor.
+     */
+    public function updatePosition(receptorX:Float, receptorY:Float, scrollSpeed:Float, downscroll:Bool):Void {
+        this.downscroll = downscroll;
+        var songPos = Conductor.songPosition;
+        var speedMod = scrollSpeed * PIXELS_PER_MS;
+        var distance:Float = (strumTime - songPos) * speedMod;[cite: 69]
+
+        x = receptorX + offsetX;
+
+        if (downscroll) {
+            y = receptorY + distance + offsetY;
+            if (isSustainEnd && parentNote != null) {
+                y -= height * 0.5;
+            }
+        } else {
+            y = receptorY - distance + offsetY;
+        }
+
+        // Timing validation
+        var safeZone = (Conductor.safeZoneOffset > 0) ? Conductor.safeZoneOffset : hitWindow;
+        canBeHit = (strumTime <= songPos + safeZone && strumTime >= songPos - (safeZone * 0.5));
+        tooLate = (songPos - strumTime > safeZone && !wasGoodHit);[cite: 69]
+
+        // Handle sustain clipping when held past target receptor
+        if (isSustainNote && wasGoodHit && songPos > strumTime) {
+            clipSustain(songPos);
+        }
     }
 
-    public function clipSustain(remainingLength:Float):Void {
+    public function clipSustain(songPosition:Float):Void {
         if (!isSustainNote) return;
-        sustainLength = Math.max(0.0, remainingLength);
-        updateVisualScale();
+
+        var remainingDist = (strumTime + sustainLength) - songPosition;
+        if (remainingDist <= 0) {
+            kill();
+            visible = false;
+        }
     }
 
-    public static function colorForLane(lane:Int):FlxColor {
-        return switch ((lane % LANE_COUNT + LANE_COUNT) % LANE_COUNT) {
-            case 0: FlxColor.PURPLE;
-            case 1: FlxColor.CYAN;
-            case 2: FlxColor.GREEN;
-            default: FlxColor.RED;
+    public static function colorForDirection(direction:Int):FlxColor {
+        return switch (direction % LANE_COUNT) {
+            case 0: 0xFFC24B99; // Left (Purple)[cite: 71]
+            case 1: 0xFF00FFFF; // Down (Cyan)[cite: 71]
+            case 2: 0xFF12FA05; // Up (Green)[cite: 71]
+            default: 0xFFF9393F; // Right (Red)[cite: 71]
         };
     }
 }

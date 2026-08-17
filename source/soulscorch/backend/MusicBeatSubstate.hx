@@ -1,16 +1,40 @@
 package soulscorch.backend;
 
+import flixel.FlxG;
 import flixel.FlxSubState;
-import soulscorch.gameplay.Conductor;
+import soulscorch.backend.TransitionData;
+import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.interfaces.IBeatReceiver;
 
-class MusicBeatSubstate extends FlxSubState {
+class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
     private var curStep:Int = 0;
     private var curBeat:Int = 0;
-    private var decStep:Float = 0;
-    private var decBeat:Float = 0;
+    private var curMeasure:Int = 0;
+
+    private var onTransitionOut:Void->Void;
+    private var transData:TransitionData;
+
+    public function new(?onComplete:Void->Void, ?trans:TransitionData) {
+        super();
+        this.onTransitionOut = onComplete;
+        this.transData = trans;
+    }
+
+    override public function create():Void {
+        super.create();
+
+        if (transData != null) {
+            add(new MusicBeatTransition(transData, function() {
+                if (onTransitionOut != null) {
+                    onTransitionOut();
+                }
+            }));
+        }
+    }
 
     override public function update(elapsed:Float):Void {
         var oldStep:Int = curStep;
+
         updateCurStep();
         updateBeat();
 
@@ -22,23 +46,25 @@ class MusicBeatSubstate extends FlxSubState {
     }
 
     private function updateCurStep():Void {
-        if (Conductor.bpm <= 0) return;
-        decStep = Conductor.songPosition / (60 / Conductor.bpm * 1000) * 4;
-        curStep = Std.int(decStep);
+        var lastChange = Conductor.getBPMAtTime(Conductor.songPosition);
+        var crochet = ((60.0 / lastChange) * 1000.0) / 4.0;
+        curStep = Math.floor(Conductor.songPosition / crochet);
     }
 
     private function updateBeat():Void {
-        curBeat = Std.int(curStep / 4);
-        decBeat = decStep / 4;
+        curBeat = Math.floor(curStep / 4);
+        curMeasure = Math.floor(curBeat / 4);
     }
 
     public function stepHit(step:Int):Void {
         if (step % 4 == 0) {
-            beatHit(Std.int(step / 4));
+            beatHit(curBeat);
+        }
+        if (step % 16 == 0) {
+            measureHit(curMeasure);
         }
     }
 
-    public function beatHit(beat:Int):Void {
-        // Override in substates for rhythmic UI pulsing
-    }
+    public function beatHit(beat:Int):Void {}
+    public function measureHit(measure:Int):Void {}
 }

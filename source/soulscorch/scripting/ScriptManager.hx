@@ -1,147 +1,88 @@
 package soulscorch.scripting;
 
-import haxe.io.Path;
-import soulscorch.modding.ModLoader;
-import soulscorch.scripting.backends.HScriptIris;
-import soulscorch.scripting.backends.LuaScript;
-import soulscorch.scripting.soul.SoulScriptParser;
-import soulscorch.backend.localization.LanguageManager;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.utils.Logger;
+
 #if sys
 import sys.FileSystem;
-import sys.io.File;
 #end
-
-using StringTools;
 
 class ScriptManager {
     public static var instance:ScriptManager;
-
     public var scripts:Array<ScriptInstance> = [];
-    public var globals:Map<String, Dynamic> = new Map();
-    private var timestamps:Map<String, Float> = new Map();
 
     public function new() {
         instance = this;
     }
 
-    public function load(path:String):ScriptInstance {
-        if (path == null || path.length == 0) return null;
-
-        var resolved:String = ModLoader.getPath(path);
-        if (resolved == null) resolved = path;
-
-        var ext:String = Path.extension(resolved).toLowerCase();
-        var script:ScriptInstance = null;
-
-        switch (ext) {
-            case "lua":
-                script = new LuaScript(resolved);
-            case "soul", "ss":
-                #if sys
-                if (FileSystem.exists(resolved)) {
-                    var transpiled:String = SoulScriptParser.transpile(File.getContent(resolved));
-                    script = new HScriptIris(resolved, transpiled);
-                }
-                #end
-            default:
-                script = new HScriptIris(resolved);
+    public function loadScript(path:String):ScriptInstance {
+        var resolved = ModLoader.getPath(path);
+        if (AssetResolver.exists(resolved)) {
+            var script = new Script(resolved);
+            if (script.active) {
+                scripts.push(script);
+                return script;
+            }
         }
-
-        if (script == null) return null;
-
-        for (name in globals.keys()) {
-            script.set(name, globals.get(name));
-        }
-
-        if (script.active) {
-            scripts.push(script);
-            rememberTimestamp(resolved);
-            return script;
-        }
-
-        script.destroy();
         return null;
     }
 
-    public function loadDirectory(path:String):Void {
+    public function loadScriptsFromDir(dirPath:String):Void {
         #if sys
-        var resolved:String = ModLoader.getPath(path);
-        if (resolved == null || !FileSystem.exists(resolved) || !FileSystem.isDirectory(resolved)) return;
-
-        for (file in FileSystem.readDirectory(resolved)) {
-            var ext:String = Path.extension(file).toLowerCase();
-            if (ext == "hx" || ext == "hscript" || ext == "lua" || ext == "soul" || ext == "ss") {
-                load(path + "/" + file);
+        var resolved = ModLoader.getPath(dirPath);
+        if (FileSystem.exists(resolved) && FileSystem.isDirectory(resolved)) {
+            for (file in FileSystem.readDirectory(resolved)) {
+                if (StringTools.endsWith(file, ".hx") || StringTools.endsWith(file, ".hscript")) {
+                    loadScript(dirPath + "/" + file);
+                }
             }
         }
         #end
     }
 
-    public function dispatch(event:String, ?args:Array<Dynamic>):Void {
-        var i:Int = scripts.length - 1;
-        while (i >= 0) {
-            var script = scripts[i];
-            if (script == null || !script.active) {
-                if (script != null) script.destroy();
-                scripts.splice(i, 1);
-            } else {
-                script.call(event, args);
-            }
-            i--;
-        }
+    public function set(name:String, value:Dynamic):Void {
+        setAll(name, value);
     }
 
-    public function setGlobal(name:String, value:Dynamic):Void {
-        globals.set(name, value);
+    public function setAll(name:String, value:Dynamic):Void {
         for (script in scripts) {
-            if (script != null && script.active) {
+            if (script.active) {
                 script.set(name, value);
             }
         }
     }
 
-    public function updateHotReload():Void {
-        #if sys
-        var reload:Array<String> = [];
-        for (script in scripts) {
-            if (script != null && script.active && FileSystem.exists(script.path)) {
-                var time:Float = FileSystem.stat(script.path).mtime.getTime();
-                if (timestamps.exists(script.path) && timestamps.get(script.path) != time) {
-                    reload.push(script.path);
-                } else {
-                    timestamps.set(script.path, time);
-                }
-            }
-        }
+    public function call(func:String, ?args:Array<Dynamic>):Dynamic {
+        return callAll(func, args);
+    }
 
-        for (path in reload) {
-            var i:Int = scripts.length - 1;
-            while (i >= 0) {
-                if (scripts[i].path == path) {
-                    scripts[i].destroy();
-                    scripts.splice(i, 1);
-                    break;
-                }
-                i--;
+    public function callAll(func:String, ?args:Array<Dynamic>):Dynamic {
+        if (args == null) args = [];
+        var lastResult:Dynamic = null;
+
+        for (script in scripts) {
+            if (script.active) {
+                var res = script.call(func, args);
+                if (res != null) lastResult = res;
             }
-            load(path);
         }
-        #end
+        return lastResult;
+    }
+
+    public function remove(script:ScriptInstance):Void {
+        if (script == null) return;
+        script.destroy();
+        scripts.remove(script);
     }
 
     public function clear():Void {
         for (script in scripts) {
-            if (script != null) script.destroy();
+            script.destroy();
         }
         scripts = [];
-        timestamps.clear();
     }
 
-    private function rememberTimestamp(path:String):Void {
-        #if sys
-        if (FileSystem.exists(path)) {
-            timestamps.set(path, FileSystem.stat(path).mtime.getTime());
-        }
-        #end
+    public function destroy():Void {
+        clear();
     }
 }

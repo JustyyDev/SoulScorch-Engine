@@ -3,16 +3,22 @@
 	<!-- Application Metadata -->
 	<app title="SoulScorch Engine" file="SoulScorch" main="soulscorch.Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios" />
 
-	<!-- Core Libraries (Required for Lime template generation) -->
+	<!-- Core Framework Libraries -->
 	<haxelib name="lime" />
 	<haxelib name="openfl" />
 	<haxelib name="flixel" />
 	<haxelib name="flixel-addons" />
 	<haxelib name="away3d" />
-	<!-- Optional scripting backends. Install and define SOULSCORCH_IRIS or SOULSCORCH_LUAJIT to enable. -->
+
+	<!-- Optional Scripting Backends -->
 	<haxelib name="hscript-iris" if="SOULSCORCH_IRIS" />
 	<haxelib name="linc_luajit" if="SOULSCORCH_LUAJIT" />
-	
+	<haxedef name="LUA_ALLOWED" if="SOULSCORCH_LUAJIT" />
+
+	<!-- Optional Video Codecs -->
+	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
+	<haxelib name="hxCodec" if="SOULSCORCH_VIDEO_HXCODEC" />
+
 	<!-- Discord Rich Presence -->
 	<haxelib name="hxdiscord_rpc" if="desktop" />
 
@@ -21,26 +27,21 @@
 	<assets path="art/iconOG.png" id="iconOG" />
 
 	<!-- Window Configuration -->
-	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" fps="60" />
+	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" fps="120" />
 	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" />
 	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false" />
 
-	<!-- Source Roots (Haxe will prioritize this local folder over haxelibs) -->
+	<!-- Source Roots -->
 	<source path="source" />
 
-	<!-- Dynamic External Directories -->
+	<!-- Dynamic External Folders -->
 	<assets path="mods" embed="false" />
-	
-	<!-- Maps assets/preload contents directly into the export assets directory -->
-	<assets path="assets/preload" rename="assets" />
 
 	<!-- Core Asset Pipelines -->
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
 	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" />
 	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
 	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" />
-	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.ogg" if="web" />
-	<assets path="assets/preload/songs" rename="assets/songs" exclude="*.mp3" unless="web" />
 
 	<!-- Engine Optimization Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
@@ -49,11 +50,11 @@
 	<haxedef name="message.reporting" value="pretty" />
 	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />
 	<haxedef name="hscriptPos" />
-	<!-- Custom Engine Flags -->
+
+	<!-- Custom SoulScorch Defines -->
 	<haxedef name="SOULSCORCH_MODS_ENABLED" />
 	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
-	<!-- Optional integrations remain disabled unless explicitly supplied by a target. -->
 
 	<!-- Desktop Crash & Stack Tracing -->
 	<section if="desktop">
@@ -66,22 +67,21 @@
 		<haxedef name="HXCPP_M64" />
 		<haxedef name="HXCPP_GC_BIG_BLOCKS" />
 
-		<!-- Native Windows Libraries for NativeAPI (Dark mode & Popups) -->
+		<!-- Native Windows Libraries for NativeAPI (Dark mode & Message boxes) -->
 		<dependency name="dwmapi.lib" />
 		<dependency name="user32.lib" />
 		<dependency name="shell32.lib" />
 
-		<!-- Enable Pre-Compiled Headers for Rapid Incremental Compilation -->
+		<!-- Enable Pre-Compiled Headers for Rapid Compilation -->
 		<set name="HXCPP_PCH" value="1" />
 		<set name="HXCPP_VERBOSE" value="1" />
-		<!-- Automatically copy Discord RPC DLL to the bin folder -->
-    	<copy file=".haxelib/hxdiscord_rpc/git/lib/windows/discord-rpc.dll" to="discord-rpc.dll" />
-
-		<!-- Multi-Threaded C++ Compilation -->
 		<set name="HXCPP_COMPILE_THREADS" value="%NUMBER_OF_PROCESSORS%" />
 
-		<!-- Strip Unnecessary Subsystems to Reduce Binary Footprint -->
-		<haxedef name="openfl-disable-mouse" if="mobile" />
-		<haxedef name="disable-cffi" if="cppia" />
+		<!-- Dynamic Discord RPC DLL Deployment -->
+		<copy file="${haxelib:hxdiscord_rpc}/lib/windows/discord-rpc.dll" to="discord-rpc.dll" if="hxdiscord_rpc" />
 	</section>
+
+	<!-- Embedded Stripping -->
+	<haxedef name="openfl-disable-mouse" if="mobile" />
+	<haxedef name="disable-cffi" if="cppia" />
 </project>

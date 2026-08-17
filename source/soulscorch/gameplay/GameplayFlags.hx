@@ -1,12 +1,28 @@
 package soulscorch.gameplay;
 
+import haxe.Json;
+import soulscorch.backend.system.engine.Runtime;
+import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModManager;
+
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+#end
+
 class GameplayFlags {
     public static var active:Map<String, Dynamic> = new Map();
     public static var defaults:Map<String, Dynamic> = new Map();
 
+    public static function reset():Void {
+        active.clear();
+        initDefaults();
+    }
+
     public static function initDefaults():Void {
         defaults.set("ghostTapping", true);
         defaults.set("downscroll", false);
+        defaults.set("middlescroll", false);
         defaults.set("allowPause", true);
         defaults.set("cameraZoomOnBeat", true);
         defaults.set("comboFlashOnHit", true);
@@ -20,6 +36,7 @@ class GameplayFlags {
         defaults.set("modchartEnabled", true);
         defaults.set("antialiasing", true);
         defaults.set("flashingLights", true);
+        defaults.set("botplay", false);
 
         for (key => value in defaults) {
             if (!active.exists(key)) {
@@ -55,7 +72,8 @@ class GameplayFlags {
             return cast value;
         }
         if (Std.isOfType(value, String)) {
-            return Std.parseFloat(cast value);
+            var parsed = Std.parseFloat(cast value);
+            return Math.isNaN(parsed) ? fallback : parsed;
         }
         return fallback;
     }
@@ -69,16 +87,14 @@ class GameplayFlags {
             return Std.int(cast value);
         }
         if (Std.isOfType(value, String)) {
-            return Std.parseInt(cast value);
+            var parsed = Std.parseInt(cast value);
+            return parsed != null ? parsed : fallback;
         }
         return fallback;
     }
 
     public static function normalizeKey(rawKey:String):String {
-        if (rawKey == null) {
-            return "";
-        }
-
+        if (rawKey == null) return "";
         var key:String = StringTools.trim(rawKey);
         if (key.indexOf(".") != -1) {
             var parts:Array<String> = key.split(".");
@@ -88,14 +104,9 @@ class GameplayFlags {
     }
 
     public static function applyFlagString(flagString:String):Void {
-        if (flagString == null) {
-            return;
-        }
-
+        if (flagString == null) return;
         var cleaned:String = StringTools.trim(flagString);
-        if (cleaned == "") {
-            return;
-        }
+        if (cleaned == "") return;
 
         if (cleaned.indexOf("=") == -1) {
             set(cleaned, true);
@@ -103,9 +114,7 @@ class GameplayFlags {
         }
 
         var parts:Array<String> = cleaned.split("=");
-        if (parts.length < 2) {
-            return;
-        }
+        if (parts.length < 2) return;
 
         var key:String = StringTools.trim(parts[0]);
         var valueString:String = StringTools.trim(parts.slice(1).join("="));
@@ -113,10 +122,7 @@ class GameplayFlags {
     }
 
     static function parseScalar(rawValue:String):Dynamic {
-        if (rawValue == null) {
-            return true;
-        }
-
+        if (rawValue == null) return true;
         var value:String = StringTools.trim(rawValue);
 
         if (value == "true") return true;
@@ -124,7 +130,7 @@ class GameplayFlags {
         if (value.toLowerCase() == "null") return null;
 
         var intValue:Null<Int> = Std.parseInt(value);
-        if (intValue != null) {
+        if (intValue != null && Std.string(intValue) == value) {
             return intValue;
         }
 
@@ -137,18 +143,16 @@ class GameplayFlags {
     }
 
     public static function resolveModFlags():Void {
-        initDefaults();
+        reset();
 
         #if sys
-        if (!sys.FileSystem.exists("mods")) {
-            return;
-        }
-
-        var modDirs:Array<String> = sys.FileSystem.readDirectory("mods");
-        for (modDir in modDirs) {
-            var fullDir:String = "mods/" + modDir;
-            if (sys.FileSystem.isDirectory(fullDir)) {
-                loadModFlags(fullDir);
+        // Load exclusively from active enabled mods to prevent inactive mods leaking flags
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            for (modName in ModManager.activeMods) {
+                var fullDir:String = 'mods/$modName';
+                if (FileSystem.exists(fullDir) && FileSystem.isDirectory(fullDir)) {
+                    loadModFlags(fullDir);
+                }
             }
         }
         #end
@@ -156,11 +160,11 @@ class GameplayFlags {
 
     public static function loadModFlags(modDirectory:String):Void {
         #if sys
-        var jsonPath:String = modDirectory + "/soulmod.json";
-        if (sys.FileSystem.exists(jsonPath)) {
+        var jsonPath:String = '$modDirectory/soulmod.json';
+        if (FileSystem.exists(jsonPath)) {
             try {
-                var raw:String = sys.io.File.getContent(jsonPath);
-                var parsed:Dynamic = haxe.Json.parse(raw);
+                var raw:String = File.getContent(jsonPath);
+                var parsed:Dynamic = Json.parse(raw);
 
                 if (Reflect.hasField(parsed, "flags")) {
                     var flags:Array<Dynamic> = Reflect.field(parsed, "flags");
@@ -171,23 +175,22 @@ class GameplayFlags {
                     }
                 }
             } catch (e:Dynamic) {
-                // intentionally silent: malformed mods are ignored
+                Logger.warn('Failed parsing flags in $jsonPath: $e', "flags");
             }
         }
 
-        var flagsPath:String = modDirectory + "/flags.json";
-        if (sys.FileSystem.exists(flagsPath)) {
+        var flagsPath:String = '$modDirectory/flags.json';
+        if (FileSystem.exists(flagsPath)) {
             try {
-                var raw:String = sys.io.File.getContent(flagsPath);
-                var parsed:Dynamic = haxe.Json.parse(raw);
+                var raw:String = File.getContent(flagsPath);
+                var parsed:Dynamic = Json.parse(raw);
                 if (parsed != null) {
                     for (key in Reflect.fields(parsed)) {
-                        var value:Dynamic = Reflect.field(parsed, key);
-                        set(key, value);
+                        set(key, Reflect.field(parsed, key));
                     }
                 }
             } catch (e:Dynamic) {
-                // intentionally silent: malformed mods are ignored
+                Logger.warn('Failed parsing flags in $flagsPath: $e', "flags");
             }
         }
         #end

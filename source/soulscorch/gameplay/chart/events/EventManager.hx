@@ -1,0 +1,210 @@
+package soulscorch.gameplay.chart.events;
+
+import flixel.FlxCamera;
+import flixel.FlxG;
+import flixel.math.FlxMath;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxColor;
+import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.EventBus;
+import soulscorch.backend.utils.Logger;
+import soulscorch.backend.utils.tools.StringTools;
+import soulscorch.gameplay.chart.events.SongEvent.QueuedEvent;
+import soulscorch.scripting.ScriptManager;
+
+class EventManager {
+    public var camera:FlxCamera;
+    public var events:Array<QueuedEvent> = [];
+
+    public var opponentPosition:{x:Float, y:Float} = {x: 400.0, y: 300.0};
+    public var playerPosition:{x:Float, y:Float} = {x: 900.0, y: 300.0};
+    public var gfPosition:{x:Float, y:Float} = {x: 650.0, y: 300.0};
+    public var stageCenter:{x:Float, y:Float} = {x: 650.0, y: 300.0};
+
+    public var baseCameraZoom:Float = 1.0;
+    public var currentZoomOffset:Float = 0.0;
+    private var zoomBump:Float = 0.0;
+
+    public var onCameraPan:String->Float->Void;
+    public var onPlayAnimation:String->String->Void;
+
+    public function new(?targetCamera:FlxCamera) {
+        this.camera = (targetCamera != null) ? targetCamera : FlxG.camera;
+    }
+
+    /**
+     * Parses raw event arrays from Chart JSONs (supports Psych and V-Slice schemas).
+     */
+    public function parse(raw:Dynamic):Void {
+        if (raw == null) return;
+        events = [];
+
+        var rawList:Dynamic = Reflect.hasField(raw, "events") ? Reflect.field(raw, "events") : raw;
+        if (!Std.isOfType(rawList, Array)) return;
+
+        for (entry in (cast rawList : Array<Dynamic>)) {
+            if (entry == null) continue;
+
+            // Format A: [strumTime, [[eventName, val1, val2]]] (Psych format)
+            if (Std.isOfType(entry, Array) && entry.length >= 2) {
+                var time:Float = entry[0];
+                var subEvents:Array<Dynamic> = cast entry[1];
+                for (sub in subEvents) {
+                    if (sub != null && sub.length >= 1) {
+                        events.push({
+                            time: time,
+                            name: Std.string(sub[0]),
+                            val1: sub.length > 1 ? Std.string(sub[1]) : "",
+                            val2: sub.length > 2 ? Std.string(sub[2]) : "",
+                            fired: false
+                        });
+                    }
+                }
+            } 
+            // Format B: {time: Float, name/type: String, val1/data: Dynamic}
+            else {
+                var time:Float = StringTools.forceFloat(Reflect.field(entry, "time"), StringTools.forceFloat(Reflect.field(entry, "strumTime"), 0.0));
+                var name:String = Reflect.hasField(entry, "name") ? Std.string(Reflect.field(entry, "name")) : (Reflect.hasField(entry, "type") ? Std.string(Reflect.field(entry, "type")) : "");
+                var val1:String = Reflect.hasField(entry, "val1") ? Std.string(Reflect.field(entry, "val1")) : (Reflect.hasField(entry, "data") ? Std.string(Reflect.field(entry, "data")) : "");
+                var val2:String = Reflect.hasField(entry, "val2") ? Std.string(Reflect.field(entry, "val2")) : "";
+
+                if (name.length > 0) {
+                    events.push({
+                        time: time,
+                        name: name,
+                        val1: val1,
+                        val2: val2,
+                        data: Reflect.field(entry, "data"),
+                        fired: false
+                    });
+                }
+            }
+        }
+
+        sortEvents();
+    }
+
+    public function addEvent(time:Float, name:String, val1:String = "", val2:String = ""):Void {
+        events.push({
+            time: time,
+            name: name,
+            val1: val1,
+            val2: val2,
+            fired: false
+        });
+        sortEvents();
+    }
+
+    public inline function sortEvents():Void {
+        events.sort(function(a:QueuedEvent, b:QueuedEvent):Int {
+            return (a.time < b.time) ? -1 : ((a.time > b.time) ? 1 : 0);
+        });
+    }
+
+    public function update(songPosition:Float, elapsed:Float):Void {
+        for (i in 0...events.length) {
+            var event = events[i];
+            if (!event.fired && event.time <= songPosition) {
+                event.fired = true;
+                dispatch(event.name, event.val1, event.val2, event.data);
+            }
+        }
+
+        // Decay beat bump zoom over time
+        if (zoomBump > 0.0) {
+            zoomBump = Math.max(0.0, zoomBump - (elapsed * 3.0));
+            if (camera != null) {
+                camera.zoom = baseCameraZoom + currentZoomOffset + zoomBump;
+            }
+        }
+    }
+
+    public function beatHit(beat:Int):Void {
+        if (beat < 0) return;
+        zoomBump = 0.035;
+        EventBus.emit("event/beatBump", {beat: beat});
+    }
+
+    public function reset():Void {
+        for (event in events) {
+            event.fired = false;
+        }
+        zoomBump = 0.0;
+    }
+
+    private function dispatch(name:String, val1:String, val2:String, ?data:Dynamic):Void {
+        var cleanName:String = name.toLowerCase().trim();
+
+        switch (cleanName) {
+            case "camera pan", "camera_pan", "camerapan", "focus camera":
+                var target = (val1.length > 0) ? val1 : "stage";
+                var duration = StringTools.forceFloat(val2, 0.4);
+                panCamera(target, duration);
+
+            case "camera zoom", "camera_zoom", "camerazoom", "set zoom":
+                var zoomAmount = StringTools.forceFloat(val1, baseCameraZoom);
+                var duration = StringTools.forceFloat(val2, 0.3);
+                setCameraZoom(zoomAmount, duration);
+
+            case "add camera zoom", "camera bump", "camerabump":
+                var bumpAmount = StringTools.forceFloat(val1, 0.05);
+                zoomBump += bumpAmount;
+
+            case "flash", "flash screen", "screen flash":
+                var duration = StringTools.forceFloat(val1, 0.35);
+                var colorHex = (val2.length > 0) ? FlxColor.fromString(val2) : FlxColor.WHITE;
+                if (camera != null) camera.flash(colorHex, duration);
+
+            case "fade", "fade screen", "screen fade":
+                var duration = StringTools.forceFloat(val1, 0.5);
+                var colorHex = (val2.length > 0) ? FlxColor.fromString(val2) : FlxColor.BLACK;
+                if (camera != null) camera.fade(colorHex, duration, false);
+
+            case "play animation", "play anim":
+                if (onPlayAnimation != null) {
+                    onPlayAnimation(val1, val2);
+                }
+
+            case "script", "hscript", "call script":
+                if (ScriptManager.instance != null) {
+                    ScriptManager.instance.callAll(val1, [val2, data]);
+                }
+
+            default:
+                EventBus.emit('event/$name', {val1: val1, val2: val2, data: data});
+        }
+
+        // Notify global event subscribers and custom scripts
+        EventBus.emit("event/dispatched", {name: name, val1: val1, val2: val2, data: data});
+        if (ScriptManager.instance != null) {
+            ScriptManager.instance.callAll("onEvent", [name, val1, val2]);
+        }
+    }
+
+    private function panCamera(target:String, duration:Float):Void {
+        var point:{x:Float, y:Float} = switch (target.toLowerCase().trim()) {
+            case "opponent", "dad", "0": opponentPosition;
+            case "player", "bf", "1": playerPosition;
+            case "gf", "girlfriend", "2": gfPosition;
+            default: stageCenter;
+        };
+
+        if (onCameraPan != null) {
+            onCameraPan(target, duration);
+        } else if (camera != null) {
+            FlxTween.tween(camera.scroll, {x: point.x - (FlxG.width * 0.5), y: point.y - (FlxG.height * 0.5)}, Math.max(0.01, duration), {
+                ease: FlxEase.cubeOut
+            });
+        }
+    }
+
+    private function setCameraZoom(amount:Float, duration:Float):Void {
+        baseCameraZoom = amount;
+        if (camera != null) {
+            FlxTween.tween(camera, {zoom: baseCameraZoom}, Math.max(0.01, duration), {
+                ease: FlxEase.cubeOut
+            });
+        }
+    }
+}
