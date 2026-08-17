@@ -3,20 +3,20 @@ package soulscorch.ui.menus.states;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
-import flixel.math.FlxMath;
 import flixel.text.FlxText;
-import flixel.tweens.FlxEase;
-import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
-import soulscorch.backend.system.engine.Runtime;
+import soulscorch.backend.system.engine.Engine;
+import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.scripting.mod.ModLoader;
 import soulscorch.ui.menus.states.MainMenuState;
 
 class TitleState extends MusicBeatState {
@@ -36,23 +36,37 @@ class TitleState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        #if desktop
-        try {
-            DiscordRPC.changePresence("Title Screen", "In the Menus");
-        } catch (e:Dynamic) {}
-        #end
-
-        curWacky = getIntroText();
-
         if (!initialized) {
-            Conductor.changeBPM(102.0);
-            var menuMusic = Paths.music("freakyMenu");
-            if (menuMusic != null) {
-                FlxG.sound.playMusic(menuMusic, 0.7);
+            try {
+                ModLoader.scan();
+                var config = new GameConfig();
+                var engine = Engine.boot(config);
+                engine.init();
+            } catch (e:Dynamic) {
+                trace('Engine boot notice: $e');
             }
+
+            #if desktop
+            try {
+                DiscordRPC.changePresence("Title Screen", "In the Menus");
+            } catch (e:Dynamic) {}
+            #end
+
+            Conductor.changeBPM(102.0);
+
+            try {
+                var menuMusic = Paths.music("freakyMenu");
+                if (menuMusic != null) {
+                    FlxG.sound.playMusic(menuMusic, 0.7);
+                }
+            } catch (e:Dynamic) {
+                trace('Could not load menu music: $e');
+            }
+
             initialized = true;
         }
 
+        curWacky = getIntroText();
         persistentUpdate = true;
 
         logoBump = new FlxSprite(-150, -100);
@@ -63,6 +77,7 @@ class TitleState extends MusicBeatState {
         }
         logoBump.updateHitbox();
         logoBump.antialiasing = true;
+        add(logoBump);
 
         gfDance = new FlxSprite(FlxG.width * 0.4, 40);
         AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
@@ -72,6 +87,7 @@ class TitleState extends MusicBeatState {
             gfDance.animation.play("danceLeft");
         }
         gfDance.antialiasing = true;
+        add(gfDance);
 
         titleText = new FlxSprite(100, FlxG.height * 0.8);
         AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
@@ -82,9 +98,6 @@ class TitleState extends MusicBeatState {
         }
         titleText.updateHitbox();
         titleText.antialiasing = true;
-
-        add(gfDance);
-        add(logoBump);
         add(titleText);
 
         textGroup = new FlxGroup();
@@ -103,13 +116,16 @@ class TitleState extends MusicBeatState {
             Conductor.songPosition = FlxG.sound.music.time;
         }
 
-        var pressedEnter:Bool = (Controls.instance != null) ? Controls.instance.ACCEPT : FlxG.keys.justPressed.ENTER;
+        var pressedEnter:Bool = FlxG.keys.justPressed.ENTER;
+        if (Controls.instance != null && Controls.instance.ACCEPT) {
+            pressedEnter = true;
+        }
 
         if (pressedEnter && !closedIntro) {
             skipIntro();
         } else if (pressedEnter && closedIntro && !transitioning) {
             transitioning = true;
-            if (titleText != null && titleText.animation.exists("press")) {
+            if (titleText != null && titleText.animation != null && titleText.animation.exists("press")) {
                 titleText.animation.play("press");
             }
             FlxG.camera.flash(FlxColor.WHITE, 1.0);
@@ -141,11 +157,11 @@ class TitleState extends MusicBeatState {
     override public function beatHit(beat:Int):Void {
         super.beatHit(beat);
 
-        if (logoBump != null && logoBump.animation.exists("bump")) {
+        if (logoBump != null && logoBump.animation != null && logoBump.animation.exists("bump")) {
             logoBump.animation.play("bump", true);
         }
 
-        if (gfDance != null && gfDance.animation.exists("danceLeft")) {
+        if (gfDance != null && gfDance.animation != null && gfDance.animation.exists("danceLeft")) {
             danceLeft = !danceLeft;
             gfDance.animation.play(danceLeft ? "danceLeft" : "danceRight", true);
         }

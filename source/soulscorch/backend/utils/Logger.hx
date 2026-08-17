@@ -81,8 +81,6 @@ class Logger {
         entries = [];
     }
 
-    // --- Static Convenience Methods ---
-
     public static function trace(message:Dynamic, ?channel:String = "engine"):Void {
         instance.log(TRACE, channel, Std.string(message));
     }

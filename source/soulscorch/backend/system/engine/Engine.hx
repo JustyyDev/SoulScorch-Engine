@@ -53,9 +53,9 @@ class Engine {
 
     public function init():Void {
         if (initialized) return;
+        initialized = true;
 
         config.load();
-
         register("config", config);
         register("mods", new ModRegistry());
 
@@ -73,7 +73,6 @@ class Engine {
 
         Logger.info('${Version.fullVersion()} initialized.');
 
-        initialized = true;
         onInit.dispatch();
     }
 
