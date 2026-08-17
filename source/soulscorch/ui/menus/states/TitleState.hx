@@ -17,6 +17,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class TitleState extends MusicBeatState {
     public static var initialized:Bool = false;
@@ -35,37 +36,54 @@ class TitleState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        DiscordRPC.changePresence("Title Screen", "In the Menus");
+        if (Controls.instance == null) {
+            Controls.instance = new Controls();
+        }
+
+        #if desktop
+        try {
+            DiscordRPC.changePresence("Title Screen", "In the Menus");
+        } catch (e:Dynamic) {}
+        #end
 
         curWacky = getIntroText();
 
         if (!initialized) {
             Conductor.changeBPM(102.0);
-            FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
+            var menuMusic = Paths.music("freakyMenu");
+            if (menuMusic != null) {
+                FlxG.sound.playMusic(menuMusic, 0.7);
+            }
             initialized = true;
         }
 
         persistentUpdate = true;
 
         logoBump = new FlxSprite(-150, -100);
-        AssetHelper.loadSparrowSafely(logoBump, "menus/title/logoBumpin");
-        logoBump.animation.addByPrefix("bump", "logo bumpin", 24, false);
-        logoBump.animation.play("bump");
+        AssetHelper.loadSparrowSafely(logoBump, "menus/titlescreen/logo");
+        if (logoBump.frames != null) {
+            logoBump.animation.addByPrefix("bump", "logo bumpin", 24, false);
+            logoBump.animation.play("bump");
+        }
         logoBump.updateHitbox();
         logoBump.antialiasing = true;
 
         gfDance = new FlxSprite(FlxG.width * 0.4, 40);
-        AssetHelper.loadSparrowSafely(gfDance, "menus/title/gfDanceTitle");
-        gfDance.animation.addByIndices("danceLeft", "gfDance", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
-        gfDance.animation.addByIndices("danceRight", "gfDance", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
-        gfDance.animation.play("danceLeft");
+        AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
+        if (gfDance.frames != null) {
+            gfDance.animation.addByIndices("danceLeft", "gfDance", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
+            gfDance.animation.addByIndices("danceRight", "gfDance", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
+            gfDance.animation.play("danceLeft");
+        }
         gfDance.antialiasing = true;
 
         titleText = new FlxSprite(100, FlxG.height * 0.8);
-        AssetHelper.loadSparrowSafely(titleText, "menus/title/titleEnter");
-        titleText.animation.addByPrefix("idle", "Press Enter to Begin", 24);
-        titleText.animation.addByPrefix("press", "ENTER PRESSED", 24);
-        titleText.animation.play("idle");
+        AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
+        if (titleText.frames != null) {
+            titleText.animation.addByPrefix("idle", "Press Enter to Begin", 24);
+            titleText.animation.addByPrefix("press", "ENTER PRESSED", 24);
+            titleText.animation.play("idle");
+        }
         titleText.updateHitbox();
         titleText.antialiasing = true;
 
@@ -89,13 +107,15 @@ class TitleState extends MusicBeatState {
             Conductor.songPosition = FlxG.sound.music.time;
         }
 
-        var pressedEnter:Bool = Controls.instance.ACCEPT;
+        var pressedEnter:Bool = (Controls.instance != null) ? Controls.instance.ACCEPT : FlxG.keys.justPressed.ENTER;
 
         if (pressedEnter && !closedIntro) {
             skipIntro();
         } else if (pressedEnter && closedIntro && !transitioning) {
             transitioning = true;
-            titleText.animation.play("press");
+            if (titleText != null && titleText.animation.exists("press")) {
+                titleText.animation.play("press");
+            }
             FlxG.camera.flash(FlxColor.WHITE, 1.0);
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
 
@@ -125,11 +145,11 @@ class TitleState extends MusicBeatState {
     override public function beatHit(beat:Int):Void {
         super.beatHit(beat);
 
-        if (logoBump != null) {
+        if (logoBump != null && logoBump.animation.exists("bump")) {
             logoBump.animation.play("bump", true);
         }
 
-        if (gfDance != null) {
+        if (gfDance != null && gfDance.animation.exists("danceLeft")) {
             danceLeft = !danceLeft;
             gfDance.animation.play(danceLeft ? "danceLeft" : "danceRight", true);
         }

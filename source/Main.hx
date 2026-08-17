@@ -19,15 +19,19 @@ import sys.io.File;
 #end
 
 import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.apis.NativeAPI;
+import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.FileWatcher;
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.editors.EditorPickerMenu;
 import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.menus.substate.ModSwitchMenu;
@@ -47,7 +51,7 @@ class Main extends Sprite {
     public function new() {
         super();
 
-        Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtError);
+        CrashHandler.install();
 
         if (stage != null) {
             init();
@@ -62,53 +66,70 @@ class Main extends Sprite {
     }
 
     private function init():Void {
-        var config = new GameConfig();
-        config.framerate = framerate;
-        Engine.boot(config).init();
+        try {
+            // 1. Ensure basic singletons exist
+            if (Controls.instance == null) {
+                Controls.instance = new Controls();
+            }
 
-        #if desktop
-        DiscordRPC.changePresence("Starting Engine...", "Booting");
-        Lib.current.stage.application.onExit.add(function(exitCode:Int) {
-            DiscordRPC.shutdown();
-        });
-        #end
+            ModManager.reloadMods();
 
-        var stageWidth:Int = Lib.current.stage.stageWidth;
-        var stageHeight:Int = Lib.current.stage.stageHeight;
+            var config = new GameConfig();
+            config.framerate = framerate;
+            var engine = Engine.boot(config);
+            engine.init();
+            Runtime.engine = engine;
 
-        if (zoom == -1.0) {
-            var ratioX:Float = stageWidth / gameWidth;
-            var ratioY:Float = stageHeight / gameHeight;
-            zoom = Math.min(ratioX, ratioY);
-            gameWidth = Math.ceil(stageWidth / zoom);
-            gameHeight = Math.ceil(stageHeight / zoom);
-        }
-
-        var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
-        addChild(game);
-
-        Lib.current.stage.align = StageAlign.TOP_LEFT;
-        Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
-
-        var devConsole = new DevConsole();
-        addChild(devConsole);
-
-        fpsCounter = new Framerate(10, 10, 0xFFFFFF);
-        fpsCounter.visible = true;
-        addChild(fpsCounter);
-
-        fileWatcher = new FileWatcher();
-
-        Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
-        addEventListener(Event.ENTER_FRAME, onEnterFrame);
-
-        haxe.Timer.delay(function() {
-            #if windows
-            NativeAPI.setDarkMode(true);
+            #if desktop
+            try {
+                DiscordRPC.changePresence("Starting Engine...", "Booting");
+                Lib.current.stage.application.onExit.add(function(exitCode:Int) {
+                    DiscordRPC.shutdown();
+                });
+            } catch (e:Dynamic) {
+                Logger.warn('Discord RPC could not start: $e');
+            }
             #end
-        }, 100);
 
-        Logger.info('Engine boot complete [${Version.fullVersion()}]', "main");
+            var stageWidth:Int = Lib.current.stage.stageWidth;
+            var stageHeight:Int = Lib.current.stage.stageHeight;
+
+            if (zoom == -1.0) {
+                var ratioX:Float = stageWidth / gameWidth;
+                var ratioY:Float = stageHeight / gameHeight;
+                zoom = Math.min(ratioX, ratioY);
+                gameWidth = Math.ceil(stageWidth / zoom);
+                gameHeight = Math.ceil(stageHeight / zoom);
+            }
+
+            var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
+            addChild(game);
+
+            Lib.current.stage.align = StageAlign.TOP_LEFT;
+            Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
+
+            var devConsole = new DevConsole();
+            addChild(devConsole);
+
+            fpsCounter = new Framerate(10, 10, 0xFFFFFF);
+            fpsCounter.visible = true;
+            addChild(fpsCounter);
+
+            fileWatcher = new FileWatcher();
+
+            Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+            addEventListener(Event.ENTER_FRAME, onEnterFrame);
+
+            #if windows
+            haxe.Timer.delay(function() {
+                NativeAPI.setDarkMode(true);
+            }, 100);
+            #end
+
+            Logger.info('Engine boot complete [${Version.fullVersion()}]', "main");
+        } catch (e:Dynamic) {
+            CrashHandler.handleCrash(Std.string(e), CallStack.exceptionStack(true));
+        }
     }
 
     private function onKeyDown(event:KeyboardEvent):Void {
@@ -129,40 +150,5 @@ class Main extends Sprite {
         if (fileWatcher != null) {
             fileWatcher.update(FlxG.elapsed);
         }
-    }
-
-    private function onUncaughtError(e:UncaughtErrorEvent):Void {
-        var errorMessage:String = "";
-        var stack:Array<StackItem> = CallStack.exceptionStack(true);
-
-        if (Std.isOfType(e.error, haxe.Exception)) {
-            var err:haxe.Exception = cast e.error;
-            errorMessage = err.message;
-        } else {
-            errorMessage = Std.string(e.error);
-        }
-
-        var stackTrace:String = CallStack.toString(stack);
-        var fullCrashLog:String = 'Uncaught Fatal Exception:\n$errorMessage\n\nStack Trace:\n$stackTrace';
-
-        #if sys
-        try {
-            if (!FileSystem.exists("crash")) FileSystem.createDirectory("crash");
-            var dateStr = Date.now().toString().split(" ").join("_").split(":").join("-");
-            var crashPath = 'crash/SoulScorch_Crash_$dateStr.txt';
-            File.saveContent(crashPath, fullCrashLog);
-            Sys.println('[FATAL CRASH LOGGED TO $crashPath]');
-        } catch (err:Dynamic) {
-            Sys.println('[COULD NOT SAVE CRASH FILE: $err]');
-        }
-        #end
-
-        #if windows
-        NativeAPI.showMessageError("SoulScorch Engine - Fatal Crash", fullCrashLog);
-        #else
-        Sys.println(fullCrashLog);
-        #end
-
-        Sys.exit(1);
     }
 }
