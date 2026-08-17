@@ -25,7 +25,6 @@ import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.GameConfig;
-import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -67,18 +66,12 @@ class Main extends Sprite {
 
     private function init():Void {
         try {
-            // 1. Ensure basic singletons exist
-            if (Controls.instance == null) {
-                Controls.instance = new Controls();
-            }
-
             ModManager.reloadMods();
 
             var config = new GameConfig();
             config.framerate = framerate;
             var engine = Engine.boot(config);
             engine.init();
-            Runtime.engine = engine;
 
             #if desktop
             try {

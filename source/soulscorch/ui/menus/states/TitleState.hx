@@ -36,10 +36,6 @@ class TitleState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        if (Controls.instance == null) {
-            Controls.instance = new Controls();
-        }
-
         #if desktop
         try {
             DiscordRPC.changePresence("Title Screen", "In the Menus");
