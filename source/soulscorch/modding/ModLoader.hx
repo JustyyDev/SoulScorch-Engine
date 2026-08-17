@@ -19,6 +19,40 @@ class ModLoader {
     public static var activeMods:Array<ModMetadata> = [];
     public static var modDirectories:Array<String> = [];
 
+    private static function getActiveModDirectories():Array<String> {
+        var roots:Array<String> = [];
+        var seen:Map<String, Bool> = new Map();
+
+        function addRoot(root:String):Void {
+            if (root == null || root.length == 0) return;
+            var clean = StringTools.replace(root, "\\", "/");
+            if (!seen.exists(clean)) {
+                roots.push(clean);
+                seen.set(clean, true);
+            }
+        }
+
+        if (ModManager.activeMods != null) {
+            if (ModManager.activeMods.length > 0) {
+                for (modName in ModManager.activeMods) {
+                    addRoot('mods/$modName');
+                }
+                return roots;
+            }
+
+            // ModManager explicitly disabled all mods.
+            if (ModManager.selectedMod == null && ModManager.allMods != null) {
+                return [];
+            }
+        }
+
+        for (dir in modDirectories) {
+            addRoot(dir);
+        }
+
+        return roots;
+    }
+
     public function new() {}
 
     public function scan():Void {
@@ -145,7 +179,8 @@ class ModLoader {
             }
         }
 
-        for (dir in modDirectories) {
+        var roots = getActiveModDirectories();
+        for (dir in roots) {
             for (candidate in getModCandidates(normalized)) {
                 var checkPath = dir + "/" + candidate;
                 if (FileSystem.exists(checkPath)) {
@@ -172,7 +207,8 @@ class ModLoader {
             }
         }
 
-        for (dir in modDirectories) {
+        var roots = getActiveModDirectories();
+        for (dir in roots) {
             for (candidate in getModCandidates(normalized)) {
                 var checkPath = dir + "/" + candidate;
                 if (FileSystem.exists(checkPath)) {
