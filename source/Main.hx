@@ -1,4 +1,4 @@
-package soulscorch;
+package;
 
 import flixel.FlxG;
 import flixel.FlxGame;
