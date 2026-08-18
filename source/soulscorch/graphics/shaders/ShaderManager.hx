@@ -1,48 +1,66 @@
-package soulscorch.system;
+package soulscorch.graphics.shaders;
 
-import flixel.FlxG;
 import flixel.FlxCamera;
+import flixel.FlxG;
 import openfl.filters.ShaderFilter;
-import soulscorch.core.EventBus;
-import soulscorch.core.Logger;
+import soulscorch.backend.system.EventBus;
+import soulscorch.backend.utils.Logger;
+import soulscorch.graphics.shaders.SoulShader;
 
 class ShaderManager {
+    public static var instance:ShaderManager = new ShaderManager();
+
     public var filters:Array<ShaderFilter> = [];
     public var shaders:Array<SoulShader> = [];
 
-    public function new() {}
+    public function new() {
+        instance = this;
+    }
 
     public function addShader(shader:SoulShader, ?camera:FlxCamera):Void {
+        if (shader == null || shaders.contains(shader)) return;
+
         shaders.push(shader);
-        var filter = new ShaderFilter(shader);
+        var filter = shader.filter;
         filters.push(filter);
 
         var cam = camera != null ? camera : FlxG.camera;
-
-        if (cam.filters == null) {
-            cam.setFilters([filter]);
-        } else {
-            cam.filters.push(filter);
+        if (cam != null) {
+            var currentFilters = cam.filters != null ? cam.filters : [];
+            currentFilters.push(filter);
+            cam.setFilters(currentFilters);
         }
 
         EventBus.publish("shader/added", {name: shader.shaderName});
-        Logger.info("shader", 'Added shader filter (total: ${shaders.length})');
+        Logger.info('Added shader filter (${shader.shaderName})', "shader");
+    }
+
+    public function removeShader(shader:SoulShader, ?camera:FlxCamera):Void {
+        if (shader == null) return;
+        shaders.remove(shader);
+        filters.remove(shader.filter);
+
+        var cam = camera != null ? camera : FlxG.camera;
+        if (cam != null) {
+            var currentFilters = cam.filters != null ? cam.filters : [];
+            currentFilters.remove(shader.filter);
+            cam.setFilters(currentFilters);
+        }
+
+        EventBus.publish("shader/removed", {name: shader.shaderName});
     }
 
     public function update(elapsed:Float):Void {
         for (shader in shaders) {
-            if (Reflect.hasField(shader.data, "iTime")) {
-                var curTime:Array<Float> = Reflect.field(shader.data, "iTime").value;
-                if (curTime == null) curTime = [0.0];
-                curTime[0] += elapsed;
-                shader.setFloat("iTime", curTime[0]);
-            }
+            shader.update(elapsed);
         }
     }
 
     public function clearShaders(?camera:FlxCamera):Void {
         var cam = camera != null ? camera : FlxG.camera;
-        cam.setFilters([]);
+        if (cam != null) {
+            cam.setFilters([]);
+        }
         filters = [];
         shaders = [];
         EventBus.publish("shader/cleared", {});
