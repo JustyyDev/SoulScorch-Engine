@@ -10,9 +10,13 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.ui.hud.Alphabet;
-import soulscorch.ui.menus.editors.CharacterEditorState;
-import soulscorch.ui.menus.editors.ChartEditorState;
 import soulscorch.ui.menus.states.MainMenuState;
+
+// Subpackage imports matching the directory structure
+import soulscorch.ui.menus.editors.chart.ChartEditorState;
+import soulscorch.ui.menus.editors.character.CharacterEditorState;
+import soulscorch.ui.menus.editors.stage.StageEditorState;
+import soulscorch.ui.menus.editors.modchart.ModchartEditorState;
 
 class EditorPickerMenu extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -98,7 +102,6 @@ class EditorPickerMenu extends MusicBeatState {
             case "Modchart Editor":
                 MusicBeatState.switchState(new ModchartEditorState());
             default:
-                // Fallback for tools currently in development
                 FlxG.camera.shake(0.01, 0.15);
         }
     }
