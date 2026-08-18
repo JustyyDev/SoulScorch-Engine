@@ -18,6 +18,8 @@ enum abstract Alignment(String) from String to String {
 
 class AlphaCharacter extends FlxSprite {
     public static var cachedFrames:FlxAtlasFrames = null;
+    public static var cachedBoldFrames:FlxAtlasFrames = null;
+
     public var character:String = "";
     public var row:Int = 0;
 
@@ -26,16 +28,28 @@ class AlphaCharacter extends FlxSprite {
         this.character = char;
         antialiasing = true;
 
-        if (cachedFrames == null) {
-            cachedFrames = Paths.getSparrowAtlas("alphabet");
-            if (cachedFrames == null) {
-                cachedFrames = Paths.getSparrowAtlas("ui/alphabet");
-            }
+        var imageKey = bold ? "ui/alphabet-bold" : "ui/alphabet";
+        
+        // Direct asset resolution fallback check
+        var xmlPath = Paths.xml(imageKey);
+        var pngPath = Paths.image(imageKey);
+
+        if (cachedFrames == null && !bold) {
+            cachedFrames = FlxAtlasFrames.fromSparrow(pngPath, xmlPath);
+        } else if (cachedBoldFrames == null && bold) {
+            cachedBoldFrames = FlxAtlasFrames.fromSparrow(pngPath, xmlPath);
         }
 
-        if (cachedFrames != null) {
-            this.frames = cachedFrames;
-        } else {
+        this.frames = bold ? cachedBoldFrames : cachedFrames;
+
+        if (this.frames == null) {
+            // Absolute fallback to standard asset paths if 'ui/' prefix fails
+            var altXml = bold ? Paths.xml("alphabet-bold") : Paths.xml("alphabet");
+            var altPng = bold ? Paths.image("alphabet-bold") : Paths.image("alphabet");
+            this.frames = FlxAtlasFrames.fromSparrow(altPng, altXml);
+        }
+
+        if (this.frames == null) {
             makeGraphic(24, 38, FlxColor.TRANSPARENT);
             return;
         }
@@ -76,8 +90,8 @@ class AlphaCharacter extends FlxSprite {
                 ]);
         }
 
-        if (added) {
-            animation.play("anim");
+        if (!added) {
+            makeGraphic(24, 38, FlxColor.TRANSPARENT);
         }
     }
 
@@ -115,8 +129,8 @@ class AlphaCharacter extends FlxSprite {
                 }
         }
 
-        if (added) {
-            animation.play("anim");
+        if (!added) {
+            makeGraphic(24, 38, FlxColor.TRANSPARENT);
         }
     }
 
@@ -125,8 +139,9 @@ class AlphaCharacter extends FlxSprite {
 
         for (p in prefixes) {
             for (f in frames.frames) {
-                if (f.name != null && StringTools.startsWith(f.name, p)) {
-                    animation.addByPrefix("anim", p, 24, true);
+                if (f.name != null && (f.name == p || StringTools.startsWith(f.name, p))) {
+                    animation.addByPrefix("anim", f.name, 24, true);
+                    animation.play("anim");
                     return true;
                 }
             }

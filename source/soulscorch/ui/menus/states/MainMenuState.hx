@@ -93,7 +93,8 @@ class MainMenuState extends MusicBeatState {
                 var alphaLabel = new Alphabet(0, (i * 140) + offset, itemKey.replace("_", " ").toUpperCase(), true);
                 alphaLabel.screenCenter(X);
                 alphaLabel.ID = i;
-                grpMenuItems.add(alphaLabel);
+                // Add Alphabet as a sprite using casting compatibility
+                grpMenuItems.add(cast alphaLabel);
             }
         }
 
@@ -182,7 +183,8 @@ class MainMenuState extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + huh, 0, menuItems.length - 1);
 
         grpMenuItems.forEach(function(spr:FlxSprite) {
-            if (spr.animation != null && spr.animation.getByName("idle") != null) {
+            // Safely check if sprite has animation controller before calling methods
+            if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("idle") != null) {
                 spr.animation.play("idle");
                 spr.updateHitbox();
             }
@@ -190,7 +192,7 @@ class MainMenuState extends MusicBeatState {
             spr.alpha = (spr.ID == curSelected ? 1.0 : 0.6);
 
             if (spr.ID == curSelected) {
-                if (spr.animation != null && spr.animation.getByName("selected") != null) {
+                if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("selected") != null) {
                     spr.animation.play("selected");
                     spr.centerOffsets();
                 }

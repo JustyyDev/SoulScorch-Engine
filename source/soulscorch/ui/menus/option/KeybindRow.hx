@@ -10,7 +10,7 @@ import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.InputMap;
 
-class KeybindRow extends FlxTypedGroup<FlxBasic> {
+class KeybindRow extends flixel.group.FlxSpriteGroup {
     public var label:FlxText;
     public var keyText:FlxText;
     public var rowBg:FlxSprite;

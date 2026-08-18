@@ -28,7 +28,7 @@ class OptionsMenuState extends MusicBeatState {
     public static var curCategory:Int = 0;
 
     private var categories:Array<OptionCategory> = [];
-    private var grpRows:FlxTypedGroup<FlxSprite> = new FlxTypedGroup<FlxSprite>();
+    private var grpRows:FlxTypedGroup<FlxSprite>;
     private var categoryTabs:Array<FlxText> = [];
 
     private var bg:FlxSprite;
@@ -81,6 +81,7 @@ class OptionsMenuState extends MusicBeatState {
             add(tabText);
         }
 
+        grpRows = new FlxTypedGroup<FlxSprite>();
         add(grpRows);
 
         descBox = new FlxSprite(0, FlxG.height - 75).makeGraphic(FlxG.width, 75, 0xEE0B0910);

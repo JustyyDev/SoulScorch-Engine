@@ -75,7 +75,14 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Build Engine
+      - name: Build Engine (macOS Universal ARM64/x86_64)
+        if: matrix.target == 'mac'
+        run: haxelib run lime build mac -release -64 -D HXCPP_M64
+        env:
+          HXCPP_COMPILE_THREADS: 8
+
+      - name: Build Engine (Standard Targets)
+        if: matrix.target != 'mac'
         run: haxelib run lime build ${{ matrix.target }} -release
         env:
           HXCPP_COMPILE_THREADS: 8

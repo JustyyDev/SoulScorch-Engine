@@ -656,7 +656,7 @@ class PlayState extends MusicBeatState {
 
     private function popupRating(judgment:Judgment):Void {
         var ratingSpr:FlxSprite = grpRatings.recycle(FlxSprite);
-        var ratingName:String = Judgment.name(judgment).toLowerCase();
+        var ratingName:String = Std.string(judgment).toLowerCase();
 
         AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
         ratingSpr.screenCenter();

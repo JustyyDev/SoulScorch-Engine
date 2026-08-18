@@ -9,7 +9,7 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 
-class OptionRow extends FlxTypedGroup<FlxBasic> {
+class OptionRow extends flixel.group.FlxSpriteGroup {
     public var label:FlxText;
     public var value:FlxText;
     public var rowBg:FlxSprite;

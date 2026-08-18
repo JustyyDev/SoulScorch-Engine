@@ -99,8 +99,8 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL
+      - name: Generate iOS C++ & Xcode Project (ARM64 64-bit Forced)
+        run: haxelib run lime build ios -release -nosign -64 -D HXCPP_M64 -DNO_PRELOAD_ALL
         env:
           HXCPP_COMPILE_THREADS: 8
 

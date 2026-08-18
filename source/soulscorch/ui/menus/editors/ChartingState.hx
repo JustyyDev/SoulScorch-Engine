@@ -65,11 +65,14 @@ class ChartingState extends MusicBeatState {
     private var curStepSelected:Int = 0;
     private var isPlaying:Bool = false;
     private var playbackSpeed:Float = 1.0;
+    private var snapDivider:Int = 16; // 16th note snap default
 
     // --- HUD Overlay ---
     private var infoTxt:FlxText;
     private var helpTxt:FlxText;
     private var sectionTxt:FlxText;
+    private var timelineBar:FlxSprite;
+    private var timelineMarker:FlxSprite;
 
     public function new(?song:String = "tutorial", ?difficulty:String = "normal") {
         super();
@@ -89,7 +92,7 @@ class ChartingState extends MusicBeatState {
         FlxG.cameras.add(camHUD, false);
         FlxG.cameras.setDefaultDrawTarget(camGrid, true);
 
-        // 2. Load Chart Data
+        // 2. Load Chart Data Safely
         loadChart();
 
         // 3. Setup Grid Canvas
@@ -103,17 +106,17 @@ class ChartingState extends MusicBeatState {
         add(grpNotes);
 
         // 5. Cursor Indicator
-        cursorSprite = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE, 0x44FFFFFF);
+        cursorSprite = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE, 0x55FFFFFF);
         cursorSprite.visible = false;
         add(cursorSprite);
 
-        // 6. Setup Audio
+        // 6. Setup Audio Track
         loadAudio();
 
-        // 7. Setup Editor HUD
+        // 7. Setup Editor HUD Overlays
         setupHUD();
 
-        // 8. Render Current Section Notes
+        // 8. Render Initial Section Notes
         refreshSectionNotes();
         updateInfoText();
 
@@ -141,7 +144,9 @@ class ChartingState extends MusicBeatState {
             createSection();
         }
 
-        Conductor.changeBPM(_song.bpm);
+        // Safe BPM initialization
+        var validBpm = (_song.bpm > 0) ? _song.bpm : 100.0;
+        Conductor.changeBPM(validBpm);
     }
 
     private function createSection():SwagSection {
@@ -164,40 +169,39 @@ class ChartingState extends MusicBeatState {
         gridBG = new FlxSprite(0, 0).makeGraphic(gridW, gridH, 0xFF181520);
         gridBG.screenCenter(X);
 
-        // Draw grid checkering
         for (row in 0...ROWS_PER_SECTION) {
             for (col in 0...STRUM_COLS) {
                 var isEven = (row + col) % 2 == 0;
                 var color:FlxColor = isEven ? 0xFF231F2E : 0xFF2A2538;
-                if (col == 4) color = 0xFF352F46; // Strumline divider
+                if (col == 4) color = 0xFF352F46; // Strumline divider (Opponent vs Player)
 
                 var cell = new FlxSprite(gridBG.x + (col * GRID_SIZE), gridBG.y + (row * GRID_SIZE)).makeGraphic(GRID_SIZE - 1, GRID_SIZE - 1, color);
                 add(cell);
             }
         }
 
-        // Beat line separators
         for (i in 0...4) {
             var beatLine = new FlxSprite(gridBG.x, gridBG.y + (i * 4 * GRID_SIZE)).makeGraphic(gridW, 2, 0xFF665F7A);
             add(beatLine);
         }
 
-        // Section bounds marker
         gridSectionLine = new FlxSprite(gridBG.x, gridBG.y).makeGraphic(gridW, 4, 0xFFFF0055);
         add(gridSectionLine);
 
-        // Tracker line following current song step
         curSectionMarker = new FlxSprite(gridBG.x, gridBG.y).makeGraphic(gridW, 3, 0xFF00FFCC);
         add(curSectionMarker);
     }
 
     private function loadAudio():Void {
-        FlxG.sound.music = Paths.inst(curSong);
-        if (FlxG.sound.music != null) {
-            FlxG.sound.music.pause();
-            FlxG.sound.music.onComplete = function() {
-                pausePlayback();
-            };
+        var instSound = Paths.inst(curSong);
+        if (instSound != null) {
+            FlxG.sound.playMusic(instSound, 0, false);
+            if (FlxG.sound.music != null) {
+                FlxG.sound.music.pause();
+                FlxG.sound.music.onComplete = function() {
+                    pausePlayback();
+                };
+            }
         }
 
         var voiceSound = Paths.voices(curSong);
@@ -219,7 +223,7 @@ class ChartingState extends MusicBeatState {
         infoTxt.cameras = [camHUD];
         add(infoTxt);
 
-        sectionTxt = new FlxText(15, 220, 290, "", 14);
+        sectionTxt = new FlxText(15, 240, 290, "", 14);
         sectionTxt.setFormat(Paths.font("vcr"), 14, 0xFF00FFCC, LEFT);
         sectionTxt.scrollFactor.set();
         sectionTxt.cameras = [camHUD];
@@ -231,20 +235,21 @@ class ChartingState extends MusicBeatState {
         add(rightHUD);
 
         helpTxt = new FlxText(FlxG.width - 305, 15, 290,
-            "CONTROLS:\n\n" +
-            "[L-Click] - Place Note\n" +
-            "[R-Click] - Remove Note\n" +
-            "[MouseWheel] - Note Sustain\n" +
-            "[SPACE] - Play / Pause\n" +
-            "[W / S] - Move Steps\n" +
-            "[Q / E] - Previous / Next Sec\n" +
-            "[TAB] - Toggle Section Turn\n" +
-            "[A / D] - Playback Speed\n" +
-            "[CTRL + S] - Save Chart JSON\n" +
-            "[ESCAPE] - Exit Editor",
-            13
+            "CHART EDITOR CONTROLS:\n\n" +
+            "[L-CLICK] - Place Note\n" +
+            "[R-CLICK] - Delete Note\n" +
+            "[SCROLL WHEEL] - Adjust Sustain\n" +
+            "[SPACE] - Play / Pause Song\n" +
+            "[W / S] - Step Navigation\n" +
+            "[Q / E] - Prev / Next Section\n" +
+            "[TAB] - Toggle Section Must-Hit\n" +
+            "[A / D] - Adjust Playback Speed\n" +
+            "[1 / 2] - Quick Snap Division\n" +
+            "[CTRL + S] - Export Chart JSON\n" +
+            "[ESCAPE] - Return to Menu",
+            12
         );
-        helpTxt.setFormat(Paths.font("vcr"), 13, 0xFFDDDDDD, LEFT);
+        helpTxt.setFormat(Paths.font("vcr"), 12, 0xFFDDDDDD, LEFT);
         helpTxt.scrollFactor.set();
         helpTxt.cameras = [camHUD];
         add(helpTxt);
@@ -286,19 +291,19 @@ class ChartingState extends MusicBeatState {
     }
 
     private function handleNavigationInput():Void {
-        // Section Navigation
         if (FlxG.keys.justPressed.E) changeSection(1);
         if (FlxG.keys.justPressed.Q) changeSection(-1);
 
-        // Step Navigation
         if (FlxG.keys.justPressed.W) changeStep(-1);
         if (FlxG.keys.justPressed.S) changeStep(1);
 
-        // Playback Speed
         if (FlxG.keys.justPressed.A) playbackSpeed = Math.max(0.25, playbackSpeed - 0.25);
         if (FlxG.keys.justPressed.D) playbackSpeed = Math.min(3.0, playbackSpeed + 0.25);
 
-        // Turn Switcher
+        if (FlxG.keys.justPressed.ONE) snapDivider = 4;
+        if (FlxG.keys.justPressed.TWO) snapDivider = 8;
+        if (FlxG.keys.justPressed.THREE) snapDivider = 16;
+
         if (FlxG.keys.justPressed.TAB) {
             if (_song.notes[curSection] != null) {
                 _song.notes[curSection].mustHitSection = !_song.notes[curSection].mustHitSection;
@@ -320,17 +325,14 @@ class ChartingState extends MusicBeatState {
 
             var noteTime = ((curSection * ROWS_PER_SECTION) + row) * Conductor.stepCrochet;
 
-            // Place Note
             if (FlxG.mouse.justPressed) {
                 addNote(noteTime, col);
             }
 
-            // Remove Note
             if (FlxG.mouse.justPressedRight) {
                 deleteNote(noteTime, col);
             }
 
-            // Sustain Adjustment
             if (FlxG.mouse.wheel != 0) {
                 adjustSustain(noteTime, col, FlxG.mouse.wheel);
             }
@@ -340,17 +342,14 @@ class ChartingState extends MusicBeatState {
     }
 
     private function handleKeyboardShortcuts():Void {
-        // Spacebar Play/Pause
         if (FlxG.keys.justPressed.SPACE) {
             togglePlayback();
         }
 
-        // Save Chart
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
             saveChartJson();
         }
 
-        // Exit
         if (FlxG.keys.justPressed.ESCAPE) {
             if (FlxG.sound.music != null) FlxG.sound.music.stop();
             if (vocals != null) vocals.stop();
@@ -411,7 +410,6 @@ class ChartingState extends MusicBeatState {
         var sec = _song.notes[curSection];
         if (sec == null) return;
 
-        // Check if note already exists at this spot
         for (n in sec.sectionNotes) {
             if (Math.abs(n[0] - time) < 5 && n[1] == data) return;
         }
@@ -465,11 +463,9 @@ class ChartingState extends MusicBeatState {
             var noteX = gridBG.x + (noteData * GRID_SIZE);
             var noteY = gridBG.y + (stepIndex * GRID_SIZE);
 
-            // Note Head
             var noteSpr = new FlxSprite(noteX + 2, noteY + 2).makeGraphic(GRID_SIZE - 4, GRID_SIZE - 4, noteColors[noteData]);
             grpNotes.add(noteSpr);
 
-            // Sustain Tail
             if (susLen > 0) {
                 var susSteps = susLen / Conductor.stepCrochet;
                 var susH = Std.int(susSteps * GRID_SIZE);
@@ -490,6 +486,7 @@ class ChartingState extends MusicBeatState {
             'BPM: ${_song.bpm}\n' +
             'Speed: ${_song.speed}\n' +
             'Playback: ${playbackSpeed}x\n' +
+            'Snap: 1/$snapDivider\n' +
             'Time: ${Math.floor(Conductor.songPosition / 1000)}s';
 
         sectionTxt.text = 'SECTION INFO\n\n' +
