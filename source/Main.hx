@@ -20,6 +20,7 @@ import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.HotReloader;
+import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -78,6 +79,9 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
+            // CRITICAL FIX: Bind Flixel save data FIRST so configs and saves load properly
+            FlxG.save.bind("soulscorch_system");
+
             var devConsole = new DevConsole();
             addChild(devConsole);
 
@@ -87,10 +91,13 @@ class Main extends Sprite {
 
             ModManager.reloadMods();
 
+            // Initialize Engine and GameConfig via Runtime pipeline
             var config = new GameConfig();
             config.framerate = framerate;
             var engine = Engine.boot(config);
             engine.init();
+
+            Runtime.setupFlixel();
 
             #if desktop
             try {
@@ -125,7 +132,6 @@ class Main extends Sprite {
             fpsCounter.visible = !fpsCounter.visible;
         }
 
-        // F5 Global HotReload trigger
         if (event.keyCode == Keyboard.F5) {
             HotReloader.reload();
         }

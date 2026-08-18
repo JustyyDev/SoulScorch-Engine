@@ -25,10 +25,13 @@ class Engine {
     public var services:Map<String, Dynamic>;
     public var modules:Map<String, Module>;
     public var initialized:Bool = false;
+    public var currentScene:Scene;
     
     public var onInit:FlxTypedSignal<Void->Void>;
+    public var onUpdate:FlxTypedSignal<Float->Void>;
     public var onSceneCreate:FlxTypedSignal<Scene->Void>;
     public var onSceneSwitch:FlxTypedSignal<Scene->Void>;
+    public var onShutdown:FlxTypedSignal<Void->Void>;
 
     public function new(config:GameConfig) {
         this.config = config;
@@ -36,8 +39,10 @@ class Engine {
         modules = new Map<String, Module>();
         
         onInit = new FlxTypedSignal<Void->Void>();
+        onUpdate = new FlxTypedSignal<Float->Void>();
         onSceneCreate = new FlxTypedSignal<Scene->Void>();
         onSceneSwitch = new FlxTypedSignal<Scene->Void>();
+        onShutdown = new FlxTypedSignal<Void->Void>();
         
         instance = this;
     }
@@ -51,34 +56,42 @@ class Engine {
 
     public function init():Void {
         if (initialized) return;
-        initialized = true; // Set flag first to prevent re-entrant loops
+        initialized = true;
 
-        config.load();
+        if (config != null) {
+            config.load();
+            register("config", config);
+        }
 
-        register("config", config);
         register("mods", new ModRegistry());
-
         ModLoader.scan();
         register("modLoader", ModLoader);
 
-        register("save", new SaveData());
-        register("achievements", new Achievements());
+        register("save", SaveData.instance);
+        register("achievements", Achievements.instance);
         register("events", EventBus.instance);
-        register("scheduler", new Scheduler());
-        register("notifications", new NotificationManager());
+        register("scheduler", Scheduler.instance);
+        register("notifications", NotificationManager.instance);
         register("scripts", new ScriptManager());
         
         LanguageManager.instance.load();
 
-        Logger.info('${Version.fullVersion()} initialized.', "engine");
+        Logger.info('${Version.fullVersion()} initialized successfully.', "engine");
 
         onInit.dispatch();
+    }
+
+    public function update(elapsed:Float):Void {
+        if (!initialized) return;
+        updateModules(elapsed);
+        onUpdate.dispatch(elapsed);
     }
 
     public function registerModule(module:Module):Void {
         if (module == null || modules.exists(module.name)) return;
         module.initialize();
         modules.set(module.name, module);
+        Logger.info('Module registered: ${module.name}', "engine");
     }
 
     public function removeModule(name:String):Void {
@@ -86,6 +99,7 @@ class Engine {
         var mod = modules.get(name);
         mod.destroy();
         modules.remove(name);
+        Logger.info('Module removed: $name', "engine");
     }
 
     public function updateModules(elapsed:Float):Void {
@@ -95,11 +109,22 @@ class Engine {
         }
     }
 
+    public function notifySceneCreate(scene:Scene):Void {
+        currentScene = scene;
+        onSceneCreate.dispatch(scene);
+    }
+
     public function notifyStateSwitch():Void {
         for (module in modules) {
             module.onStateSwitch();
         }
         System.gc();
+    }
+
+    public function notifySceneSwitch(scene:Scene):Void {
+        currentScene = scene;
+        notifyStateSwitch();
+        onSceneSwitch.dispatch(scene);
     }
 
     public function register<T>(name:String, value:T):Void {
@@ -109,5 +134,18 @@ class Engine {
     public function resolve<T>(name:String):Null<T> {
         if (!services.exists(name)) return null;
         return cast services.get(name);
+    }
+
+    public function shutdown():Void {
+        if (!initialized) return;
+        onShutdown.dispatch();
+
+        for (name in modules.keys()) {
+            removeModule(name);
+        }
+
+        services.clear();
+        initialized = false;
+        Logger.info("Engine shut down cleanly.", "engine");
     }
 }

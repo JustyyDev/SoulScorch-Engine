@@ -2,10 +2,14 @@ package soulscorch.scripting;
 
 import flixel.FlxG;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.soul.SoulScript;
 
 #if sys
 import sys.FileSystem;
 #end
+
+using StringTools;
 
 class GlobalScriptManager {
     public static var instance(get, null):GlobalScriptManager;
@@ -35,15 +39,23 @@ class GlobalScriptManager {
         for (mod in ModLoader.activeMods) {
             searchPaths.push('mods/$mod/scripts/global');
             searchPaths.push('mods/$mod/global_scripts');
+            searchPaths.push('mods/$mod/data'); // Added to support global.soul in the data root
         }
 
         for (path in searchPaths) {
             if (FileSystem.exists(path) && FileSystem.isDirectory(path)) {
                 var files = FileSystem.readDirectory(path);
                 for (file in files) {
-                    if (StringTools.endsWith(file, ".hx") || StringTools.endsWith(file, ".hscript")) {
+                    if (file.endsWith(".hx") || file.endsWith(".hscript") || file.endsWith(".soul")) {
                         var fullPath = '$path/$file';
-                        var script = new Script(fullPath);
+                        
+                        var script:ScriptInstance = null;
+                        if (file.endsWith(".soul")) {
+                            script = new SoulScript(fullPath);
+                        } else {
+                            script = new Script(fullPath);
+                        }
+
                         if (script.active) {
                             activeScripts.push(script);
                             script.call("onGlobalInit", []);

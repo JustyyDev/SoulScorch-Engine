@@ -8,8 +8,13 @@ class ModuleManager {
 
     public var modules:Map<String, Module> = new Map();
     private var moduleList:Array<Module> = [];
+    private var isUpdating:Bool = false;
+    private var pendingRegistrations:Array<Module> = [];
+    private var pendingRemovals:Array<String> = [];
 
-    public function new() {}
+    public function new() {
+        _instance = this;
+    }
 
     public static inline function get_instance():ModuleManager {
         if (_instance == null) {
@@ -21,24 +26,42 @@ class ModuleManager {
     public function register(module:Module):Void {
         if (module == null || modules.exists(module.name)) return;
 
+        // Defer registration if we are currently iterating through the loop
+        if (isUpdating) {
+            pendingRegistrations.push(module);
+            return;
+        }
+
         try {
             module.initialize();
             modules.set(module.name, module);
             moduleList.push(module);
-            Logger.info('Module registered: [${module.name}]');
+            Logger.info('Module registered successfully: [${module.name}]', "modules");
         } catch (e:Dynamic) {
-            Logger.error('Failed to initialize module [${module.name}]: $e');
+            Logger.error('Failed to initialize module [${module.name}]: $e', "modules");
         }
     }
 
     public function remove(name:String):Void {
         if (!modules.exists(name)) return;
 
+        // Defer removal if we are currently iterating through the loop
+        if (isUpdating) {
+            pendingRemovals.push(name);
+            return;
+        }
+
         var module = modules.get(name);
-        module.destroy();
-        modules.remove(name);
-        moduleList.remove(module);
-        Logger.info('Module removed: [$name]');
+        if (module != null) {
+            try {
+                module.destroy();
+            } catch (e:Dynamic) {
+                Logger.error('Error destroying module [$name]: $e', "modules");
+            }
+            modules.remove(name);
+            moduleList.remove(module);
+            Logger.info('Module removed: [$name]', "modules");
+        }
     }
 
     public function get<T:Module>(name:String):Null<T> {
@@ -47,19 +70,32 @@ class ModuleManager {
     }
 
     public function update(elapsed:Float):Void {
+        isUpdating = true;
+
         for (i in 0...moduleList.length) {
             var mod = moduleList[i];
             if (mod != null && mod.active) {
-                mod.update(elapsed);
+                try {
+                    mod.update(elapsed);
+                } catch (e:Dynamic) {
+                    Logger.error('Runtime error in module [${mod.name}] update: $e', "modules");
+                }
             }
         }
+
+        isUpdating = false;
+        processPendingChanges();
     }
 
     public function draw():Void {
         for (i in 0...moduleList.length) {
             var mod = moduleList[i];
             if (mod != null && mod.active) {
-                mod.draw();
+                try {
+                    mod.draw();
+                } catch (e:Dynamic) {
+                    Logger.error('Runtime error in module [${mod.name}] draw: $e', "modules");
+                }
             }
         }
     }
@@ -68,7 +104,11 @@ class ModuleManager {
         for (i in 0...moduleList.length) {
             var mod = moduleList[i];
             if (mod != null && mod.active) {
-                mod.onStateSwitch();
+                try {
+                    mod.onStateSwitch();
+                } catch (e:Dynamic) {
+                    Logger.error('Runtime error in module [${mod.name}] state switch: $e', "modules");
+                }
             }
         }
     }
@@ -77,16 +117,46 @@ class ModuleManager {
         for (i in 0...moduleList.length) {
             var mod = moduleList[i];
             if (mod != null && mod.active) {
-                mod.onEvent(eventName, data);
+                try {
+                    mod.onEvent(eventName, data);
+                } catch (e:Dynamic) {
+                    Logger.error('Runtime error in module [${mod.name}] event $eventName: $e', "modules");
+                }
+            }
+        }
+    }
+
+    private function processPendingChanges():Void {
+        if (pendingRegistrations.length > 0) {
+            var regQueue = pendingRegistrations;
+            pendingRegistrations = [];
+            for (mod in regQueue) {
+                register(mod);
+            }
+        }
+
+        if (pendingRemovals.length > 0) {
+            var remQueue = pendingRemovals;
+            pendingRemovals = [];
+            for (name in remQueue) {
+                remove(name);
             }
         }
     }
 
     public function destroy():Void {
+        isUpdating = false;
         for (mod in moduleList) {
-            mod.destroy();
+            if (mod != null) {
+                try {
+                    mod.destroy();
+                } catch (e:Dynamic) {}
+            }
         }
         modules.clear();
         moduleList = [];
+        pendingRegistrations = [];
+        pendingRemovals = [];
+        Logger.info("ModuleManager shut down cleanly.", "modules");
     }
 }

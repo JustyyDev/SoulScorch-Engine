@@ -51,7 +51,6 @@ class SoulScript implements ScriptInstance {
         set("StringTools", StringTools);
         #if sys set("Sys", Sys); #end
 
-        // Flixel
         set("FlxG", FlxG);
         set("FlxSprite", flixel.FlxSprite);
         set("FlxCamera", flixel.FlxCamera);
@@ -76,7 +75,6 @@ class SoulScript implements ScriptInstance {
             colorLookup: FlxColor.colorLookup
         });
 
-        // Engine Systems
         set("Runtime", Runtime.engine);
         set("Conductor", Conductor);
         set("Paths", Paths);
@@ -84,7 +82,6 @@ class SoulScript implements ScriptInstance {
         set("Logger", Logger);
         set("ModLoader", ModLoader);
 
-        // Discord Access for Modders
         set("DiscordRPC", DiscordRPC);
         set("changeDiscordPresence", DiscordRPC.changePresence);
         set("setDiscordClientID", DiscordRPC.setClientID);

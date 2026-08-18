@@ -10,12 +10,14 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.utils.GameTime;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.GlobalScriptManager;
 import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet.AlphaCharacter;
 
 class HotReloader {
     public static var enabled:Bool = true;
+    public static var hotReloadCount:Int = 0;
 
     public static function update():Void {
         #if debug
@@ -28,30 +30,42 @@ class HotReloader {
     public static function reload():Void {
         if (!enabled || MusicBeatTransition.isTransitioning) return;
 
-        Logger.info("Executing Engine HotReload...", "engine");
+        hotReloadCount++;
+        Logger.info('Executing Engine HotReload (Sequence #$hotReloadCount)...', "engine");
 
-        ModLoader.scan();
-        ModManager.reloadMods();
+        try {
+            ModLoader.scan();
+            ModManager.reloadMods();
 
-        AssetResolver.clearCache();
-        AssetHelper.clearAtlasCache();
-        AlphaCharacter.cachedFrames = null;
-        FlxG.bitmap.dumpCache();
+            AssetResolver.clearCache();
+            AssetHelper.clearAtlasCache();
+            if (AlphaCharacter.cachedFrames != null) {
+                AlphaCharacter.cachedFrames = null;
+            }
+            FlxG.bitmap.dumpCache();
 
-        EventBus.instance.emit("engine/hotreload", {time: GameTime.now()});
+            if (GlobalScriptManager.instance != null) {
+                GlobalScriptManager.instance.reload();
+            }
 
-        if (FlxG.state != null) {
-            var curStateClass:Class<FlxState> = cast Type.getClass(FlxG.state);
-            if (curStateClass != null) {
-                var newState:FlxState = Type.createInstance(curStateClass, []);
-                if (newState != null) {
-                    MusicBeatState.switchState(newState, new TransitionData(FADE, OUT, 0.25));
+            EventBus.instance.emit("engine/hotreload", {time: GameTime.now(), sequence: hotReloadCount});
+
+            if (FlxG.state != null) {
+                var curStateClass:Class<FlxState> = cast Type.getClass(FlxG.state);
+                if (curStateClass != null) {
+                    var newState:FlxState = Type.createInstance(curStateClass, []);
+                    if (newState != null) {
+                        MusicBeatState.switchState(newState, new TransitionData(FADE, OUT, 0.25));
+                        Logger.info("[HOTRELOAD] Active state hot-swapped successfully.", "engine");
+                    } else {
+                        FlxG.resetState();
+                    }
                 } else {
                     FlxG.resetState();
                 }
-            } else {
-                FlxG.resetState();
             }
+        } catch (e:Dynamic) {
+            Logger.error('[HOTRELOAD ERROR] Failed to complete hot-reload sequence: $e', "engine");
         }
     }
 }

@@ -5,10 +5,21 @@ import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
+import openfl.utils.Assets;
+#if cpp
+import cpp.vm.Gc;
+#elseif hl
+import hl.Gc;
+#elseif java
+import java.lang.System;
+#end
 
 using StringTools;
 
 class Paths {
+    public static var currentTrackedAssets:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
+    public static var currentTrackedSounds:Map<String, Sound> = new Map<String, Sound>();
+
     public static inline function file(file:String):String {
         return 'assets/$file';
     }
@@ -54,7 +65,10 @@ class Paths {
 
         for (v in variants) {
             var snd = AssetResolver.getSound(v);
-            if (snd != null) return snd;
+            if (snd != null) {
+                currentTrackedSounds.set(v, snd);
+                return snd;
+            }
         }
 
         return null;
@@ -70,7 +84,10 @@ class Paths {
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
-            if (snd != null) return snd;
+            if (snd != null) {
+                currentTrackedSounds.set(t, snd);
+                return snd;
+            }
         }
 
         return null;
@@ -92,7 +109,10 @@ class Paths {
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
-            if (snd != null) return snd;
+            if (snd != null) {
+                currentTrackedSounds.set(t, snd);
+                return snd;
+            }
         }
 
         return null;
@@ -114,7 +134,10 @@ class Paths {
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
-            if (snd != null) return snd;
+            if (snd != null) {
+                currentTrackedSounds.set(t, snd);
+                return snd;
+            }
         }
 
         return null;
@@ -125,7 +148,11 @@ class Paths {
     }
 
     public static inline function graphic(key:String):Null<FlxGraphic> {
-        return AssetResolver.getGraphic('images/$key');
+        var graph = AssetResolver.getGraphic('images/$key');
+        if (graph != null) {
+            currentTrackedAssets.set(key, graph);
+        }
+        return graph;
     }
 
     public static inline function font(key:String):String {
@@ -134,11 +161,59 @@ class Paths {
     }
 
     public static function getSparrowAtlas(key:String):Null<FlxAtlasFrames> {
-        var graphic = AssetResolver.getGraphic('images/$key');
+        var graph = graphic(key);
         var xmlContent = AssetResolver.getText('images/$key.xml');
-        if (graphic != null && xmlContent.length > 0) {
-            return FlxAtlasFrames.fromSparrow(graphic, xmlContent);
+        if (graph != null && xmlContent.length > 0) {
+            return FlxAtlasFrames.fromSparrow(graph, xmlContent);
         }
         return null;
+    }
+
+    /**
+     * Clears all cached OpenFL/Flixel stored bitmaps and audio from memory.
+     */
+    public static function clearStoredMemory():Void {
+        // Clear OpenFL cache safely
+        @:privateAccess {
+            if (Assets.cache != null) {
+                Assets.cache.clear("IMAGE");
+                Assets.cache.clear("SOUND");
+            }
+        }
+
+        // Clear FlxG bitmap cache
+        FlxG.bitmap.dumpCache();
+        FlxG.bitmap.clearCache();
+
+        currentTrackedAssets.clear();
+        currentTrackedSounds.clear();
+
+        runGarbageCollector();
+    }
+
+    /**
+     * Iterates over FlxG bitmap cache and removes any graphic not marked as persist or currently in active use.
+     */
+    @:access(flixel.system.frontEnds.BitmapFrontEnd)
+    public static function clearUnusedMemory():Void {
+        for (key in FlxG.bitmap._cache.keys()) {
+            var graph:FlxGraphic = FlxG.bitmap._cache.get(key);
+            if (graph != null && !graph.persist && graph.useCount <= 0 && !currentTrackedAssets.exists(key)) {
+                FlxG.bitmap.remove(graph);
+            }
+        }
+
+        runGarbageCollector();
+    }
+
+    private static function runGarbageCollector():Void {
+        #if cpp
+        Gc.run(true);
+        Gc.compact();
+        #elseif hl
+        Gc.major();
+        #elseif java
+        System.gc();
+        #end
     }
 }

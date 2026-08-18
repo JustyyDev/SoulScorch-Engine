@@ -1,16 +1,31 @@
 package soulscorch.scripting;
 
 import flixel.FlxG;
+import flixel.FlxSprite;
+import haxe.io.Path;
+import haxe.xml.Parser;
+import haxe.xml.Access;
+import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.backends.ScriptBackendType;
 
 using StringTools;
 
 class ScriptedState extends Scene {
     public var scriptName:String;
     public var script:ScriptInstance;
+    public var uiElements:Map<String, Dynamic> = new Map();
+
+    private static final SUPPORTED_EXTENSIONS:Array<String> = [
+        "soul", "hx", "hscript", "lua", "py", "js"
+    ];
+
+    private static final SEARCH_DIRECTORIES:Array<String> = [
+        "data/ui/", "data/states/", "scripts/states/"
+    ];
 
     public function new(scriptName:String) {
         super();
@@ -20,45 +35,110 @@ class ScriptedState extends Scene {
     override public function create():Void {
         super.create();
 
-        var possiblePaths = [
-            'assets/data/states/$scriptName.hx',
-            'assets/states/$scriptName.hx',
-            'scripts/states/$scriptName.hx'
+        var xmlParsed = false;
+        var possibleXmlPaths = [
+            'data/ui/$scriptName.xml',
+            'data/states/$scriptName.xml'
         ];
 
-        var finalPath:String = null;
-        for (p in possiblePaths) {
-            var resolved = ModLoader.getPath(p);
-            if (AssetResolver.exists(resolved)) {
-                finalPath = resolved;
+        for (p in possibleXmlPaths) {
+            var resolvedXml = ModLoader.getPath(p);
+            if (AssetResolver.exists(resolvedXml)) {
+                parseXML(AssetResolver.getText(resolvedXml));
+                xmlParsed = true;
                 break;
             }
         }
 
-        if (finalPath == null) finalPath = possiblePaths[0];
+        var finalScriptPath:String = null;
+        for (dir in SEARCH_DIRECTORIES) {
+            for (ext in SUPPORTED_EXTENSIONS) {
+                var testPath = ModLoader.getPath('$dir$scriptName.$ext');
+                if (AssetResolver.exists(testPath)) {
+                    finalScriptPath = testPath;
+                    break;
+                }
+            }
+            if (finalScriptPath != null) break;
+        }
 
-        var scriptObj = new Script(finalPath);
-        this.script = scriptObj;
+        if (finalScriptPath != null) {
+            this.script = ScriptBackendType.createInstance(finalScriptPath);
 
-        if (script.active) {
-            script.set("state", this);
-            script.set("add", add);
-            script.set("remove", remove);
-            script.set("insert", insert);
-            script.set("members", members);
-            script.set("switchState", function(nextState) {
-                FlxG.switchState(nextState);
-            });
-            script.set("openSubState", function(subState) {
-                openSubState(subState);
-            });
+            if (this.script != null && this.script.active) {
+                script.set("state", this);
+                script.set("add", add);
+                script.set("remove", remove);
+                script.set("insert", insert);
+                script.set("members", members);
+                
+                script.set("getElement", function(id:String):Dynamic {
+                    if (!uiElements.exists(id)) {
+                        return null;
+                    }
+                    return uiElements.get(id);
+                });
 
-            script.call("create");
-            script.call("onCreate");
-            script.call("createPost");
-            script.call("onCreatePost");
+                script.set("switchState", function(nextState:String) {
+                    FlxG.switchState(new ScriptedState(nextState));
+                });
+                script.set("openSubState", function(subState:String) {
+                    openSubState(new ScriptedSubState(subState));
+                });
+
+                script.call("create");
+                script.call("onCreate");
+                script.call("createPost");
+                script.call("onCreatePost");
+            } else {
+                Logger.warn('ScriptBackend failed to initialize for: $finalScriptPath', "scripting");
+            }
         } else {
-            Logger.warn('ScriptedState could not find $finalPath, falling back.', "script");
+            Logger.warn('ScriptedState could not find any supported script file for "$scriptName".', "scripting");
+        }
+    }
+
+    private function parseXML(rawXml:String):Void {
+        try {
+            var xml = Parser.parse(rawXml);
+            var fast = new Access(xml.firstElement());
+
+            if (fast.has.bgColor) {
+                FlxG.camera.bgColor = flixel.util.FlxColor.fromString(fast.att.bgColor);
+            }
+
+            for (node in fast.elements) {
+                var id = node.has.id ? node.att.id : "unnamed_" + Std.random(99999);
+                var x = node.has.x ? Std.parseFloat(node.att.x) : 0;
+                var y = node.has.y ? Std.parseFloat(node.att.y) : 0;
+                var alpha = node.has.alpha ? Std.parseFloat(node.att.alpha) : 1.0;
+                var scale = node.has.scale ? Std.parseFloat(node.att.scale) : 1.0;
+                var antialiasing = node.has.antialiasing ? (node.att.antialiasing == "true") : true;
+
+                switch (node.name.toLowerCase()) {
+                    case "sprite":
+                        var spr = new FlxSprite(x, y);
+                        if (node.has.image) {
+                            AssetHelper.loadGraphicSafely(spr, node.att.image);
+                        }
+                        spr.scale.set(scale, scale);
+                        spr.updateHitbox();
+                        spr.alpha = alpha;
+                        spr.antialiasing = antialiasing;
+                        add(spr);
+                        uiElements.set(id, spr);
+
+                    case "button":
+                        var width = node.has.width ? Std.parseFloat(node.att.width) : 100;
+                        var height = node.has.height ? Std.parseFloat(node.att.height) : 50;
+                        var btn = new FlxSprite(x, y).makeGraphic(Std.int(width), Std.int(height), 0x00000000);
+                        btn.alpha = alpha;
+                        add(btn);
+                        uiElements.set(id, btn);
+                }
+            }
+        } catch (e:Dynamic) {
+            Logger.error('Failed to parse XML for $scriptName: $e', "scripting");
         }
     }
 
@@ -99,6 +179,10 @@ class ScriptedState extends Scene {
             script.destroy();
             script = null;
         }
+        
+        uiElements.clear();
+        uiElements = null;
+        
         super.destroy();
     }
 }

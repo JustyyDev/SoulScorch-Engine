@@ -173,7 +173,6 @@ class ModManager {
         var normalized = normalizeAssetPath(localPath);
 
         #if sys
-        // 1. Check mod candidates under active mod directories first
         for (mod in activeMods) {
             var modDir = 'mods/$mod';
             for (candidate in getModCandidates(normalized)) {
@@ -189,7 +188,6 @@ class ModManager {
             }
         }
 
-        // 2. Fall back to base assets
         for (candidate in getAssetCandidates(normalized)) {
             if (FileSystem.exists(candidate)) {
                 return candidate;

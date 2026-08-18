@@ -4,42 +4,86 @@ import soulscorch.backend.system.framerate.SystemInfo;
 import soulscorch.backend.utils.Logger;
 
 class EngineProfiler {
-    public static var instance:EngineProfiler;
+    public static var instance(get, null):EngineProfiler;
+    private static var _instance:EngineProfiler;
 
     private var frameAccum:Float = 0;
     private var frameCount:Int = 0;
     public var fps(default, null):Int = 0;
     public var memPeak(default, null):Float = 0;
+    public var memAverage(default, null):Float = 0.0;
 
     public var maxFrameTime:Float = 0.0;
+    public var minFrameTime:Float = 999.0;
+    public var averageFrameTime(default, null):Float = 0.0;
     public var logToConsole:Bool = false;
+    public var stutterThresholdMs:Float = 33.33;
+
+    private var totalFrameTimeAccum:Float = 0.0;
+    private var totalFramesSampled:Int = 0;
 
     public function new(logToConsole:Bool = false) {
-        instance = this;
+        _instance = this;
         this.logToConsole = logToConsole;
+    }
+
+    public static inline function get_instance():EngineProfiler {
+        if (_instance == null) {
+            _instance = new EngineProfiler(false);
+        }
+        return _instance;
     }
 
     public function update(elapsed:Float):Void {
         frameAccum += elapsed;
         frameCount++;
 
+        totalFrameTimeAccum += elapsed;
+        totalFramesSampled++;
+
         if (elapsed > maxFrameTime) {
             maxFrameTime = elapsed;
         }
 
+        if (elapsed < minFrameTime) {
+            minFrameTime = elapsed;
+        }
+
+        if (elapsed * 1000.0 >= stutterThresholdMs && logToConsole) {
+            Logger.warn('[PROFILER] Stutter spike detected! Delta: ${Math.round(elapsed * 1000.0)}ms', "profiler");
+        }
+
         if (frameAccum >= 1.0) {
             fps = Math.round(frameCount / frameAccum);
+            averageFrameTime = totalFrameTimeAccum / totalFramesSampled;
+
             frameAccum = 0;
             frameCount = 0;
 
             var memMB = SystemInfo.memoryMegabytes;
-            if (memMB > memPeak) memPeak = memMB;
+            if (memMB > memPeak) {
+                memPeak = memMB;
+            }
+            memAverage = memMB;
 
             if (logToConsole) {
-                Logger.info('FPS: $fps | MEM: ${Math.round(memMB)}MB | PEAK: ${Math.round(memPeak)}MB | MAX DELTA: ${Math.round(maxFrameTime * 1000)}ms');
+                Logger.info('FPS: $fps | MEM: ${Math.round(memMB)}MB | PEAK: ${Math.round(memPeak)}MB | AVG FRAME: ${Math.round(averageFrameTime * 1000.0)}ms | MAX DELTA: ${Math.round(maxFrameTime * 1000.0)}ms', "profiler");
             }
 
             maxFrameTime = 0.0;
+            minFrameTime = 999.0;
+            totalFrameTimeAccum = 0.0;
+            totalFramesSampled = 0;
         }
+    }
+
+    public function resetMetrics():Void {
+        maxFrameTime = 0.0;
+        minFrameTime = 999.0;
+        memPeak = SystemInfo.memoryMegabytes;
+        totalFrameTimeAccum = 0.0;
+        totalFramesSampled = 0;
+        frameAccum = 0.0;
+        frameCount = 0;
     }
 }

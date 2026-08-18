@@ -31,6 +31,7 @@ class GitHubModule extends ModuleBase {
     public var latestRelease:GitHubRelease = null;
     public var hasChecked:Bool = false;
     public var autoNotifyOnUpdate:Bool = true;
+    public var isChecking(default, null):Bool = false;
 
     public function new(autoCheck:Bool = true, notifyOnUpdate:Bool = true) {
         super("github");
@@ -53,13 +54,17 @@ class GitHubModule extends ModuleBase {
      */
     public function checkLatestRelease(?callback:GitHubRelease->Void):Void {
         #if sys
+        if (isChecking) return;
+        isChecking = true;
+
         Thread.create(function() {
             try {
                 var http = new Http(API_URL);
-                // GitHub REST API requires a User-Agent header
                 http.setHeader("User-Agent", 'SoulScorch-Engine/${Version.fullVersion()}');
+                http.setHeader("Accept", "application/vnd.github.v3+json");
 
                 http.onData = function(data:String) {
+                    isChecking = false;
                     try {
                         var parsed:Dynamic = Json.parse(data);
                         var tag:String = parsed.tag_name != null ? parsed.tag_name : "";
@@ -78,7 +83,7 @@ class GitHubModule extends ModuleBase {
 
                         if (isNewer) {
                             Logger.info('Newer version found: ${latestRelease.tagName} (Current: v${Version.MAJOR}.${Version.MINOR}.${Version.PATCH})', "github");
-                            EventBus.emit("github/updateAvailable", latestRelease);
+                            EventBus.instance.emit("github/updateAvailable", latestRelease);
 
                             if (autoNotifyOnUpdate && NotificationManager.instance != null) {
                                 NotificationManager.instance.notify(
@@ -88,7 +93,7 @@ class GitHubModule extends ModuleBase {
                             }
                         } else {
                             Logger.info("Engine is up to date.", "github");
-                            EventBus.emit("github/upToDate", latestRelease);
+                            EventBus.instance.emit("github/upToDate", latestRelease);
                         }
 
                         if (callback != null) {
@@ -100,12 +105,20 @@ class GitHubModule extends ModuleBase {
                 };
 
                 http.onError = function(error:String) {
+                    isChecking = false;
                     Logger.warn('GitHub API request failed: $error', "github");
+                    if (callback != null) {
+                        callback(null);
+                    }
                 };
 
                 http.request(false);
             } catch (e:Dynamic) {
+                isChecking = false;
                 Logger.error('Could not initiate GitHub update check thread: $e', "github");
+                if (callback != null) {
+                    callback(null);
+                }
             }
         });
         #end
@@ -115,7 +128,9 @@ class GitHubModule extends ModuleBase {
      * Compares a semantic tag (e.g. "v0.7.0" or "0.7.0") against the local Version constants.
      */
     public static function isVersionNewer(remoteTag:String):Bool {
-        var cleanTag = remoteTag.toLowerCase().trim();
+        if (remoteTag == null || remoteTag.length == 0) return false;
+
+        var cleanTag = StringTools.trim(remoteTag.toLowerCase());
         if (cleanTag.indexOf("v") == 0) cleanTag = cleanTag.substr(1);
 
         var parts = cleanTag.split(".");

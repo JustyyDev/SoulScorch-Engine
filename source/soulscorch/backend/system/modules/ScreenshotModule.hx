@@ -15,6 +15,11 @@ import sys.io.File;
 #end
 
 class ScreenshotModule extends ModuleBase {
+    public var screenshotKey:String = "F12";
+    public var saveDirectory:String = "screenshots";
+    public var soundEffect:String = "scrollMenu";
+    public var soundVolume:Float = 0.7;
+
     public function new() {
         super("screenshot");
     }
@@ -31,27 +36,36 @@ class ScreenshotModule extends ModuleBase {
         #if sys
         try {
             var dateStr = StringTools.replace(StringTools.replace(GameTime.dateString(), ":", "-"), " ", "_");
-            var directory = "screenshots";
-            if (!FileSystem.exists(directory)) {
-                FileSystem.createDirectory(directory);
+            if (!FileSystem.exists(saveDirectory)) {
+                FileSystem.createDirectory(saveDirectory);
             }
 
-            var filePath = '$directory/SoulScorch_$dateStr.png';
+            var filePath = '$saveDirectory/SoulScorch_$dateStr.png';
             var stage = Lib.current.stage;
+            
+            if (stage == null || stage.stageWidth <= 0 || stage.stageHeight <= 0) {
+                Logger.error("[SCREENSHOT] Invalid stage dimensions for capture.", "screenshot");
+                return;
+            }
+
             var bitmap = new BitmapData(stage.stageWidth, stage.stageHeight, true, 0x00000000);
             bitmap.draw(stage);
 
-            var bytes = bitmap.encode(bitmap.rect, new openfl.display.PNGEncoderOptions());
+            var bytes = bitmap.encode(bitmap.rect, new openfl.display.PNGEncoderOptions(true));
             File.saveBytes(filePath, bytes);
             bitmap.dispose();
 
-            AssetHelper.playSoundSafely("scrollMenu", 0.7);
-            if (NotificationManager.instance != null) {
-                NotificationManager.instance.notify("Screenshot Saved", 'Saved to $filePath');
+            if (soundEffect != null && soundEffect.length > 0) {
+                AssetHelper.playSoundSafely(soundEffect, soundVolume);
             }
-            Logger.info('Screenshot captured: $filePath');
+
+            if (NotificationManager.instance != null) {
+                NotificationManager.instance.notify("Screenshot Saved", 'Successfully saved to $filePath');
+            }
+
+            Logger.info('[SCREENSHOT] High-resolution capture saved: $filePath', "screenshot");
         } catch (e:Dynamic) {
-            Logger.error('Failed to capture screenshot: $e');
+            Logger.error('[SCREENSHOT ERROR] Failed to capture screenshot: $e', "screenshot");
         }
         #end
     }
