@@ -26,7 +26,9 @@ import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.FileWatcher;
+import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.mod.ModManager;
+import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.ui.menus.editors.EditorPickerMenu;
 import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.menus.substate.ModSwitchMenu;
@@ -79,9 +81,6 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-            // CRITICAL FIX: Bind Flixel save data FIRST so configs and saves load properly
-            FlxG.save.bind("soulscorch_system");
-
             var devConsole = new DevConsole();
             addChild(devConsole);
 
@@ -89,15 +88,14 @@ class Main extends Sprite {
             fpsCounter.visible = true;
             addChild(fpsCounter);
 
-            ModManager.reloadMods();
-
-            // Initialize Engine and GameConfig via Runtime pipeline
+            // Configure Engine, Mod System, and Global Scripts
             var config = new GameConfig();
             config.framerate = framerate;
-            var engine = Engine.boot(config);
-            engine.init();
-
+            Runtime.bootstrap(config);
             Runtime.setupFlixel();
+
+            ModManager.reloadMods();
+            SoulGlobalScript.init();
 
             #if desktop
             try {

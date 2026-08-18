@@ -64,15 +64,22 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         if (MusicBeatTransition.isTransitioning) return;
         MusicBeatTransition.isTransitioning = true;
 
+        var stateName:String = Type.getClassName(Type.getClass(nextState)).split(".").pop();
+        var redirectTarget:Null<String> = soulscorch.scripting.mod.SoulGlobalScript.getRedirect(stateName);
+
+        var finalTarget:FlxState = (redirectTarget != null) 
+            ? new soulscorch.scripting.mod.ModCustomState(redirectTarget) 
+            : nextState;
+
         if (skipNextTransOut) {
             skipNextTransOut = false;
             MusicBeatTransition.isTransitioning = false;
-            FlxG.switchState(nextState);
+            FlxG.switchState(finalTarget);
             return;
         }
 
         FlxG.state.openSubState(new CustomSubstate(function() {
-            FlxG.switchState(nextState);
+            FlxG.switchState(finalTarget);
         }, transition));
     }
 }

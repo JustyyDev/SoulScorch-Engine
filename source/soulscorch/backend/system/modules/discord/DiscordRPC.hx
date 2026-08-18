@@ -4,7 +4,7 @@ import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.utils.Logger;
 
-#if (cpp && !neko)
+#if (cpp && !mobile && !neko)
 import hxdiscord_rpc.Discord;
 import hxdiscord_rpc.Types;
 import sys.thread.Mutex;
@@ -21,7 +21,7 @@ class DiscordRPC extends ModuleBase {
     public static var currentState:String = "";
     public static var currentElapsedSeconds:Float = 0.0;
 
-    #if (cpp && !neko)
+    #if (cpp && !mobile && !neko)
     private static var handlers:DiscordEventHandlers;
     private static var presence:DiscordRichPresence;
     private static var isRunning:Bool = false;
@@ -34,7 +34,7 @@ class DiscordRPC extends ModuleBase {
     public function new(autoInit:Bool = true) {
         super("discord_rpc");
         instance = this;
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         mutex = new Mutex();
         #end
         if (autoInit) {
@@ -43,7 +43,7 @@ class DiscordRPC extends ModuleBase {
     }
 
     override public function initialize():Void {
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         if (isInitialized) return;
 
         try {
@@ -71,7 +71,7 @@ class DiscordRPC extends ModuleBase {
         #end
     }
 
-    #if (cpp && !neko)
+    #if (cpp && !mobile && !neko)
     private static function startWorkerThread():Void {
         if (workerThread != null) return;
 
@@ -91,11 +91,8 @@ class DiscordRPC extends ModuleBase {
     }
     #end
 
-    /**
-     * Allows mods or engine states to set their own Discord Application ID at runtime.
-     */
     public static function setClientID(newID:String):Void {
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         if (newID == null || newID.length == 0 || newID == clientID) return;
 
         var wasRunning:Bool = isInitialized;
@@ -119,9 +116,6 @@ class DiscordRPC extends ModuleBase {
         setClientID(DEFAULT_CLIENT_ID);
     }
 
-    /**
-     * Core presence update function with comprehensive parameter support.
-     */
     public static function changePresence(
         details:String,
         ?state:String,
@@ -134,7 +128,7 @@ class DiscordRPC extends ModuleBase {
         ?partyMax:Int = 0,
         ?partyId:String = null
     ):Void {
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         if (!isInitialized) return;
 
         try {
@@ -182,9 +176,6 @@ class DiscordRPC extends ModuleBase {
         #end
     }
 
-    /**
-     * Specialized gameplay presence helper for rhythm game levels.
-     */
     public static function updateSongPresence(
         songName:String,
         difficulty:String,
@@ -196,7 +187,7 @@ class DiscordRPC extends ModuleBase {
         ?iconKey:String = "icon",
         ?iconText:String = null
     ):Void {
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         if (!isInitialized) return;
 
         var detailsText:String = '$songName [${difficulty.toUpperCase()}]';
@@ -218,7 +209,7 @@ class DiscordRPC extends ModuleBase {
     }
 
     public static function setMenuPresence(menuName:String, ?modIcon:String = "icon"):Void {
-        currentElapsedSeconds = 0; // Reset session timer on menu switch
+        currentElapsedSeconds = 0;
         changePresence("In the Menus", menuName, null, true, 0, modIcon);
     }
 
@@ -241,7 +232,7 @@ class DiscordRPC extends ModuleBase {
     }
 
     public static function shutdown():Void {
-        #if (cpp && !neko)
+        #if (cpp && !mobile && !neko)
         if (!isInitialized) return;
         isRunning = false;
         try {
@@ -257,7 +248,7 @@ class DiscordRPC extends ModuleBase {
         super.destroy();
     }
 
-    #if (cpp && !neko)
+    #if (cpp && !mobile && !neko)
     private static function onReady(request:cpp.RawConstPointer<DiscordUser>):Void {
         var user = request[0];
         var username = cast(user.username, String);

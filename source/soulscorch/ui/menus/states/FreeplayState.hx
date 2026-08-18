@@ -67,6 +67,7 @@ class FreeplayState extends MusicBeatState {
                 var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
                 songText.isMenuItem = true;
                 songText.targetY = i;
+                songText.snapToPosition();
                 grpSongs.add(songText);
 
                 var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
@@ -137,15 +138,13 @@ class FreeplayState extends MusicBeatState {
 
         for (i in 0...grpSongs.members.length) {
             var item = grpSongs.members[i];
-            var isOffscreen = (item.y < -150 || item.y > FlxG.height + 150);
-            item.visible = !isOffscreen;
             item.alpha = (i == curSelected ? 1.0 : 0.45);
 
             if (iconArray.length > i && iconArray[i] != null) {
-                iconArray[i].visible = !isOffscreen;
                 iconArray[i].x = item.x + item.width + 15;
                 iconArray[i].y = item.y - 25;
                 iconArray[i].alpha = item.alpha;
+                iconArray[i].visible = item.visible;
             }
         }
     }

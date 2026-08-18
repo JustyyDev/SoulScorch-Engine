@@ -65,6 +65,7 @@ class Engine {
 
         register("mods", new ModRegistry());
         ModLoader.scan();
+        soulscorch.scripting.mod.SoulGlobalScript.init();
         register("modLoader", ModLoader);
 
         register("save", SaveData.instance);

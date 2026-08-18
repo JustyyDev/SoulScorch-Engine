@@ -50,7 +50,7 @@ class ResultsState extends MusicBeatState {
 
         var rankStr = stats != null ? stats.rating : "?";
         rankAlphabet = new Alphabet(FlxG.width - 290, 100, rankStr, true);
-        rankAlphabet.scale.set(0, 0);
+        rankAlphabet.scale.set(0.001, 0.001);
         add(rankAlphabet);
 
         var scoreVal = stats != null ? stats.score : 0;

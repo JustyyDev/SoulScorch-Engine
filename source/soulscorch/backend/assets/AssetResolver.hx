@@ -19,73 +19,90 @@ class AssetResolver {
 
     public static function exists(path:String):Bool {
         if (path == null || path.trim().length == 0) return false;
-        var resolved = ModLoader.getPath(path);
-
-        #if sys
-        if (FileSystem.exists(resolved)) return true;
-        #end
-
-        return openfl.utils.Assets.exists(resolved);
+        var resolved = resolveFile(path);
+        return resolved != null;
     }
 
     public static function resolveFile(basePath:String, ?extensions:Array<String>):Null<String> {
         if (basePath == null || basePath.trim().length == 0) return null;
         var clean = basePath.trim().replace("\\", "/");
+        if (clean.startsWith("/")) clean = clean.substr(1);
 
-        // 1. Direct check
-        if (exists(clean)) return ModLoader.getPath(clean);
+        var exts = (extensions != null) ? extensions : [
+            "",
+            ".png",
+            ".xml",
+            ".ogg",
+            ".mp3",
+            ".wav",
+            ".json",
+            ".txt",
+            ".soul",
+            ".hx",
+            ".lua",
+            ".frag",
+            ".vert"
+        ];
 
-        // 2. Check with extensions & folder prefixes
-        var exts = (extensions != null) ? extensions : ["", ".png", ".xml", ".ogg", ".mp3", ".json", ".txt", ".hx", ".lua", ".soul"];
-        
         var folderPrefixes = [
             "",
-            "assets/",
-            "assets/preload/",
-            "assets/shared/",
-            "assets/images/",
-            "assets/preload/images/",
-            "assets/sounds/",
-            "assets/preload/sounds/",
-            "assets/music/",
-            "assets/preload/music/",
-            "assets/songs/",
-            "assets/data/",
-            "assets/preload/data/",
-            "assets/data/config/",
-            "assets/preload/data/config/",
-            "assets/fonts/",
-            "assets/preload/fonts/",
+            "data/ui/",
+            "data/",
+            "shaders/",
+            "images/ui/",
+            "images/ui/main/",
+            "images/ui/title/",
+            "images/ui/warning/",
             "images/",
             "sounds/",
             "music/",
-            "data/"
+            "songs/",
+            "assets/",
+            "assets/preload/",
+            "assets/shared/",
+            "assets/data/",
+            "assets/images/",
+            "assets/sounds/",
+            "assets/music/",
+            "assets/shaders/"
         ];
 
-        for (ext in exts) {
-            var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
-
-            for (prefix in folderPrefixes) {
-                var test = (pathWithExt.startsWith("assets/") && prefix.length > 0) ? pathWithExt : prefix + pathWithExt;
-                var resolved = ModLoader.getPath(test);
-
-                #if sys
-                if (FileSystem.exists(resolved) && !FileSystem.isDirectory(resolved)) {
-                    return resolved;
-                }
-                #end
-
-                if (openfl.utils.Assets.exists(resolved)) {
-                    return resolved;
+        #if sys
+        // 1. Search in active mod folders
+        for (mod in ModLoader.activeMods) {
+            for (ext in exts) {
+                var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
+                for (prefix in folderPrefixes) {
+                    var combined = (pathWithExt.startsWith(prefix) || pathWithExt.startsWith("mods/")) ? pathWithExt : prefix + pathWithExt;
+                    var fullModPath = 'mods/$mod/$combined';
+                    if (FileSystem.exists(fullModPath) && !FileSystem.isDirectory(fullModPath)) {
+                        return fullModPath;
+                    }
                 }
             }
         }
+
+        // 2. Search in base assets
+        for (ext in exts) {
+            var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
+            for (prefix in folderPrefixes) {
+                var combined = (pathWithExt.startsWith(prefix) || pathWithExt.startsWith("assets/")) ? pathWithExt : prefix + pathWithExt;
+                if (FileSystem.exists(combined) && !FileSystem.isDirectory(combined)) {
+                    return combined;
+                }
+                var assetsPrefix = 'assets/$combined';
+                if (FileSystem.exists(assetsPrefix) && !FileSystem.isDirectory(assetsPrefix)) {
+                    return assetsPrefix;
+                }
+            }
+        }
+        #end
 
         return null;
     }
 
     public static function getText(path:String):String {
-        var resolved = resolveFile(path, [".json", ".txt", ".xml", ".hx", ".lua", ".soul", ""]);
+        var resolved = resolveFile(path, [".soul", ".xml", ".frag", ".vert", ".json", ".txt", ".hx", ".lua", ""]);
         if (resolved == null) return "";
 
         #if sys
@@ -98,12 +115,15 @@ class AssetResolver {
         }
         #end
 
-        if (openfl.utils.Assets.exists(resolved)) {
-            var raw = openfl.utils.Assets.getText(resolved);
-            if (raw != null) return raw;
-        }
-
         return "";
+    }
+
+    public static function getShader(key:String):String {
+        var frag = getText('shaders/$key.frag');
+        if (frag.length == 0) {
+            frag = getText('$key.frag');
+        }
+        return frag;
     }
 
     public static function getSound(path:String):Null<Sound> {
@@ -121,14 +141,10 @@ class AssetResolver {
             try {
                 snd = Sound.fromFile(resolved);
             } catch (e:Dynamic) {
-                Logger.error('Failed loading native sound from $resolved: $e', "assets");
+                Logger.error('Failed loading sound from $resolved: $e', "assets");
             }
         }
         #end
-
-        if (snd == null && openfl.utils.Assets.exists(resolved)) {
-            snd = openfl.utils.Assets.getSound(resolved);
-        }
 
         if (snd != null) {
             trackedSounds.set(resolved, snd);
@@ -162,12 +178,11 @@ class AssetResolver {
         }
         #end
 
-        if (bmp == null && openfl.utils.Assets.exists(resolved)) {
-            bmp = openfl.utils.Assets.getBitmapData(resolved);
-        }
-
         if (bmp != null) {
-            return FlxG.bitmap.add(bmp, false, resolved);
+            var graph = FlxG.bitmap.add(bmp, false, resolved);
+            graph.persist = true;
+            graph.destroyOnNoUse = false;
+            return graph;
         }
 
         return null;

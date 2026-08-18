@@ -15,9 +15,9 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.workshop.HomeSoulDBModule;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
+import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.ui.menus.states.HomeSoulState;
-import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.hud.Alphabet;
 
 class ModSwitchMenu extends MusicBeatSubstate {
@@ -42,11 +42,8 @@ class ModSwitchMenu extends MusicBeatSubstate {
     override public function create():Void {
         super.create();
 
-        // Lock down underlying menu input/updating
-        if (_parentState != null) {
-            _parentState.persistentUpdate = false;
-            _parentState.persistentDraw = true;
-        }
+        this.persistentUpdate = false;
+        this.persistentDraw = true;
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
@@ -109,6 +106,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             row.isMenuItem = true;
             row.targetY = i;
             row.ID = i;
+            row.snapToPosition();
             grpRows.add(row);
 
             var pill = new FlxSprite();
@@ -124,7 +122,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        // Toggle Mod Status
         if (FlxG.keys.justPressed.SPACE && modList.length > 0) {
             var targetMod = modList[curSelected];
             var nowActive = !ModRegistry.instance.isEnabled(targetMod);
@@ -135,7 +132,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
             changeSelection();
         }
 
-        // Priority Reordering
         if (FlxG.keys.justPressed.W && curSelected > 0) {
             var temp = modList[curSelected];
             modList[curSelected] = modList[curSelected - 1];
@@ -158,13 +154,11 @@ class ModSwitchMenu extends MusicBeatSubstate {
             changeSelection();
         }
 
-        // Workshop browser shortcut
         if (FlxG.keys.justPressed.TAB) {
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
             FlxG.switchState(new HomeSoulState());
         }
 
-        // Mod submission shortcut
         if (FlxG.keys.justPressed.S && FlxG.keys.pressed.SHIFT) {
             if (HomeSoulDBModule.instance != null) {
                 HomeSoulDBModule.instance.openSubmissionPage();
@@ -173,7 +167,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
             }
         }
 
-        // Apply changes and reboot into the modded environment
         if (Controls.instance.BACK) {
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
             applyAndRestart();
@@ -197,15 +190,12 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
         var currentActive = ModRegistry.instance.enabledMods;
         if (hasChanges || currentActive.length != initialEnabledMods.length) {
-            // Full engine asset & state reboot
             Paths.clearStoredMemory();
             Paths.clearUnusedMemory();
             ModManager.reloadMods();
+            SoulGlobalScript.init();
             FlxG.resetGame();
         } else {
-            if (_parentState != null) {
-                _parentState.persistentUpdate = true;
-            }
             close();
         }
     }

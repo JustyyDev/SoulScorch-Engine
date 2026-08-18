@@ -29,6 +29,9 @@ class PauseSubState extends MusicBeatSubstate {
     public function new() {
         super();
 
+        this.persistentUpdate = false;
+        this.persistentDraw = true;
+
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
         add(bg);
@@ -50,9 +53,9 @@ class PauseSubState extends MusicBeatSubstate {
         for (i in 0...menuItems.length) {
             var item = new Alphabet(0, panel.y + 80 + (i * 65), menuItems[i], true);
             item.scale.set(0.75, 0.75);
+            item.changeX = false;
+            item.changeY = false;
             item.screenCenter(X);
-            item.isMenuItem = true;
-            item.targetY = i;
             item.ID = i;
             grpMenu.add(item);
         }
@@ -79,12 +82,6 @@ class PauseSubState extends MusicBeatSubstate {
     private function changeSelection(change:Int = 0):Void {
         curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
-
-        var bullShit:Int = 0;
-        for (item in grpMenu.members) {
-            item.targetY = bullShit - curSelected;
-            bullShit++;
-        }
     }
 
     private function selectOption(option:String):Void {

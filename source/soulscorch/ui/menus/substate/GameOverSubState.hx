@@ -21,6 +21,9 @@ class GameOverSubState extends MusicBeatSubstate {
     public function new(x:Float, y:Float) {
         super();
 
+        this.persistentUpdate = false;
+        this.persistentDraw = true;
+
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
         add(bg);

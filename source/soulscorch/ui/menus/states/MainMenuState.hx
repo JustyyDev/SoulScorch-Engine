@@ -17,12 +17,14 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.ui.menus.states.HomeSoulState;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.FreeplayState;
 import soulscorch.ui.menus.states.StoryMenuState;
 import soulscorch.ui.menus.states.TitleState;
+import soulscorch.ui.menus.substate.ModSwitchMenu;
 
 using StringTools;
 
@@ -97,7 +99,7 @@ class MainMenuState extends MusicBeatState {
             }
         }
 
-        versionText = new FlxText(12, FlxG.height - 24, 0, Version.fullVersion(), 12);
+        versionText = new FlxText(12, FlxG.height - 24, 0, 'SoulScorch Engine ${Version.fullVersion()} | [TAB] Mods & HomeSoulDB', 12);
         versionText.setFormat(Paths.font("vcr"), 12, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         versionText.scrollFactor.set();
         add(versionText);
@@ -145,6 +147,11 @@ class MainMenuState extends MusicBeatState {
             if (Controls.instance.BACK) {
                 AssetHelper.playSoundSafely("cancelMenu", 0.7);
                 MusicBeatState.switchState(new TitleState());
+            }
+
+            if (FlxG.keys.justPressed.TAB) {
+                AssetHelper.playSoundSafely("confirmMenu", 0.7);
+                openSubState(new ModSwitchMenu());
             }
 
             if (Controls.instance.ACCEPT) {
