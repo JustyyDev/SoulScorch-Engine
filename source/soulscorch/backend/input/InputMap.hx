@@ -4,12 +4,14 @@ import flixel.FlxG;
 import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
+import soulscorch.backend.input.MobilePad;
 
 using StringTools;
 
 class InputMap {
     public static var keyBinds:Map<String, Array<FlxKey>> = new Map();
     public static var padBinds:Map<String, Array<FlxGamepadInputID>> = new Map();
+    public static var mobilePad:MobilePad = null;
 
     public static var defaultKeyBinds:Map<String, Array<FlxKey>> = [
         "note_left" => [A, LEFT],
@@ -20,8 +22,8 @@ class InputMap {
         "ui_down" => [S, DOWN],
         "ui_up" => [W, UP],
         "ui_right" => [D, RIGHT],
-        "accept" => [ENTER, SPACE],
-        "back" => [ESCAPE, BACKSPACE],
+        "accept" => [ENTER, SPACE, Z],
+        "back" => [ESCAPE, BACKSPACE, X],
         "pause" => [ENTER, ESCAPE],
         "reset" => [R],
         "debug" => [SEVEN, EIGHT]
@@ -46,6 +48,14 @@ class InputMap {
         loadBindings();
     }
 
+    public static function bindMobilePad(pad:MobilePad):Void {
+        mobilePad = pad;
+    }
+
+    public static function unbindMobilePad():Void {
+        mobilePad = null;
+    }
+
     public static function loadBindings():Void {
         keyBinds.clear();
         padBinds.clear();
@@ -57,29 +67,27 @@ class InputMap {
             padBinds.set(action, buttons.copy());
         }
 
-        if (FlxG.save.data.customKeyBinds != null) {
+        if (FlxG.save.data != null && FlxG.save.data.customKeyBinds != null) {
             var savedKeys:Map<String, Array<FlxKey>> = FlxG.save.data.customKeyBinds;
             for (action => keys in savedKeys) {
-                if (keyBinds.exists(action)) {
-                    keyBinds.set(action, keys);
-                }
+                if (keyBinds.exists(action)) keyBinds.set(action, keys);
             }
         }
 
-        if (FlxG.save.data.customPadBinds != null) {
+        if (FlxG.save.data != null && FlxG.save.data.customPadBinds != null) {
             var savedPads:Map<String, Array<FlxGamepadInputID>> = FlxG.save.data.customPadBinds;
             for (action => buttons in savedPads) {
-                if (padBinds.exists(action)) {
-                    padBinds.set(action, buttons);
-                }
+                if (padBinds.exists(action)) padBinds.set(action, buttons);
             }
         }
     }
 
     public static function saveBindings():Void {
-        FlxG.save.data.customKeyBinds = keyBinds;
-        FlxG.save.data.customPadBinds = padBinds;
-        FlxG.save.flush();
+        if (FlxG.save.data != null) {
+            FlxG.save.data.customKeyBinds = keyBinds;
+            FlxG.save.data.customPadBinds = padBinds;
+            FlxG.save.flush();
+        }
     }
 
     public static function resetToDefaults():Void {
@@ -94,6 +102,7 @@ class InputMap {
         var norm = normalizeAction(action);
         if (checkKeys(norm, 0)) return true;
         if (checkGamepad(norm, 0)) return true;
+        if (checkMobile(norm, 0)) return true;
         return false;
     }
 
@@ -101,6 +110,7 @@ class InputMap {
         var norm = normalizeAction(action);
         if (checkKeys(norm, 1)) return true;
         if (checkGamepad(norm, 1)) return true;
+        if (checkMobile(norm, 1)) return true;
         return false;
     }
 
@@ -108,6 +118,7 @@ class InputMap {
         var norm = normalizeAction(action);
         if (checkKeys(norm, 2)) return true;
         if (checkGamepad(norm, 2)) return true;
+        if (checkMobile(norm, 2)) return true;
         return false;
     }
 
@@ -134,6 +145,29 @@ class InputMap {
             case 0: gamepad.anyPressed(buttons);
             case 1: gamepad.anyJustPressed(buttons);
             case 2: gamepad.anyJustReleased(buttons);
+            default: false;
+        };
+    }
+
+    private static function checkMobile(action:String, state:Int):Bool {
+        if (mobilePad == null) return false;
+
+        var btn:MobileButton = switch (action) {
+            case "note_left", "ui_left": mobilePad.buttonLeft;
+            case "note_down", "ui_down": mobilePad.buttonDown;
+            case "note_up", "ui_up": mobilePad.buttonUp;
+            case "note_right", "ui_right": mobilePad.buttonRight;
+            case "accept": mobilePad.buttonA;
+            case "back": mobilePad.buttonB;
+            default: null;
+        };
+
+        if (btn == null) return false;
+
+        return switch (state) {
+            case 0: btn.isPressed;
+            case 1: btn.isJustPressed;
+            case 2: btn.isJustReleased;
             default: false;
         };
     }

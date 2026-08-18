@@ -11,12 +11,14 @@ import soulscorch.backend.utils.Logger;
 using StringTools;
 
 class AssetHelper {
+    private static var _cachedAtlases:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
+
     public static function loadGraphicSafely(sprite:FlxSprite, graphicPath:String):Bool {
         if (sprite == null || graphicPath == null) return false;
 
-        var bitmap:BitmapData = AssetResolver.getBitmapData(graphicPath);
-        if (bitmap != null) {
-            sprite.loadGraphic(bitmap);
+        var graphic:FlxGraphic = AssetResolver.getGraphic(graphicPath);
+        if (graphic != null) {
+            sprite.loadGraphic(graphic);
             return true;
         }
 
@@ -25,19 +27,30 @@ class AssetHelper {
         return false;
     }
 
+    public static function loadImageSafely(sprite:FlxSprite, graphicPath:String):Bool {
+        return loadGraphicSafely(sprite, graphicPath);
+    }
+
     public static function loadSparrowSafely(sprite:FlxSprite, assetName:String):Bool {
         if (sprite == null || assetName == null) return false;
 
-        var pngResolved = AssetResolver.resolveFile(assetName, [".png"]);
-        var xmlResolved = AssetResolver.resolveFile(assetName, [".xml"]);
+        var clean = assetName.trim().replace("\\", "/");
+        if (_cachedAtlases.exists(clean)) {
+            sprite.frames = _cachedAtlases.get(clean);
+            return true;
+        }
+
+        var pngResolved = AssetResolver.resolveFile(clean, [".png"]);
+        var xmlResolved = AssetResolver.resolveFile(clean, [".xml"]);
 
         if (pngResolved != null && xmlResolved != null) {
-            var bitmap:BitmapData = AssetResolver.getBitmapData(pngResolved);
+            var graphic:FlxGraphic = AssetResolver.getGraphic(pngResolved);
             var xmlText:String = AssetResolver.getText(xmlResolved);
 
-            if (bitmap != null && xmlText != null && xmlText.length > 0) {
-                var frames = FlxAtlasFrames.fromSparrow(bitmap, xmlText);
+            if (graphic != null && xmlText != null && xmlText.length > 0) {
+                var frames = FlxAtlasFrames.fromSparrow(graphic, xmlText);
                 if (frames != null) {
+                    _cachedAtlases.set(clean, frames);
                     sprite.frames = frames;
                     return true;
                 }
@@ -58,5 +71,9 @@ class AssetHelper {
         } else {
             Logger.warn('Missing sound asset: $soundName', "engine");
         }
+    }
+
+    public static function clearAtlasCache():Void {
+        _cachedAtlases.clear();
     }
 }

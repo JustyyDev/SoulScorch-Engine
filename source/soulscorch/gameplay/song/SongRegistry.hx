@@ -22,7 +22,7 @@ typedef RegisteredSong = {
     var charter:String;
     var bpm:Float;
     var character:String;
-    var color:Int;
+    var color:FlxColor;
     var difficulties:Array<String>;
     var folder:String;
 }
@@ -36,10 +36,15 @@ class SongRegistry {
 
         #if sys
         scanFolder("assets/songs", scannedIds);
+        scanFolder("assets/data", scannedIds);
 
-        for (mod in ModLoader.activeMods) {
-            scanFolder('mods/$mod/songs', scannedIds);
-            scanFolder('mods/$mod/assets/songs', scannedIds);
+        if (ModLoader.activeMods != null) {
+            for (mod in ModLoader.activeMods) {
+                scanFolder('mods/$mod/songs', scannedIds);
+                scanFolder('mods/$mod/assets/songs', scannedIds);
+                scanFolder('mods/$mod/data', scannedIds);
+                scanFolder('mods/$mod/assets/data', scannedIds);
+            }
         }
         #end
 
@@ -53,15 +58,17 @@ class SongRegistry {
         var entries = FileSystem.readDirectory(path);
         for (entry in entries) {
             var songDir = '$path/$entry';
-            if (FileSystem.isDirectory(songDir) && !scannedIds.exists(entry.toLowerCase())) {
-                scannedIds.set(entry.toLowerCase(), true);
+            var lowerId = entry.toLowerCase().trim();
+
+            if (FileSystem.isDirectory(songDir) && !scannedIds.exists(lowerId)) {
+                scannedIds.set(lowerId, true);
 
                 var title = entry;
                 var artist = "Unknown";
                 var charter = "Unknown";
                 var bpm = 100.0;
                 var char = "dad";
-                var color = 0xFF9271FD;
+                var color:FlxColor = 0xFF9271FD;
                 var diffs = Difficulty.defaultList.copy();
 
                 var metaPath = '$songDir/meta.json';

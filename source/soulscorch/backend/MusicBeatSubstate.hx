@@ -24,11 +24,13 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
         super.create();
 
         if (transData != null) {
-            add(new MusicBeatTransition(transData, function() {
+            var trans = new MusicBeatTransition(transData, function() {
                 if (onTransitionOut != null) {
                     onTransitionOut();
                 }
-            }));
+                close();
+            });
+            add(trans);
         }
     }
 

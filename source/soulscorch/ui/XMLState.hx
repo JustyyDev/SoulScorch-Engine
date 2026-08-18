@@ -22,7 +22,7 @@ class XMLState extends Scene {
 
     public function new(xmlFile:String) {
         super();
-        this.xmlPath = xmlFile;
+        this.xmlPath = xmlFile != null ? xmlFile : "";
     }
 
     override public function create():Void {
@@ -63,6 +63,7 @@ class XMLState extends Scene {
         try {
             var rawXml = AssetResolver.getText(resolvedPath);
             var xmlData = Xml.parse(rawXml).firstElement();
+            if (xmlData == null) return;
             var access = new Access(xmlData);
 
             if (access.has.bgColor) {
@@ -105,12 +106,14 @@ class XMLState extends Scene {
                 if (node.has.image) {
                     AssetHelper.loadSparrowSafely(animSpr, node.att.image);
                 }
-                for (anim in node.nodes.anim) {
-                    var name = anim.att.name;
-                    var prefix = anim.att.prefix;
-                    var fps = anim.has.fps ? Std.parseInt(anim.att.fps) : 24;
-                    var loop = anim.has.loop ? (anim.att.loop == "true") : true;
-                    animSpr.animation.addByPrefix(name, prefix, fps, loop);
+                if (node.has.anim) {
+                    for (anim in node.nodes.anim) {
+                        var name = anim.att.name;
+                        var prefix = anim.att.prefix;
+                        var fps = anim.has.fps ? Std.parseInt(anim.att.fps) : 24;
+                        var loop = anim.has.loop ? (anim.att.loop == "true") : true;
+                        animSpr.animation.addByPrefix(name, prefix, fps, loop);
+                    }
                 }
                 if (node.has.firstAnim) {
                     animSpr.animation.play(node.att.firstAnim);

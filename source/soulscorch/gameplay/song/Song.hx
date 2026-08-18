@@ -1,9 +1,9 @@
 package soulscorch.gameplay.chart;
 
+import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
-import flixel.util.FlxColor;
 import soulscorch.scripting.mod.ModLoader;
 
 using StringTools;
@@ -49,21 +49,31 @@ class Song {
         this.title = title;
         this.chart = new Chart();
     }
+
     /**
      * Searches mod and base asset paths to deserialize a raw SwagSong structure.
      */
     public static function loadFromJson(songId:String, difficulty:String = "normal"):SwagSong {
-        var diffName = (difficulty == null || difficulty.length == 0) ? "normal" : difficulty.toLowerCase().trim();
+        var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
+        var diffName = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
         var diffSuffix = (diffName == "normal") ? "" : '-$diffName';
 
         var pathsToTry = [
-            'assets/songs/$songId/charts/$diffName.json',
-            'assets/songs/$songId/charts/normal.json',
-            'assets/songs/$songId/chart$diffSuffix.json',
-            'assets/songs/$songId/$songId$diffSuffix.json',
-            'assets/songs/$songId/chart.json',
-            'assets/songs/$songId/$songId.json'
+            'assets/songs/$cleanSong/charts/$diffName.json',
+            'assets/songs/$cleanSong/chart$diffSuffix.json',
+            'assets/songs/$cleanSong/$cleanSong$diffSuffix.json',
+            'assets/data/$cleanSong/$cleanSong$diffSuffix.json',
+            'assets/data/$cleanSong/$diffName.json',
+            'data/$cleanSong/$cleanSong$diffSuffix.json',
+            'data/charts/$cleanSong/$diffName.json'
         ];
+
+        if (diffName == "normal") {
+            pathsToTry.push('assets/songs/$cleanSong/chart.json');
+            pathsToTry.push('assets/songs/$cleanSong/$cleanSong.json');
+            pathsToTry.push('assets/data/$cleanSong/$cleanSong.json');
+            pathsToTry.push('data/$cleanSong/$cleanSong.json');
+        }
 
         var finalPath:String = null;
         for (p in pathsToTry) {
@@ -75,7 +85,7 @@ class Song {
         }
 
         if (finalPath == null) {
-            Logger.warn('Chart JSON not found for "$songId" [$diffName]', "chart");
+            Logger.warn('Chart JSON not found for "$cleanSong" [$diffName]', "chart");
             return null;
         }
 

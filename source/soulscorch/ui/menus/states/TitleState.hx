@@ -3,7 +3,6 @@ package soulscorch.ui.menus.states;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
@@ -20,17 +19,21 @@ import soulscorch.scripting.mod.ModLoader;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
+using StringTools;
+
 class TitleState extends MusicBeatState {
     public static var initialized:Bool = false;
     public static var closedIntro:Bool = false;
 
     private var blackScreen:FlxSprite;
     private var textGroup:FlxTypedGroup<Alphabet>;
+    private var ngSpr:FlxSprite;
     private var logoBump:FlxSprite;
     private var gfDance:FlxSprite;
     private var titleText:FlxSprite;
 
     private var curWacky:Array<String> = [];
+    private var wackyIntroText:Array<Array<String>> = [];
     private var transitioning:Bool = false;
     private var danceLeft:Bool = false;
 
@@ -67,7 +70,8 @@ class TitleState extends MusicBeatState {
             initialized = true;
         }
 
-        curWacky = getIntroText();
+        wackyIntroText = getIntroText();
+        curWacky = (wackyIntroText.length > 0) ? wackyIntroText[FlxG.random.int(0, wackyIntroText.length - 1)] : ["SoulScorch", "Engine"];
         persistentUpdate = true;
 
         logoBump = new FlxSprite(-150, -100);
@@ -105,8 +109,21 @@ class TitleState extends MusicBeatState {
         add(textGroup);
 
         blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+
+        ngSpr = new FlxSprite(0, FlxG.height * 0.52);
+        var loadedNG = AssetHelper.loadImageSafely(ngSpr, "menus/titlescreen/newgrounds_logo");
+        if (!loadedNG) {
+            ngSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);
+        }
+        ngSpr.setGraphicSize(Std.int(ngSpr.width * 0.8));
+        ngSpr.updateHitbox();
+        ngSpr.screenCenter(X);
+        ngSpr.antialiasing = true;
+        ngSpr.visible = false;
+
         if (!closedIntro) {
             add(blackScreen);
+            add(ngSpr);
         } else {
             skipIntro();
         }
@@ -121,6 +138,14 @@ class TitleState extends MusicBeatState {
         if (Controls.instance != null && Controls.instance.ACCEPT) {
             pressedEnter = true;
         }
+
+        #if mobile
+        for (touch in FlxG.touches.list) {
+            if (touch.justPressed) {
+                pressedEnter = true;
+            }
+        }
+        #end
 
         if (pressedEnter && !closedIntro) {
             skipIntro();
@@ -142,6 +167,13 @@ class TitleState extends MusicBeatState {
 
     private function createIntroText(text:String, offset:Float = 0):Void {
         var t = new Alphabet(0, (FlxG.height * 0.4) + offset, text, true);
+        t.alignment = CENTER;
+        t.screenCenter(X);
+        textGroup.add(t);
+    }
+
+    private function addMoreIntroText(text:String, offset:Float = 0):Void {
+        var t = new Alphabet(0, (FlxG.height * 0.4) + (textGroup.length * 60) + offset, text, true);
         t.alignment = CENTER;
         t.screenCenter(X);
         textGroup.add(t);
@@ -172,27 +204,29 @@ class TitleState extends MusicBeatState {
                 case 1:
                     createIntroText("SoulScorch Team", -40);
                 case 3:
-                    createIntroText("Presents", 30);
+                    addMoreIntroText("Presents", -40);
                 case 4:
                     deleteIntroText();
                 case 5:
                     createIntroText("In collaboration with", -40);
                 case 7:
-                    createIntroText("Open Source Community", 30);
+                    addMoreIntroText("Newgrounds", -40);
+                    if (ngSpr != null && ngSpr.graphic != null) ngSpr.visible = true;
                 case 8:
                     deleteIntroText();
+                    if (ngSpr != null) ngSpr.visible = false;
                 case 9:
                     createIntroText(curWacky[0], -40);
                 case 11:
-                    createIntroText(curWacky[1], 30);
+                    addMoreIntroText(curWacky[1], -40);
                 case 12:
                     deleteIntroText();
                 case 13:
                     createIntroText("SoulScorch Engine", -60);
                 case 14:
-                    createIntroText(Version.CODENAME, 10);
+                    addMoreIntroText(Version.CODENAME, -60);
                 case 15:
-                    createIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, 80);
+                    addMoreIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, -60);
                 case 16:
                     skipIntro();
             }
@@ -201,20 +235,48 @@ class TitleState extends MusicBeatState {
 
     private function skipIntro():Void {
         if (!closedIntro) {
-            remove(blackScreen);
+            if (ngSpr != null) remove(ngSpr);
+            if (blackScreen != null) remove(blackScreen);
             deleteIntroText();
             FlxG.camera.flash(FlxColor.WHITE, 1.5);
             closedIntro = true;
         }
     }
 
-    private function getIntroText():Array<String> {
-        var lines:Array<Array<String>> = [
-            ["Uncapped power", "Ignited rhythms"],
-            ["Modding redefined", "Run anything"],
-            ["Built with Haxe", "Flixel powered"],
-            ["Scorching charts", "Zero input lag"]
-        ];
-        return lines[FlxG.random.int(0, lines.length - 1)];
+    private function getIntroText():Array<Array<String>> {
+        var fullText:String = AssetResolver.getText("data/config/introText");
+        if (fullText.length == 0) {
+            fullText = AssetResolver.getText("assets/preload/data/config/introText.txt");
+        }
+        if (fullText.length == 0) {
+            fullText = AssetResolver.getText("assets/data/introText.txt");
+        }
+
+        var lines:Array<Array<String>> = [];
+
+        if (fullText != null && fullText.trim().length > 0) {
+            var splitted = fullText.split("\n");
+            for (line in splitted) {
+                var trimmed = line.trim();
+                if (trimmed.length > 0 && trimmed.indexOf("--") != -1) {
+                    var parts = trimmed.split("--");
+                    if (parts.length >= 2) {
+                        lines.push([parts[0].trim(), parts[1].trim()]);
+                    }
+                }
+            }
+        }
+
+        if (lines.length == 0) {
+            lines = [
+                ["Uncapped power", "Ignited rhythms"],
+                ["Modding redefined", "Run anything"],
+                ["Built with Haxe", "Flixel powered"],
+                ["Scorching charts", "Zero input lag"],
+                ["Friday Night Funkin", "SoulScorch Engine"]
+            ];
+        }
+
+        return lines;
     }
 }

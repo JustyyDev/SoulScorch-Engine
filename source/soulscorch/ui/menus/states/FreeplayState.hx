@@ -1,15 +1,18 @@
 package soulscorch.ui.menus.states;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
@@ -31,6 +34,7 @@ class FreeplayState extends MusicBeatState {
     private var bg:FlxSprite;
     private var scoreText:FlxText;
     private var diffText:FlxText;
+    private var mobileControls:MobilePad;
 
     private var lerpScore:Int = 0;
     private var intendedScore:Int = 0;
@@ -40,13 +44,17 @@ class FreeplayState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        DiscordRPC.changePresence("Freeplay Menu", "Selecting Track");
+        #if desktop
+        DiscordRPC.changePresence("Freeplay Menu", "Browsing Songs");
+        #end
 
         SongRegistry.scanAll();
         songs = SongRegistry.songs;
 
         bg = new FlxSprite();
-        AssetHelper.loadGraphicSafely(bg, "menuDesat");
+        if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
+            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF444444);
+        }
         bg.screenCenter();
         bg.antialiasing = true;
         add(bg);
@@ -60,21 +68,27 @@ class FreeplayState extends MusicBeatState {
             songText.targetY = i;
             grpSongs.add(songText);
 
-            var icon:HealthIcon = new HealthIcon(songs[i].character, false);
+            var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
             iconArray.push(icon);
             add(icon);
         }
 
-        var scoreBG = new FlxSprite(FlxG.width - 360, 0).makeGraphic(360, 90, 0x99000000);
+        var scoreBG = new FlxSprite(FlxG.width - 400, 0).makeGraphic(400, 96, 0xAA000000);
         add(scoreBG);
 
-        scoreText = new FlxText(FlxG.width - 350, 10, 340, "PERSONAL BEST: 0", 18);
-        scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT);
+        scoreText = new FlxText(FlxG.width - 390, 10, 380, "PERSONAL BEST: 0", 18);
+        scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
         add(scoreText);
 
-        diffText = new FlxText(FlxG.width - 350, 42, 340, "< NORMAL >", 22);
-        diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT);
+        diffText = new FlxText(FlxG.width - 390, 48, 380, "< NORMAL >", 22);
+        diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
         add(diffText);
+
+        #if (mobile || debug)
+        mobileControls = new MobilePad(FULL, A_B);
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
 
         changeSelection();
         changeDiff();
@@ -98,18 +112,23 @@ class FreeplayState extends MusicBeatState {
 
         if (Controls.instance.ACCEPT && songs.length > 0) {
             var selected = songs[curSelected];
+            var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
             PlayState.curSong = selected.id;
-            PlayState.curDifficulty = selected.difficulties[curDifficulty];
+            PlayState.curDifficulty = diffs[curDifficulty];
             MusicBeatState.switchState(new PlayState());
         }
 
         for (i in 0...grpSongs.members.length) {
             var item = grpSongs.members[i];
-            item.alpha = (i == curSelected ? 1.0 : 0.6);
+            var isOffscreen = (item.y < -150 || item.y > FlxG.height + 150);
+            item.visible = !isOffscreen;
+            item.alpha = (i == curSelected ? 1.0 : 0.45);
 
             if (iconArray.length > i && iconArray[i] != null) {
-                iconArray[i].x = item.x + item.width + 10;
-                iconArray[i].y = item.y - 30;
+                iconArray[i].visible = !isOffscreen;
+                iconArray[i].x = item.x + item.width + 15;
+                iconArray[i].y = item.y - 25;
+                iconArray[i].alpha = item.alpha;
             }
         }
     }
@@ -120,7 +139,8 @@ class FreeplayState extends MusicBeatState {
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         if (bg != null) {
-            bg.color = songs[curSelected].color;
+            FlxTween.cancelTweensOf(bg);
+            FlxTween.color(bg, 0.25, bg.color, songs[curSelected].color);
         }
 
         var bullShit:Int = 0;
@@ -135,14 +155,14 @@ class FreeplayState extends MusicBeatState {
 
     private function changeDiff(change:Int = 0):Void {
         if (songs.length == 0) return;
-        var diffs = songs[curSelected].difficulties;
+        var diffs = (songs[curSelected].difficulties != null && songs[curSelected].difficulties.length > 0) ? songs[curSelected].difficulties : Difficulty.defaultList;
         curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
 
         var diffName = diffs[curDifficulty].toUpperCase();
         diffText.text = '< $diffName >';
         diffText.color = Difficulty.getColor(diffs[curDifficulty]);
 
-        var saveEntry = SaveData.instance.getScore(songs[curSelected].id, diffs[curDifficulty]);
+        var saveEntry = SaveData.instance != null ? SaveData.instance.getScore(songs[curSelected].id, diffs[curDifficulty]) : null;
         if (saveEntry != null) {
             intendedScore = saveEntry.score;
             intendedAccuracy = saveEntry.accuracy;
@@ -152,5 +172,10 @@ class FreeplayState extends MusicBeatState {
             intendedAccuracy = 0.0;
             intendedRating = "N/A";
         }
+    }
+
+    override public function destroy():Void {
+        Controls.instance.unbindMobilePad();
+        super.destroy();
     }
 }

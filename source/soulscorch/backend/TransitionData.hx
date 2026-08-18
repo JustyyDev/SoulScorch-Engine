@@ -22,8 +22,8 @@ class TransitionData {
 
     public function new(
         type:TransitionType = FADE,
-        direction:TransitionDirection = IN,
-        duration:Float = 0.5,
+        direction:TransitionDirection = OUT,
+        duration:Float = 0.45,
         color:FlxColor = FlxColor.BLACK,
         ?ease:flixel.tweens.FlxEase.EaseFunction
     ) {
@@ -31,6 +31,6 @@ class TransitionData {
         this.direction = direction;
         this.duration = duration;
         this.color = color;
-        this.ease = ease != null ? ease : FlxEase.linear;
+        this.ease = ease != null ? ease : FlxEase.sineInOut;
     }
 }

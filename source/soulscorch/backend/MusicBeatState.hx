@@ -9,7 +9,19 @@ import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
 
 class MusicBeatState extends Scene implements IBeatReceiver {
-    public static var defaultTransition:TransitionData = new TransitionData(FADE, IN, 0.4);
+    public static var defaultTransition:TransitionData = new TransitionData(FADE, OUT, 0.45);
+    public static var skipNextTransIn:Bool = false;
+    public static var skipNextTransOut:Bool = false;
+
+    override public function create():Void {
+        super.create();
+
+        // Play intro transition when entering the state
+        if (!skipNextTransIn) {
+            openSubState(new CustomSubstate(function() {}, new TransitionData(defaultTransition.type, IN, defaultTransition.duration, defaultTransition.color)));
+        }
+        skipNextTransIn = false;
+    }
 
     override public function update(elapsed:Float):Void {
         var oldStep:Int = curStep;
@@ -53,8 +65,23 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         if (MusicBeatTransition.isTransitioning) return;
         MusicBeatTransition.isTransitioning = true;
 
-        FlxG.state.openSubState(new MusicBeatSubstate(function() {
+        if (skipNextTransOut) {
+            skipNextTransOut = false;
+            MusicBeatTransition.isTransitioning = false;
+            FlxG.switchState(nextState);
+            return;
+        }
+
+        // Open transition out overlay
+        FlxG.state.openSubState(new CustomSubstate(function() {
             FlxG.switchState(nextState);
         }, transition));
+    }
+}
+
+// Internal Transition SubState to prevent constructor conflicts
+class CustomSubstate extends MusicBeatSubstate {
+    public function new(onComplete:Void->Void, trans:TransitionData) {
+        super(onComplete, trans);
     }
 }

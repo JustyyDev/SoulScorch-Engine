@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
 	<!-- Application Metadata -->
-	<app title="SoulScorch Engine" file="SoulScorch" main="Main" package="com.soulscorch.engine" version="0.1.0" company="SoulScorch Studios" />
+	<app title="SoulScorch Engine" file="SoulScorch" main="Main" package="com.soulscorch.engine" version="1.0.0" company="SoulScorch Studios" />
 
 	<!-- Core Framework Libraries -->
 	<haxelib name="lime" />
 	<haxelib name="openfl" />
 	<haxelib name="flixel" />
 	<haxelib name="flixel-addons" />
+	<haxelib name="flixel-ui" />
 	<haxelib name="away3d" />
-	<haxelib name="hscript" version="2.4.0" />
+	<haxelib name="hscript" />
 
 	<!-- Optional Scripting Backends -->
 	<haxelib name="hscript-iris" if="SOULSCORCH_IRIS" />
@@ -20,8 +21,8 @@
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
 	<haxelib name="hxCodec" if="SOULSCORCH_VIDEO_HXCODEC" />
 
-	<!-- Discord Rich Presence (C++ only) -->
-	<haxelib name="hxdiscord_rpc" if="cpp" />
+	<!-- Discord Rich Presence (Desktop C++ Only) -->
+	<haxelib name="hxdiscord_rpc" if="desktop" />
 
 	<!-- Custom Application Icons -->
 	<icon path="art/iconOG.png" />
@@ -30,19 +31,29 @@
 	<!-- Window Configuration -->
 	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" fps="120" />
 	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" />
-	<window if="mobile" orientation="landscape" fullscreen="true" width="0" height="0" resizable="false" />
+	<window if="mobile" orientation="landscape" fullscreen="true" resizable="false" />
+
+	<!-- Android Configuration -->
+	<config:android minimum-sdk-version="21" target-sdk-version="34" if="android" />
+	<setenv name="ANDROID_PERMISSIONS" value="android.permission.READ_EXTERNAL_STORAGE,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.INTERNET,android.permission.VIBRATE,android.permission.WAKE_LOCK" if="android" />
+
+	<!-- iOS Configuration -->
+	<ios deployment="13.0" devices="universal" if="ios" />
 
 	<!-- Source Roots -->
 	<source path="source" />
 
 	<!-- Dynamic External Folders -->
-	<assets path="mods" embed="false" />
+	<assets path="mods" embed="false" unless="mobile" />
 
 	<!-- Core Asset Pipelines -->
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
-	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" />
+	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" embed="false" />
+	<assets path="assets/preload" rename="assets" embed="true" if="mobile" />
+
 	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
-	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" scripts="web" />
+	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" embed="false" />
+	<assets path="assets/shared" rename="assets/shared" embed="true" if="mobile" />
 
 	<!-- Engine Optimization Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
@@ -79,7 +90,6 @@
 		<!-- Enable Pre-Compiled Headers for Rapid Compilation -->
 		<set name="HXCPP_PCH" value="1" />
 		<set name="HXCPP_VERBOSE" value="1" />
-		<set name="HXCPP_COMPILE_THREADS" value="%NUMBER_OF_PROCESSORS%" />
 
 		<!-- Dynamic Discord RPC DLL Deployment -->
 		<copy file="${haxelib:hxdiscord_rpc}/lib/windows/discord-rpc.dll" to="discord-rpc.dll" if="cpp" />

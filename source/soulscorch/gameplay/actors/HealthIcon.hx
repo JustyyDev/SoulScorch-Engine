@@ -38,23 +38,19 @@ class HealthIcon extends FlxSprite {
             var iconWidth:Int = bitmap.width;
             var iconHeight:Int = bitmap.height;
 
-            // Check how many 150x150 frames exist in the spritesheet
             if (iconWidth >= iconHeight * 3) {
-                // 3 Frames: Normal (0), Losing (1), Winning (2)
                 var frameWidth = Std.int(iconWidth / 3);
                 loadGraphic(bitmap, true, frameWidth, iconHeight);
                 animation.add(char, [0, 1, 2], 0, false, isPlayer);
                 hasLosingIcon = true;
                 hasWinningIcon = true;
             } else if (iconWidth >= iconHeight * 2) {
-                // 2 Frames: Normal (0), Losing (1)
                 var frameWidth = Std.int(iconWidth / 2);
                 loadGraphic(bitmap, true, frameWidth, iconHeight);
                 animation.add(char, [0, 1], 0, false, isPlayer);
                 hasLosingIcon = true;
                 hasWinningIcon = false;
             } else {
-                // 1 Single Frame: Use frame 0 for all health states
                 loadGraphic(bitmap, true, iconWidth, iconHeight);
                 animation.add(char, [0, 0], 0, false, isPlayer);
                 hasLosingIcon = false;

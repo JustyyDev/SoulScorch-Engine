@@ -15,7 +15,9 @@ class UILayout extends FlxGroup {
 
     public function new(xmlPath:String) {
         super();
-        loadLayout(xmlPath);
+        if (xmlPath != null && xmlPath.length > 0) {
+            loadLayout(xmlPath);
+        }
     }
 
     public function loadLayout(localPath:String):Void {

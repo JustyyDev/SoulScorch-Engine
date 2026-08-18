@@ -35,7 +35,6 @@ class Script implements ScriptInstance {
         parser.allowTypes = true;
         parser.allowJSON = true;
         parser.allowMetadata = true;
-        interp.scriptPath = path;
 
         setupGlobals();
 
@@ -70,18 +69,15 @@ class Script implements ScriptInstance {
             TRANSPARENT: 0x00000000,
             fromRGB: FlxColor.fromRGB,
             fromHSL: FlxColor.fromHSL,
-            fromString: FlxColor.fromString,
-            colorLookup: FlxColor.colorLookup
+            fromString: FlxColor.fromString
         });
 
-        set("Runtime", Runtime.engine);
-        set("Engine", Engine.instance);
+        set("Runtime", Runtime);
         set("Conductor", Conductor);
         set("Paths", Paths);
-        set("EventBus", EventBus.instance);
+        set("EventBus", EventBus);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
-        set("ModManager", ModLoader);
 
         set("game", FlxG.state);
         set("state", FlxG.state);

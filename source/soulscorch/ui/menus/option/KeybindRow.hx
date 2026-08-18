@@ -8,17 +8,20 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.input.InputMap;
 
-class OptionRow extends FlxTypedGroup<FlxBasic> {
+class KeybindRow extends FlxTypedGroup<FlxBasic> {
     public var label:FlxText;
-    public var value:FlxText;
+    public var keyText:FlxText;
     public var rowBg:FlxSprite;
     public var activeIndicator:FlxSprite;
+    public var actionName:String;
 
     private var targetAlpha:Float = 0.0;
 
-    public function new(x:Float, y:Float, width:Float, labelText:String) {
+    public function new(x:Float, y:Float, width:Float, actionName:String, displayName:String) {
         super();
+        this.actionName = actionName;
 
         rowBg = new FlxSprite(x, y).makeGraphic(Std.int(width), 46, 0xFF171321);
         rowBg.alpha = 0.4;
@@ -28,15 +31,17 @@ class OptionRow extends FlxTypedGroup<FlxBasic> {
         activeIndicator.alpha = 0.0;
         add(activeIndicator);
 
-        label = new FlxText(x + 24, y + 12, width * 0.55, labelText, 18);
+        label = new FlxText(x + 24, y + 12, width * 0.5, displayName, 18);
         label.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         label.borderSize = 1.0;
         add(label);
 
-        value = new FlxText(x + width * 0.4, y + 12, width * 0.55, "", 18);
-        value.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
-        value.borderSize = 1.0;
-        add(value);
+        keyText = new FlxText(x + width * 0.4, y + 12, width * 0.55, "", 18);
+        keyText.setFormat(Paths.font("vcr"), 18, 0xFF00FFCC, RIGHT, OUTLINE, FlxColor.BLACK);
+        keyText.borderSize = 1.0;
+        add(keyText);
+
+        refreshKeyLabel();
     }
 
     public function setActive(active:Bool):Void {
@@ -50,19 +55,25 @@ class OptionRow extends FlxTypedGroup<FlxBasic> {
         FlxTween.tween(activeIndicator, {alpha: active ? 1.0 : 0.0}, 0.2, {ease: FlxEase.quadOut});
     }
 
-    public function setValue(text:String, ?isOn:Bool):Void {
-        value.text = text;
-        if (isOn == null) {
-            value.color = 0xFFCCCCCC;
+    public function setListening(listening:Bool):Void {
+        if (listening) {
+            keyText.text = "> PRESS ANY KEY <";
+            keyText.color = 0xFFFF5555;
         } else {
-            value.color = isOn ? 0xFF6BFF8E : 0xFFFF5555;
+            refreshKeyLabel();
         }
+    }
+
+    public function refreshKeyLabel():Void {
+        var primaryKey = InputMap.getKeyLabel(actionName, 0);
+        keyText.text = '[ $primaryKey ]';
+        keyText.color = 0xFF00FFCC;
     }
 
     public function setRowVisible(rowVisible:Bool):Void {
         rowBg.visible = rowVisible;
         label.visible = rowVisible;
-        value.visible = rowVisible;
+        keyText.visible = rowVisible;
         activeIndicator.visible = rowVisible;
     }
 }

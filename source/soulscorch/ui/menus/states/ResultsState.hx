@@ -11,6 +11,7 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.scoring.SongStats;
 import soulscorch.ui.hud.Alphabet;
@@ -23,6 +24,7 @@ class ResultsState extends MusicBeatState {
     private var rankAlphabet:Alphabet;
     private var scoreText:FlxText;
     private var hitStatsText:FlxText;
+    private var mobileControls:MobilePad;
 
     public function new(stats:SongStats) {
         super();
@@ -32,26 +34,39 @@ class ResultsState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        DiscordRPC.changePresence("Results Screen", 'Rating: ${stats.rating} | Acc: ${Math.round(stats.accuracy * 100) / 100}%');
+        #if desktop
+        if (stats != null) {
+            DiscordRPC.changePresence("Results Screen", 'Rating: ${stats.rating} | Acc: ${Math.round(stats.accuracy * 100) / 100}%');
+        }
+        #end
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF181420);
+        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF14101A);
         add(bg);
 
-        var titleAlphabet = new Alphabet(40, 25, '${stats.songId} [${stats.difficulty}]', true);
-        titleAlphabet.scale.set(0.6, 0.6);
+        var titleStr = stats != null ? '${stats.songId} [${stats.difficulty}]' : "Results";
+        var titleAlphabet = new Alphabet(40, 25, titleStr, true);
+        titleAlphabet.scale.set(0.65, 0.65);
         add(titleAlphabet);
 
-        rankAlphabet = new Alphabet(FlxG.width - 280, 100, stats.rating, true);
+        var rankStr = stats != null ? stats.rating : "?";
+        rankAlphabet = new Alphabet(FlxG.width - 290, 100, rankStr, true);
         rankAlphabet.scale.set(0, 0);
         add(rankAlphabet);
 
-        scoreText = new FlxText(40, 120, 600, 'Score: ${stats.score}\nAccuracy: ${Math.round(stats.accuracy * 100) / 100}%\nCombo Breaks: ${stats.misses}', 24);
+        var scoreVal = stats != null ? stats.score : 0;
+        var accVal = stats != null ? Math.round(stats.accuracy * 100) / 100 : 0;
+        var missesVal = stats != null ? stats.misses : 0;
+        scoreText = new FlxText(40, 120, 600, 'Score: $scoreVal\nAccuracy: $accVal%\nCombo Breaks: $missesVal', 24);
         scoreText.setFormat(Paths.font("vcr"), 24, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         scoreText.borderSize = 2.0;
         add(scoreText);
 
-        hitStatsText = new FlxText(40, 260, 600, 'Sicks: ${stats.sicks}\nGoods: ${stats.goods}\nBads: ${stats.bads}\nShits: ${stats.shits}', 20);
-        hitStatsText.setFormat(Paths.font("vcr"), 20, 0xFFBBBBBB, LEFT, OUTLINE, FlxColor.BLACK);
+        var sicks = stats != null ? stats.sicks : 0;
+        var goods = stats != null ? stats.goods : 0;
+        var bads = stats != null ? stats.bads : 0;
+        var shits = stats != null ? stats.shits : 0;
+        hitStatsText = new FlxText(40, 260, 600, 'Sicks: $sicks\nGoods: $goods\nBads: $bads\nShits: $shits', 20);
+        hitStatsText.setFormat(Paths.font("vcr"), 20, 0xFFCCCCCC, LEFT, OUTLINE, FlxColor.BLACK);
         add(hitStatsText);
 
         var continueAlphabet = new Alphabet(0, FlxG.height - 70, "PRESS ACCEPT TO CONTINUE", true);
@@ -59,6 +74,12 @@ class ResultsState extends MusicBeatState {
         continueAlphabet.alignment = CENTER;
         continueAlphabet.screenCenter(X);
         add(continueAlphabet);
+
+        #if (mobile || debug)
+        mobileControls = new MobilePad(NONE, A);
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
 
         FlxTween.tween(rankAlphabet.scale, {x: 1.0, y: 1.0}, 0.6, {ease: FlxEase.backOut});
         AssetHelper.playSoundSafely("confirmMenu", 0.7);
@@ -70,5 +91,10 @@ class ResultsState extends MusicBeatState {
         if (Controls.instance.ACCEPT || Controls.instance.BACK) {
             MusicBeatState.switchState(new FreeplayState());
         }
+    }
+
+    override public function destroy():Void {
+        Controls.instance.unbindMobilePad();
+        super.destroy();
     }
 }

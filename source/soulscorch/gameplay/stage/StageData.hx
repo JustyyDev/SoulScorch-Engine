@@ -1,37 +1,29 @@
 package soulscorch.gameplay.stage;
 
-typedef StageSpriteData = {
+typedef StagePieceJson = {
     var name:String;
     var image:String;
-    var ?x:Float;
-    var ?y:Float;
-    var ?scrollX:Float;
-    var ?scrollY:Float;
-    var ?scaleX:Float;
-    var ?scaleY:Float;
-    var ?layer:String;
+    var position:Array<Float>;
+    var scroll:Array<Float>;
+    var scale:Array<Float>;
+    var layer:String; // "behindGF", "behindDad", "behindBF", "foreground"
+    var ?animated:Bool;
     var ?antialiasing:Bool;
     var ?alpha:Float;
-    var ?animated:Bool;
-    var ?animations:Array<{
-        name:String,
-        prefix:String,
-        fps:Int,
-        loop:Bool,
-        ?indices:Array<Int>
-    }>;
-    var ?firstAnimation:String;
+}
+
+typedef CharacterSpawnJson = {
+    var position:Array<Float>;
+    var scale:Float;
+    var ?cameraOffset:Array<Float>;
 }
 
 typedef StageJson = {
     var name:String;
     var defaultZoom:Float;
-    var ?cameraSpeed:Float;
-    var ?boyfriend:Array<Float>;
-    var ?girlfriend:Array<Float>;
-    var ?opponent:Array<Float>;
+    var boyfriend:CharacterSpawnJson;
+    var dad:CharacterSpawnJson;
+    var girlfriend:CharacterSpawnJson;
+    var pieces:Array<StagePieceJson>;
     var ?hideGirlfriend:Bool;
-    var ?sprites:Array<StageSpriteData>;
-    var ?model3D:String;
-    var ?modelTexture:String;
 }

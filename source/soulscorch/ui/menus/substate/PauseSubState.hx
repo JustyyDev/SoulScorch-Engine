@@ -4,6 +4,9 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
@@ -20,19 +23,34 @@ class PauseSubState extends MusicBeatSubstate {
     private var menuItems:Array<String> = ["Resume", "Restart Song", "Exit to Menu"];
     private var grpMenu:FlxTypedGroup<Alphabet>;
     private var bg:FlxSprite;
+    private var panel:FlxSprite;
+    private var songTitleTxt:FlxText;
 
     public function new() {
         super();
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-        bg.alpha = 0.6;
+        bg.alpha = 0.0;
         add(bg);
+        FlxTween.tween(bg, {alpha: 0.65}, 0.4, {ease: FlxEase.quadOut});
+
+        panel = new FlxSprite(0, 0).makeGraphic(450, 320, 0xEE110E1A);
+        panel.screenCenter();
+        panel.scrollFactor.set();
+        add(panel);
+
+        songTitleTxt = new FlxText(panel.x, panel.y + 25, panel.width, PlayState.curSong.toUpperCase(), 20);
+        songTitleTxt.setFormat(Paths.font("vcr"), 20, 0xFF00FFCC, CENTER, OUTLINE, FlxColor.BLACK);
+        songTitleTxt.scrollFactor.set();
+        add(songTitleTxt);
 
         grpMenu = new FlxTypedGroup<Alphabet>();
         add(grpMenu);
 
         for (i in 0...menuItems.length) {
-            var item = new Alphabet(0, (70 * i) + 30, menuItems[i], true);
+            var item = new Alphabet(0, panel.y + 80 + (i * 65), menuItems[i], true);
+            item.scale.set(0.75, 0.75);
+            item.screenCenter(X);
             item.isMenuItem = true;
             item.targetY = i;
             item.ID = i;
@@ -54,7 +72,7 @@ class PauseSubState extends MusicBeatSubstate {
 
         for (i in 0...grpMenu.members.length) {
             var item = grpMenu.members[i];
-            item.alpha = (i == curSelected ? 1.0 : 0.5);
+            item.alpha = (i == curSelected ? 1.0 : 0.4);
         }
     }
 

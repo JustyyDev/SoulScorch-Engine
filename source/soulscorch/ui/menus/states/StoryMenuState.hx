@@ -10,6 +10,7 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
@@ -35,7 +36,7 @@ class StoryMenuState extends MusicBeatState {
         },
         {
             id: "week1",
-            name: "SCORCHED WEEK IDK",
+            name: "SCORCHED CAMPAIGN",
             songs: ["Bopeebo", "Fresh", "Dad Battle"],
             characters: ["dad", "bf", "gf"]
         }
@@ -45,11 +46,14 @@ class StoryMenuState extends MusicBeatState {
     private var diffText:FlxText;
     private var tracklistText:FlxText;
     private var yellowBg:FlxSprite;
+    private var mobileControls:MobilePad;
 
     override public function create():Void {
         super.create();
 
+        #if desktop
         DiscordRPC.changePresence("Story Menu", "Selecting Campaign Week");
+        #end
 
         yellowBg = new FlxSprite(0, 56).makeGraphic(FlxG.width, 380, 0xFFF9CF51);
         add(yellowBg);
@@ -66,12 +70,18 @@ class StoryMenuState extends MusicBeatState {
         }
 
         diffText = new FlxText(FlxG.width - 320, 480, 300, "< NORMAL >", 24);
-        diffText.setFormat(Paths.font("vcr"), 24, FlxColor.WHITE, CENTER);
+        diffText.setFormat(Paths.font("vcr"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         add(diffText);
 
         tracklistText = new FlxText(30, 480, 300, "TRACKS\n\n", 18);
-        tracklistText.setFormat(Paths.font("vcr"), 18, 0xFFE55777, CENTER);
+        tracklistText.setFormat(Paths.font("vcr"), 18, 0xFFE55777, CENTER, OUTLINE, FlxColor.BLACK);
         add(tracklistText);
+
+        #if (mobile || debug)
+        mobileControls = new MobilePad(FULL, A_B);
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
 
         changeWeek();
         changeDifficulty();
@@ -92,23 +102,29 @@ class StoryMenuState extends MusicBeatState {
 
         if (Controls.instance.ACCEPT && weeks.length > 0) {
             var currentWeek = weeks[curWeek];
-            PlayState.curSong = currentWeek.songs[0].toLowerCase();
+            if (currentWeek.songs != null && currentWeek.songs.length > 0) {
+                PlayState.curSong = currentWeek.songs[0].toLowerCase();
+            }
             PlayState.curDifficulty = Difficulty.defaultList[curDifficulty];
             MusicBeatState.switchState(new PlayState());
         }
     }
 
     private function changeWeek(change:Int = 0):Void {
+        if (weeks.length == 0) return;
         curWeek = FlxMath.wrap(curWeek + change, 0, weeks.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         for (item in grpWeekTitles.members) {
-            item.alpha = (item.ID == curWeek) ? 1.0 : 0.4;
+            item.alpha = (item.ID == curWeek ? 1.0 : 0.4);
         }
 
         var trackStr = "TRACKS\n\n";
-        for (song in weeks[curWeek].songs) {
-            trackStr += song.toUpperCase() + "\n";
+        var currentSongs = weeks[curWeek].songs;
+        if (currentSongs != null) {
+            for (song in currentSongs) {
+                trackStr += song.toUpperCase() + "\n";
+            }
         }
         tracklistText.text = trackStr;
     }
@@ -118,5 +134,10 @@ class StoryMenuState extends MusicBeatState {
         var diff = Difficulty.defaultList[curDifficulty];
         diffText.text = '< ${diff.toUpperCase()} >';
         diffText.color = Difficulty.getColor(diff);
+    }
+
+    override public function destroy():Void {
+        Controls.instance.unbindMobilePad();
+        super.destroy();
     }
 }

@@ -3,7 +3,7 @@ package soulscorch.ui.menus.option;
 typedef OptionData = {
     var name:String;
     var description:String;
-    var type:String; // "bool", "int", "float", "keybind", "enum"
+    var type:String; // "bool", "int", "float", "keybind", "enum", "header"
     var ?min:Float;
     var ?max:Float;
     var ?step:Float;
@@ -14,10 +14,12 @@ typedef OptionData = {
 
 class OptionCategory {
     public var name:String;
+    public var icon:String;
     public var options:Array<OptionData> = [];
 
-    public function new(name:String, options:Array<OptionData>) {
+    public function new(name:String, ?icon:String = "options", options:Array<OptionData>) {
         this.name = name;
+        this.icon = icon;
         this.options = options;
     }
 }

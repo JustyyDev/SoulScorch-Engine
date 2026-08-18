@@ -1,5 +1,7 @@
 package soulscorch.backend.input;
 
+import soulscorch.backend.input.MobilePad;
+
 class Controls {
     public static var instance(get, null):Controls;
     private static var _instance:Controls;
@@ -13,6 +15,14 @@ class Controls {
     }
 
     public function new() {}
+
+    public function bindMobilePad(pad:MobilePad):Void {
+        InputMap.bindMobilePad(pad);
+    }
+
+    public function unbindMobilePad():Void {
+        InputMap.unbindMobilePad();
+    }
 
     // --- Note Gameplay Inputs ---
     public var NOTE_LEFT(get, never):Bool;

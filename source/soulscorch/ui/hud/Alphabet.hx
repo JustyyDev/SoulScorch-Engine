@@ -6,8 +6,9 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
-import openfl.display.BitmapData;
+import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
 
 enum abstract Alignment(String) from String to String {
     var LEFT = "left";
@@ -17,8 +18,6 @@ enum abstract Alignment(String) from String to String {
 
 class AlphaCharacter extends FlxSprite {
     public static var cachedFrames:FlxAtlasFrames = null;
-    public static inline var ALPHABET_SHEET:String = "ui/alphabet";
-
     public var character:String = "";
     public var row:Int = 0;
 
@@ -27,91 +26,112 @@ class AlphaCharacter extends FlxSprite {
         this.character = char;
         antialiasing = true;
 
-        // 1. Shared Atlas Cache: Parse only once for the entire game session
         if (cachedFrames == null) {
-            var pngResolved = AssetResolver.resolveFile(ALPHABET_SHEET, [".png"]);
-            var xmlResolved = AssetResolver.resolveFile(ALPHABET_SHEET, [".xml"]);
-
-            if (pngResolved != null && xmlResolved != null) {
-                var bmp:BitmapData = AssetResolver.getBitmapData(pngResolved);
-                var xml:String = AssetResolver.getText(xmlResolved);
-                if (bmp != null && xml.length > 0) {
-                    cachedFrames = FlxAtlasFrames.fromSparrow(bmp, xml);
-                }
+            cachedFrames = Paths.getSparrowAtlas("alphabet");
+            if (cachedFrames == null) {
+                cachedFrames = Paths.getSparrowAtlas("ui/alphabet");
             }
         }
 
         if (cachedFrames != null) {
             this.frames = cachedFrames;
         } else {
-            this.makeGraphic(20, 40, FlxColor.WHITE);
+            makeGraphic(24, 38, FlxColor.TRANSPARENT);
+            return;
         }
 
         if (bold) {
-            createBoldLetter(char);
+            setupBold(char);
         } else {
-            createLetter(char);
+            setupNormal(char);
         }
 
         updateHitbox();
     }
 
-    private function createBoldLetter(char:String):Void {
-        var cleanChar = char.toUpperCase();
-        switch (cleanChar) {
+    private function setupBold(char:String):Void {
+        var clean = char.toUpperCase();
+        var added:Bool = false;
+
+        switch (clean) {
             case ".":
-                animation.addByPrefix("letter", "period bold", 24);
+                added = tryAddPrefix(["period bold", "bold period", "period0", "."]);
             case "'":
-                animation.addByPrefix("letter", "apostrophe bold", 24);
+                added = tryAddPrefix(["apostrophe bold", "bold apostrophe", "apostrophe0", "'"]);
             case "?":
-                animation.addByPrefix("letter", "question bold", 24);
+                added = tryAddPrefix(["question bold", "bold question", "question0", "?"]);
             case "!":
-                animation.addByPrefix("letter", "exclamation bold", 24);
+                added = tryAddPrefix(["exclamation bold", "bold exclamation", "exclamation0", "!"]);
             case "-":
-                animation.addByPrefix("letter", "dash bold", 24);
+                added = tryAddPrefix(["dash bold", "bold dash", "dash0", "-"]);
             case "/":
-                animation.addByPrefix("letter", "forward slash bold", 24);
+                added = tryAddPrefix(["forward slash bold", "slash bold", "bold slash", "/"]);
             default:
-                if (isAlpha(cleanChar)) {
-                    animation.addByPrefix("letter", cleanChar + " bold", 24);
-                    if (!animation.exists("letter")) animation.addByPrefix("letter", "bold " + cleanChar, 24);
-                } else if (isNumber(cleanChar)) {
-                    animation.addByPrefix("letter", "bold " + cleanChar, 24);
-                    if (!animation.exists("letter")) animation.addByPrefix("letter", cleanChar + " bold", 24);
-                } else {
-                    animation.addByPrefix("letter", cleanChar, 24);
-                }
+                added = tryAddPrefix([
+                    clean + " bold",
+                    "bold " + clean,
+                    clean + "0",
+                    clean + " uppercase",
+                    clean
+                ]);
         }
-        animation.play("letter");
+
+        if (added) {
+            animation.play("anim");
+        }
     }
 
-    private function createLetter(char:String):Void {
+    private function setupNormal(char:String):Void {
+        var added:Bool = false;
+        var isLower:Bool = (char == char.toLowerCase());
+
         switch (char) {
             case ".":
-                animation.addByPrefix("letter", "period", 24);
+                added = tryAddPrefix(["period", "period0"]);
             case "'":
-                animation.addByPrefix("letter", "apostrophe", 24);
+                added = tryAddPrefix(["apostrophe", "apostrophe0"]);
             case "?":
-                animation.addByPrefix("letter", "question mark", 24);
+                added = tryAddPrefix(["question mark", "question", "question0"]);
             case "!":
-                animation.addByPrefix("letter", "exclamation point", 24);
+                added = tryAddPrefix(["exclamation point", "exclamation", "exclamation0"]);
             case ",":
-                animation.addByPrefix("letter", "comma", 24);
+                added = tryAddPrefix(["comma", "comma0"]);
             case "-":
-                animation.addByPrefix("letter", "dash", 24);
+                added = tryAddPrefix(["dash", "dash0"]);
             default:
                 if (isAlpha(char)) {
-                    var isLower = (char == char.toLowerCase());
-                    animation.addByPrefix("letter", char + " " + (isLower ? "lowercase" : "uppercase"), 24);
-                    if (!animation.exists("letter")) animation.addByPrefix("letter", char + "0", 24);
+                    var caseSuffix = isLower ? "lowercase" : "uppercase";
+                    added = tryAddPrefix([
+                        char + " " + caseSuffix,
+                        char + caseSuffix,
+                        char + (isLower ? " lower" : " upper"),
+                        char + "0",
+                        char
+                    ]);
                 } else if (isNumber(char)) {
-                    animation.addByPrefix("letter", char + "0", 24);
-                    if (!animation.exists("letter")) animation.addByPrefix("letter", char, 24);
+                    added = tryAddPrefix([char + "0", char, "number " + char]);
                 } else {
-                    animation.addByPrefix("letter", char, 24);
+                    added = tryAddPrefix([char, char + "0"]);
                 }
         }
-        animation.play("letter");
+
+        if (added) {
+            animation.play("anim");
+        }
+    }
+
+    private function tryAddPrefix(prefixes:Array<String>):Bool {
+        if (frames == null || frames.frames == null) return false;
+
+        for (p in prefixes) {
+            for (f in frames.frames) {
+                if (f.name != null && StringTools.startsWith(f.name, p)) {
+                    animation.addByPrefix("anim", p, 24, true);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static inline function isAlpha(char:String):Bool {
@@ -144,11 +164,11 @@ class Alphabet extends FlxSpriteGroup {
     public function new(x:Float, y:Float, text:String = "", bold:Bool = false) {
         super(x, y);
         this.bold = bold;
-        this.text = text;
+        this.text = text != null ? text : "";
     }
 
     private function set_text(newText:String):String {
-        text = newText;
+        text = newText != null ? newText : "";
         clearLetters();
         createAlphabet();
         return text;
@@ -216,7 +236,7 @@ class Alphabet extends FlxSpriteGroup {
     override public function update(elapsed:Float):Void {
         if (isMenuItem) {
             var scaledY = FlxMath.remapToRange(targetY, 0, 1, 0, 1.3);
-            var lerpVal = Math.exp(-elapsed * 9.6);
+            var lerpVal = Math.exp(-elapsed * 10.2);
 
             if (changeX) {
                 x = FlxMath.lerp((targetY * 20) + 90, x, lerpVal);

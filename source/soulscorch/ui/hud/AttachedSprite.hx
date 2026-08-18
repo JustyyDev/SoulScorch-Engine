@@ -18,7 +18,9 @@ class AttachedSprite extends FlxSprite {
         if (imagePath != null && imagePath.length > 0) {
             if (animPrefix != null && animPrefix.length > 0) {
                 AssetHelper.loadSparrowSafely(this, imagePath);
-                animation.addByPrefix("idle", animPrefix, 24, true);
+                if (animation.getByName("idle") == null) {
+                    animation.addByPrefix("idle", animPrefix, 24, true);
+                }
                 animation.play("idle");
             } else {
                 AssetHelper.loadGraphicSafely(this, imagePath);
@@ -30,9 +32,11 @@ class AttachedSprite extends FlxSprite {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (sprTracker != null) {
+        if (sprTracker != null && sprTracker.exists) {
             setPosition(sprTracker.x + xAdd, sprTracker.y + yAdd);
-            scrollFactor.set(sprTracker.scrollFactor.x, sprTracker.scrollFactor.y);
+            if (sprTracker.scrollFactor != null) {
+                scrollFactor.set(sprTracker.scrollFactor.x, sprTracker.scrollFactor.y);
+            }
 
             if (copyAngle) angle = sprTracker.angle + angleAdd;
             if (copyAlpha) alpha = sprTracker.alpha * alphaMult;

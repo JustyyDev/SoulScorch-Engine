@@ -11,37 +11,48 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.FreeplayState;
 import soulscorch.ui.menus.states.StoryMenuState;
 import soulscorch.ui.menus.states.TitleState;
 
+using StringTools;
+
 class MainMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
 
-    private var menuItems:Array<String> = ["story_mode", "freeplay", "options", "credits"];
+    private var menuItems:Array<String> = [];
     private var grpMenuItems:FlxTypedGroup<FlxSprite>;
     private var bg:FlxSprite;
     private var magenta:FlxSprite;
     private var versionText:FlxText;
+    private var mobileControls:MobilePad;
 
     private var selectedSomethin:Bool = false;
 
     override public function create():Void {
         super.create();
 
+        #if desktop
         DiscordRPC.changePresence("Main Menu", "In the Menus");
-
+        #end
         persistentUpdate = persistentDraw = true;
 
+        loadMenuItems();
+
         bg = new FlxSprite(-80);
-        AssetHelper.loadGraphicSafely(bg, "menuBG");
-        bg.scrollFactor.set(0, 0.15);
+        if (!AssetHelper.loadGraphicSafely(bg, "menuBG")) {
+            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282828);
+        }
+        bg.scrollFactor.set(0, 0.12);
         bg.setGraphicSize(Std.int(bg.width * 1.175));
         bg.updateHitbox();
         bg.screenCenter();
@@ -49,8 +60,10 @@ class MainMenuState extends MusicBeatState {
         add(bg);
 
         magenta = new FlxSprite(-80);
-        AssetHelper.loadGraphicSafely(magenta, "menuDesat");
-        magenta.scrollFactor.set(0, 0.15);
+        if (!AssetHelper.loadGraphicSafely(magenta, "menuDesat")) {
+            magenta.makeGraphic(FlxG.width, FlxG.height, 0xFFFD719B);
+        }
+        magenta.scrollFactor.set(0, 0.12);
         magenta.setGraphicSize(Std.int(magenta.width * 1.175));
         magenta.updateHitbox();
         magenta.screenCenter();
@@ -63,16 +76,25 @@ class MainMenuState extends MusicBeatState {
         add(grpMenuItems);
 
         for (i in 0...menuItems.length) {
+            var itemKey = menuItems[i].trim().toLowerCase();
             var offset:Float = 108 - (Math.max(menuItems.length, 4) - 4) * 80;
             var menuItem:FlxSprite = new FlxSprite(0, (i * 140) + offset);
-            AssetHelper.loadSparrowSafely(menuItem, "menus/mainmenu/menu_" + menuItems[i]);
-            menuItem.animation.addByPrefix("idle", menuItems[i] + " basic", 24);
-            menuItem.animation.addByPrefix("selected", menuItems[i] + " white", 24);
-            menuItem.animation.play("idle");
-            menuItem.ID = i;
-            menuItem.screenCenter(X);
-            menuItem.antialiasing = true;
-            grpMenuItems.add(menuItem);
+
+            var loaded = AssetHelper.loadSparrowSafely(menuItem, "menus/mainmenu/menu_" + itemKey);
+            if (loaded && menuItem.frames != null) {
+                menuItem.animation.addByPrefix("idle", itemKey + " basic", 24);
+                menuItem.animation.addByPrefix("selected", itemKey + " white", 24);
+                menuItem.animation.play("idle");
+                menuItem.ID = i;
+                menuItem.screenCenter(X);
+                menuItem.antialiasing = true;
+                grpMenuItems.add(menuItem);
+            } else {
+                var alphaLabel = new Alphabet(0, (i * 140) + offset, itemKey.replace("_", " ").toUpperCase(), true);
+                alphaLabel.screenCenter(X);
+                alphaLabel.ID = i;
+                grpMenuItems.add(alphaLabel);
+            }
         }
 
         versionText = new FlxText(12, FlxG.height - 24, 0, Version.fullVersion(), 12);
@@ -80,7 +102,34 @@ class MainMenuState extends MusicBeatState {
         versionText.scrollFactor.set();
         add(versionText);
 
+        #if (mobile || debug)
+        mobileControls = new MobilePad(FULL, A_B);
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
+
         changeItem();
+    }
+
+    private function loadMenuItems():Void {
+        var rawText:String = AssetResolver.getText("data/config/menuItems");
+        if (rawText.length == 0) {
+            rawText = AssetResolver.getText("assets/preload/data/config/menuItems.txt");
+        }
+
+        menuItems = [];
+        if (rawText.trim().length > 0) {
+            for (line in rawText.split("\n")) {
+                var clean = line.trim();
+                if (clean.length > 0 && !clean.startsWith("//") && !clean.startsWith("#")) {
+                    menuItems.push(clean);
+                }
+            }
+        }
+
+        if (menuItems.length == 0) {
+            menuItems = ["story_mode", "freeplay", "options", "credits"];
+        }
     }
 
     override public function update(elapsed:Float):Void {
@@ -129,31 +178,44 @@ class MainMenuState extends MusicBeatState {
     }
 
     private function changeItem(huh:Int = 0):Void {
+        if (menuItems.length == 0) return;
         curSelected = FlxMath.wrap(curSelected + huh, 0, menuItems.length - 1);
 
         grpMenuItems.forEach(function(spr:FlxSprite) {
-            spr.animation.play("idle");
-            spr.updateHitbox();
+            if (spr.animation != null && spr.animation.getByName("idle") != null) {
+                spr.animation.play("idle");
+                spr.updateHitbox();
+            }
+
+            spr.alpha = (spr.ID == curSelected ? 1.0 : 0.6);
 
             if (spr.ID == curSelected) {
-                spr.animation.play("selected");
-                spr.centerOffsets();
+                if (spr.animation != null && spr.animation.getByName("selected") != null) {
+                    spr.animation.play("selected");
+                    spr.centerOffsets();
+                }
             }
         });
     }
 
     private function goToState(choice:String):Void {
-        switch (choice) {
-            case "story_mode":
+        var clean = choice != null ? choice.trim().toLowerCase() : "";
+        switch (clean) {
+            case "story_mode" | "story" | "storymode":
                 MusicBeatState.switchState(new StoryMenuState());
             case "freeplay":
                 MusicBeatState.switchState(new FreeplayState());
-            case "options":
+            case "options" | "settings":
                 MusicBeatState.switchState(new OptionsMenuState());
             case "credits":
                 MusicBeatState.switchState(new CreditsState());
             default:
                 MusicBeatState.switchState(new FreeplayState());
         }
+    }
+
+    override public function destroy():Void {
+        Controls.instance.unbindMobilePad();
+        super.destroy();
     }
 }

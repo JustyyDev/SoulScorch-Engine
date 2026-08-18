@@ -2,6 +2,9 @@ package soulscorch.ui.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
@@ -12,10 +15,16 @@ import soulscorch.ui.menus.states.MainMenuState;
 
 class GameOverSubState extends MusicBeatSubstate {
     private var bfDead:FlxSprite;
+    private var bg:FlxSprite;
     private var isEnding:Bool = false;
 
     public function new(x:Float, y:Float) {
         super();
+
+        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        bg.alpha = 0.0;
+        add(bg);
+        FlxTween.tween(bg, {alpha: 0.85}, 0.7, {ease: FlxEase.quadOut});
 
         bfDead = new FlxSprite(x, y);
         AssetHelper.loadSparrowSafely(bfDead, "characters/BOYFRIEND_DEAD");
@@ -27,6 +36,7 @@ class GameOverSubState extends MusicBeatSubstate {
         add(bfDead);
 
         AssetHelper.playSoundSafely("fnf_loss_sfx", 0.8);
+        FlxG.camera.follow(bfDead, LOCKON, 0.06);
     }
 
     override public function update(elapsed:Float):Void {

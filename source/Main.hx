@@ -13,17 +13,13 @@ import openfl.events.KeyboardEvent;
 import openfl.events.UncaughtErrorEvent;
 import openfl.ui.Keyboard;
 
-#if sys
-import sys.FileSystem;
-import sys.io.File;
-#end
-
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -129,6 +125,11 @@ class Main extends Sprite {
             fpsCounter.visible = !fpsCounter.visible;
         }
 
+        // F5 Global HotReload trigger
+        if (event.keyCode == Keyboard.F5) {
+            HotReloader.reload();
+        }
+
         if (event.keyCode == Keyboard.TAB && FlxG.state != null && FlxG.state.subState == null) {
             FlxG.state.openSubState(new ModSwitchMenu());
         }
@@ -142,5 +143,6 @@ class Main extends Sprite {
         if (fileWatcher != null) {
             fileWatcher.update(FlxG.elapsed);
         }
+        HotReloader.update();
     }
 }
