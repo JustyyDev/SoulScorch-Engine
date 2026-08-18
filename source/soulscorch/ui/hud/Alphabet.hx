@@ -2,11 +2,12 @@ package soulscorch.ui.hud;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
-import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
+import openfl.display.BitmapData;
+import soulscorch.backend.assets.AssetResolver;
 
 enum abstract Alignment(String) from String to String {
     var LEFT = "left";
@@ -15,6 +16,7 @@ enum abstract Alignment(String) from String to String {
 }
 
 class AlphaCharacter extends FlxSprite {
+    public static var cachedFrames:FlxAtlasFrames = null;
     public static inline var ALPHABET_SHEET:String = "ui/alphabet";
 
     public var character:String = "";
@@ -25,7 +27,25 @@ class AlphaCharacter extends FlxSprite {
         this.character = char;
         antialiasing = true;
 
-        AssetHelper.loadSparrowSafely(this, ALPHABET_SHEET);
+        // 1. Shared Atlas Cache: Parse only once for the entire game session
+        if (cachedFrames == null) {
+            var pngResolved = AssetResolver.resolveFile(ALPHABET_SHEET, [".png"]);
+            var xmlResolved = AssetResolver.resolveFile(ALPHABET_SHEET, [".xml"]);
+
+            if (pngResolved != null && xmlResolved != null) {
+                var bmp:BitmapData = AssetResolver.getBitmapData(pngResolved);
+                var xml:String = AssetResolver.getText(xmlResolved);
+                if (bmp != null && xml.length > 0) {
+                    cachedFrames = FlxAtlasFrames.fromSparrow(bmp, xml);
+                }
+            }
+        }
+
+        if (cachedFrames != null) {
+            this.frames = cachedFrames;
+        } else {
+            this.makeGraphic(20, 40, FlxColor.WHITE);
+        }
 
         if (bold) {
             createBoldLetter(char);
@@ -49,13 +69,17 @@ class AlphaCharacter extends FlxSprite {
                 animation.addByPrefix("letter", "exclamation bold", 24);
             case "-":
                 animation.addByPrefix("letter", "dash bold", 24);
+            case "/":
+                animation.addByPrefix("letter", "forward slash bold", 24);
             default:
                 if (isAlpha(cleanChar)) {
                     animation.addByPrefix("letter", cleanChar + " bold", 24);
+                    if (!animation.exists("letter")) animation.addByPrefix("letter", "bold " + cleanChar, 24);
                 } else if (isNumber(cleanChar)) {
                     animation.addByPrefix("letter", "bold " + cleanChar, 24);
+                    if (!animation.exists("letter")) animation.addByPrefix("letter", cleanChar + " bold", 24);
                 } else {
-                    animation.addByPrefix("letter", "bold " + cleanChar, 24);
+                    animation.addByPrefix("letter", cleanChar, 24);
                 }
         }
         animation.play("letter");
@@ -79,8 +103,10 @@ class AlphaCharacter extends FlxSprite {
                 if (isAlpha(char)) {
                     var isLower = (char == char.toLowerCase());
                     animation.addByPrefix("letter", char + " " + (isLower ? "lowercase" : "uppercase"), 24);
+                    if (!animation.exists("letter")) animation.addByPrefix("letter", char + "0", 24);
                 } else if (isNumber(char)) {
-                    animation.addByPrefix("letter", char, 24);
+                    animation.addByPrefix("letter", char + "0", 24);
+                    if (!animation.exists("letter")) animation.addByPrefix("letter", char, 24);
                 } else {
                     animation.addByPrefix("letter", char, 24);
                 }

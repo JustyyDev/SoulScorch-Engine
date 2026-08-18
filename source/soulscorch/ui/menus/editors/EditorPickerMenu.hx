@@ -13,7 +13,7 @@ import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
 // Subpackage imports matching the directory structure
-import soulscorch.ui.menus.editors.chart.ChartEditorState;
+import soulscorch.ui.menus.editors.chart.ChartEditor;
 import soulscorch.ui.menus.editors.character.CharacterEditorState;
 import soulscorch.ui.menus.editors.stage.StageEditorState;
 import soulscorch.ui.menus.editors.modchart.ModchartEditorState;
@@ -94,7 +94,7 @@ class EditorPickerMenu extends MusicBeatState {
 
         switch (option) {
             case "Chart Editor":
-                MusicBeatState.switchState(new ChartEditorState());
+                MusicBeatState.switchState(new ChartEditor());
             case "Character Editor":
                 MusicBeatState.switchState(new CharacterEditorState());
             case "Stage Editor":
