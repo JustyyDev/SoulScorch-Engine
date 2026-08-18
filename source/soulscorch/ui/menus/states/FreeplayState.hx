@@ -17,6 +17,7 @@ import soulscorch.gameplay.actors.HealthIcon;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongRegistry;
 import soulscorch.gameplay.song.SongRegistry.RegisteredSong;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
 class FreeplayState extends MusicBeatState {
@@ -24,7 +25,7 @@ class FreeplayState extends MusicBeatState {
     public static var curDifficulty:Int = 1;
 
     private var songs:Array<RegisteredSong> = [];
-    private var grpSongs:FlxTypedGroup<FlxText>;
+    private var grpSongs:FlxTypedGroup<Alphabet>;
     private var iconArray:Array<HealthIcon> = [];
 
     private var bg:FlxSprite;
@@ -50,17 +51,16 @@ class FreeplayState extends MusicBeatState {
         bg.antialiasing = true;
         add(bg);
 
-        grpSongs = new FlxTypedGroup<FlxText>();
+        grpSongs = new FlxTypedGroup<Alphabet>();
         add(grpSongs);
 
         for (i in 0...songs.length) {
-            var songText = new FlxText(120, (i * 80) + 200, 0, songs[i].title, 36);
-            songText.setFormat(Paths.font("vcr"), 36, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-            songText.borderSize = 2.0;
-            songText.ID = i;
+            var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
+            songText.isMenuItem = true;
+            songText.targetY = i;
             grpSongs.add(songText);
 
-            var icon = new HealthIcon(songs[i].character, false);
+            var icon:HealthIcon = new HealthIcon(songs[i].character, false);
             iconArray.push(icon);
             add(icon);
         }
@@ -105,14 +105,11 @@ class FreeplayState extends MusicBeatState {
 
         for (i in 0...grpSongs.members.length) {
             var item = grpSongs.members[i];
-            var targetY = ((i - curSelected) * 75) + (FlxG.height * 0.45);
-            item.y = FlxMath.lerp(targetY, item.y, Math.exp(-elapsed * 12.0));
-            item.x = FlxMath.lerp((i == curSelected ? 160 : 120), item.x, Math.exp(-elapsed * 12.0));
             item.alpha = (i == curSelected ? 1.0 : 0.6);
 
             if (iconArray.length > i && iconArray[i] != null) {
-                iconArray[i].x = item.x + item.width + 15;
-                iconArray[i].y = item.y - 15;
+                iconArray[i].x = item.x + item.width + 10;
+                iconArray[i].y = item.y - 30;
             }
         }
     }
@@ -124,6 +121,12 @@ class FreeplayState extends MusicBeatState {
 
         if (bg != null) {
             bg.color = songs[curSelected].color;
+        }
+
+        var bullShit:Int = 0;
+        for (item in grpSongs.members) {
+            item.targetY = bullShit - curSelected;
+            bullShit++;
         }
 
         curDifficulty = 0;

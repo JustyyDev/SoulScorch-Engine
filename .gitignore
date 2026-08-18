@@ -1,6 +1,7 @@
 # Dev tooling
 .vscode/
 .haxelib/
+.tools/
 vendor/
 # Project build output
 build/

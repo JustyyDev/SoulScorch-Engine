@@ -13,12 +13,13 @@ import soulscorch.backend.input.Controls;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulModData;
+import soulscorch.ui.hud.Alphabet;
 
 class ModSwitchMenu extends MusicBeatSubstate {
     public static var curSelected:Int = 0;
 
     private var modList:Array<String> = [];
-    private var grpRows:FlxTypedGroup<FlxText>;
+    private var grpRows:FlxTypedGroup<Alphabet>;
     private var grpCheckboxes:FlxTypedGroup<FlxSprite>;
 
     private var bg:FlxSprite;
@@ -35,11 +36,11 @@ class ModSwitchMenu extends MusicBeatSubstate {
         ModManager.reloadMods();
         modList = ModManager.allMods.copy();
 
-        var title = new FlxText(40, 25, 0, "MOD MANAGER", 28);
-        title.setFormat(Paths.font("vcr"), 28, 0xFFFFCC00, LEFT, OUTLINE, FlxColor.BLACK);
+        var title = new Alphabet(40, 20, "MOD MANAGER", true);
+        title.scale.set(0.6, 0.6);
         add(title);
 
-        grpRows = new FlxTypedGroup<FlxText>();
+        grpRows = new FlxTypedGroup<Alphabet>();
         grpCheckboxes = new FlxTypedGroup<FlxSprite>();
         add(grpCheckboxes);
         add(grpRows);
@@ -55,7 +56,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
         descText.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, LEFT);
         add(descText);
 
-        var help = new FlxText(20, FlxG.height - 40, FlxG.width - 40, "[SPACE] Toggle Mod | [W/S] Shift Priority | [ESC] Apply & Exit", 16);
+        var help = new FlxText(20, FlxG.height - 40, FlxG.width - 40, "[SPACE] Toggle Mod | [W/S] Priority | [ESC] Apply & Exit", 16);
         help.setFormat(Paths.font("vcr"), 16, 0xFFAAAAAA, CENTER);
         add(help);
 
@@ -71,16 +72,16 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var modFolder = modList[i];
             var isEnabled = ModRegistry.instance.isEnabled(modFolder);
 
-            var cb = new FlxSprite(50, (i * 50) + 90);
-            cb.makeGraphic(24, 24, isEnabled ? 0xFF6BFF8E : 0xFFFF4444);
-            cb.ID = i;
-            grpCheckboxes.add(cb);
-
-            var row = new FlxText(90, cb.y - 2, 0, modFolder, 24);
-            row.setFormat(Paths.font("vcr"), 24, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-            row.borderSize = 1.5;
+            var row = new Alphabet(0, (70 * i) + 30, modFolder, true);
+            row.isMenuItem = true;
+            row.targetY = i;
             row.ID = i;
             grpRows.add(row);
+
+            var cb = new FlxSprite();
+            cb.makeGraphic(28, 28, isEnabled ? 0xFF6BFF8E : 0xFFFF4444);
+            cb.ID = i;
+            grpCheckboxes.add(cb);
         }
     }
 
@@ -127,14 +128,14 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
         for (i in 0...grpRows.members.length) {
             var row = grpRows.members[i];
-            var cb = grpCheckboxes.members[i];
-            var targetY = ((i - curSelected) * 50) + (FlxG.height * 0.45);
-
-            row.y = FlxMath.lerp(targetY, row.y, Math.exp(-elapsed * 14.0));
-            cb.y = row.y + 2;
-
             row.alpha = (i == curSelected ? 1.0 : 0.4);
-            cb.alpha = row.alpha;
+
+            if (grpCheckboxes.members.length > i) {
+                var cb = grpCheckboxes.members[i];
+                cb.x = row.x - 45;
+                cb.y = row.y + 20;
+                cb.alpha = row.alpha;
+            }
         }
     }
 
@@ -142,6 +143,12 @@ class ModSwitchMenu extends MusicBeatSubstate {
         if (modList.length == 0) return;
         curSelected = FlxMath.wrap(curSelected + change, 0, modList.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
+
+        var bullShit:Int = 0;
+        for (item in grpRows.members) {
+            item.targetY = bullShit - curSelected;
+            bullShit++;
+        }
 
         var config:SoulModData = ModManager.modConfigs.get(modList[curSelected]);
         if (config != null) {

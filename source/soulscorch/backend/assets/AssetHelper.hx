@@ -2,57 +2,61 @@ package soulscorch.backend.assets;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
-import flixel.sound.FlxSound;
+import openfl.display.BitmapData;
+import openfl.media.Sound;
 import soulscorch.backend.utils.Logger;
 
+using StringTools;
+
 class AssetHelper {
-    /**
-     * Safely assigns Sparrow atlas frames to a sprite with fallback placeholder generation on failure.
-     */
-    public static function loadSparrowSafely(sprite:FlxSprite, path:String):Bool {
-        var frames = Paths.getFrames(path);
-        if (frames != null) {
-            sprite.frames = frames;
+    public static function loadGraphicSafely(sprite:FlxSprite, graphicPath:String):Bool {
+        if (sprite == null || graphicPath == null) return false;
+
+        var bitmap:BitmapData = AssetResolver.getBitmapData(graphicPath);
+        if (bitmap != null) {
+            sprite.loadGraphic(bitmap);
             return true;
         }
 
-        Logger.warn('Missing or corrupt Sparrow atlas: $path');
-        makeFallbackGraphic(sprite);
+        Logger.warn('Missing graphic: $graphicPath', "engine");
+        sprite.makeGraphic(64, 64, 0xFFFF00FF);
         return false;
     }
 
-    /**
-     * Safely loads an image graphic onto a sprite with fallback placeholder generation on failure.
-     */
-    public static function loadGraphicSafely(sprite:FlxSprite, path:String):Bool {
-        var resolvedPath = Paths.image(path);
-        var graphic = AssetResolver.getImage(resolvedPath);
+    public static function loadSparrowSafely(sprite:FlxSprite, assetName:String):Bool {
+        if (sprite == null || assetName == null) return false;
 
-        if (graphic != null) {
-            sprite.loadGraphic(graphic);
-            return true;
+        var pngResolved = AssetResolver.resolveFile(assetName, [".png"]);
+        var xmlResolved = AssetResolver.resolveFile(assetName, [".xml"]);
+
+        if (pngResolved != null && xmlResolved != null) {
+            var bitmap:BitmapData = AssetResolver.getBitmapData(pngResolved);
+            var xmlText:String = AssetResolver.getText(xmlResolved);
+
+            if (bitmap != null && xmlText != null && xmlText.length > 0) {
+                var frames = FlxAtlasFrames.fromSparrow(bitmap, xmlText);
+                if (frames != null) {
+                    sprite.frames = frames;
+                    return true;
+                }
+            }
         }
 
-        Logger.warn('Missing graphic: $path');
-        makeFallbackGraphic(sprite);
+        Logger.warn('Missing or corrupt Sparrow atlas: $assetName', "engine");
+        sprite.makeGraphic(64, 64, 0xFFFF00FF);
         return false;
     }
 
-    /**
-     * Safely loads and plays a sound effect without throwing unhandled null exceptions.
-     */
-    public static function playSoundSafely(path:String, volume:Float = 1.0):FlxSound {
-        var sound = AssetResolver.getSound(Paths.sound(path));
-        if (sound != null) {
-            return FlxG.sound.play(sound, volume);
+    public static function playSoundSafely(soundName:String, volume:Float = 1.0):Void {
+        if (soundName == null || soundName.trim().length == 0) return;
+
+        var soundObj:Sound = AssetResolver.getSound(soundName);
+        if (soundObj != null) {
+            FlxG.sound.play(soundObj, volume);
+        } else {
+            Logger.warn('Missing sound asset: $soundName', "engine");
         }
-
-        Logger.warn('Missing sound asset: $path');
-        return null;
-    }
-
-    private static inline function makeFallbackGraphic(sprite:FlxSprite, width:Int = 64, height:Int = 64):Void {
-        sprite.makeGraphic(width, height, 0xFFFF00FF); // Standard magenta missing-texture color
     }
 }

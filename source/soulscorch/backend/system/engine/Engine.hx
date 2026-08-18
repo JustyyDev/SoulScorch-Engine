@@ -9,6 +9,8 @@ import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.backend.system.engine.HotReloader;
+import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.Module;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
@@ -29,10 +31,6 @@ class Engine {
     public var onSceneSwitch:FlxTypedSignal<Scene->Void>;
 
     public function new(config:GameConfig) {
-        if (instance != null) {
-            throw "Engine already initialized.";
-        }
-
         this.config = config;
         services = new Map<String, Dynamic>();
         modules = new Map<String, Module>();
@@ -53,9 +51,10 @@ class Engine {
 
     public function init():Void {
         if (initialized) return;
-        initialized = true;
+        initialized = true; // Set flag first to prevent re-entrant loops
 
         config.load();
+
         register("config", config);
         register("mods", new ModRegistry());
 
@@ -71,7 +70,7 @@ class Engine {
         
         LanguageManager.instance.load();
 
-        Logger.info('${Version.fullVersion()} initialized.');
+        Logger.info('${Version.fullVersion()} initialized.', "engine");
 
         onInit.dispatch();
     }

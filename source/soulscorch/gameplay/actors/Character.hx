@@ -4,167 +4,128 @@ import flixel.FlxSprite;
 import haxe.Json;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.assets.Paths;
-import soulscorch.backend.audio.Conductor;
-import soulscorch.backend.interfaces.IBeatReceiver;
-import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModLoader;
 
-typedef CharacterAnimation = {
-    var anim:String;
-    var name:String;
-    var fps:Int;
-    var loop:Bool;
-    var ?indices:Array<Int>;
-    var ?offsets:Array<Float>;
-}
+using StringTools;
 
-typedef CharacterData = {
-    var image:String;
-    var ?scale:Float;
-    var ?singDuration:Float;
-    var ?healthIcon:String;
-    var ?flipX:Bool;
-    var ?antialiasing:Bool;
-    var ?positionOffset:Array<Float>;
-    var ?cameraOffset:Array<Float>;
-    var ?danceIdle:Bool;
-    var ?animations:Array<CharacterAnimation>;
-}
-
-class Character extends FlxSprite implements IBeatReceiver {
-    public var animOffsets:Map<String, Array<Float>> = new Map();
-    public var isPlayer:Bool = false;
+class Character extends FlxSprite {
     public var curCharacter:String = "bf";
-    public var holdTimer:Float = 0.0;
-    public var singDuration:Float = 4.0;
-    public var stunned:Bool = false;
-
-    public var healthIcon:String = "face";
-    public var positionOffset:Array<Float> = [0.0, 0.0];
-    public var cameraOffset:Array<Float> = [0.0, 0.0];
-    public var isDanceIdle:Bool = false;
-
-    public var danced:Bool = false;
+    public var isPlayer:Bool = false;
     public var debugMode:Bool = false;
 
-    public function new(x:Float = 0, y:Float = 0, character:String = "bf", isPlayer:Bool = false) {
+    public var animOffsets:Map<String, Array<Float>> = new Map();
+    public var positionOffset:Array<Float> = [0.0, 0.0];
+    public var holdTimer:Float = 0.0;
+    public var singDuration:Float = 4.0;
+    public var healthIcon:String = "face";
+    public var originalFlipX:Bool = false;
+
+    public function new(x:Float, y:Float, curCharacter:String = "bf", isPlayer:Bool = false) {
         super(x, y);
+
+        this.curCharacter = (curCharacter != null && curCharacter.length > 0) ? curCharacter : "bf";
         this.isPlayer = isPlayer;
-        reloadCharacter(character);
+        loadCharacter();
     }
 
-    /**
-     * Parses the JSON character schema and initializes animations, offsets, and textures.
-     */
-    public function reloadCharacter(char:String):Void {
-        this.curCharacter = char;
-        animOffsets.clear();
+    public function loadCharacter():Void {
+        var charJsonCandidates = [
+            'assets/data/characters/$curCharacter.json',
+            'assets/characters/$curCharacter.json',
+            'data/characters/$curCharacter.json',
+            'characters/$curCharacter.json'
+        ];
 
-        var jsonPath = 'assets/data/characters/$char.json';
-        var resolvedJsonPath = ModLoader.getPath(jsonPath);
-
-        if (AssetResolver.exists(resolvedJsonPath)) {
-            var rawJson = AssetResolver.getText(resolvedJsonPath);
-            var data:CharacterData = Json.parse(rawJson);
-
-            var imagePath = 'characters/${data.image}';
-            frames = Paths.getFrames(imagePath);
-
-            if (data.scale != null) {
-                scale.set(data.scale, data.scale);
-                updateHitbox();
+        var resolvedJson:String = null;
+        for (c in charJsonCandidates) {
+            var test = ModLoader.getPath(c);
+            if (AssetResolver.exists(test)) {
+                resolvedJson = test;
+                break;
             }
-
-            if (data.singDuration != null) singDuration = data.singDuration;
-            if (data.healthIcon != null) healthIcon = data.healthIcon;
-            if (data.flipX != null) flipX = (data.flipX != isPlayer);
-            if (data.antialiasing != null) antialiasing = data.antialiasing;
-            if (data.positionOffset != null) positionOffset = data.positionOffset;
-            if (data.cameraOffset != null) cameraOffset = data.cameraOffset;
-            if (data.danceIdle != null) isDanceIdle = data.danceIdle;
-
-            if (data.animations != null) {
-                for (anim in data.animations) {
-                    if (anim.indices != null && anim.indices.length > 0) {
-                        animation.addByIndices(anim.anim, anim.name, anim.indices, "", anim.fps, anim.loop);
-                    } else {
-                        animation.addByPrefix(anim.anim, anim.name, anim.fps, anim.loop);
-                    }
-
-                    if (anim.offsets != null && anim.offsets.length >= 2) {
-                        addOffset(anim.anim, anim.offsets[0], anim.offsets[1]);
-                    }
-                }
-            }
-
-            Logger.info('Loaded character: $char (${data.image})', "character");
-        } else {
-            Logger.warn('Character JSON missing: $jsonPath. Using default placeholder.', "character");
-            loadGraphic(Paths.image("characters/BOYFRIEND"), true, 150, 150);
-            animation.add("idle", [0, 1, 2], 24, true);
         }
 
-        dance();
+        var imageToLoad = 'characters/$curCharacter';
+
+        if (resolvedJson != null) {
+            try {
+                var rawJson = AssetResolver.getText(resolvedJson);
+                var data:Dynamic = Json.parse(rawJson);
+
+                if (data.image != null) imageToLoad = data.image;
+                if (data.healthicon != null) healthIcon = data.healthicon;
+                if (data.sing_duration != null) singDuration = data.sing_duration;
+                if (data.flip_x != null) originalFlipX = data.flip_x;
+                if (data.no_antialiasing != null) antialiasing = !data.no_antialiasing;
+                if (data.position != null) positionOffset = [data.position[0], data.position[1]];
+
+                AssetHelper.loadSparrowSafely(this, imageToLoad);
+
+                if (data.animations != null) {
+                    for (anim in cast(data.animations, Array<Dynamic>)) {
+                        var fps:Int = (anim.fps != null) ? anim.fps : 24;
+                        var loop:Bool = (anim.loop != null) ? anim.loop : false;
+
+                        if (anim.indices != null && cast(anim.indices, Array<Dynamic>).length > 0) {
+                            animation.addByIndices(anim.anim, anim.name, anim.indices, "", fps, loop);
+                        } else {
+                            animation.addByPrefix(anim.anim, anim.name, fps, loop);
+                        }
+
+                        if (anim.offsets != null) {
+                            animOffsets.set(anim.anim, [anim.offsets[0], anim.offsets[1]]);
+                        }
+                    }
+                }
+            } catch (e:Dynamic) {}
+        } else {
+            // Default fallback
+            AssetHelper.loadSparrowSafely(this, 'characters/$curCharacter');
+            animation.addByPrefix("idle", "BF idle dance", 24, false);
+            animation.addByPrefix("singLEFT", "BF NOTE LEFT0", 24, false);
+            animation.addByPrefix("singDOWN", "BF NOTE DOWN0", 24, false);
+            animation.addByPrefix("singUP", "BF NOTE UP0", 24, false);
+            animation.addByPrefix("singRIGHT", "BF NOTE RIGHT0", 24, false);
+            animOffsets.set("idle", [0.0, 0.0]);
+        }
+
+        flipX = (isPlayer != originalFlipX);
+        playAnim("idle");
     }
 
-    public function addOffset(anim:String, x:Float = 0, y:Float = 0):Void {
-        animOffsets.set(anim, [x, y]);
-    }
+    public function playAnim(animName:String, force:Bool = false):Void {
+        if (!animation.exists(animName)) return;
 
-    public function playAnim(animName:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void {
-        if (animation.getByName(animName) == null) return;
+        animation.play(animName, force);
 
-        animation.play(animName, force, reversed, frame);
-
-        var offsetVal = animOffsets.get(animName);
-        if (offsetVal != null) {
-            offset.set(offsetVal[0], offsetVal[1]);
+        var off = animOffsets.get(animName);
+        if (off != null) {
+            offset.set(off[0], off[1]);
         } else {
             offset.set(0, 0);
         }
     }
 
     public function playSingAnim(direction:Int, miss:Bool = false):Void {
-        var dirs = ["LEFT", "DOWN", "UP", "RIGHT"];
-        var animName = "sing" + dirs[direction];
-        if (miss) animName += "miss";
-
-        playAnim(animName, true);
-        holdTimer = 0;
-    }
-
-    public function dance():Void {
-        if (debugMode) return;
-
-        if (isDanceIdle || StringTools.startsWith(curCharacter, "gf")) {
-            danced = !danced;
-            playAnim(danced ? 'danceRight' : 'danceLeft');
-        } else if (animation.getByName("idle") != null) {
-            playAnim("idle");
+        var anims = ["singLEFT", "singDOWN", "singUP", "singRIGHT"];
+        var anim = anims[direction % 4] + (miss ? "miss" : "");
+        if (animation.exists(anim)) {
+            playAnim(anim, true);
+            holdTimer = 0;
         }
     }
-
-    public function stepHit(step:Int):Void {}
-
-    public function beatHit(beat:Int):Void {
-        if (animation.curAnim == null || !StringTools.startsWith(animation.curAnim.name, "sing")) {
-            dance();
-        }
-    }
-
-    public function measureHit(measure:Int):Void {}
 
     override public function update(elapsed:Float):Void {
-        super.update(elapsed);
-
-        if (animation.curAnim != null && StringTools.startsWith(animation.curAnim.name, "sing")) {
-            holdTimer += elapsed;
-            var threshold:Float = (Conductor.stepCrochet * singDuration) / 1000.0;
-            if (holdTimer >= threshold) {
-                dance();
-                holdTimer = 0;
+        if (!debugMode && animation.curAnim != null) {
+            if (animation.curAnim.name.startsWith("sing")) {
+                holdTimer += elapsed;
+                if (holdTimer >= (singDuration * (1 / 24.0))) {
+                    playAnim("idle");
+                    holdTimer = 0;
+                }
             }
         }
+
+        super.update(elapsed);
     }
 }

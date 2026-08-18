@@ -9,6 +9,7 @@
 	<haxelib name="flixel" />
 	<haxelib name="flixel-addons" />
 	<haxelib name="away3d" />
+	<haxelib name="hscript" version="2.4.0" />
 
 	<!-- Optional Scripting Backends -->
 	<haxelib name="hscript-iris" if="SOULSCORCH_IRIS" />
@@ -19,8 +20,8 @@
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
 	<haxelib name="hxCodec" if="SOULSCORCH_VIDEO_HXCODEC" />
 
-	<!-- Discord Rich Presence -->
-	<haxelib name="hxdiscord_rpc" if="desktop" />
+	<!-- Discord Rich Presence (C++ only) -->
+	<haxelib name="hxdiscord_rpc" if="cpp" />
 
 	<!-- Custom Application Icons -->
 	<icon path="art/iconOG.png" />
@@ -41,7 +42,7 @@
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
 	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" />
 	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
-	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" />
+	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" scripts="web" />
 
 	<!-- Engine Optimization Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
@@ -56,6 +57,10 @@
 	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
 
+	<!-- Warning Suppressions -->
+	<haxeflag name="-w" value="-WDeprecated" />
+	<haxeflag name="-w" value="-WDeprecatedEnumAbstract" />
+
 	<!-- Desktop Crash & Stack Tracing -->
 	<section if="desktop">
 		<haxedef name="HXCPP_CHECK_POINTER" if="debug" />
@@ -64,10 +69,9 @@
 
 	<!-- High-Speed Windows C++ Build Optimizations -->
 	<section if="windows">
-		<haxedef name="HXCPP_M64" />
 		<haxedef name="HXCPP_GC_BIG_BLOCKS" />
 
-		<!-- Native Windows Libraries for NativeAPI (Dark mode & Message boxes) -->
+		<!-- Native Windows Libraries for NativeAPI -->
 		<dependency name="dwmapi.lib" />
 		<dependency name="user32.lib" />
 		<dependency name="shell32.lib" />
@@ -78,7 +82,7 @@
 		<set name="HXCPP_COMPILE_THREADS" value="%NUMBER_OF_PROCESSORS%" />
 
 		<!-- Dynamic Discord RPC DLL Deployment -->
-		<copy file="${haxelib:hxdiscord_rpc}/lib/windows/discord-rpc.dll" to="discord-rpc.dll" if="hxdiscord_rpc" />
+		<copy file="${haxelib:hxdiscord_rpc}/lib/windows/discord-rpc.dll" to="discord-rpc.dll" if="cpp" />
 	</section>
 
 	<!-- Embedded Stripping -->

@@ -2,8 +2,8 @@ package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxGroup;
-import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
@@ -17,6 +17,7 @@ import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.scripting.mod.ModLoader;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
 class TitleState extends MusicBeatState {
@@ -24,7 +25,7 @@ class TitleState extends MusicBeatState {
     public static var closedIntro:Bool = false;
 
     private var blackScreen:FlxSprite;
-    private var textGroup:FlxGroup;
+    private var textGroup:FlxTypedGroup<Alphabet>;
     private var logoBump:FlxSprite;
     private var gfDance:FlxSprite;
     private var titleText:FlxSprite;
@@ -70,8 +71,8 @@ class TitleState extends MusicBeatState {
         persistentUpdate = true;
 
         logoBump = new FlxSprite(-150, -100);
-        AssetHelper.loadSparrowSafely(logoBump, "menus/titlescreen/logo");
-        if (logoBump.frames != null) {
+        var loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "menus/titlescreen/logo");
+        if (loadedLogo && logoBump.frames != null) {
             logoBump.animation.addByPrefix("bump", "logo bumpin", 24, false);
             logoBump.animation.play("bump");
         }
@@ -80,8 +81,8 @@ class TitleState extends MusicBeatState {
         add(logoBump);
 
         gfDance = new FlxSprite(FlxG.width * 0.4, 40);
-        AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
-        if (gfDance.frames != null) {
+        var loadedGf = AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
+        if (loadedGf && gfDance.frames != null) {
             gfDance.animation.addByIndices("danceLeft", "gfDance", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
             gfDance.animation.addByIndices("danceRight", "gfDance", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
             gfDance.animation.play("danceLeft");
@@ -90,8 +91,8 @@ class TitleState extends MusicBeatState {
         add(gfDance);
 
         titleText = new FlxSprite(100, FlxG.height * 0.8);
-        AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
-        if (titleText.frames != null) {
+        var loadedTitle = AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
+        if (loadedTitle && titleText.frames != null) {
             titleText.animation.addByPrefix("idle", "Press Enter to Begin", 24);
             titleText.animation.addByPrefix("press", "ENTER PRESSED", 24);
             titleText.animation.play("idle");
@@ -100,7 +101,7 @@ class TitleState extends MusicBeatState {
         titleText.antialiasing = true;
         add(titleText);
 
-        textGroup = new FlxGroup();
+        textGroup = new FlxTypedGroup<Alphabet>();
         add(textGroup);
 
         blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
@@ -140,9 +141,9 @@ class TitleState extends MusicBeatState {
     }
 
     private function createIntroText(text:String, offset:Float = 0):Void {
-        var t = new FlxText(0, (FlxG.height * 0.4) + offset, FlxG.width, text, 32);
-        t.setFormat(Paths.font("vcr"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        t.borderSize = 2.0;
+        var t = new Alphabet(0, (FlxG.height * 0.4) + offset, text, true);
+        t.alignment = CENTER;
+        t.screenCenter(X);
         textGroup.add(t);
     }
 
@@ -171,27 +172,27 @@ class TitleState extends MusicBeatState {
                 case 1:
                     createIntroText("SoulScorch Team", -40);
                 case 3:
-                    createIntroText("Presents", 20);
+                    createIntroText("Presents", 30);
                 case 4:
                     deleteIntroText();
                 case 5:
                     createIntroText("In collaboration with", -40);
                 case 7:
-                    createIntroText("Open Source Community", 20);
+                    createIntroText("Open Source Community", 30);
                 case 8:
                     deleteIntroText();
                 case 9:
                     createIntroText(curWacky[0], -40);
                 case 11:
-                    createIntroText(curWacky[1], 20);
+                    createIntroText(curWacky[1], 30);
                 case 12:
                     deleteIntroText();
                 case 13:
-                    createIntroText("SoulScorch Engine", -40);
+                    createIntroText("SoulScorch Engine", -60);
                 case 14:
-                    createIntroText(Version.CODENAME, 20);
+                    createIntroText(Version.CODENAME, 10);
                 case 15:
-                    createIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, 70);
+                    createIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, 80);
                 case 16:
                     skipIntro();
             }

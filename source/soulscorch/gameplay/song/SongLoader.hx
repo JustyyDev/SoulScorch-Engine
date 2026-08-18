@@ -17,17 +17,32 @@ class SongLoader {
         var cleanSong = (songId == null || songId.length == 0) ? "tutorial" : songId.toLowerCase().trim();
         var cleanDiff = (difficulty == null || difficulty.length == 0) ? "normal" : difficulty.toLowerCase().trim();
 
-        var jsonPath = 'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json';
-        if (cleanDiff == "normal" && !AssetResolver.exists(ModLoader.getPath(jsonPath))) {
-            jsonPath = 'assets/songs/$cleanSong/$cleanSong.json';
+        var chartCandidates = [
+            'assets/data/$cleanSong/$cleanSong-$cleanDiff.json',
+            'assets/data/$cleanSong/$cleanDiff.json',
+            'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json',
+            'assets/songs/$cleanSong/$cleanDiff.json',
+            'data/$cleanSong/$cleanSong-$cleanDiff.json',
+            'data/charts/$cleanSong/$cleanDiff.json'
+        ];
+
+        // If normal difficulty, also try the filename
+        if (cleanDiff == "normal") {
+            chartCandidates.push('assets/data/$cleanSong/$cleanSong.json');
+            chartCandidates.push('assets/songs/$cleanSong/$cleanSong.json');
+            chartCandidates.push('data/$cleanSong/$cleanSong.json');
         }
 
-        var resolved = ModLoader.getPath(jsonPath);
-        if (!AssetResolver.exists(resolved)) {
-            resolved = ModLoader.getPath('data/charts/$cleanSong/$cleanDiff.json');
+        var resolvedChart:String = null;
+        for (c in chartCandidates) {
+            var res = ModLoader.getPath(c);
+            if (AssetResolver.exists(res)) {
+                resolvedChart = res;
+                break;
+            }
         }
 
-        if (!AssetResolver.exists(resolved)) {
+        if (resolvedChart == null) {
             Logger.error('Failed to resolve song chart for: $cleanSong ($cleanDiff)', "song");
             var blankSong = new Song(cleanSong, cleanSong);
             blankSong.chart = new Chart();
@@ -35,26 +50,34 @@ class SongLoader {
         }
 
         try {
-            var rawJson = AssetResolver.getText(resolved);
+            var rawJson = AssetResolver.getText(resolvedChart);
             var parsedSong:Song = ChartParser.parse(rawJson);
 
-            var metaPath = ModLoader.getPath('assets/songs/$cleanSong/meta.json');
-            if (AssetResolver.exists(metaPath)) {
-                try {
-                    var metaRaw = AssetResolver.getText(metaPath);
-                    var meta:SongMetadata = Json.parse(metaRaw);
+            // 2. Search for meta.json
+            var metaCandidates = [
+                'assets/data/$cleanSong/meta.json',
+                'assets/songs/$cleanSong/meta.json',
+                'data/$cleanSong/meta.json'
+            ];
 
-                    if (meta.title != null) parsedSong.title = meta.title;
-                    if (meta.artist != null) parsedSong.artist = meta.artist;
-                    if (meta.charter != null) parsedSong.charter = meta.charter;
-                    if (meta.stage != null) parsedSong.stage = meta.stage;
-                    if (meta.player1 != null) parsedSong.player1 = meta.player1;
-                    if (meta.player2 != null) parsedSong.player2 = meta.player2;
-                    if (meta.gfVersion != null) parsedSong.gfVersion = meta.gfVersion;
-                    if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices;
-                    if (meta.color != null) parsedSong.color = FlxColor.fromString(meta.color);
-                } catch (err:Dynamic) {
-                    Logger.warn('Could not read meta.json for $cleanSong: $err', "song");
+            for (m in metaCandidates) {
+                var metaRes = ModLoader.getPath(m);
+                if (AssetResolver.exists(metaRes)) {
+                    try {
+                        var metaRaw = AssetResolver.getText(metaRes);
+                        var meta:SongMetadata = Json.parse(metaRaw);
+
+                        if (meta.title != null) parsedSong.title = meta.title;
+                        if (meta.artist != null) parsedSong.artist = meta.artist;
+                        if (meta.charter != null) parsedSong.charter = meta.charter;
+                        if (meta.stage != null) parsedSong.stage = meta.stage;
+                        if (meta.player1 != null) parsedSong.player1 = meta.player1;
+                        if (meta.player2 != null) parsedSong.player2 = meta.player2;
+                        if (meta.gfVersion != null) parsedSong.gfVersion = meta.gfVersion;
+                        if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices;
+                        if (meta.color != null) parsedSong.color = FlxColor.fromString(meta.color);
+                    } catch (err:Dynamic) {}
+                    break;
                 }
             }
 

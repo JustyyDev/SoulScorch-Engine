@@ -1,164 +1,96 @@
 package soulscorch.gameplay.notes;
 
-import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.scripting.mod.ModLoader;
 
 class Note extends FlxSprite {
-    public static inline var LANE_COUNT:Int = 4;
-    public static inline var NOTE_SIZE:Int = 112; // Standard base note width  
-    public static inline var PIXELS_PER_MS:Float = 0.45; // Pixel scroll factor  
-
-    public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];  
-
-    public var strumTime:Float;
-    public var noteData(default, set):Int;
-    public var isSustainNote:Bool;
-    public var isSustainEnd:Bool;
-    public var sustainLength:Float;
-    public var parentNote:Note;
-    public var tail:Array<Note> = [];
+    public var strumTime:Float = 0.0;
+    public var noteData:Int = 0;
+    public var sustainLength:Float = 0.0;
+    public var parent:Note;
+    public var isSustainNote:Bool = false;
+    public var isEndNote:Bool = false;
+    public var mustPress:Bool = false;
+    public var noteType:String = "Default";
 
     public var canBeHit:Bool = false;
-    public var wasGoodHit:Bool = false;
     public var tooLate:Bool = false;
-    public var mustPress:Bool = true;
-    public var noteType:String = "Default";
-    public var downscroll:Bool = false;
+    public var wasGoodHit:Bool = false;
+    public var tail:Array<Note> = [];
 
-    public var hitHealth:Float = 0.025;  
-    public var missHealth:Float = 0.0475;  
-    public var hitWindow:Float = 160.0;  
-    public var sustainScale:Float = 1.0;
+    private static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
 
-    public var offsetX:Float = 0.0;
-    public var offsetY:Float = 0.0;
-
-    public function new(
-        strumTime:Float,
-        noteData:Int,
-        sustainLength:Float = 0.0,
-        ?parentNote:Note,
-        isSustainNote:Bool = false,
-        isSustainEnd:Bool = false,
-        mustPress:Bool = true,
-        noteType:String = "Default"
-    ) {
+    public function new(strumTime:Float, noteData:Int, sustainLength:Float = 0.0, ?parent:Note, isSustainNote:Bool = false, isEndNote:Bool = false, mustPress:Bool = false, noteType:String = "Default") {
         super();
+
         this.strumTime = strumTime;
         this.noteData = noteData;
-        this.sustainLength = Math.max(0.0, sustainLength);  
-        this.parentNote = parentNote;
+        this.sustainLength = sustainLength;
+        this.parent = parent;
         this.isSustainNote = isSustainNote;
-        this.isSustainEnd = isSustainEnd;
+        this.isEndNote = isEndNote;
         this.mustPress = mustPress;
-        this.noteType = (noteType == null || noteType.length == 0) ? "Default" : noteType;
+        this.noteType = noteType;
 
-        loadSkin();
+        loadNoteSkin();
     }
 
-    private function set_noteData(value:Int):Int {
-        var normalized:Int = value % LANE_COUNT;
-        if (normalized < 0) normalized += LANE_COUNT;
-        noteData = normalized;
-        return normalized;
-    }
-
-    /**
-     * Loads Sparrow atlas skins with fallback to colored primitive graphics.
-     */
-    public function loadSkin():Void {
-        var dirName = colArray[noteData % LANE_COUNT];
-        var customSkinPath = (noteType != "Default" && noteType != "") ? 'notes/$noteType' : "notes/NOTE_assets";
-
-        if (!Paths.exists(Paths.xml(customSkinPath))) {
-            customSkinPath = "notes/NOTE_assets";
-        }
-
-        var loaded = AssetHelper.loadSparrowSafely(this, customSkinPath);
-
-        if (loaded) {
-            if (isSustainEnd) {
-                if (noteData % LANE_COUNT == 0) {
-                    animation.addByPrefix('holdend', 'pruple end hold', 24, true);  
-                } else {
-                    animation.addByPrefix('holdend', dirName + ' hold end', 24, true);  
-                }
-                animation.play('holdend');
-            } else if (isSustainNote) {
-                animation.addByPrefix('holdpiece', dirName + ' hold piece', 24, true);  
-                animation.play('holdpiece');
-            } else {
-                animation.addByPrefix('scroll', dirName + '0', 24, true);  
-                animation.play('scroll');
+    public function loadNoteSkin():Void {
+        var pathsToTry = ["NOTE_assets", "notes/NOTE_assets", "gameplay/notes/NOTE_assets"];
+        for (p in pathsToTry) {
+            if (AssetResolver.exists('assets/images/$p.png') || AssetResolver.exists('images/$p.png') || AssetResolver.exists('$p.png')) {
+                AssetHelper.loadSparrowSafely(this, p);
+                break;
             }
-
-            setGraphicSize(Std.int(width * 0.7));  
-            updateHitbox();
-        } else {
-            makeGraphic(NOTE_SIZE, NOTE_SIZE, colorForDirection(noteData));  
-            setGraphicSize(Std.int(width * 0.7));  
-            updateHitbox();
         }
+
+        var col = colArray[noteData % 4];
 
         if (isSustainNote) {
-            alpha = 0.6;  
+            if (isEndNote) {
+                animation.addByPrefix('holdend', '$col hold end', 24, true);
+                if (!animation.exists('holdend')) animation.addByPrefix('holdend', '${col}holdend', 24, true);
+                animation.play('holdend');
+            } else {
+                animation.addByPrefix('holdpiece', '$col hold piece', 24, true);
+                if (!animation.exists('holdpiece')) animation.addByPrefix('holdpiece', '${col}hold', 24, true);
+                animation.play('holdpiece');
+            }
+        } else {
+            animation.addByPrefix('scroll', '$col scroll', 24, true);
+            if (!animation.exists('scroll')) animation.addByPrefix('scroll', '$col 0', 24, true);
+            animation.play('scroll');
         }
 
         antialiasing = true;
-        scrollFactor.set(0, 0);
+        setGraphicSize(Std.int(width * 0.7));
+        updateHitbox();
     }
 
-    /**
-     * Updates hit logic and visual positioning relative to target receptor.
-     */
-    public function updatePosition(receptorX:Float, receptorY:Float, scrollSpeed:Float, downscroll:Bool):Void {
-        this.downscroll = downscroll;
-        var songPos = Conductor.songPosition;
-        var speedMod = scrollSpeed * PIXELS_PER_MS;
-        var distance:Float = (strumTime - songPos) * speedMod;  
-
-        x = receptorX + offsetX;
+    public function updatePosition(strumX:Float, strumY:Float, speed:Float, downscroll:Bool):Void {
+        x = strumX;
+        var diff = (strumTime - Conductor.songPosition);
 
         if (downscroll) {
-            y = receptorY + distance + offsetY;
-            if (isSustainEnd && parentNote != null) {
-                y -= height * 0.5;
-            }
+            y = strumY + (diff * (0.45 * speed));
         } else {
-            y = receptorY - distance + offsetY;
+            y = strumY - (diff * (0.45 * speed));
         }
 
-        // Timing validation
-        var safeZone = (Conductor.safeZoneOffset > 0) ? Conductor.safeZoneOffset : hitWindow;
-        canBeHit = (strumTime <= songPos + safeZone && strumTime >= songPos - (safeZone * 0.5));
-        tooLate = (songPos - strumTime > safeZone && !wasGoodHit);  
-
-        // Handle sustain clipping when held past target receptor
-        if (isSustainNote && wasGoodHit && songPos > strumTime) {
-            clipSustain(songPos);
-        }
+        canBeHit = (strumTime > Conductor.songPosition - 160 && strumTime < Conductor.songPosition + 160);
     }
 
-    public function clipSustain(songPosition:Float):Void {
-        if (!isSustainNote) return;
-
-        var remainingDist = (strumTime + sustainLength) - songPosition;
-        if (remainingDist <= 0) {
-            kill();
-            visible = false;
-        }
-    }
-
-    public static function colorForDirection(direction:Int):FlxColor {
-        return switch (direction % LANE_COUNT) {
-            case 0: 0xFFC24B99; // Left (Purple)  
-            case 1: 0xFF00FFFF; // Down (Cyan)  
-            case 2: 0xFF12FA05; // Up (Green)  
-            default: 0xFFF9393F; // Right (Red)  
+    public static function colorForDirection(dir:Int):FlxColor {
+        return switch (dir % 4) {
+            case 0: 0xFFC24B99;
+            case 1: 0xFF00FFFF;
+            case 2: 0xFF12FA05;
+            case 3: 0xFFF9393F;
+            default: 0xFFFFFFFF;
         };
     }
 }

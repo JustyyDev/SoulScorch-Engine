@@ -1,10 +1,10 @@
 package soulscorch.backend.system.modules.discord;
 
-import soulscorch.backend.system.modules.Module;
+import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.utils.Logger;
 
-#if desktop
+#if (cpp && !neko)
 import hxdiscord_rpc.Discord;
 import hxdiscord_rpc.Types;
 import sys.thread.Mutex;
@@ -18,7 +18,7 @@ class DiscordRPC extends ModuleBase {
     public static var clientID:String = DEFAULT_CLIENT_ID;
     public static var isInitialized:Bool = false;
 
-    #if desktop
+    #if (cpp && !neko)
     private static var handlers:DiscordEventHandlers;
     private static var presence:DiscordRichPresence;
     private static var isRunning:Bool = false;
@@ -29,7 +29,7 @@ class DiscordRPC extends ModuleBase {
     public function new(autoInit:Bool = true) {
         super("discord_rpc");
         instance = this;
-        #if desktop
+        #if (cpp && !neko)
         mutex = new Mutex();
         #end
         if (autoInit) {
@@ -38,7 +38,7 @@ class DiscordRPC extends ModuleBase {
     }
 
     override public function initialize():Void {
-        #if desktop
+        #if (cpp && !neko)
         if (isInitialized) return;
 
         try {
@@ -53,7 +53,6 @@ class DiscordRPC extends ModuleBase {
 
             workerThread = Thread.create(function() {
                 while (isRunning) {
-                    #if cpp
                     try {
                         mutex.acquire();
                         Discord.RunCallbacks();
@@ -61,22 +60,52 @@ class DiscordRPC extends ModuleBase {
                     } catch (e:Dynamic) {
                         mutex.release();
                     }
-                    #end
                     Sys.sleep(1.0);
                 }
             });
 
-            Logger.info('Discord RPC initialized successfully (App ID: $clientID).');
+            Logger.info('Discord RPC initialized (App ID: $clientID).', "discord");
             changePresence("In the Menus", "Main Menu");
         } catch (e:Dynamic) {
-            Logger.error('Failed to initialize Discord RPC: $e');
+            Logger.error('Failed to initialize Discord RPC: $e', "discord");
             isInitialized = false;
         }
         #end
     }
 
     /**
-     * Updates rich presence state and sends it to the Discord client.
+     * Allows mods to set their own Discord Application ID at runtime.
+     */
+    public static function setClientID(newID:String):Void {
+        #if (cpp && !neko)
+        if (newID == null || newID.length == 0 || newID == clientID) return;
+
+        var wasRunning:Bool = isInitialized;
+        if (wasRunning) {
+            shutdown();
+        }
+
+        clientID = newID;
+
+        if (wasRunning) {
+            if (instance != null) {
+                instance.initialize();
+            } else {
+                new DiscordRPC(true);
+            }
+        }
+        #end
+    }
+
+    /**
+     * Resets the client ID back to the engine default.
+     */
+    public static function resetClientID():Void {
+        setClientID(DEFAULT_CLIENT_ID);
+    }
+
+    /**
+     * Main presence function accessible to engine code and mod scripts.
      */
     public static function changePresence(
         details:String,
@@ -87,7 +116,7 @@ class DiscordRPC extends ModuleBase {
         ?largeImageKey:String = "icon",
         ?largeImageText:String = null
     ):Void {
-        #if desktop
+        #if (cpp && !neko)
         if (!isInitialized) return;
 
         try {
@@ -115,13 +144,13 @@ class DiscordRPC extends ModuleBase {
             mutex.release();
         } catch (e:Dynamic) {
             mutex.release();
-            Logger.warn('Failed to update Discord presence: $e');
+            Logger.warn('Failed to update Discord presence: $e', "discord");
         }
         #end
     }
 
     /**
-     * Specialized presence helper for active song gameplay.
+     * Specialized gameplay presence helper with mod customization.
      */
     public static function updateSongPresence(
         songName:String,
@@ -130,31 +159,32 @@ class DiscordRPC extends ModuleBase {
         songPosition:Float = 0.0,
         accuracy:Float = 0.0,
         score:Int = 0,
-        isPaused:Bool = false
+        isPaused:Bool = false,
+        ?iconKey:String = "icon",
+        ?iconText:String = null
     ):Void {
-        #if desktop
+        #if (cpp && !neko)
         if (!isInitialized) return;
 
         var detailsText:String = '$songName [${difficulty.toUpperCase()}]';
         var stateText:String = "";
+        var lKey:String = (iconKey != null && iconKey.length > 0) ? iconKey : "icon";
+        var lText:String = (iconText != null) ? iconText : Version.versionString();
 
         if (isPaused) {
             stateText = 'Paused (Score: $score | Acc: ${Math.round(accuracy * 100) / 100}%)';
-            changePresence(detailsText, stateText, "pause", false, 0, "icon", "SoulScorch Engine");
+            changePresence(detailsText, stateText, "pause", false, 0, lKey, lText);
         } else {
             stateText = 'Score: $score | Acc: ${Math.round(accuracy * 100) / 100}%';
             var remainingSecs:Float = Math.max(0, (duration - songPosition) / 1000.0);
             var endTime:Float = Sys.time() + remainingSecs;
-            changePresence(detailsText, stateText, "playing", false, endTime, "icon", "SoulScorch Engine");
+            changePresence(detailsText, stateText, "playing", false, endTime, lKey, lText);
         }
         #end
     }
 
-    /**
-     * Preset presence states for standard menus and tools.
-     */
-    public static function setMenuPresence(menuName:String):Void {
-        changePresence("In the Menus", menuName, null, true, 0, "icon");
+    public static function setMenuPresence(menuName:String, ?modIcon:String = "icon"):Void {
+        changePresence("In the Menus", menuName, null, true, 0, modIcon);
     }
 
     public static function setEditorPresence(editorName:String, ?targetName:String):Void {
@@ -163,12 +193,12 @@ class DiscordRPC extends ModuleBase {
     }
 
     public static function shutdown():Void {
-        #if desktop
+        #if (cpp && !neko)
         if (!isInitialized) return;
         isRunning = false;
         Discord.Shutdown();
         isInitialized = false;
-        Logger.info("Discord RPC shut down successfully.");
+        Logger.info("Discord RPC shut down.", "discord");
         #end
     }
 
@@ -177,18 +207,18 @@ class DiscordRPC extends ModuleBase {
         super.destroy();
     }
 
-    #if desktop
+    #if (cpp && !neko)
     private static function onReady(request:cpp.RawConstPointer<DiscordUser>):Void {
         var user = request[0];
-        Logger.info('Discord RPC connected to user: ' + cast(user.username, String));
+        Logger.info('Discord connected: ' + cast(user.username, String), "discord");
     }
 
     private static function onDisconnected(errorCode:Int, message:cpp.ConstCharStar):Void {
-        Logger.warn('Discord RPC disconnected ($errorCode): ' + cast(message, String));
+        Logger.warn('Discord disconnected ($errorCode): ' + cast(message, String), "discord");
     }
 
     private static function onError(errorCode:Int, message:cpp.ConstCharStar):Void {
-        Logger.error('Discord RPC error ($errorCode): ' + cast(message, String));
+        Logger.error('Discord error ($errorCode): ' + cast(message, String), "discord");
     }
     #end
 }

@@ -1,69 +1,106 @@
 @echo off
-setlocal enabledelayedexpansion
-title SoulScorch Fast Builder
+setlocal EnableDelayedExpansion
+title SoulScorch Engine - Local Build Pipeline
 
-:: Set environment variables for multi-threading and caching
-if not defined HXCPP_COMPILE_CACHE (
-    set "HXCPP_COMPILE_CACHE=%USERPROFILE%\.hxcpp_cache"
-)
-if not exist "%HXCPP_COMPILE_CACHE%" mkdir "%HXCPP_COMPILE_CACHE%"
+echo ===================================================
+echo   SoulScorch Engine - Local Build Pipeline
+echo ===================================================
+echo.
 
-:: Force kill lingering game processes to prevent 'Permission Denied' linker locks
-taskkill /F /IM SoulScorch.exe >nul 2>&1
+:: 1. Explicit Paths to Portable Tools
+set "ROOT_DIR=%~dp0"
+set "TOOLS_DIR=%ROOT_DIR%.tools"
 
-echo ======================================================
-echo  SOULSCORCH ENGINE FAST COMPILER
-echo  Threads: %NUMBER_OF_PROCESSORS% ^| Cache: %HXCPP_COMPILE_CACHE%
-echo ======================================================
+set "HAXE_DIR=%TOOLS_DIR%\haxe"
+set "NEKO_DIR=%TOOLS_DIR%\neko"
+set "MINGW_DIR=%TOOLS_DIR%\mingw\bin"
+set "HAXELIB_DIR=%ROOT_DIR%.haxelib"
+if not exist "%HAXELIB_DIR%" set "HAXELIB_DIR=%TOOLS_DIR%\haxelib"
 
-:: Check if the compilation server is actively listening on port 6000
-netstat -ano | findstr /R /C:":6000 " >nul 2>&1
-if errorlevel 1 (
-    echo [*] Starting background Haxe Compilation Server on port 6000...
-    start /B haxe --wait 6000
-    timeout /t 1 /nobreak >nul
-)
+:: Fallback if haxe or neko are at the root of .tools
+if not exist "%HAXE_DIR%\haxe.exe" if exist "%TOOLS_DIR%\haxe.exe" set "HAXE_DIR=%TOOLS_DIR%"
+if not exist "%NEKO_DIR%\neko.exe" if exist "%TOOLS_DIR%\neko.exe" set "NEKO_DIR=%TOOLS_DIR%"
 
-:: Set core compiler definitions
-set "TARGET=windows"
-set "FLAGS=-DHXCPP_COMPILE_THREADS=%NUMBER_OF_PROCESSORS%"
-
-:: Handle CLI arguments or prompt if launched directly
-set "MODE=%~1"
-if "%MODE%"=="" (
-    echo [1] Release Build (Standard)
-    echo [2] Debug Build (Traces + Callstack)
-    echo [3] Clean and Full Rebuild
-    echo.
-    set /p CHOICE="Select build mode [1-3] (Default: 1): "
-    if "!CHOICE!"=="2" set "MODE=debug"
-    if "!CHOICE!"=="3" set "MODE=clean"
+if not exist "%HAXE_DIR%\haxe.exe" (
+    echo [ERROR] haxe.exe not found in "%HAXE_DIR%".
+    pause
+    exit /b 1
 )
 
-if "%MODE%"=="clean" (
-    echo [*] Purging previous build artifacts...
-    if exist "bin\windows" rd /s /q "bin\windows"
-    echo [*] Clean complete. Starting full rebuild...
-    lime test %TARGET% %FLAGS%
-    goto end
+:: 2. Set Session Environment Variables
+set "PATH=%HAXE_DIR%;%NEKO_DIR%;%PATH%"
+if exist "%MINGW_DIR%" set "PATH=%MINGW_DIR%;%PATH%"
+
+set "HAXEPATH=%HAXE_DIR%"
+set "NEKOPATH=%NEKO_DIR%"
+set "HAXE_STD_PATH=%HAXE_DIR%\std"
+if exist "%HAXELIB_DIR%" set "HAXELIB_PATH=%HAXELIB_DIR%"
+
+:: 3. Configure Git Safe Directories Automatically
+where git >nul 2>&1
+if %ERRORLEVEL% equ 0 git config --global --add safe.directory "*" >nul 2>&1
+
+echo [OK] Using Haxe:    "%HAXE_DIR%"
+echo [OK] Using Neko:    "%NEKO_DIR%"
+if exist "%MINGW_DIR%" echo [OK] Using MinGW:   "%MINGW_DIR%"
+if defined HAXELIB_PATH echo [OK] Using Haxelib: "%HAXELIB_PATH%"
+echo.
+
+:: 4. Start Compilation Server on Port 6000
+taskkill /f /im haxe.exe /fi "WINDOWTITLE eq HaxeServer*" >nul 2>&1
+start "HaxeServer" /b "%HAXE_DIR%\haxe.exe" --wait 6000 >nul 2>&1
+timeout /t 1 /nobreak >nul
+
+:: 5. Build Menu
+echo Select Build Target:
+echo [1] Fast Test (Neko VM - Instant launch, no C++ compiler needed)
+echo [2] Windows C++ Test (Default toolchain)
+echo [3] Windows C++ Test (Force 32-bit MSVC)
+echo [4] Clean and Rebuild (Neko)
+echo [5] Install / Setup Required Haxelibs
+echo.
+set /p target="Choice (default 1): "
+if "%target%"=="" set "target=1"
+
+if "%target%"=="1" (
+    echo [*] Launching Neko Fast VM Test...
+    "%HAXE_DIR%\haxelib.exe" run lime test windows -neko --connect 6000
+) else if "%target%"=="2" (
+    echo [*] Compiling C++ Windows build...
+    if exist "%MINGW_DIR%" (
+        "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_MINGW --connect 6000
+    ) else (
+        "%HAXE_DIR%\haxelib.exe" run lime test windows --connect 6000
+    )
+) else if "%target%"=="3" (
+    echo [*] Compiling 32-bit Windows build...
+    "%HAXE_DIR%\haxelib.exe" run lime test windows -32 --connect 6000
+) else if "%target%"=="4" (
+    echo [*] Cleaning export cache...
+    if exist "export" rd /s /q "export"
+    if exist "bin" rd /s /q "bin"
+    "%HAXE_DIR%\haxelib.exe" run lime test windows -neko --connect 6000
+) else if "%target%"=="5" (
+    if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
+    "%HAXE_DIR%\haxelib.exe" setup "%HAXELIB_DIR%"
+    "%HAXE_DIR%\haxelib.exe" install lime 8.1.3 --always
+    "%HAXE_DIR%\haxelib.exe" install openfl 9.3.3 --always
+    "%HAXE_DIR%\haxelib.exe" install flixel 5.6.1 --always
+    "%HAXE_DIR%\haxelib.exe" install flixel-addons 3.2.3 --always
+    "%HAXE_DIR%\haxelib.exe" install flixel-ui 2.6.1 --always
+    "%HAXE_DIR%\haxelib.exe" install hscript 2.4.0 --always
+    "%HAXE_DIR%\haxelib.exe" install hscript-iris 1.1.0 --always
+    "%HAXE_DIR%\haxelib.exe" install away3d --always
+    "%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always
+    "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/MAJESTFormat/hxdiscord_rpc.git --always
+    "%HAXE_DIR%\haxelib.exe" run lime setup -y
 )
 
-if "%MODE%"=="debug" (
-    echo [*] Compiling in DEBUG mode...
-    lime test %TARGET% -debug %FLAGS%
-    goto end
-)
-
-echo [*] Compiling in RELEASE mode...
-lime test %TARGET% %FLAGS%
-
-:end
-if errorlevel 1 (
-    echo.
-    echo [x] BUILD FAILED! Check the compiler errors above.
+echo.
+if %ERRORLEVEL% neq 0 (
+    echo [x] Process failed.
 ) else (
-    echo.
-    echo [*] Build finished successfully.
+    echo [OK] Done.
 )
 
 pause

@@ -4,68 +4,51 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
-import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.editors.CharacterEditorState;
+import soulscorch.ui.menus.editors.ChartEditorState;
 import soulscorch.ui.menus.states.MainMenuState;
-import soulscorch.ui.menus.editors.character.CharacterEditorState;
-import soulscorch.ui.menus.editors.chart.ChartEditor;
-import soulscorch.ui.menus.editors.modchart.ModchartEditorState;
-import soulscorch.ui.menus.editors.stage.StageEditorState;
 
 class EditorPickerMenu extends MusicBeatState {
     public static var curSelected:Int = 0;
 
-    private var editors:Array<{name:String, desc:String}> = [
-        {name: "Chart Editor", desc: "Place notes, sustain trails, BPM events, and song metadata."},
-        {name: "Character Editor", desc: "Adjust animation frame alignments, offsets, and camera targets."},
-        {name: "Stage Editor", desc: "Position 2D parallax layers, Stage3D models, and actor slots."},
-        {name: "Modchart Editor", desc: "Graph and preview live strumline modifier eases and trajectories."}
+    private var options:Array<String> = [
+        "Chart Editor",
+        "Character Editor",
+        "Stage Editor",
+        "Modchart Editor"
     ];
 
-    private var grpOptions:FlxTypedGroup<FlxText>;
+    private var grpOptions:FlxTypedGroup<Alphabet>;
     private var bg:FlxSprite;
-    private var descBox:FlxSprite;
-    private var descText:FlxText;
 
     override public function create():Void {
         super.create();
 
-        DiscordRPC.changePresence("Editor Picker", "Selecting Development Tool");
+        DiscordRPC.setEditorPresence("Editor Hub", "Selecting Tool");
 
         bg = new FlxSprite();
-        AssetHelper.loadGraphicSafely(bg, "menus/menuDesat");
-        bg.color = 0xFF282438;
+        AssetHelper.loadGraphicSafely(bg, "menuDesat");
+        bg.color = 0xFF2A2D34;
         bg.screenCenter();
         bg.antialiasing = true;
         add(bg);
 
-        var header = new FlxText(60, 40, FlxG.width - 120, "SOULSCORCH DEVELOPER SUITE", 36);
-        header.setFormat(Paths.font("vcr"), 36, 0xFFFFCC00, LEFT, OUTLINE, FlxColor.BLACK);
-        header.borderSize = 2.0;
-        add(header);
-
-        grpOptions = new FlxTypedGroup<FlxText>();
+        grpOptions = new FlxTypedGroup<Alphabet>();
         add(grpOptions);
 
-        for (i in 0...editors.length) {
-            var item = new FlxText(80, (i * 70) + 150, FlxG.width - 160, editors[i].name, 32);
-            item.setFormat(Paths.font("vcr"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-            item.borderSize = 2.0;
-            item.ID = i;
-            grpOptions.add(item);
+        for (i in 0...options.length) {
+            var optText = new Alphabet(0, (70 * i) + 30, options[i], true);
+            optText.isMenuItem = true;
+            optText.targetY = i;
+            optText.ID = i;
+            grpOptions.add(optText);
         }
-
-        descBox = new FlxSprite(0, FlxG.height - 85).makeGraphic(FlxG.width, 85, 0xDD0D111A);
-        add(descBox);
-
-        descText = new FlxText(20, FlxG.height - 68, FlxG.width - 40, "", 20);
-        descText.setFormat(Paths.font("vcr"), 20, FlxColor.WHITE, CENTER);
-        add(descText);
 
         changeSelection();
     }
@@ -82,25 +65,41 @@ class EditorPickerMenu extends MusicBeatState {
         }
 
         if (Controls.instance.ACCEPT) {
-            AssetHelper.playSoundSafely("confirmMenu", 0.7);
-            switch (curSelected) {
-                case 0: MusicBeatState.switchState(new ChartEditor());
-                case 1: MusicBeatState.switchState(new CharacterEditorState());
-                case 2: MusicBeatState.switchState(new StageEditorState());
-                case 3: MusicBeatState.switchState(new ModchartEditorState());
-            }
+            selectOption(options[curSelected]);
+        }
+
+        for (i in 0...grpOptions.members.length) {
+            var item = grpOptions.members[i];
+            item.alpha = (i == curSelected ? 1.0 : 0.5);
         }
     }
 
     private function changeSelection(change:Int = 0):Void {
-        curSelected = FlxMath.wrap(curSelected + change, 0, editors.length - 1);
+        curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
+        var bullShit:Int = 0;
         for (item in grpOptions.members) {
-            item.alpha = (item.ID == curSelected) ? 1.0 : 0.45;
-            item.x = (item.ID == curSelected) ? 110 : 80;
+            item.targetY = bullShit - curSelected;
+            bullShit++;
         }
+    }
 
-        descText.text = editors[curSelected].desc;
+    private function selectOption(option:String):Void {
+        AssetHelper.playSoundSafely("confirmMenu", 0.7);
+
+        switch (option) {
+            case "Chart Editor":
+                MusicBeatState.switchState(new ChartEditorState());
+            case "Character Editor":
+                MusicBeatState.switchState(new CharacterEditorState());
+            case "Stage Editor":
+                MusicBeatState.switchState(new StageEditorState());
+            case "Modchart Editor":
+                MusicBeatState.switchState(new ModchartEditorState());
+            default:
+                // Fallback for tools currently in development
+                FlxG.camera.shake(0.01, 0.15);
+        }
     }
 }

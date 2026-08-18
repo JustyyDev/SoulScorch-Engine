@@ -2,86 +2,94 @@ package soulscorch.gameplay.actors;
 
 import flixel.FlxSprite;
 import flixel.math.FlxMath;
+import openfl.display.BitmapData;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.assets.Paths;
-import soulscorch.backend.interfaces.IBeatReceiver;
 
-class HealthIcon extends FlxSprite implements IBeatReceiver {
-    public var character:String = "face";
+using StringTools;
+
+class HealthIcon extends FlxSprite {
+    public var char:String = "face";
     public var isPlayer:Bool = false;
     public var isWinning:Bool = false;
     public var isLosing:Bool = false;
 
-    public var iconScale:Float = 1.0;
-    public var bopScale:Float = 1.2;
+    private var hasLosingIcon:Bool = false;
+    private var hasWinningIcon:Bool = false;
 
-    public function new(character:String = "face", isPlayer:Bool = false) {
+    public function new(char:String = "face", isPlayer:Bool = false) {
         super();
         this.isPlayer = isPlayer;
-        changeIcon(character);
-        scrollFactor.set(0, 0);
+        changeIcon(char);
+        scrollFactor.set();
     }
 
-    /**
-     * Loads an icon grid sheet (neutral, losing, and optional winning frames).
-     */
     public function changeIcon(char:String):Void {
-        this.character = char;
-        var iconPath = Paths.image('icons/icon-$char');
-        if (!AssetResolver.exists(iconPath)) {
-            iconPath = Paths.image('icons/icon-face');
-        }
+        this.char = (char != null && char.length > 0) ? char : "face";
 
-        var graphic = AssetResolver.getImage(iconPath);
-        if (graphic != null) {
-            // Determine whether the icon sheet contains 2 frames (neutral, losing) or 3 (+ winning)
-            var frameCount = Math.floor(graphic.width / 150);
-            loadGraphic(graphic, true, 150, 150);
+        var iconPathStr = 'icons/icon-$char';
+        var resolved = AssetResolver.resolveFile('assets/images/$iconPathStr', [".png"]);
+        if (resolved == null) resolved = AssetResolver.resolveFile('assets/preload/images/$iconPathStr', [".png"]);
+        if (resolved == null) resolved = AssetResolver.resolveFile('images/$iconPathStr', [".png"]);
+        if (resolved == null) resolved = AssetResolver.resolveFile('assets/images/icons/icon-face', [".png"]);
 
-            if (frameCount >= 3) {
-                animation.add("neutral", [0], 0, false, isPlayer);
-                animation.add("losing", [1], 0, false, isPlayer);
-                animation.add("winning", [2], 0, false, isPlayer);
+        var bitmap:BitmapData = (resolved != null) ? AssetResolver.getBitmapData(resolved) : null;
+
+        if (bitmap != null) {
+            var iconWidth:Int = bitmap.width;
+            var iconHeight:Int = bitmap.height;
+
+            // Check how many 150x150 frames exist in the spritesheet
+            if (iconWidth >= iconHeight * 3) {
+                // 3 Frames: Normal (0), Losing (1), Winning (2)
+                var frameWidth = Std.int(iconWidth / 3);
+                loadGraphic(bitmap, true, frameWidth, iconHeight);
+                animation.add(char, [0, 1, 2], 0, false, isPlayer);
+                hasLosingIcon = true;
+                hasWinningIcon = true;
+            } else if (iconWidth >= iconHeight * 2) {
+                // 2 Frames: Normal (0), Losing (1)
+                var frameWidth = Std.int(iconWidth / 2);
+                loadGraphic(bitmap, true, frameWidth, iconHeight);
+                animation.add(char, [0, 1], 0, false, isPlayer);
+                hasLosingIcon = true;
+                hasWinningIcon = false;
             } else {
-                animation.add("neutral", [0], 0, false, isPlayer);
-                animation.add("losing", [1], 0, false, isPlayer);
-                animation.add("winning", [0], 0, false, isPlayer);
+                // 1 Single Frame: Use frame 0 for all health states
+                loadGraphic(bitmap, true, iconWidth, iconHeight);
+                animation.add(char, [0, 0], 0, false, isPlayer);
+                hasLosingIcon = false;
+                hasWinningIcon = false;
             }
 
-            animation.play("neutral");
+            animation.play(char);
+        } else {
+            makeGraphic(150, 150, 0xFFFF00FF);
         }
+
+        antialiasing = true;
+        updateHitbox();
     }
 
     public function updateHealth(healthPercent:Float):Void {
-        if (healthPercent < 20.0) {
-            isLosing = true;
-            isWinning = false;
-            animation.play("losing");
-        } else if (healthPercent > 80.0) {
-            isLosing = false;
-            isWinning = true;
-            animation.play("winning");
+        if (animation.curAnim == null) return;
+
+        if (hasWinningIcon && healthPercent > 80.0) {
+            animation.curAnim.curFrame = 2;
+        } else if (hasLosingIcon && healthPercent < 20.0) {
+            animation.curAnim.curFrame = 1;
         } else {
-            isLosing = false;
-            isWinning = false;
-            animation.play("neutral");
+            animation.curAnim.curFrame = 0;
         }
     }
 
-    public function stepHit(step:Int):Void {}
-
     public function beatHit(beat:Int):Void {
-        scale.set(bopScale, bopScale);
+        scale.set(1.2, 1.2);
     }
-
-    public function measureHit(measure:Int):Void {}
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
-        scale.set(
-            FlxMath.lerp(iconScale, scale.x, Math.exp(-elapsed * 9.0)),
-            FlxMath.lerp(iconScale, scale.y, Math.exp(-elapsed * 9.0))
-        );
+        scale.x = FlxMath.lerp(1.0, scale.x, Math.exp(-elapsed * 9.0));
+        scale.y = FlxMath.lerp(1.0, scale.y, Math.exp(-elapsed * 9.0));
         updateHitbox();
     }
 }

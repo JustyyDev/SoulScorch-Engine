@@ -26,6 +26,7 @@ class LogEntry {
 class Logger {
     public static var instance(get, null):Logger;
     private static var _instance:Logger;
+    private static var _isLogging:Bool = false; // Recursion lock
 
     static inline var MAX_ENTRIES:Int = 250;
 
@@ -45,32 +46,45 @@ class Logger {
     }
 
     public function log(level:LogLevel, channel:String, message:String):Void {
-        if (cast(level, Int) < cast(minLevel, Int)) return;
-        if (enabledChannels.exists(channel) && !enabledChannels.get(channel)) return;
+        // Break any circular recursion immediately
+        if (_isLogging) return;
+        _isLogging = true;
 
-        var entry = new LogEntry(level, channel, message, Sys.time());
-        entries.push(entry);
-        if (entries.length > MAX_ENTRIES) entries.shift();
+        try {
+            if (cast(level, Int) < cast(minLevel, Int)) {
+                _isLogging = false;
+                return;
+            }
+            if (enabledChannels.exists(channel) && !enabledChannels.get(channel)) {
+                _isLogging = false;
+                return;
+            }
 
-        var ansiColor = switch (level) {
-            case TRACE: "\x1b[36m"; // Cyan
-            case INFO:  "\x1b[32m"; // Green
-            case WARN:  "\x1b[33m"; // Yellow
-            case ERROR: "\x1b[31m"; // Red
-        };
+            var cleanMsg = (message != null) ? Std.string(message) : "";
+            var entry = new LogEntry(level, channel, cleanMsg, Sys.time());
+            entries.push(entry);
+            if (entries.length > MAX_ENTRIES) entries.shift();
 
-        var prefix = switch (level) {
-            case TRACE: "TRACE";
-            case INFO:  "INFO";
-            case WARN:  "WARN";
-            case ERROR: "ERROR";
-        };
+            var prefix = switch (level) {
+                case TRACE: "TRACE";
+                case INFO:  "INFO";
+                case WARN:  "WARN";
+                case ERROR: "ERROR";
+            };
 
-        Sys.println('$ansiColor[$prefix][$channel]\x1b[0m $message');
+            #if sys
+            Sys.println('[$prefix][$channel] $cleanMsg');
+            #else
+            trace('[$prefix][$channel] $cleanMsg');
+            #end
 
-        if (DevConsole.instance != null) {
-            DevConsole.instance.log('[$prefix][$channel] $message');
-        }
+            // Safely forward to dev console without recursion
+            if (DevConsole.instance != null) {
+                DevConsole.instance.log('[$prefix][$channel] $cleanMsg');
+            }
+        } catch (e:Dynamic) {}
+
+        _isLogging = false;
     }
 
     public function setChannelEnabled(channel:String, enabled:Bool):Void {

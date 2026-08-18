@@ -12,6 +12,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Runtime;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.mod.ModLoader;
@@ -50,6 +51,7 @@ class SoulScript implements ScriptInstance {
         set("StringTools", StringTools);
         #if sys set("Sys", Sys); #end
 
+        // Flixel
         set("FlxG", FlxG);
         set("FlxSprite", flixel.FlxSprite);
         set("FlxCamera", flixel.FlxCamera);
@@ -74,12 +76,19 @@ class SoulScript implements ScriptInstance {
             colorLookup: FlxColor.colorLookup
         });
 
+        // Engine Systems
         set("Runtime", Runtime.engine);
         set("Conductor", Conductor);
         set("Paths", Paths);
         set("EventBus", EventBus.instance);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
+
+        // Discord Access for Modders
+        set("DiscordRPC", DiscordRPC);
+        set("changeDiscordPresence", DiscordRPC.changePresence);
+        set("setDiscordClientID", DiscordRPC.setClientID);
+        set("resetDiscordClientID", DiscordRPC.resetClientID);
 
         set("game", FlxG.state);
         set("state", FlxG.state);
@@ -105,7 +114,7 @@ class SoulScript implements ScriptInstance {
             active = true;
             return true;
         } catch (e:Dynamic) {
-            Logger.error('SoulScript transpile/runtime error in $path: $e', "soulscript");
+            Logger.error('SoulScript error in $path: $e', "soulscript");
             if (DevConsole.instance != null) {
                 DevConsole.instance.log('[SOULSCRIPT ERROR] $path: ' + Std.string(e));
             }
@@ -126,7 +135,6 @@ class SoulScript implements ScriptInstance {
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
         if (!active || interp == null || !interp.variables.exists(func)) return null;
-
         var fn = interp.variables.get(func);
         if (fn != null && Reflect.isFunction(fn)) {
             try {

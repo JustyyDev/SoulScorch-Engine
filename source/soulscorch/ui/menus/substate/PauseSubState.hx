@@ -4,7 +4,6 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
-import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
@@ -12,13 +11,14 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.gameplay.PlayState;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
 class PauseSubState extends MusicBeatSubstate {
     public static var curSelected:Int = 0;
 
     private var menuItems:Array<String> = ["Resume", "Restart Song", "Exit to Menu"];
-    private var grpMenu:FlxTypedGroup<FlxText>;
+    private var grpMenu:FlxTypedGroup<Alphabet>;
     private var bg:FlxSprite;
 
     public function new() {
@@ -28,13 +28,13 @@ class PauseSubState extends MusicBeatSubstate {
         bg.alpha = 0.6;
         add(bg);
 
-        grpMenu = new FlxTypedGroup<FlxText>();
+        grpMenu = new FlxTypedGroup<Alphabet>();
         add(grpMenu);
 
         for (i in 0...menuItems.length) {
-            var item = new FlxText(0, (i * 60) + 260, FlxG.width, menuItems[i], 32);
-            item.setFormat(Paths.font("vcr"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-            item.borderSize = 2.0;
+            var item = new Alphabet(0, (70 * i) + 30, menuItems[i], true);
+            item.isMenuItem = true;
+            item.targetY = i;
             item.ID = i;
             grpMenu.add(item);
         }
@@ -51,14 +51,21 @@ class PauseSubState extends MusicBeatSubstate {
         if (Controls.instance.ACCEPT) {
             selectOption(menuItems[curSelected]);
         }
+
+        for (i in 0...grpMenu.members.length) {
+            var item = grpMenu.members[i];
+            item.alpha = (i == curSelected ? 1.0 : 0.5);
+        }
     }
 
     private function changeSelection(change:Int = 0):Void {
         curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
+        var bullShit:Int = 0;
         for (item in grpMenu.members) {
-            item.alpha = (item.ID == curSelected) ? 1.0 : 0.5;
+            item.targetY = bullShit - curSelected;
+            bullShit++;
         }
     }
 
