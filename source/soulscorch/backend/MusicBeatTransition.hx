@@ -24,7 +24,6 @@ class MusicBeatTransition extends FlxSpriteGroup {
         this.data = data;
         this.onFinish = onFinish;
 
-        // Create overlay camera with explicit top layer z-index
         subCamera = new FlxCamera();
         subCamera.bgColor.alpha = 0;
         FlxG.cameras.add(subCamera, false);
@@ -56,7 +55,6 @@ class MusicBeatTransition extends FlxSpriteGroup {
             solidBg.scrollFactor.set();
 
             if (data.direction == OUT) {
-                // Wipe up from bottom
                 gradient.y = height;
                 solidBg.y = gradient.y + gradient.height;
                 add(solidBg);
@@ -68,7 +66,6 @@ class MusicBeatTransition extends FlxSpriteGroup {
                     onComplete: function(_) complete()
                 });
             } else {
-                // Wipe down reveal
                 gradient.flipY = true;
                 gradient.y = 0;
                 solidBg.y = -solidBg.height;

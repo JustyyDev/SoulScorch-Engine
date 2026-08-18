@@ -155,9 +155,10 @@ class FreeplayState extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + change, 0, songs.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
-        if (bg != null && songs[curSelected].color != null) {
+        if (bg != null) {
+            var targetColor:FlxColor = songs[curSelected].color;
             FlxTween.cancelTweensOf(bg);
-            FlxTween.color(bg, 0.25, bg.color, songs[curSelected].color);
+            FlxTween.color(bg, 0.25, bg.color, targetColor);
         }
 
         var bullShit:Int = 0;

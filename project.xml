@@ -56,7 +56,6 @@
 	<assets path="assets/shared" rename="assets/shared" embed="true" if="mobile" />
 
 	<!-- Engine Optimization & Crash Prevention Flags -->
-	<haxedef name="FLX_NO_DEBUG_CONSOLE" />
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
 	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
 	<haxedef name="analyzer-optimize" unless="debug" />

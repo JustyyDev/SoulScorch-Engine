@@ -169,7 +169,7 @@ class TitleState extends MusicBeatState {
         var t = new Alphabet(0, (FlxG.height * 0.4) + offset, text, true);
         t.alignment = CENTER;
         t.screenCenter(X);
-        t.color = FlxColor.WHITE; // Force white text color
+        t.color = FlxColor.WHITE;
         textGroup.add(t);
     }
 
@@ -177,7 +177,7 @@ class TitleState extends MusicBeatState {
         var t = new Alphabet(0, (FlxG.height * 0.4) + (textGroup.length * 60) + offset, text, true);
         t.alignment = CENTER;
         t.screenCenter(X);
-        t.color = FlxColor.WHITE; // Force white text color
+        t.color = FlxColor.WHITE;
         textGroup.add(t);
     }
 

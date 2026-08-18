@@ -28,10 +28,12 @@ class GameOverSubState extends MusicBeatSubstate {
 
         bfDead = new FlxSprite(x, y);
         AssetHelper.loadSparrowSafely(bfDead, "characters/BOYFRIEND_DEAD");
-        bfDead.animation.addByPrefix("firstDeath", "BF dies", 24, false);
-        bfDead.animation.addByPrefix("deathLoop", "BF Dead Loop", 24, true);
-        bfDead.animation.addByPrefix("deathConfirm", "BF Dead Confirm", 24, false);
-        bfDead.animation.play("firstDeath");
+        if (bfDead.frames != null) {
+            bfDead.animation.addByPrefix("firstDeath", "BF dies", 24, false);
+            bfDead.animation.addByPrefix("deathLoop", "BF Dead Loop", 24, true);
+            bfDead.animation.addByPrefix("deathConfirm", "BF Dead Confirm", 24, false);
+            bfDead.animation.play("firstDeath");
+        }
         bfDead.antialiasing = true;
         add(bfDead);
 
@@ -42,14 +44,16 @@ class GameOverSubState extends MusicBeatSubstate {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (bfDead.animation.curAnim != null && bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
+        if (bfDead.animation != null && bfDead.animation.curAnim != null && bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
             bfDead.animation.play("deathLoop");
             FlxG.sound.playMusic(Paths.music("gameOver"), 0.7);
         }
 
         if (Controls.instance.ACCEPT && !isEnding) {
             isEnding = true;
-            bfDead.animation.play("deathConfirm");
+            if (bfDead.animation != null && bfDead.animation.exists("deathConfirm")) {
+                bfDead.animation.play("deathConfirm");
+            }
             if (FlxG.sound.music != null) FlxG.sound.music.stop();
             AssetHelper.playSoundSafely("gameOverEnd", 0.8);
 

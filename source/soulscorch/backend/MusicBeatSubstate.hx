@@ -49,8 +49,8 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
 
     private function updateCurStep():Void {
         var lastChange = Conductor.getBPMAtTime(Conductor.songPosition);
-        var crochet = ((60.0 / lastChange) * 1000.0) / 4.0;
-        curStep = Math.floor(Conductor.songPosition / crochet);
+        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) ? lastChange.stepCrochet : ((60.0 / lastChange.bpm) * 1000.0) / 4.0;
+        curStep = lastChange.stepTime + Math.floor((Conductor.songPosition - lastChange.songTime) / currentStepCrochet);
     }
 
     private function updateBeat():Void {

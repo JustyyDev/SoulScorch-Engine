@@ -35,7 +35,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
     public function new() {
         super();
 
-        // 1. Smooth backdrop fade
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
         add(bg);
@@ -44,7 +43,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
         ModManager.reloadMods();
         modList = ModManager.allMods.copy();
 
-        // 2. Header Title
         titleText = new FlxText(50, 30, 0, "SOULSCORCH MOD MANAGER", 24);
         titleText.setFormat(Paths.font("vcr"), 24, 0xFF00FFCC, LEFT, OUTLINE, FlxColor.BLACK);
         titleText.borderSize = 1.5;
@@ -55,7 +53,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
         add(grpStatusPills);
         add(grpRows);
 
-        // 3. Side Information Panel (Glassmorphism style)
         sidePanel = new FlxSprite(FlxG.width - 440, 90).makeGraphic(390, FlxG.height - 180, 0xEE14101E);
         sidePanel.scrollFactor.set();
         add(sidePanel);
@@ -72,7 +69,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
         descText.setFormat(Paths.font("vcr"), 15, FlxColor.WHITE, LEFT);
         add(descText);
 
-        // 4. Bottom Help Bar
         helpText = new FlxText(0, FlxG.height - 45, FlxG.width, "[SPACE] Toggle Enabled  |  [W / S] Reorder Priority  |  [ESC] Apply & Exit", 15);
         helpText.setFormat(Paths.font("vcr"), 15, 0xFF88829C, CENTER);
         add(helpText);
@@ -96,7 +92,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
             row.ID = i;
             grpRows.add(row);
 
-            // Glowing status indicator pill
             var pill = new FlxSprite();
             pill.makeGraphic(16, 16, isEnabled ? 0xFF6BFF8E : 0xFFFF4444);
             pill.ID = i;
