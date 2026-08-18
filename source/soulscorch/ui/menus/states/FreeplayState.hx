@@ -49,7 +49,7 @@ class FreeplayState extends MusicBeatState {
         #end
 
         SongRegistry.scanAll();
-        songs = SongRegistry.songs;
+        songs = (SongRegistry.songs != null) ? SongRegistry.songs : [];
 
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
@@ -62,43 +62,60 @@ class FreeplayState extends MusicBeatState {
         grpSongs = new FlxTypedGroup<Alphabet>();
         add(grpSongs);
 
-        for (i in 0...songs.length) {
-            var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
-            songText.isMenuItem = true;
-            songText.targetY = i;
-            grpSongs.add(songText);
+        if (songs.length > 0) {
+            for (i in 0...songs.length) {
+                var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
+                songText.isMenuItem = true;
+                songText.targetY = i;
+                grpSongs.add(songText);
 
-            var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
-            iconArray.push(icon);
-            add(icon);
+                var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
+                iconArray.push(icon);
+                add(icon);
+            }
+
+            var scoreBG = new FlxSprite(FlxG.width - 400, 0).makeGraphic(400, 96, 0xAA000000);
+            add(scoreBG);
+
+            scoreText = new FlxText(FlxG.width - 390, 10, 380, "PERSONAL BEST: 0", 18);
+            scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+            add(scoreText);
+
+            diffText = new FlxText(FlxG.width - 390, 48, 380, "< NORMAL >", 22);
+            diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+            add(diffText);
+
+            changeSelection();
+            changeDiff();
+        } else {
+            var emptyText = new FlxText(0, 0, FlxG.width, "NO SONGS FOUND IN ASSETS OR MODS", 22);
+            emptyText.setFormat(Paths.font("vcr"), 22, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+            emptyText.screenCenter();
+            add(emptyText);
         }
-
-        var scoreBG = new FlxSprite(FlxG.width - 400, 0).makeGraphic(400, 96, 0xAA000000);
-        add(scoreBG);
-
-        scoreText = new FlxText(FlxG.width - 390, 10, 380, "PERSONAL BEST: 0", 18);
-        scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
-        add(scoreText);
-
-        diffText = new FlxText(FlxG.width - 390, 48, 380, "< NORMAL >", 22);
-        diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
-        add(diffText);
 
         #if (mobile || debug)
         mobileControls = new MobilePad(FULL, A_B);
         add(mobileControls);
         Controls.instance.bindMobilePad(mobileControls);
         #end
-
-        changeSelection();
-        changeDiff();
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
+        if (songs.length == 0) {
+            if (Controls.instance.BACK) {
+                AssetHelper.playSoundSafely("cancelMenu", 0.7);
+                MusicBeatState.switchState(new MainMenuState());
+            }
+            return;
+        }
+
         lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24.0)));
-        scoreText.text = 'PERSONAL BEST: $lerpScore\nACC: ${Math.round(intendedAccuracy * 100) / 100}% [$intendedRating]';
+        if (scoreText != null) {
+            scoreText.text = 'PERSONAL BEST: $lerpScore\nACC: ${Math.round(intendedAccuracy * 100) / 100}% [$intendedRating]';
+        }
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
@@ -138,7 +155,7 @@ class FreeplayState extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + change, 0, songs.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
-        if (bg != null) {
+        if (bg != null && songs[curSelected].color != null) {
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.25, bg.color, songs[curSelected].color);
         }
@@ -159,8 +176,10 @@ class FreeplayState extends MusicBeatState {
         curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
 
         var diffName = diffs[curDifficulty].toUpperCase();
-        diffText.text = '< $diffName >';
-        diffText.color = Difficulty.getColor(diffs[curDifficulty]);
+        if (diffText != null) {
+            diffText.text = '< $diffName >';
+            diffText.color = Difficulty.getColor(diffs[curDifficulty]);
+        }
 
         var saveEntry = SaveData.instance != null ? SaveData.instance.getScore(songs[curSelected].id, diffs[curDifficulty]) : null;
         if (saveEntry != null) {

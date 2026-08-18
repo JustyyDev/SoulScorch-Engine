@@ -5,6 +5,7 @@ import flixel.FlxSprite;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
+import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
@@ -22,35 +23,33 @@ class AlphaCharacter extends FlxSprite {
 
     public var character:String = "";
     public var row:Int = 0;
+    public var isValid:Bool = false;
 
     public function new(x:Float, y:Float, char:String, bold:Bool = false) {
         super(x, y);
         this.character = char;
         antialiasing = true;
 
-        var imageKey = bold ? "ui/alphabet-bold" : "ui/alphabet";
-        
-        // Direct asset resolution fallback check
-        var xmlPath = Paths.xml(imageKey);
-        var pngPath = Paths.image(imageKey);
+        var key = bold ? "ui/alphabet-bold" : "ui/alphabet";
+        var altKey = bold ? "alphabet-bold" : "alphabet";
 
-        if (cachedFrames == null && !bold) {
-            cachedFrames = FlxAtlasFrames.fromSparrow(pngPath, xmlPath);
-        } else if (cachedBoldFrames == null && bold) {
-            cachedBoldFrames = FlxAtlasFrames.fromSparrow(pngPath, xmlPath);
-        }
-
-        this.frames = bold ? cachedBoldFrames : cachedFrames;
-
-        if (this.frames == null) {
-            // Absolute fallback to standard asset paths if 'ui/' prefix fails
-            var altXml = bold ? Paths.xml("alphabet-bold") : Paths.xml("alphabet");
-            var altPng = bold ? Paths.image("alphabet-bold") : Paths.image("alphabet");
-            this.frames = FlxAtlasFrames.fromSparrow(altPng, altXml);
+        if (bold) {
+            if (cachedBoldFrames == null) {
+                cachedBoldFrames = Paths.getSparrowAtlas(key);
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas(altKey);
+            }
+            this.frames = cachedBoldFrames;
+        } else {
+            if (cachedFrames == null) {
+                cachedFrames = Paths.getSparrowAtlas(key);
+                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas(altKey);
+            }
+            this.frames = cachedFrames;
         }
 
         if (this.frames == null) {
             makeGraphic(24, 38, FlxColor.TRANSPARENT);
+            isValid = false;
             return;
         }
 
@@ -90,9 +89,8 @@ class AlphaCharacter extends FlxSprite {
                 ]);
         }
 
-        if (!added) {
-            makeGraphic(24, 38, FlxColor.TRANSPARENT);
-        }
+        isValid = added;
+        if (!added) makeGraphic(24, 38, FlxColor.TRANSPARENT);
     }
 
     private function setupNormal(char:String):Void {
@@ -129,9 +127,8 @@ class AlphaCharacter extends FlxSprite {
                 }
         }
 
-        if (!added) {
-            makeGraphic(24, 38, FlxColor.TRANSPARENT);
-        }
+        isValid = added;
+        if (!added) makeGraphic(24, 38, FlxColor.TRANSPARENT);
     }
 
     private function tryAddPrefix(prefixes:Array<String>):Bool {
@@ -170,6 +167,7 @@ class Alphabet extends FlxSpriteGroup {
     public var bold:Bool = false;
 
     public var letters:Array<AlphaCharacter> = [];
+    public var fallbackText:FlxText = null;
     public var rows:Int = 0;
 
     public static inline var X_SPACING:Float = 2.0;
@@ -195,6 +193,11 @@ class Alphabet extends FlxSpriteGroup {
             remove(letter, true);
             letter.destroy();
         }
+        if (fallbackText != null) {
+            remove(fallbackText, true);
+            fallbackText.destroy();
+            fallbackText = null;
+        }
         rows = 0;
     }
 
@@ -204,6 +207,7 @@ class Alphabet extends FlxSpriteGroup {
         var curX:Float = 0;
         var curY:Float = 0;
         var rowLetters:Array<Array<AlphaCharacter>> = [[]];
+        var atlasAvailable:Bool = true;
 
         for (i in 0...text.length) {
             var char = text.charAt(i);
@@ -222,6 +226,12 @@ class Alphabet extends FlxSpriteGroup {
             }
 
             var letter = new AlphaCharacter(curX, curY, char, bold);
+            if (!letter.isValid && letter.frames == null) {
+                atlasAvailable = false;
+                letter.destroy();
+                break;
+            }
+
             letter.row = rows;
             letters.push(letter);
             rowLetters[rows].push(letter);
@@ -230,7 +240,15 @@ class Alphabet extends FlxSpriteGroup {
             curX += letter.width + X_SPACING;
         }
 
-        applyAlignment(rowLetters);
+        if (!atlasAvailable) {
+            clearLetters();
+            fallbackText = new FlxText(0, 0, 0, text, bold ? 32 : 24);
+            fallbackText.setFormat(Paths.font("vcr"), bold ? 32 : 24, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+            fallbackText.borderSize = 1.5;
+            add(fallbackText);
+        } else {
+            applyAlignment(rowLetters);
+        }
     }
 
     private function applyAlignment(rowLetters:Array<Array<AlphaCharacter>>):Void {

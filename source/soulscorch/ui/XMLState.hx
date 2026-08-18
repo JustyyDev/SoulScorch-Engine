@@ -11,8 +11,8 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
 import soulscorch.scripting.Script;
+import soulscorch.scripting.mod.ModLoader;
 import soulscorch.ui.hud.Alphabet;
 
 class XMLState extends Scene {
@@ -46,9 +46,9 @@ class XMLState extends Scene {
     }
 
     private function parseXML():Void {
-        var resolvedPath = ModLoader.getPath('assets/data/ui/$xmlPath.xml');
+        var resolvedPath = ModLoader.getPath('data/ui/$xmlPath.xml');
         if (!AssetResolver.exists(resolvedPath)) {
-            resolvedPath = ModLoader.getPath('data/ui/$xmlPath.xml');
+            resolvedPath = ModLoader.getPath('assets/data/ui/$xmlPath.xml');
         }
 
         if (!AssetResolver.exists(resolvedPath)) {
@@ -62,7 +62,8 @@ class XMLState extends Scene {
 
         try {
             var rawXml = AssetResolver.getText(resolvedPath);
-            var xmlData = Xml.parse(rawXml).firstElement();
+            var parsed = Xml.parse(rawXml);
+            var xmlData = parsed.firstElement();
             if (xmlData == null) return;
             var access = new Access(xmlData);
 

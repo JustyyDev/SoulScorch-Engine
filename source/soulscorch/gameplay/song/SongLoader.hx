@@ -18,20 +18,23 @@ class SongLoader {
         var cleanDiff = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
 
         var chartCandidates = [
-            'assets/songs/$cleanSong/charts/$cleanDiff.json',
-            'assets/songs/$cleanSong/chart-${cleanDiff}.json',
-            'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json',
+            'data/charts/$cleanSong/$cleanDiff.json',
+            'data/$cleanSong/$cleanSong-$cleanDiff.json',
+            'data/$cleanSong/${cleanSong}_$cleanDiff.json',
+            'data/$cleanSong/$cleanDiff.json',
             'assets/data/$cleanSong/$cleanSong-$cleanDiff.json',
             'assets/data/$cleanSong/$cleanDiff.json',
-            'data/$cleanSong/$cleanSong-$cleanDiff.json',
-            'data/charts/$cleanSong/$cleanDiff.json'
+            'assets/songs/$cleanSong/charts/$cleanDiff.json',
+            'assets/songs/$cleanSong/chart-${cleanDiff}.json',
+            'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json'
         ];
 
         if (cleanDiff == "normal") {
+            chartCandidates.unshift('data/$cleanSong/$cleanSong.json');
+            chartCandidates.unshift('data/$cleanSong/chart.json');
+            chartCandidates.push('assets/data/$cleanSong/$cleanSong.json');
             chartCandidates.push('assets/songs/$cleanSong/chart.json');
             chartCandidates.push('assets/songs/$cleanSong/$cleanSong.json');
-            chartCandidates.push('assets/data/$cleanSong/$cleanSong.json');
-            chartCandidates.push('data/$cleanSong/$cleanSong.json');
         }
 
         var resolvedChart:String = null;
@@ -45,20 +48,24 @@ class SongLoader {
 
         if (resolvedChart == null) {
             Logger.error('Failed to resolve song chart for: $cleanSong ($cleanDiff)', "song");
-            return new Song(cleanSong, cleanSong);
+            var fallback = new Song(cleanSong, cleanSong);
+            if (fallback.chart == null) fallback.chart = new Chart();
+            return fallback;
         }
 
         try {
             var rawJson = AssetResolver.getText(resolvedChart);
             var parsedSong:Song = ChartParser.parse(rawJson);
             if (parsedSong == null) {
-                return new Song(cleanSong, cleanSong);
+                var fallback = new Song(cleanSong, cleanSong);
+                if (fallback.chart == null) fallback.chart = new Chart();
+                return fallback;
             }
 
             var metaCandidates = [
-                'assets/songs/$cleanSong/meta.json',
+                'data/$cleanSong/meta.json',
                 'assets/data/$cleanSong/meta.json',
-                'data/$cleanSong/meta.json'
+                'assets/songs/$cleanSong/meta.json'
             ];
 
             for (m in metaCandidates) {
@@ -68,18 +75,19 @@ class SongLoader {
                         var metaRaw = AssetResolver.getText(metaRes);
                         var meta:SongMetadata = Json.parse(metaRaw);
 
-                        if (meta.title != null) parsedSong.title = meta.title;
+                        if (meta.title != null && meta.title.trim().length > 0) parsedSong.title = meta.title;
                         if (meta.artist != null) parsedSong.artist = meta.artist;
                         if (meta.charter != null) parsedSong.charter = meta.charter;
-                        if (meta.bpm != null) parsedSong.bpm = meta.bpm;
+                        if (meta.bpm != null && meta.bpm > 0) parsedSong.bpm = meta.bpm;
                         if (meta.stage != null) parsedSong.stage = meta.stage;
                         if (meta.player1 != null) parsedSong.player1 = meta.player1;
                         if (meta.player2 != null) parsedSong.player2 = meta.player2;
                         if (meta.gfVersion != null) parsedSong.gfVersion = meta.gfVersion;
                         if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices;
-                        if (meta.color != null) {
-                            var parsedColor = FlxColor.fromString(meta.color);
-                            if (parsedColor != null) parsedSong.color = parsedColor;
+                        
+                        if (meta.color != null && meta.color.trim().length > 0) {
+                            var parsedColor:Null<FlxColor> = FlxColor.fromString(meta.color);
+                            parsedSong.color = (parsedColor != null) ? parsedColor : 0xFF9271FD;
                         }
                     } catch (err:Dynamic) {
                         Logger.warn('Failed parsing meta for $cleanSong: $err', "song");
@@ -88,10 +96,16 @@ class SongLoader {
                 }
             }
 
+            if (parsedSong.chart == null) {
+                parsedSong.chart = new Chart();
+            }
+
             return parsedSong;
         } catch (e:Dynamic) {
             Logger.error('Exception parsing chart for $cleanSong: $e', "song");
-            return new Song(cleanSong, cleanSong);
+            var fallback = new Song(cleanSong, cleanSong);
+            if (fallback.chart == null) fallback.chart = new Chart();
+            return fallback;
         }
     }
 }

@@ -75,7 +75,6 @@ class StageEditorState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        // 1. Viewport & Camera Setup
         camStage = new FlxCamera();
         camHUD = new FlxCamera();
         camHUD.bgColor.alpha = 0;
@@ -87,39 +86,35 @@ class StageEditorState extends MusicBeatState {
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
         camStage.zoom = 0.9;
 
-        // Background Editor Grid
         var bgGrid = new FlxSprite().makeGraphic(FlxG.width * 4, FlxG.height * 4, 0xFF181520);
         bgGrid.screenCenter();
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
 
-        // Ground Reference Marker
         var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(FlxG.width * 4, 4, 0xFF443D54);
         ground.screenCenter(X);
         ground.scrollFactor.set(1, 1);
         add(ground);
 
-        // 2. Load Stage Definition
         loadStageData();
 
-        // 3. Stage Visuals Layer
         stagePiecesGroup = new FlxSpriteGroup();
         add(stagePiecesGroup);
         buildStagePieces();
 
-        // 4. Characters
         spawnDummies();
 
-        // 5. Target Anchor Marker
         targetMarker = new FlxSprite().makeGraphic(24, 24, FlxColor.TRANSPARENT);
+        targetMarker.pixels.lock();
         for (i in 0...24) {
             targetMarker.pixels.setPixel32(i, 12, 0xFFFF0055);
             targetMarker.pixels.setPixel32(12, i, 0xFFFF0055);
         }
+        targetMarker.pixels.unlock();
+        targetMarker.dirty = true;
         targetMarker.scrollFactor.set(1, 1);
         add(targetMarker);
 
-        // 6. Editor HUD
         setupHUD();
         updateHUD();
 
@@ -185,8 +180,15 @@ class StageEditorState extends MusicBeatState {
                 if (!AssetHelper.loadGraphicSafely(spr, p.image)) {
                     spr.makeGraphic(400, 300, 0x88AA00FF);
                 }
-                spr.scrollFactor.set(p.scroll[0], p.scroll[1]);
-                spr.scale.set(p.scale[0], p.scale[1]);
+                
+                // Safe JSON Fallbacks
+                var scX = (p.scroll != null && p.scroll.length > 0) ? p.scroll[0] : 1.0;
+                var scY = (p.scroll != null && p.scroll.length > 1) ? p.scroll[1] : 1.0;
+                var scaleX = (p.scale != null && p.scale.length > 0) ? p.scale[0] : 1.0;
+                var scaleY = (p.scale != null && p.scale.length > 1) ? p.scale[1] : 1.0;
+                
+                spr.scrollFactor.set(scX, scY);
+                spr.scale.set(scaleX, scaleY);
                 spr.updateHitbox();
                 spr.antialiasing = (p.antialiasing != null) ? p.antialiasing : true;
 
@@ -264,7 +266,6 @@ class StageEditorState extends MusicBeatState {
         handleSelectionInput();
         handleTransformInput();
 
-        // Stage Default Zoom Adjustments
         if (FlxG.keys.justPressed.Z) {
             stageData.defaultZoom = Math.min(2.0, stageData.defaultZoom + 0.05);
             camStage.zoom = stageData.defaultZoom;
@@ -276,23 +277,19 @@ class StageEditorState extends MusicBeatState {
             updateHUD();
         }
 
-        // Save Export
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
             saveStageJson();
         }
 
-        // Exit
         if (FlxG.keys.justPressed.ESCAPE) {
             MusicBeatState.switchState(new MainMenuState());
         }
     }
 
     private function handleCameraControls(elapsed:Float):Void {
-        // Zoom
         if (FlxG.keys.pressed.Q) camStage.zoom += 0.8 * elapsed;
         if (FlxG.keys.pressed.E) camStage.zoom = Math.max(0.2, camStage.zoom - 0.8 * elapsed);
 
-        // Panning
         var moveSpeed:Float = FlxG.keys.pressed.SHIFT ? 1200.0 : 500.0;
         if (FlxG.keys.pressed.I) camFollow.y -= moveSpeed * elapsed;
         if (FlxG.keys.pressed.K) camFollow.y += moveSpeed * elapsed;
@@ -345,7 +342,6 @@ class StageEditorState extends MusicBeatState {
                     if (spr != null) {
                         spr.x += dx;
                         spr.y += dy;
-                        // Synchronize with struct
                         for (p in stageData.pieces) {
                             if (p.name == pName) {
                                 p.position[0] = spr.x;

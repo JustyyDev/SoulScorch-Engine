@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Haxe
-        uses: krdlab/setup-haxe@v1
+        uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.6
 
@@ -52,7 +52,7 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always
           haxelib install flixel-addons 3.2.3 --quiet --always
           haxelib install flixel-ui 2.6.1 --quiet --always
-          haxelib install hscript 2.5.0 --quiet --always
+          haxelib install hscript --quiet --always
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/CodenameCrew/cne-hxdiscord_rpc.git --always
@@ -68,16 +68,15 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always
           haxelib install flixel-addons 3.2.3 --quiet --always
           haxelib install flixel-ui 2.6.1 --quiet --always
-          haxelib install hscript 2.5.0 --quiet --always
+          haxelib install hscript --quiet --always
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
-          haxelib git hxdiscord_rpc https://github.com/CodenameCrew/cne-hxdiscord_rpc.git --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Build Engine (macOS Universal ARM64/x86_64)
+      - name: Build Engine (macOS Universal / ARM64)
         if: matrix.target == 'mac'
-        run: haxelib run lime build mac -release -64 -D HXCPP_M64
+        run: haxelib run lime build mac -release
         env:
           HXCPP_COMPILE_THREADS: 8
 

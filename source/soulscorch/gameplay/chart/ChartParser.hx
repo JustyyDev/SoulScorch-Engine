@@ -2,97 +2,97 @@ package soulscorch.gameplay.chart;
 
 import haxe.Json;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.chart.Chart;
+import soulscorch.gameplay.chart.Song;
+
+using StringTools;
 
 class ChartParser {
-    /**
-     * Parses a raw JSON string into a structured Song object with processed chart notes and BPM events.
-     */
     public static function parse(rawJson:String):Song {
-        if (rawJson == null || rawJson.length == 0) {
-            Logger.error("Cannot parse empty chart JSON", "chart");
-            return new Song("unknown", "Unknown");
+        if (rawJson == null || rawJson.trim().length == 0) {
+            return new Song("tutorial", "Tutorial");
         }
 
-        var rawData:Dynamic = Json.parse(rawJson);
-        var songData:Dynamic = Reflect.hasField(rawData, "song") ? rawData.song : rawData;
+        try {
+            var raw:Dynamic = Json.parse(rawJson);
+            var songData:Dynamic = raw;
 
-        var songId:String = (songData.song != null) ? songData.song : "tutorial";
-        var song = new Song(songId, songId);
-        song.bpm = (songData.bpm != null) ? songData.bpm : 100.0;
-        song.scrollSpeed = (songData.speed != null) ? songData.speed : 2.0;
-        song.player1 = (songData.player1 != null) ? songData.player1 : "bf";
-        song.player2 = (songData.player2 != null) ? songData.player2 : "dad";
-        song.gfVersion = (songData.player3 != null) ? songData.player3 : ((songData.gfVersion != null) ? songData.gfVersion : "gf");
-        song.stage = (songData.stage != null) ? songData.stage : "stage";
-
-        var chart = new Chart(song.bpm, song.scrollSpeed);
-
-        // 1. Parse standard section notes
-        if (songData.notes != null) {
-            var sections:Array<Dynamic> = cast songData.notes;
-            var curBPM:Float = song.bpm;
-            var totalSteps:Int = 0;
-            var totalTime:Float = 0.0;
-
-            for (section in sections) {
-                if (section == null) continue;
-
-                if (section.changeBPM != null && section.changeBPM == true && section.bpm != null && section.bpm != curBPM) {
-                    curBPM = section.bpm;
-                    chart.bpmChanges.push({
-                        stepTime: totalSteps,
-                        time: totalTime,
-                        bpm: curBPM
-                    });
+            if (raw != null && Reflect.hasField(raw, "song")) {
+                var innerSong = Reflect.field(raw, "song");
+                if (Reflect.isObject(innerSong)) {
+                    songData = innerSong;
                 }
+            }
 
-                if (section.sectionNotes != null) {
-                    var sectionNotes:Array<Dynamic> = cast section.sectionNotes;
-                    var mustHitSection:Bool = (section.mustHitSection == true);
+            var songName:String = Reflect.hasField(songData, "song") ? Reflect.field(songData, "song") : "tutorial";
+            var parsed = new Song(songName, songName);
 
-                    for (songNote in sectionNotes) {
-                        if (songNote == null || songNote.length < 2) continue;
+            if (Reflect.hasField(songData, "bpm")) parsed.bpm = Reflect.field(songData, "bpm");
+            if (Reflect.hasField(songData, "speed")) parsed.scrollSpeed = Reflect.field(songData, "speed");
+            if (Reflect.hasField(songData, "player1")) parsed.player1 = Reflect.field(songData, "player1");
+            if (Reflect.hasField(songData, "player2")) parsed.player2 = Reflect.field(songData, "player2");
+            if (Reflect.hasField(songData, "gfVersion")) parsed.gfVersion = Reflect.field(songData, "gfVersion");
+            if (Reflect.hasField(songData, "stage")) parsed.stage = Reflect.field(songData, "stage");
+            if (Reflect.hasField(songData, "needsVoices")) parsed.needsVoices = Reflect.field(songData, "needsVoices");
 
-                        var strumTime:Float = songNote[0];
-                        var rawLane:Int = Std.int(songNote[1]);
-                        var noteData:Int = rawLane % 4;
-                        var susLength:Float = songNote.length > 2 ? Math.max(0, songNote[2]) : 0.0;
-                        var noteType:String = songNote.length > 3 ? Std.string(songNote[3]) : "Default";
+            parsed.chart = new Chart(parsed.bpm, parsed.scrollSpeed);
 
-                        var isOpponentLane:Bool = rawLane >= 4;
-                        var mustPress:Bool = mustHitSection ? !isOpponentLane : isOpponentLane;
+            // 1. Parse Notes
+            if (Reflect.hasField(songData, "notes") && songData.notes != null) {
+                var sections:Array<Dynamic> = cast Reflect.field(songData, "notes");
+                if (sections != null) {
+                    for (sec in sections) {
+                        if (sec == null) continue;
+                        var mustHitSection:Bool = Reflect.hasField(sec, "mustHitSection") ? sec.mustHitSection : true;
 
-                        chart.addNote(strumTime, noteData, susLength, noteType, mustPress);
+                        if (Reflect.hasField(sec, "sectionNotes") && sec.sectionNotes != null) {
+                            var rawNotes:Array<Dynamic> = cast sec.sectionNotes;
+                            for (n in rawNotes) {
+                                if (n != null && n.length >= 2) {
+                                    var time:Float = n[0];
+                                    var rawData:Int = Std.int(n[1]);
+                                    var susLen:Float = (n.length > 2) ? n[2] : 0.0;
+                                    var type:String = (n.length > 3 && n[3] != null) ? Std.string(n[3]) : "default";
+
+                                    var direction:Int = rawData % 4;
+                                    var mustPress:Bool = (rawData < 4) ? mustHitSection : !mustHitSection;
+
+                                    // Corrected parameter order: (time, direction, susLen, type, mustPress)
+                                    parsed.chart.addNote(time, direction, susLen, type, mustPress);
+                                }
+                            }
+                        }
                     }
                 }
-
-                var stepCount:Int = (section.lengthInSteps != null) ? section.lengthInSteps : 16;
-                totalSteps += stepCount;
-                totalTime += (stepCount * ((60.0 / curBPM) * 1000.0) / 4.0);
             }
-        }
 
-        // 2. Parse song event arrays (Psych / V-Slice event blocks)
-        if (songData.events != null) {
-            var rawEvents:Array<Dynamic> = cast songData.events;
-            for (eventGroup in rawEvents) {
-                if (eventGroup == null || eventGroup.length < 2) continue;
-                var time:Float = eventGroup[0];
-                var subEvents:Array<Dynamic> = cast eventGroup[1];
-                for (sub in subEvents) {
-                    if (sub == null || sub.length < 1) continue;
-                    var name:String = Std.string(sub[0]);
-                    var val1:String = sub.length > 1 ? Std.string(sub[1]) : "";
-                    var val2:String = sub.length > 2 ? Std.string(sub[2]) : "";
-                    chart.addEvent(time, name, val1, val2);
+            // 2. Parse Events
+            if (Reflect.hasField(songData, "events") && songData.events != null) {
+                var rawEvents:Array<Dynamic> = cast Reflect.field(songData, "events");
+                if (rawEvents != null) {
+                    for (e in rawEvents) {
+                        if (e != null && e.length >= 2) {
+                            var time:Float = e[0];
+                            var subEvents:Array<Dynamic> = cast e[1];
+                            if (subEvents != null) {
+                                for (sub in subEvents) {
+                                    if (sub != null && sub.length >= 3) {
+                                        var eventName:String = Std.string(sub[0]);
+                                        var val1:String = Std.string(sub[1]);
+                                        var val2:String = Std.string(sub[2]);
+                                        parsed.chart.addEvent(time, eventName, val1, val2);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
+            return parsed;
+        } catch (e:Dynamic) {
+            Logger.error('Failed parsing chart JSON: $e', "chart");
+            return new Song("tutorial", "Tutorial");
         }
-
-        chart.sortNotes();
-        chart.sortEvents();
-        song.chart = chart;
-
-        return song;
     }
 }

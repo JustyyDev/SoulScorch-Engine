@@ -94,13 +94,15 @@ class CharacterEditorState extends MusicBeatState {
         // 3. Load Characters
         reloadCharacters();
 
-        // 4. Center Crosshair
+        // 4. Center Crosshair (Memory Safe Drawing)
         crosshair = new FlxSprite().makeGraphic(20, 20, FlxColor.TRANSPARENT);
-        // Draw crosshair shape
+        crosshair.pixels.lock();
         for (i in 0...20) {
             crosshair.pixels.setPixel32(i, 10, 0xFFFF0044);
             crosshair.pixels.setPixel32(10, i, 0xFFFF0044);
         }
+        crosshair.pixels.unlock();
+        crosshair.dirty = true;
         crosshair.scrollFactor.set(1, 1);
         add(crosshair);
 
@@ -123,17 +125,14 @@ class CharacterEditorState extends MusicBeatState {
             charLayer.destroy();
         }
 
-        // Ghost character for reference overlay
         ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
         ghostChar.alpha = showGhost ? 0.35 : 0.0;
         ghostChar.color = 0xFF8888FF;
         add(ghostChar);
 
-        // Active Character
         charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
         add(charLayer);
 
-        // Extract Animations
         animList = [];
         if (charLayer.animation != null) {
             @:privateAccess
@@ -206,35 +205,29 @@ class CharacterEditorState extends MusicBeatState {
         handleAnimationControls();
         handleOffsetControls();
 
-        // Ghost Toggle
         if (FlxG.keys.justPressed.G) {
             showGhost = !showGhost;
             if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
         }
 
-        // Flip Character
         if (FlxG.keys.justPressed.F && charLayer != null) {
             charLayer.flipX = !charLayer.flipX;
             if (ghostChar != null) ghostChar.flipX = charLayer.flipX;
         }
 
-        // Save JSON
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
             saveOffsetsJson();
         }
 
-        // Exit
         if (FlxG.keys.justPressed.ESCAPE) {
             MusicBeatState.switchState(new MainMenuState());
         }
     }
 
     private function handleCameraControls(elapsed:Float):Void {
-        // Zooming
         if (FlxG.keys.pressed.Q) camEditor.zoom += 0.8 * elapsed;
         if (FlxG.keys.pressed.E) camEditor.zoom = Math.max(0.2, camEditor.zoom - 0.8 * elapsed);
 
-        // Panning
         var moveSpeed:Float = FlxG.keys.pressed.SHIFT ? 1000.0 : 400.0;
         if (FlxG.keys.pressed.I) camFollow.y -= moveSpeed * elapsed;
         if (FlxG.keys.pressed.K) camFollow.y += moveSpeed * elapsed;
@@ -274,22 +267,10 @@ class CharacterEditorState extends MusicBeatState {
             charLayer.animOffsets.set(anim, curOffset);
         }
 
-        if (FlxG.keys.justPressed.LEFT) {
-            curOffset[0] += multiplier;
-            changed = true;
-        }
-        if (FlxG.keys.justPressed.RIGHT) {
-            curOffset[0] -= multiplier;
-            changed = true;
-        }
-        if (FlxG.keys.justPressed.UP) {
-            curOffset[1] += multiplier;
-            changed = true;
-        }
-        if (FlxG.keys.justPressed.DOWN) {
-            curOffset[1] -= multiplier;
-            changed = true;
-        }
+        if (FlxG.keys.justPressed.LEFT) { curOffset[0] += multiplier; changed = true; }
+        if (FlxG.keys.justPressed.RIGHT) { curOffset[0] -= multiplier; changed = true; }
+        if (FlxG.keys.justPressed.UP) { curOffset[1] += multiplier; changed = true; }
+        if (FlxG.keys.justPressed.DOWN) { curOffset[1] -= multiplier; changed = true; }
 
         if (changed) {
             charLayer.offset.set(curOffset[0], curOffset[1]);
@@ -311,7 +292,6 @@ class CharacterEditorState extends MusicBeatState {
             charLayer.offset.set(0, 0);
         }
 
-        // Keep ghost locked to first frame of idle
         if (ghostChar != null && showGhost) {
             ghostChar.playAnim("idle", true);
             var idleOffset = ghostChar.animOffsets.get("idle");
@@ -337,11 +317,7 @@ class CharacterEditorState extends MusicBeatState {
         curAnimTxt.text = 'Anim: $curAnim (${curAnimIndex + 1}/${animList.length})';
 
         var curOffset = charLayer.animOffsets.get(curAnim);
-        if (curOffset != null) {
-            offsetTxt.text = 'Offset: [${curOffset[0]}, ${curOffset[1]}]';
-        } else {
-            offsetTxt.text = 'Offset: [0, 0]';
-        }
+        offsetTxt.text = curOffset != null ? 'Offset: [${curOffset[0]}, ${curOffset[1]}]' : 'Offset: [0, 0]';
 
         var listStr:String = "ANIMATIONS:\n";
         for (i in 0...animList.length) {

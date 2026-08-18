@@ -16,6 +16,10 @@ enum abstract Judgment(String) from String to String {
         return MISS;
     }
 
+    public static inline function name(judgment:Judgment):String {
+        return Std.string(judgment);
+    }
+
     public static function score(judgment:Judgment):Int {
         return switch (judgment) {
             case SICK: 350;

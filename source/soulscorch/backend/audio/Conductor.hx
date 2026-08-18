@@ -1,63 +1,105 @@
 package soulscorch.backend.audio;
 
 import soulscorch.gameplay.chart.Chart;
-import soulscorch.gameplay.chart.Chart.BPMChangeEvent;
+
+typedef BPMChangeEvent = {
+    var stepTime:Int;
+    var songTime:Float;
+    var bpm:Float;
+    var ?stepCrochet:Float;
+}
 
 class Conductor {
     public static var bpm:Float = 100.0;
-    public static var crochet:Float = ((60.0 / 100.0) * 1000.0); // Milliseconds per beat
-    public static var stepCrochet:Float = crochet / 4.0; // Milliseconds per step
+    public static var crochet:Float = ((60.0 / bpm) * 1000.0);
+    public static var stepCrochet:Float = (crochet / 4.0);
     public static var songPosition:Float = 0.0;
-    public static var timeScale:Float = 1.0;
-    public static var safeZoneOffset:Float = (10.0 / 60.0) * 1000.0; // Safe hit window (~166ms)
+    public static var offset:Float = 0.0;
+
+    public static var safeFrames:Int = 10;
+    public static var safeZoneOffset:Float = (safeFrames / 60.0) * 1000.0;
+
+    public static var curBeat:Int = 0;
+    public static var curStep:Int = 0;
+    public static var curMeasure:Int = 0;
 
     public static var bpmChangeMap:Array<BPMChangeEvent> = [];
 
     public static function changeBPM(newBpm:Float):Void {
-        bpm = newBpm;
+        bpm = (newBpm > 0) ? newBpm : 100.0;
         crochet = ((60.0 / bpm) * 1000.0);
-        stepCrochet = crochet / 4.0;
+        stepCrochet = (crochet / 4.0);
+        safeZoneOffset = (safeFrames / 60.0) * 1000.0;
     }
 
     public static function mapBpmChanges(chart:Chart):Void {
         bpmChangeMap = [];
-        if (chart == null) return;
 
-        var curBPM:Float = chart.bpm;
+        var curBPM:Float = (chart != null && chart.bpm > 0) ? chart.bpm : bpm;
         var totalSteps:Int = 0;
-        var totalTime:Float = 0.0;
+        var totalPos:Float = 0.0;
 
-        for (i in 0...chart.bpmChanges.length) {
-            var change = chart.bpmChanges[i];
-            if (change.bpm != curBPM) {
-                curBPM = change.bpm;
-                bpmChangeMap.push({
-                    stepTime: change.stepTime,
-                    time: change.time,
-                    bpm: curBPM
-                });
+        bpmChangeMap.push({
+            stepTime: 0,
+            songTime: 0.0,
+            bpm: curBPM,
+            stepCrochet: ((60.0 / curBPM) * 1000.0) / 4.0
+        });
+
+        if (chart != null && chart.events != null) {
+            for (e in chart.events) {
+                if (e != null && (e.name == "BPM Change" || e.name == "Change BPM")) {
+                    var newBpmVal = Std.parseFloat(e.val1);
+                    if (!Math.isNaN(newBpmVal) && newBpmVal > 0) {
+                        var eventCrochet = ((60.0 / newBpmVal) * 1000.0) / 4.0;
+                        bpmChangeMap.push({
+                            stepTime: Math.floor(e.time / eventCrochet),
+                            songTime: e.time,
+                            bpm: newBpmVal,
+                            stepCrochet: eventCrochet
+                        });
+                    }
+                }
             }
         }
+
+        safeZoneOffset = (safeFrames / 60.0) * 1000.0;
     }
 
-    /**
-     * Calculates the current BPM accounting for mid-song BPM changes.
-     */
-    public static function getBPMAtTime(time:Float):Float {
-        var lastBPM = bpm;
-        for (change in bpmChangeMap) {
-            if (time >= change.time) {
-                lastBPM = change.bpm;
+    public static function getBPMAtTime(time:Float):BPMChangeEvent {
+        var lastChange:BPMChangeEvent = {
+            stepTime: 0,
+            songTime: 0.0,
+            bpm: bpm,
+            stepCrochet: stepCrochet
+        };
+
+        for (i in 0...bpmChangeMap.length) {
+            if (time >= bpmChangeMap[i].songTime) {
+                lastChange = bpmChangeMap[i];
             }
         }
-        return lastBPM;
+
+        return lastChange;
+    }
+
+    public static function update(elapsed:Float):Void {
+        var lastChange = getBPMAtTime(songPosition);
+        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) ? lastChange.stepCrochet : stepCrochet;
+
+        curStep = lastChange.stepTime + Math.floor((songPosition - lastChange.songTime) / currentStepCrochet);
+        curBeat = Math.floor(curStep / 4);
+        curMeasure = Math.floor(curBeat / 4);
     }
 
     public static function reset():Void {
         bpm = 100.0;
+        crochet = ((60.0 / bpm) * 1000.0);
+        stepCrochet = (crochet / 4.0);
         songPosition = 0.0;
-        timeScale = 1.0;
+        curBeat = 0;
+        curStep = 0;
+        curMeasure = 0;
         bpmChangeMap = [];
-        changeBPM(100.0);
     }
 }

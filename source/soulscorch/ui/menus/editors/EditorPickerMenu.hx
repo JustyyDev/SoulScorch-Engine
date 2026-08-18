@@ -28,14 +28,24 @@ class EditorPickerMenu extends MusicBeatState {
     ];
 
     private var grpOptions:FlxTypedGroup<Alphabet>;
+    private var bg:FlxSprite;
 
     override public function create():Void {
         super.create();
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF1B1424);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
+            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF1B1424);
+        }
+        bg.color = 0xFF2A2035;
+        bg.screenCenter();
+        bg.antialiasing = true;
         add(bg);
 
-        var title = new Alphabet(0, 40, "SOULSCORCH EDITORS", true);
+        var titleBox = new FlxSprite(0, 0).makeGraphic(FlxG.width, 100, 0xAA000000);
+        add(titleBox);
+
+        var title = new Alphabet(0, 20, "SOULSCORCH EDITORS", true);
         title.screenCenter(X);
         add(title);
 
@@ -43,7 +53,7 @@ class EditorPickerMenu extends MusicBeatState {
         add(grpOptions);
 
         for (i in 0...options.length) {
-            var opt = new Alphabet(0, (i * 90) + 160, options[i], true);
+            var opt = new Alphabet(0, (i * 100) + 160, options[i], true);
             opt.isMenuItem = true;
             opt.targetY = i;
             opt.screenCenter(X);

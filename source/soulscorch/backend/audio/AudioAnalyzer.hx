@@ -1,8 +1,8 @@
-package soulscorch.system;
+package soulscorch.backend.audio;
 
 import openfl.media.SoundMixer;
 import openfl.utils.ByteArray;
-import soulscorch.core.EventBus;
+import soulscorch.backend.system.EventBus;
 
 class AudioAnalyzer {
     public var bass:Float = 0;
@@ -51,10 +51,9 @@ class AudioAnalyzer {
 
         if (beatCooldown > 0) beatCooldown -= elapsed;
 
-        // Emit a beat event when bass spikes and the cooldown has elapsed
         if (bass > 0.6 && beatCooldown <= 0) {
             beatCooldown = 0.12;
-            EventBus.publish("audio/beat", {bass: bass, mid: mid, treble: treble});
+            EventBus.emit("audio/beat", {bass: bass, mid: mid, treble: treble});
         }
     }
 }

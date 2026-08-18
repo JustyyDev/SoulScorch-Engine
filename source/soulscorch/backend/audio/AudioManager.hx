@@ -1,125 +1,111 @@
 package soulscorch.backend.audio;
 
 import flixel.FlxG;
-import flixel.sound.FlxSound;
-import openfl.media.Sound;
-import soulscorch.backend.assets.AssetResolver;
+import flixel.system.FlxSound;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
 
-using StringTools;
-
 class AudioManager {
     public var inst:FlxSound;
-    public var playerVocals:FlxSound;
+    public var vocals:FlxSound;
     public var opponentVocals:FlxSound;
-
-    public var isPlaying:Bool = false;
     public var onSongComplete:Void->Void;
 
-    public function new() {
-        inst = new FlxSound();
-        playerVocals = new FlxSound();
-        opponentVocals = new FlxSound();
+    public var isMutedVocalPlayer:Bool = false;
+    public var isMutedVocalOpponent:Bool = false;
 
-        FlxG.sound.list.add(inst);
-        FlxG.sound.list.add(playerVocals);
-        FlxG.sound.list.add(opponentVocals);
-    }
+    public function new() {}
 
-    public function loadSong(songId:String):Bool {
+    public function loadSong(songId:String):Void {
         clear();
 
-        var clean = songId.toLowerCase().trim();
-        var instSound = Paths.inst(clean);
-        var voicesSound = Paths.voices(clean);
-
+        var instSound = Paths.inst(songId);
         if (instSound != null) {
-            inst.loadEmbedded(instSound);
-        } else {
-            Logger.warn('Could not find Inst audio for: $clean', "audio");
+            inst = new FlxSound().loadEmbedded(instSound);
+            inst.onComplete = function() {
+                if (onSongComplete != null) onSongComplete();
+            };
+            FlxG.sound.list.add(inst);
         }
 
-        if (voicesSound != null) {
-            playerVocals.loadEmbedded(voicesSound);
+        var voiceSound = Paths.voices(songId);
+        if (voiceSound != null) {
+            vocals = new FlxSound().loadEmbedded(voiceSound);
+            FlxG.sound.list.add(vocals);
         }
 
-        var oppVoicesPathStr = 'assets/songs/$clean/Voices-Opponent.ogg';
-        if (AssetResolver.exists(oppVoicesPathStr)) {
-            var oppSound = AssetResolver.getSound(oppVoicesPathStr);
-            if (oppSound != null) {
-                opponentVocals.loadEmbedded(oppSound);
-            }
+        var oppVoiceSound = Paths.voices(songId + "-opponent");
+        if (oppVoiceSound != null) {
+            opponentVocals = new FlxSound().loadEmbedded(oppVoiceSound);
+            FlxG.sound.list.add(opponentVocals);
         }
-
-        inst.onComplete = function() {
-            if (onSongComplete != null) onSongComplete();
-        };
-
-        return instSound != null;
     }
 
     public function play():Void {
-        inst.play();
-        @:privateAccess if (playerVocals._sound != null) playerVocals.play();
-        @:privateAccess if (opponentVocals._sound != null) opponentVocals.play();
-        isPlaying = true;
+        if (inst != null) inst.play();
+        if (vocals != null) vocals.play();
+        if (opponentVocals != null) opponentVocals.play();
     }
 
     public function pause():Void {
-        inst.pause();
-        @:privateAccess if (playerVocals._sound != null) playerVocals.pause();
-        @:privateAccess if (opponentVocals._sound != null) opponentVocals.pause();
-        isPlaying = false;
+        if (inst != null) inst.pause();
+        if (vocals != null) vocals.pause();
+        if (opponentVocals != null) opponentVocals.pause();
     }
 
     public function resume():Void {
-        inst.resume();
-        @:privateAccess if (playerVocals._sound != null) playerVocals.resume();
-        @:privateAccess if (opponentVocals._sound != null) opponentVocals.resume();
-        isPlaying = true;
+        if (inst != null) inst.resume();
+        if (vocals != null) vocals.resume();
+        if (opponentVocals != null) opponentVocals.resume();
     }
 
     public function stop():Void {
-        inst.stop();
-        @:privateAccess if (playerVocals._sound != null) playerVocals.stop();
-        @:privateAccess if (opponentVocals._sound != null) opponentVocals.stop();
-        isPlaying = false;
+        if (inst != null) inst.stop();
+        if (vocals != null) vocals.stop();
+        if (opponentVocals != null) opponentVocals.stop();
     }
 
-    public function setTime(timeMs:Float):Void {
-        inst.time = timeMs;
-        @:privateAccess if (playerVocals._sound != null) playerVocals.time = timeMs;
-        @:privateAccess if (opponentVocals._sound != null) opponentVocals.time = timeMs;
-    }
-
-    public function muteVocal(isPlayer:Bool, mute:Bool):Void {
-        @:privateAccess {
-            if (isPlayer && playerVocals._sound != null) {
-                playerVocals.volume = mute ? 0.0 : 1.0;
-            } else if (!isPlayer && opponentVocals._sound != null) {
-                opponentVocals.volume = mute ? 0.0 : 1.0;
+    public function muteVocal(isPlayer:Bool, muted:Bool):Void {
+        if (isPlayer) {
+            isMutedVocalPlayer = muted;
+            if (vocals != null) {
+                vocals.volume = Math.max(0.0, Math.min(1.0, muted ? 0.0 : 1.0));
+            }
+        } else {
+            isMutedVocalOpponent = muted;
+            if (opponentVocals != null) {
+                opponentVocals.volume = Math.max(0.0, Math.min(1.0, muted ? 0.0 : 1.0));
             }
         }
     }
 
     public function update(elapsed:Float):Void {
-        if (isPlaying && inst != null && inst.playing) {
-            @:privateAccess {
-                if (playerVocals._sound != null && Math.abs(inst.time - playerVocals.time) > 20) {
-                    playerVocals.time = inst.time;
-                }
-                if (opponentVocals._sound != null && Math.abs(inst.time - opponentVocals.time) > 20) {
-                    opponentVocals.time = inst.time;
-                }
+        if (inst != null && inst.playing) {
+            if (vocals != null && vocals.playing && Math.abs(inst.time - vocals.time) > 20) {
+                vocals.time = inst.time;
+            }
+            if (opponentVocals != null && opponentVocals.playing && Math.abs(inst.time - opponentVocals.time) > 20) {
+                opponentVocals.time = inst.time;
             }
         }
     }
 
     public function clear():Void {
         stop();
-        inst.loadEmbedded(null);
-        playerVocals.loadEmbedded(null);
-        opponentVocals.loadEmbedded(null);
+        if (inst != null) {
+            FlxG.sound.list.remove(inst, true);
+            inst.destroy();
+            inst = null;
+        }
+        if (vocals != null) {
+            FlxG.sound.list.remove(vocals, true);
+            vocals.destroy();
+            vocals = null;
+        }
+        if (opponentVocals != null) {
+            FlxG.sound.list.remove(opponentVocals, true);
+            opponentVocals.destroy();
+            opponentVocals = null;
+        }
     }
 }
