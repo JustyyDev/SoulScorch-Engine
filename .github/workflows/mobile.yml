@@ -25,9 +25,9 @@ jobs:
       - name: Setup Android SDK Tools
         uses: android-actions/setup-android@v3
 
-      - name: Install Android NDK (r21e) & Build-Tools
+      - name: Install Android NDK & Build-Tools
         run: |
-          sdkmanager --install "ndk;21.4.7075529" "platforms;android-34" "build-tools;34.0.0" "cmake;3.10.2.4988404"
+          sdkmanager --install "ndk;25.2.9519653" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1"
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v2
@@ -42,7 +42,8 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always
           haxelib install flixel-addons 3.2.3 --quiet --always
           haxelib install flixel-ui 2.6.1 --quiet --always
-          haxelib install hscript --quiet --always
+          haxelib install hscript 2.4.0 --quiet --always
+          haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib run lime setup -y
@@ -51,8 +52,9 @@ jobs:
       - name: Configure Android Lime SDK Paths
         run: |
           haxelib run lime config ANDROID_SDK $ANDROID_HOME
-          haxelib run lime config ANDROID_NDK_ROOT $ANDROID_HOME/ndk/21.4.7075529
+          haxelib run lime config ANDROID_NDK_ROOT $ANDROID_HOME/ndk/25.2.9519653
           haxelib run lime config JAVA_HOME $JAVA_HOME
+          haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
         run: haxelib run lime build android -release -DNO_PRELOAD_ALL
@@ -72,7 +74,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v2
@@ -87,7 +89,8 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always
           haxelib install flixel-addons 3.2.3 --quiet --always
           haxelib install flixel-ui 2.6.1 --quiet --always
-          haxelib install hscript --quiet --always
+          haxelib install hscript 2.4.0 --quiet --always
+          haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib run lime setup -y
