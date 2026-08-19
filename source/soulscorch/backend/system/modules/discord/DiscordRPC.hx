@@ -48,7 +48,7 @@ class DiscordRPC extends ModuleBase {
 
         try {
             mutex.acquire();
-            handlers = DiscordEventHandlers.create();
+            handlers = untyped __cpp__("DiscordEventHandlers()");
             handlers.ready = cpp.Function.fromStaticFunction(onReady);
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
             handlers.errored = cpp.Function.fromStaticFunction(onError);
@@ -64,7 +64,9 @@ class DiscordRPC extends ModuleBase {
             Logger.info('Discord RPC initialized successfully (App ID: $clientID).', "discord");
             setMenuPresence("Main Menu");
         } catch (e:Dynamic) {
-            if (mutex != null) mutex.release();
+            if (mutex != null) {
+                try { mutex.release(); } catch (err:Dynamic) {}
+            }
             Logger.error('Failed to initialize Discord RPC: $e', "discord");
             isInitialized = false;
         }
@@ -136,7 +138,7 @@ class DiscordRPC extends ModuleBase {
             currentDetails = details;
             currentState = (state != null) ? state : "";
 
-            presence = DiscordRichPresence.create();
+            presence = untyped __cpp__("DiscordRichPresence()");
             presence.details = details;
             presence.state = currentState;
             presence.largeImageKey = (largeImageKey != null && largeImageKey.length > 0) ? largeImageKey : "icon";

@@ -17,13 +17,13 @@ import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
+import soulscorch.backend.system.engine.EngineOptimizer;
 import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.backend.system.engine.EngineOptimizer; // Added import
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.FileWatcher;
 import soulscorch.scripting.mod.ModManager;
@@ -81,7 +81,7 @@ class Main extends Sprite {
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
             var devConsole = DevConsole.instance;
-            if (devConsole.parent == null) {
+            if (devConsole != null && devConsole.parent == null) {
                 addChild(devConsole);
             }
 
@@ -89,13 +89,11 @@ class Main extends Sprite {
             fpsCounter.visible = true;
             addChild(fpsCounter);
 
-            // Configure Game Runtime, Settings & Mods
             var config = new GameConfig();
             config.framerate = framerate;
             Runtime.bootstrap(config);
             Runtime.setupFlixel();
 
-            // Initialize Optimizer
             EngineOptimizer.init(framerate);
 
             ModManager.reloadMods();
@@ -152,6 +150,6 @@ class Main extends Sprite {
             fileWatcher.update(FlxG.elapsed);
         }
         HotReloader.update();
-        EngineOptimizer.update(FlxG.elapsed); // Tick optimizer every frame
+        EngineOptimizer.update(FlxG.elapsed);
     }
 }

@@ -64,10 +64,8 @@ class Conductor {
             }
         }
 
-        // Sort chronologically
         bpmChangeMap.sort(function(a, b) return (a.songTime < b.songTime) ? -1 : 1);
 
-        // Calculate step intervals based on preceding BPMs
         var totalSteps:Int = 0;
         for (i in 1...bpmChangeMap.length) {
             var prev = bpmChangeMap[i - 1];

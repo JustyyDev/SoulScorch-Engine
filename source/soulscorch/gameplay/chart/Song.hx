@@ -55,9 +55,6 @@ class Song {
         this.chart = new Chart();
     }
 
-    /**
-     * Resolves chart JSON from active mods or base assets and returns a fully initialized Song instance.
-     */
     public static function load(songId:String, difficulty:String = "normal"):Song {
         var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
         var diffName = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
@@ -71,13 +68,15 @@ class Song {
             'data/$cleanSong/$diffName',
             'data/charts/$cleanSong/$diffName',
             'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix',
-            'assets/preload/songs/$cleanSong/$diffName'
+            'assets/preload/songs/$cleanSong/$diffName',
+            'assets/preload/songs/$cleanSong/charts/$diffName'
         ];
 
         if (diffName == "normal") {
             pathsToTry.push('songs/$cleanSong/chart');
             pathsToTry.push('songs/$cleanSong/$cleanSong');
             pathsToTry.push('data/$cleanSong/$cleanSong');
+            pathsToTry.push('assets/preload/songs/$cleanSong/charts/normal');
         }
 
         var finalPath:String = null;
@@ -100,9 +99,6 @@ class Song {
         return songInstance;
     }
 
-    /**
-     * Legacy deserializer returning raw SwagSong dynamic data.
-     */
     public static function loadFromJson(songId:String, difficulty:String = "normal"):Null<SwagSong> {
         var songObj = load(songId, difficulty);
         if (songObj == null) return null;

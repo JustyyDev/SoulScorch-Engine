@@ -84,9 +84,16 @@ if "%target%"=="1" (
     echo [*] Compiling Windows C++ with Debug Tracing...
     "%HAXE_DIR%\haxelib.exe" run lime test windows -debug -DHXCPP_STACK_LINE
 ) else if "%target%"=="5" (
-    echo [*] Cleaning export cache...
-    if exist "export\release" rd /s /q "export\release"
-    if exist "bin" rd /s /q "bin"
+    echo [*] Terminating lingering game processes...
+    taskkill /F /IM SoulScorch.exe /T 2>nul
+    taskkill /F /IM SoulScorch-debug.exe /T 2>nul
+    timeout /t 1 /nobreak >nul
+
+    echo [*] Cleaning export and bin directories...
+    if exist "export\release" rd /s /q "export\release" 2>nul
+    if exist "export" rd /s /q "export" 2>nul
+    if exist "bin" rd /s /q "bin" 2>nul
+
     echo [*] Rebuilding C++...
     "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_PCH
 ) else if "%target%"=="6" (
@@ -94,14 +101,15 @@ if "%target%"=="1" (
     "%HAXE_DIR%\haxelib.exe" setup "%HAXELIB_DIR%"
     "%HAXE_DIR%\haxelib.exe" install lime 8.1.3 --always
     "%HAXE_DIR%\haxelib.exe" install openfl 9.3.3 --always
-    "%HAXE_DIR%\haxelib.exe" install flixel 5.6.1 --always
+    "%HAXE_DIR%\haxelib.exe" install flixel 5.6.2 --always
     "%HAXE_DIR%\haxelib.exe" install flixel-addons 3.2.3 --always
     "%HAXE_DIR%\haxelib.exe" install flixel-ui 2.6.1 --always
-    "%HAXE_DIR%\haxelib.exe" install hscript --always
+    "%HAXE_DIR%\haxelib.exe" install hscript 2.5.0 --always
+    "%HAXE_DIR%\haxelib.exe" set hscript 2.5.0
     "%HAXE_DIR%\haxelib.exe" install hscript-iris 1.1.0 --always
     "%HAXE_DIR%\haxelib.exe" install away3d --always
     "%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always
-    "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/CodenameCrew/cne-hxdiscord_rpc.git --always
+    "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
     "%HAXE_DIR%\haxelib.exe" run lime setup -y
 )
 
