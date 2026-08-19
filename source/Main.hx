@@ -167,7 +167,7 @@ class Main extends Sprite {
         EngineOptimizer.update(safeElapsed);
 
         #if (cpp && !mobile && !neko)
-        DiscordRPC.update();
+        DiscordRPC.poll();
         #end
     }
 }
