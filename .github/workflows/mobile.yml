@@ -60,13 +60,20 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
           haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
           haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
-          haxelib install hscript 2.3.0 --quiet --always
-          haxelib set hscript 2.3.0
+          haxelib install hscript 2.4.0 --quiet --always
+          haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
+
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
+        run: |
+          FLXEL_PATH=$(haxelib libpath flixel)
+          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
+          echo "Patching $CONSOLE_UTIL"
+          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
 
       - name: Configure Android Lime SDK Paths
         run: |
@@ -119,13 +126,20 @@ jobs:
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
           haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
           haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
-          haxelib install hscript 2.3.0 --quiet --always
-          haxelib set hscript 2.3.0
+          haxelib install hscript 2.4.0 --quiet --always
+          haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
+
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
+        run: |
+          FLXEL_PATH=$(haxelib libpath flixel)
+          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
+          echo "Patching $CONSOLE_UTIL"
+          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
 
       - name: Generate iOS C++ & Xcode Project
         run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
