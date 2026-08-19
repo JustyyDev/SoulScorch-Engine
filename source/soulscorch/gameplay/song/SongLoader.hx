@@ -25,7 +25,10 @@ class SongLoader {
             'data/$cleanSong/$cleanSong$diffSuffix',
             'data/$cleanSong/$cleanDiff',
             'data/charts/$cleanSong/$cleanDiff',
-            'songs/$cleanSong/${cleanSong}_$cleanDiff'
+            'songs/$cleanSong/${cleanSong}_$cleanDiff',
+            'assets/preload/songs/$cleanSong/charts/$cleanDiff',
+            'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix',
+            'assets/preload/songs/$cleanSong/$cleanDiff'
         ];
 
         if (cleanDiff == "normal") {
@@ -33,6 +36,8 @@ class SongLoader {
             chartCandidates.push('songs/$cleanSong/$cleanSong');
             chartCandidates.push('data/$cleanSong/$cleanSong');
             chartCandidates.push('data/$cleanSong/chart');
+            chartCandidates.push('assets/preload/songs/$cleanSong/charts/$cleanSong');
+            chartCandidates.push('assets/preload/songs/$cleanSong/charts/normal');
         }
 
         var resolvedChart:String = null;
@@ -53,12 +58,13 @@ class SongLoader {
             var parsedSong:Song = ChartParser.parse(rawJson, cleanSong);
             parsedSong.difficulty = cleanDiff;
 
-            // Load Metadata (meta.json, _meta.json, song.json)
             var metaCandidates = [
                 'songs/$cleanSong/meta',
                 'songs/$cleanSong/_meta',
                 'data/$cleanSong/meta',
-                'data/$cleanSong/_meta'
+                'data/$cleanSong/_meta',
+                'assets/preload/songs/$cleanSong/meta',
+                'assets/preload/songs/$cleanSong/_meta'
             ];
 
             for (m in metaCandidates) {

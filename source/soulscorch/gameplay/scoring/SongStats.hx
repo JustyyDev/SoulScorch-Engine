@@ -45,13 +45,13 @@ class SongStats {
         this.score = score;
         this.misses = misses;
         this.hits = hits;
-        this.accuracy = accuracy;
+        this.accuracy = Math.isNaN(accuracy) ? 0.0 : accuracy;
         this.health = health;
         this.maxHealth = maxHealth;
         this.cleared = cleared;
         this.fc = (cleared && misses == 0 && bads == 0 && shits == 0);
-        this.rating = computeRating(accuracy, cleared);
-        this.clearType = computeClearType(accuracy, misses, bads, shits, cleared);
+        this.rating = computeRating(this.accuracy, cleared);
+        this.clearType = computeClearType(this.accuracy, misses, bads, shits, cleared);
     }
 
     public function registerJudgment(judg:Judgment):Void {

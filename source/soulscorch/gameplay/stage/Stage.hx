@@ -11,6 +11,7 @@ import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.stage.StageJson;
@@ -48,11 +49,16 @@ class Stage extends FlxGroup {
     }
 
     public function load():Void {
+        var cleanId = stageId.toLowerCase().trim();
         var jsonCandidates = [
-            'stages/$stageId.json',
-            'data/stages/$stageId.json',
-            'stages/$stageId/$stageId.json',
-            'data/stages/$stageId/$stageId.json'
+            'stages/$cleanId.json',
+            'data/stages/$cleanId.json',
+            'stages/$cleanId/$cleanId.json',
+            'data/stages/$cleanId/$cleanId.json',
+            'assets/stages/$cleanId.json',
+            'assets/data/stages/$cleanId.json',
+            'assets/preload/stages/$cleanId.json',
+            'assets/preload/data/stages/$cleanId.json'
         ];
 
         var resolvedJson:String = null;
@@ -61,12 +67,12 @@ class Stage extends FlxGroup {
             if (resolvedJson != null) break;
         }
 
-        // Script loading across supported extensions (.hx, .soul, .lua)
         var scriptCandidates = [
-            'stages/$stageId',
-            'data/stages/$stageId',
-            'stages/$stageId/$stageId',
-            'data/stages/$stageId/$stageId'
+            'stages/$cleanId',
+            'data/stages/$cleanId',
+            'stages/$cleanId/$cleanId',
+            'data/stages/$cleanId/$cleanId',
+            'assets/preload/stages/$cleanId'
         ];
 
         for (candidate in scriptCandidates) {
@@ -83,7 +89,7 @@ class Stage extends FlxGroup {
         }
 
         if (resolvedJson == null) {
-            Logger.warn('Stage descriptor not found for "$stageId", building fallback default stage.', "stage");
+            Logger.warn('Stage descriptor not found for "$cleanId", building fallback default stage.', "stage");
             buildDefaultStage();
             if (script != null) script.call("onCreatePost");
             return;
@@ -115,7 +121,7 @@ class Stage extends FlxGroup {
                 }
             }
         } catch (e:Dynamic) {
-            Logger.error('Failed to parse stage layout for $stageId: $e', "stage");
+            Logger.error('Failed to parse stage layout for $cleanId: $e', "stage");
             buildDefaultStage();
         }
 
@@ -170,9 +176,15 @@ class Stage extends FlxGroup {
         }
     }
 
-    /**
-     * Dynamically spawn a new stage prop or animated sprite at runtime via script or code.
-     */
+    public function setStageCameras(targetCamera:FlxCamera):Void {
+        for (layerGroup in layers) {
+            layerGroup.cameras = [targetCamera];
+        }
+        for (spr in stageSprites) {
+            spr.cameras = [targetCamera];
+        }
+    }
+
     public function spawnDynamicProp(id:String, image:String, x:Float, y:Float, layer:String = "background", animated:Bool = false, scrollX:Float = 1.0, scrollY:Float = 1.0):FlxSprite {
         var spr = new FlxSprite(x, y);
         if (animated) {
@@ -197,9 +209,6 @@ class Stage extends FlxGroup {
         return spr;
     }
 
-    /**
-     * Remove a stage sprite by its unique ID.
-     */
     public function removeProp(id:String):Bool {
         if (stageSprites.exists(id)) {
             var spr = stageSprites.get(id);
@@ -223,10 +232,14 @@ class Stage extends FlxGroup {
             if (arr.length >= 2) {
                 return [Std.parseFloat(Std.string(arr[0])), Std.parseFloat(Std.string(arr[1]))];
             }
-        } else if (Reflect.isObject(raw) && Reflect.hasField(raw, "position")) {
-            var posArr:Array<Dynamic> = cast Reflect.field(raw, "position");
-            if (posArr != null && posArr.length >= 2) {
-                return [Std.parseFloat(Std.string(posArr[0])), Std.parseFloat(Std.string(posArr[1]))];
+        } else if (Reflect.isObject(raw)) {
+            if (Reflect.hasField(raw, "position")) {
+                var posArr:Array<Dynamic> = cast Reflect.field(raw, "position");
+                if (posArr != null && posArr.length >= 2) {
+                    return [Std.parseFloat(Std.string(posArr[0])), Std.parseFloat(Std.string(posArr[1]))];
+                }
+            } else if (Reflect.hasField(raw, "x") && Reflect.hasField(raw, "y")) {
+                return [Std.parseFloat(Std.string(Reflect.field(raw, "x"))), Std.parseFloat(Std.string(Reflect.field(raw, "y")))];
             }
         }
         return fallback;

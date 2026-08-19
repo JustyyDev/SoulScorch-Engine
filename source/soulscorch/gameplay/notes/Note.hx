@@ -4,7 +4,6 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.math.FlxMath;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 
 using StringTools;
@@ -20,6 +19,7 @@ class Note extends FlxSprite {
     public var tail:Array<Note> = [];
     public var sustainLength:Float = 0.0;
     public var noteType:String = "default";
+    public var skin:String = "default";
 
     public var canBeHit:Bool = false;
     public var tooLate:Bool = false;
@@ -36,10 +36,10 @@ class Note extends FlxSprite {
     public var copyAngle:Bool = true;
     public var copyAlpha:Bool = true;
 
-    private var colorDirections:Array<String> = ["purple", "blue", "green", "red"];
-    private var directionNames:Array<String> = ["left", "down", "up", "right"];
+    private static var colorDirections:Array<String> = ["purple", "blue", "green", "red"];
+    private static var directionNames:Array<String> = ["left", "down", "up", "right"];
 
-    public function new(strumTime:Float, noteData:Int, ?sustainLength:Float = 0.0, ?parent:Note = null, isSustainNote:Bool = false, isSustainEnd:Bool = false, mustPress:Bool = true, ?noteType:String = "default") {
+    public function new(strumTime:Float, noteData:Int, ?sustainLength:Float = 0.0, ?parent:Note = null, isSustainNote:Bool = false, isSustainEnd:Bool = false, mustPress:Bool = true, ?noteType:String = "default", ?skin:String = "default") {
         super();
 
         this.strumTime = strumTime;
@@ -51,6 +51,7 @@ class Note extends FlxSprite {
         this.isSustainEnd = isSustainEnd;
         this.mustPress = mustPress;
         this.noteType = (noteType != null && noteType.length > 0) ? noteType : "default";
+        this.skin = (skin != null && skin.length > 0) ? skin : NoteSkinManager.getNoteSkinName();
 
         loadNoteGraphic();
         antialiasing = true;
@@ -58,14 +59,10 @@ class Note extends FlxSprite {
 
     public function loadNoteGraphic():Void {
         var dirColor = colorDirections[noteData % 4];
-        var dirName = directionNames[noteData % 4];
+        var atlas = NoteSkinManager.getSkinAtlas(skin);
 
-        var loaded = AssetHelper.loadSparrowSafely(this, "notes/default");
-        if (!loaded) {
-            loaded = AssetHelper.loadSparrowSafely(this, "NOTE_assets");
-        }
-
-        if (loaded && frames != null) {
+        if (atlas != null) {
+            frames = atlas;
             if (isSustainNote) {
                 if (isSustainEnd) {
                     animation.addByPrefix("holdend", '$dirColor hold end', 24, true);
@@ -83,16 +80,21 @@ class Note extends FlxSprite {
             makeGraphic(isSustainNote ? 30 : 100, isSustainNote ? 45 : 100, colors[noteData % 4]);
         }
 
+        setGraphicSize(Std.int(width * 0.7));
         updateHitbox();
 
         if (isSustainNote) {
-            offsetX += width / 2;
             alpha = 0.6;
+            offsetX += width / 2;
+            if (parent != null) {
+                offsetX = parent.offsetX + (parent.width / 2) - (width / 2);
+            }
         }
     }
 
     public function updatePosition(strumX:Float, strumY:Float, scrollSpeed:Float, downscroll:Bool):Void {
-        var distance = (strumTime - Conductor.songPosition) * (0.45 * FlxMath.roundDecimal(scrollSpeed * multSpeed, 2));
+        var speed:Float = FlxMath.roundDecimal(scrollSpeed * multSpeed, 2);
+        var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * speed);
 
         if (copyX) x = strumX + offsetX;
         if (copyY) {
@@ -100,15 +102,16 @@ class Note extends FlxSprite {
                 y = strumY + distance + offsetY;
                 if (isSustainNote) {
                     if (isSustainEnd) {
-                        y += (Conductor.stepCrochet * 0.45 * scrollSpeed) - height;
+                        y += (Conductor.stepCrochet * 0.45 * speed) - height;
                     }
+                    flipY = true;
                 }
             } else {
                 y = strumY - distance + offsetY;
+                if (isSustainNote) flipY = false;
             }
         }
 
-        // Judge windows calculation
         if (mustPress) {
             if (isSustainNote) {
                 canBeHit = (strumTime <= Conductor.songPosition + (Conductor.stepCrochet * 0.5)

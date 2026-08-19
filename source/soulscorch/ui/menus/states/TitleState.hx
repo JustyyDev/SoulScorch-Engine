@@ -75,7 +75,7 @@ class TitleState extends MusicBeatState {
         persistentUpdate = true;
 
         logoBump = new FlxSprite(-150, -100);
-        var loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "menus/titlescreen/logo");
+        var loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "ui/titlescreen/logo");
         if (!loadedLogo) loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "logoBumpin");
 
         if (loadedLogo && logoBump.frames != null) {
@@ -87,7 +87,7 @@ class TitleState extends MusicBeatState {
         add(logoBump);
 
         gfDance = new FlxSprite(FlxG.width * 0.4, 40);
-        var loadedGf = AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
+        var loadedGf = AssetHelper.loadSparrowSafely(gfDance, "ui/titlescreen/gf");
         if (!loadedGf) loadedGf = AssetHelper.loadSparrowSafely(gfDance, "gfDanceTitle");
 
         if (loadedGf && gfDance.frames != null) {
@@ -99,7 +99,7 @@ class TitleState extends MusicBeatState {
         add(gfDance);
 
         titleText = new FlxSprite(100, FlxG.height * 0.8);
-        var loadedTitle = AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
+        var loadedTitle = AssetHelper.loadSparrowSafely(titleText, "ui/titlescreen/titleEnter");
         if (!loadedTitle) loadedTitle = AssetHelper.loadSparrowSafely(titleText, "titleEnter");
 
         if (loadedTitle && titleText.frames != null) {
@@ -117,7 +117,7 @@ class TitleState extends MusicBeatState {
         blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 
         ngSpr = new FlxSprite(0, FlxG.height * 0.52);
-        var loadedNG = AssetHelper.loadImageSafely(ngSpr, "menus/titlescreen/newgrounds_logo");
+        var loadedNG = AssetHelper.loadImageSafely(ngSpr, "ui/titlescreen/newgrounds_logo");
         if (!loadedNG) loadedNG = AssetHelper.loadImageSafely(ngSpr, "newgrounds_logo");
 
         if (!loadedNG) {

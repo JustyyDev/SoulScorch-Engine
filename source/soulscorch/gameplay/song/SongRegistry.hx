@@ -38,20 +38,19 @@ class SongRegistry {
         var scannedIds:Map<String, Bool> = new Map<String, Bool>();
 
         #if sys
-        // 1. Scan from active mods first (highest priority)
         if (ModManager.activeMods != null) {
             for (mod in ModManager.activeMods) {
                 scanFolder('mods/$mod/songs', scannedIds, mod);
                 scanFolder('mods/$mod/data', scannedIds, mod);
                 scanFolder('mods/$mod/assets/songs', scannedIds, mod);
                 scanFolder('mods/$mod/assets/data', scannedIds, mod);
+                scanFolder('mods/$mod/assets/preload/songs', scannedIds, mod);
             }
         }
 
-        // 2. Scan core base assets
+        scanFolder("assets/preload/songs", scannedIds, null);
         scanFolder("assets/songs", scannedIds, null);
         scanFolder("assets/data", scannedIds, null);
-        scanFolder("assets/preload/songs", scannedIds, null);
         scanFolder("assets/shared/songs", scannedIds, null);
         #end
 
@@ -68,11 +67,12 @@ class SongRegistry {
             var lowerId = entry.toLowerCase().trim();
 
             if (FileSystem.isDirectory(songDir) && !scannedIds.exists(lowerId)) {
-                // Ensure the directory contains at least one chart JSON or meta file
                 var contents = FileSystem.readDirectory(songDir);
                 var hasValidSongFiles = false;
+
+                // Check direct contents or subfolders (like charts/)
                 for (file in contents) {
-                    if (file.endsWith(".json") || file.endsWith(".ogg") || file.endsWith(".hx")) {
+                    if (file.endsWith(".json") || file.endsWith(".ogg") || file.endsWith(".hx") || file == "charts") {
                         hasValidSongFiles = true;
                         break;
                     }
@@ -89,10 +89,18 @@ class SongRegistry {
                 var color:FlxColor = 0xFF9271FD;
                 var detectedDiffs:Array<String> = [];
 
-                // Discover available difficulties from existing files
-                for (file in contents) {
+                // Check charts directory if present
+                var searchList = contents.copy();
+                if (FileSystem.exists('$songDir/charts') && FileSystem.isDirectory('$songDir/charts')) {
+                    for (cFile in FileSystem.readDirectory('$songDir/charts')) {
+                        searchList.push('charts/$cFile');
+                    }
+                }
+
+                for (file in searchList) {
                     if (file.endsWith(".json")) {
-                        var baseName = file.substr(0, file.length - 5).toLowerCase();
+                        var baseName = file.substr(file.lastIndexOf("/") + 1);
+                        baseName = baseName.substr(0, baseName.length - 5).toLowerCase();
                         for (d in Difficulty.defaultList) {
                             if (baseName == d || baseName.endsWith('-$d') || baseName.endsWith('_$d')) {
                                 if (!detectedDiffs.contains(d)) detectedDiffs.push(d);

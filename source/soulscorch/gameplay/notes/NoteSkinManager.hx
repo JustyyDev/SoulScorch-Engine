@@ -10,33 +10,44 @@ class NoteSkinManager {
     public static function getSkinAtlas(skinName:String):Null<FlxAtlasFrames> {
         var cleanSkin = (skinName != null && skinName.length > 0) ? skinName : getNoteSkinName();
 
-        var atlas = Paths.getSparrowAtlas('ui/notes/$cleanSkin');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('notes/$cleanSkin');
-        if (atlas == null) atlas = Paths.getSparrowAtlas(cleanSkin);
+        var lookups:Array<String> = [
+            'ui/notes/$cleanSkin',
+            'notes/$cleanSkin',
+            cleanSkin,
+            'gameplay/notes/$cleanSkin',
+            "ui/notes/default",
+            "notes/default",
+            "notes/NOTE_assets",
+            "NOTE_assets"
+        ];
 
-        if (atlas == null) {
-            atlas = Paths.getSparrowAtlas("ui/notes/default");
-            if (atlas == null) atlas = Paths.getSparrowAtlas("notes/default");
-            if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
+        for (path in lookups) {
+            var atlas = Paths.getSparrowAtlas(path);
+            if (atlas != null) return atlas;
         }
 
-        return atlas;
+        return null;
     }
 
     public static function getSplashAtlas(skinName:String):Null<FlxAtlasFrames> {
         var cleanSkin = (skinName != null && skinName.length > 0) ? skinName : getNoteSkinName();
 
-        var atlas = Paths.getSparrowAtlas('ui/notes/${cleanSkin}_splashes');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('ui/notes/splashes_$cleanSkin');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('notes/${cleanSkin}_splashes');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('${cleanSkin}_splashes');
+        var lookups:Array<String> = [
+            'ui/notes/${cleanSkin}_splashes',
+            'ui/notes/splashes_$cleanSkin',
+            'notes/${cleanSkin}_splashes',
+            '${cleanSkin}_splashes',
+            'ui/noteSplashes',
+            'noteSplashes',
+            'ui/notes/default_splashes'
+        ];
 
-        // Global Fallbacks
-        if (atlas == null) atlas = Paths.getSparrowAtlas('ui/noteSplashes');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('noteSplashes');
-        if (atlas == null) atlas = Paths.getSparrowAtlas('ui/notes/default_splashes');
+        for (path in lookups) {
+            var atlas = Paths.getSparrowAtlas(path);
+            if (atlas != null) return atlas;
+        }
 
-        return atlas;
+        return null;
     }
 
     public static function getNoteSkinName():String {

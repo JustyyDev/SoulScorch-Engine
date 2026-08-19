@@ -12,6 +12,8 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 
+using StringTools;
+
 class GameplayFlags {
     public static var active:Map<String, Dynamic> = new Map<String, Dynamic>();
     public static var defaults:Map<String, Dynamic> = new Map<String, Dynamic>();
@@ -40,7 +42,6 @@ class GameplayFlags {
         defaults.set("flashingLights", true);
         defaults.set("botplay", false);
 
-        // Pull active user preferences from Runtime configuration
         if (Runtime.config != null) {
             defaults.set("ghostTapping", Runtime.config.ghostTapping);
             defaults.set("downscroll", Runtime.config.downscroll);
@@ -48,7 +49,6 @@ class GameplayFlags {
             defaults.set("antialiasing", Runtime.config.antialiasing);
         }
 
-        // Pull active saved options from SaveData / FlxG.save
         if (FlxG.save != null && FlxG.save.data != null) {
             if (FlxG.save.data.ghostTapping != null) defaults.set("ghostTapping", FlxG.save.data.ghostTapping);
             if (FlxG.save.data.downscroll != null) defaults.set("downscroll", FlxG.save.data.downscroll);
@@ -134,7 +134,7 @@ class GameplayFlags {
 
     public static function normalizeKey(rawKey:String):String {
         if (rawKey == null) return "";
-        var key:String = StringTools.trim(rawKey);
+        var key:String = rawKey.trim();
         if (key.indexOf(".") != -1) {
             var parts:Array<String> = key.split(".");
             return parts[parts.length - 1];
@@ -144,7 +144,7 @@ class GameplayFlags {
 
     public static function applyFlagString(flagString:String):Void {
         if (flagString == null) return;
-        var cleaned:String = StringTools.trim(flagString);
+        var cleaned:String = flagString.trim();
         if (cleaned.length == 0) return;
 
         if (cleaned.indexOf("=") == -1) {
@@ -155,14 +155,14 @@ class GameplayFlags {
         var parts:Array<String> = cleaned.split("=");
         if (parts.length < 2) return;
 
-        var key:String = StringTools.trim(parts[0]);
-        var valueString:String = StringTools.trim(parts.slice(1).join("="));
+        var key:String = parts[0].trim();
+        var valueString:String = parts.slice(1).join("=").trim();
         set(key, parseScalar(valueString));
     }
 
     static function parseScalar(rawValue:String):Dynamic {
         if (rawValue == null) return true;
-        var value:String = StringTools.trim(rawValue);
+        var value:String = rawValue.trim();
 
         if (value == "true") return true;
         if (value == "false") return false;

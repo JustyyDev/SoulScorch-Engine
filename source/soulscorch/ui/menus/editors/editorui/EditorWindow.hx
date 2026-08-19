@@ -1,108 +1,93 @@
 package soulscorch.ui.menus.editors.editorui;
 
-import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
-import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
+import flixel.math.FlxPoint;
 
 class EditorWindow extends FlxSpriteGroup {
-    public var windowTitle:String;
     public var windowWidth:Float;
     public var windowHeight:Float;
-    public var isMinimized:Bool = false;
+    public var title(default, set):String;
 
-    public var container:FlxSpriteGroup;
-    private var headerBar:FlxSprite;
-    private var headerAccent:FlxSprite;
-    private var bodyBg:FlxSprite;
+    private var bg:FlxSprite;
+    private var header:FlxSprite;
     private var border:FlxSprite;
-    private var titleText:FlxText;
-    private var btnMinimize:FlxSprite;
+    private var titleTxt:FlxText;
+    private var contentGroup:FlxSpriteGroup;
 
     private var isDragging:Bool = false;
-    private var dragOffsetX:Float = 0.0;
-    private var dragOffsetY:Float = 0.0;
+    private var dragOffset:FlxPoint;
 
-    public function new(x:Float, y:Float, width:Float, height:Float, title:String = "Editor Tool") {
+    public function new(x:Float, y:Float, width:Float, height:Float, title:String = "Properties") {
         super(x, y);
         this.windowWidth = width;
         this.windowHeight = height;
-        this.windowTitle = title;
 
-        // Outer Border Frame
-        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), 0xFF2F364D);
+        border = new FlxSprite(-1, -1).makeGraphic(Std.int(width + 2), Std.int(height + 2), EditorTheme.PANEL_BORDER);
         add(border);
 
-        // Body Background Panel
-        bodyBg = new FlxSprite(1, 32).makeGraphic(Std.int(width - 2), Std.int(height - 33), 0xEE0B0E14);
-        add(bodyBg);
+        bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), EditorTheme.PANEL_BG);
+        add(bg);
 
-        // Header Title Bar
-        headerBar = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 31, 0xFF161A26);
-        add(headerBar);
+        header = new FlxSprite(0, 0).makeGraphic(Std.int(width), 26, EditorTheme.PANEL_HEADER);
+        add(header);
 
-        // Header Neon Accent Line
-        headerAccent = new FlxSprite(1, 31).makeGraphic(Std.int(width - 2), 2, 0xFF00FFCC);
-        add(headerAccent);
+        var accentLine = new FlxSprite(0, 25).makeGraphic(Std.int(width), 1, EditorTheme.ACCENT_CYAN);
+        accentLine.alpha = 0.6;
+        add(accentLine);
 
-        titleText = new FlxText(12, 8, width - 45, title, 13);
-        titleText.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, LEFT, OUTLINE, FlxColor.BLACK);
-        titleText.borderSize = 1.0;
-        add(titleText);
+        titleTxt = new FlxText(8, 5, width - 16, title, 13);
+        titleTxt.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
+        add(titleTxt);
 
-        btnMinimize = new FlxSprite(width - 26, 8).makeGraphic(16, 16, 0xFF22283A);
-        add(btnMinimize);
+        contentGroup = new FlxSpriteGroup(0, 28);
+        add(contentGroup);
 
-        container = new FlxSpriteGroup(1, 34);
-        add(container);
-
+        dragOffset = flixel.math.FlxPoint.get(0, 0);
         scrollFactor.set(0, 0);
     }
 
-    public function addElement(element:FlxSprite):Void {
-        if (container != null) {
-            container.add(element);
-        }
+    public function addElement(sprite:FlxSprite):Void {
+        contentGroup.add(sprite);
+    }
+
+    public function removeElement(sprite:FlxSprite):Void {
+        contentGroup.remove(sprite, true);
     }
 
     override public function update(elapsed:Float):Void {
-        super.update(elapsed);
+        var mx = FlxG.mouse.screenX;
+        var my = FlxG.mouse.screenY;
 
-        var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
-        var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
-
-        var onHeader = (mousePos.x >= x && mousePos.x <= x + windowWidth - 30 && mousePos.y >= y && mousePos.y <= y + 32);
-        var onMinBtn = (mousePos.x >= x + windowWidth - 30 && mousePos.x <= x + windowWidth - 6 && mousePos.y >= y + 6 && mousePos.y <= y + 26);
-
-        if (onMinBtn && FlxG.mouse.justPressed) {
-            isMinimized = !isMinimized;
-            if (bodyBg != null) bodyBg.visible = !isMinimized;
-            if (headerAccent != null) headerAccent.visible = !isMinimized;
-            if (container != null) container.visible = !isMinimized;
-            if (border != null) {
-                border.setGraphicSize(Std.int(windowWidth), isMinimized ? 32 : Std.int(windowHeight));
-                border.updateHitbox();
-            }
-            return;
-        }
-
-        if (FlxG.mouse.justPressed && onHeader) {
+        if (FlxG.mouse.justPressed && mx >= x && mx <= x + windowWidth && my >= y && my <= y + 26) {
             isDragging = true;
-            dragOffsetX = mousePos.x - x;
-            dragOffsetY = mousePos.y - y;
-        }
-
-        if (FlxG.mouse.justReleased) {
-            isDragging = false;
+            dragOffset.set(mx - x, my - y);
         }
 
         if (isDragging) {
-            x = Math.max(0, Math.min(FlxG.width - windowWidth, mousePos.x - dragOffsetX));
-            y = Math.max(0, Math.min(FlxG.height - 32, mousePos.y - dragOffsetY));
+            if (FlxG.mouse.pressed) {
+                x = Math.max(0, Math.min(FlxG.width - windowWidth, mx - dragOffset.x));
+                y = Math.max(0, Math.min(FlxG.height - windowHeight, my - dragOffset.y));
+            } else {
+                isDragging = false;
+            }
         }
+
+        super.update(elapsed);
+    }
+
+    private function set_title(val:String):String {
+        title = val;
+        if (titleTxt != null) titleTxt.text = val;
+        return val;
+    }
+
+    override public function destroy():Void {
+        if (dragOffset != null) dragOffset.put();
+        super.destroy();
     }
 }

@@ -63,9 +63,7 @@ class AlphaCharacter extends FlxSprite {
             if (cachedBoldFrames == null) {
                 cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
                 if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet-bold");
-                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("bold");
                 if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet");
-                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet");
             }
             this.frames = cachedBoldFrames;
         } else {
@@ -73,39 +71,43 @@ class AlphaCharacter extends FlxSprite {
                 cachedFrames = Paths.getSparrowAtlas("ui/alphabet");
                 if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet");
                 if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
-                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet-bold");
             }
             this.frames = cachedFrames;
         }
     }
 
     private function setupBold(char:String):Void {
-        var upper = char.toUpperCase();
         var lower = char.toLowerCase();
         var candidates:Array<String> = switch (char) {
-            case "&": ["ampersand bold", "bold ampersand", "ampersand0", "ampersand", "and bold", "&"];
-            case ".": ["period bold", "bold period", "period0", "period", "full stop bold", "."];
-            case "'": ["apostrophe bold", "bold apostrophe", "apostrophe0", "apostrophe", "'"];
-            case "?": ["question bold", "bold question", "question0", "question mark bold", "question", "?"];
-            case "!": ["exclamation bold", "bold exclamation", "exclamation0", "exclamation point bold", "exclamation", "!"];
-            case "-": ["dash bold", "bold dash", "dash0", "dash", "hyphen bold", "-"];
-            case "/": ["forward slash bold", "slash bold", "bold slash", "slash0", "slash", "/"];
-            case "\\": ["back slash bold", "bold back slash", "backslash0", "\\"];
-            case ":": ["colon bold", "bold colon", "colon0", ":"];
-            case ";": ["semicolon bold", "bold semicolon", "semicolon0", ";"];
-            case "\'", "\'": ["quote bold", "bold quote", "quote0", "quote", "\""];
-            case "(": ["left parenthesis bold", "parenthesis left bold", "open paren", "("];
-            case ")": ["right parenthesis bold", "parenthesis right bold", "close paren", ")"];
-            default: [
-                upper + " bold",
-                lower + " bold",
-                "bold " + upper,
-                "bold " + lower,
-                upper + "0",
-                lower + "0",
-                upper,
-                lower
-            ];
+            case "&": ["character-ampersand", "ampersand"];
+            case ".": ["character-period", "period"];
+            case "'": ["character-singlequote", "singlequote", "character-apostophe"];
+            case "?": ["character-questionmark", "questionmark", "character-questionmark-alt"];
+            case "!": ["character-exclamationmark", "exclamationmark", "character-exclamationmark-alt"];
+            case "-": ["character-hyphen", "character-minus", "hyphen"];
+            case "/": ["character-slash", "slash"];
+            case "\\": ["character-backslash", "backslash"];
+            case ":": ["character-colon", "colon"];
+            case ";": ["character-semicolon", "semicolon"];
+            case "\"", "“", "”": ["character-doublequote", "doublequote", "character-doublequote-alt"];
+            case "(": ["character-roundbracket-left", "roundbracket-left"];
+            case ")": ["character-roundbracket-right", "roundbracket-right"];
+            case "<": ["character-anglebracket-left", "character-arrow-left"];
+            case ">": ["character-anglebracket-right", "character-arrow-right"];
+            case "=": ["character-equal", "equal"];
+            case "+": ["character-plus", "plus"];
+            case "%": ["character-percent", "percent"];
+            case "#": ["character-pound", "pound"];
+            case "$": ["character-dollar", "dollar"];
+            case "*": ["character-asterisk", "character-multiply"];
+            default:
+                if (isNumber(char)) {
+                    var numNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+                    var idx = Std.parseInt(char);
+                    ["character-" + numNames[idx], "character-" + char, char];
+                } else {
+                    ["character-" + lower, lower];
+                }
         };
 
         isValid = tryAddAnimation(candidates);
@@ -113,39 +115,40 @@ class AlphaCharacter extends FlxSprite {
 
     private function setupNormal(char:String):Void {
         var isLower = (char == char.toLowerCase());
-        var upper = char.toUpperCase();
         var lower = char.toLowerCase();
         var candidates:Array<String> = switch (char) {
-            case "&": ["ampersand0", "ampersand", "and", "&"];
-            case ".": ["period0", "period", "full stop", "."];
-            case "'": ["apostrophe0", "apostrophe", "single quote", "'"];
-            case "?": ["question mark0", "question mark", "question0", "?"];
-            case "!": ["exclamation point0", "exclamation point", "exclamation0", "!"];
-            case ",": ["comma0", "comma", ","];
-            case "-": ["dash0", "dash", "hyphen", "-"];
-            case "/": ["slash0", "slash", "forward slash", "/"];
-            case "\\": ["backslash0", "backslash", "\\"];
-            case ":": ["colon0", "colon", ":"];
-            case ";": ["semicolon0", "semicolon", ";"];
-            case "\'", "\"": ["quote0", "quote", "double quote", "\""];
-            case "(": ["open paren", "parenthesis left", "("];
-            case ")": ["close paren", "parenthesis right", ")"];
+            case "&": ["character-ampersand", "ampersand"];
+            case ".": ["character-period", "period"];
+            case "'": ["character-singlequote", "singlequote"];
+            case "?": ["character-questionmark", "questionmark"];
+            case "!": ["character-exclamationmark", "exclamationmark"];
+            case ",": ["character-comma", "comma"];
+            case "-": ["character-minus", "minus"];
+            case "/": ["character-slash", "slash"];
+            case "\\": ["character-backslash", "backslash"];
+            case ":": ["character-colon", "colon"];
+            case ";": ["character-semicolon", "semicolon"];
+            case "\"": ["character-doublequote-start", "character-doublequote-end"];
+            case "(": ["character-roundbracket-left", "roundbracket-left"];
+            case ")": ["character-roundbracket-right", "roundbracket-right"];
+            case "<": ["character-anglebracket-left"];
+            case ">": ["character-anglebracket-right"];
+            case "=": ["character-equal"];
+            case "+": ["character-plus"];
+            case "%": ["character-percent"];
+            case "#": ["character-pound"];
+            case "$": ["character-dollar"];
+            case "*": ["character-asterisk", "character-multiply"];
             default:
                 if (isAlpha(char)) {
-                    var caseSuffix = isLower ? "lowercase" : "uppercase";
-                    [
-                        char + " " + caseSuffix,
-                        char + caseSuffix,
-                        char + (isLower ? " lower" : " upper"),
-                        upper + " " + caseSuffix,
-                        lower + " " + caseSuffix,
-                        char + "0",
-                        char
-                    ];
+                    var type = isLower ? "lowercase" : "capital";
+                    ["character-" + lower + "-" + type, "character-" + lower];
                 } else if (isNumber(char)) {
-                    [char + "0", char, "number " + char];
+                    var numNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+                    var idx = Std.parseInt(char);
+                    ["character-" + numNames[idx], "character-" + char];
                 } else {
-                    [char + "0", char];
+                    ["character-" + lower, lower];
                 }
         };
 
@@ -160,7 +163,7 @@ class AlphaCharacter extends FlxSprite {
             for (f in frames.frames) {
                 if (f.name == null) continue;
                 var fLower = f.name.toLowerCase();
-                if (fLower == pLower || fLower.startsWith(pLower)) {
+                if (fLower.startsWith(pLower)) {
                     var reg = ~/[0-9]+$/;
                     var prefixToUse = reg.replace(f.name, "");
 
@@ -251,7 +254,6 @@ class Alphabet extends FlxSpriteGroup {
         this.text = text != null ? text : "";
     }
 
-    // Make set_text public to prevent Invalid field access errors across classes and macros
     public function set_text(newText:String):String {
         text = newText != null ? newText : "";
         if (!isTyping) {

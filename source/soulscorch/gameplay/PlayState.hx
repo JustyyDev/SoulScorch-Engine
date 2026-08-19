@@ -252,7 +252,6 @@ class PlayState extends MusicBeatState {
             prepareChartNotes();
             audio.loadSong(songId);
 
-            // Accurate song length calculation preventing 3:00 placeholder bug
             if (audio.inst != null && audio.inst.length > 0) {
                 songLength = audio.inst.length;
             } else if (unspawnNotes.length > 0) {
@@ -464,20 +463,23 @@ class PlayState extends MusicBeatState {
 
                 if (countdownIndex > 0) {
                     var spr = new FlxSprite();
-                    if (AssetHelper.loadGraphicSafely(spr, "ui/countdown/" + introAssets[countdownIndex - 1])) {
-                        spr.scrollFactor.set();
-                        spr.screenCenter();
-                        spr.cameras = [camHUD];
-                        add(spr);
-
-                        FlxTween.tween(spr, {alpha: 0, "scale.x": 1.15, "scale.y": 1.15}, (Conductor.crochet / 1000.0) * 0.8, {
-                            ease: FlxEase.cubeOut,
-                            onComplete: function(_) {
-                                remove(spr, true);
-                                spr.destroy();
-                            }
-                        });
+                    var loaded = AssetHelper.loadGraphicSafely(spr, "ui/game/countdown/" + introAssets[countdownIndex - 1]);
+                    if (!loaded) {
+                        AssetHelper.loadGraphicSafely(spr, "ui/countdown/" + introAssets[countdownIndex - 1]);
                     }
+
+                    spr.scrollFactor.set();
+                    spr.screenCenter();
+                    spr.cameras = [camHUD];
+                    add(spr);
+
+                    FlxTween.tween(spr, {alpha: 0, "scale.x": 1.15, "scale.y": 1.15}, (Conductor.crochet / 1000.0) * 0.8, {
+                        ease: FlxEase.cubeOut,
+                        onComplete: function(_) {
+                            remove(spr, true);
+                            spr.destroy();
+                        }
+                    });
                 }
             }
 
@@ -641,7 +643,6 @@ class PlayState extends MusicBeatState {
 
         if (botplay) return;
 
-        // Robust dual key tracking (Arrow Keys + WASD + Controls instance)
         var keyPressed:Array<Bool> = [
             FlxG.keys.pressed.LEFT || FlxG.keys.pressed.A || Controls.instance.notePressed(0),
             FlxG.keys.pressed.DOWN || FlxG.keys.pressed.S || Controls.instance.notePressed(1),
@@ -763,7 +764,11 @@ class PlayState extends MusicBeatState {
         var ratingSpr:FlxSprite = grpRatings.recycle(FlxSprite);
         var ratingName:String = Std.string(judgment).toLowerCase();
 
-        AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
+        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
+        if (!loaded) {
+            AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
+        }
+
         ratingSpr.screenCenter();
         ratingSpr.x = (FlxG.width * 0.55) - 40;
         ratingSpr.y -= 60;
@@ -788,7 +793,11 @@ class PlayState extends MusicBeatState {
 
         for (i in 0...comboDigits.length) {
             var numSpr:FlxSprite = grpComboNumbers.recycle(FlxSprite);
-            AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num' + comboDigits[i]);
+            var numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/score/num' + comboDigits[i]);
+            if (!numLoaded) {
+                AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num' + comboDigits[i]);
+            }
+
             numSpr.setPosition(startX + (i * 24), ratingSpr.y + 70);
             numSpr.acceleration.y = 550;
             numSpr.velocity.y = -FlxG.random.int(120, 150);
@@ -868,8 +877,19 @@ class PlayState extends MusicBeatState {
             JuiceManager.bumpCamera(camGame, 0.035, 0.02);
         }
 
-        iconP1.beatHit(beat);
-        iconP2.beatHit(beat);
+        if (iconP1 != null) {
+            iconP1.scale.set(1.2, 1.2);
+            FlxTween.cancelTweensOf(iconP1.scale);
+            FlxTween.tween(iconP1.scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+            iconP1.beatHit(beat);
+        }
+
+        if (iconP2 != null) {
+            iconP2.scale.set(1.2, 1.2);
+            FlxTween.cancelTweensOf(iconP2.scale);
+            FlxTween.tween(iconP2.scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+            iconP2.beatHit(beat);
+        }
 
         if (currentStage != null) currentStage.beatHit(beat);
         if (gf != null) gf.dance();
@@ -901,10 +921,16 @@ class PlayState extends MusicBeatState {
                     dad.curCharacter = newCharName;
                     dad.loadCharacter();
                     iconP2.changeIcon(dad.healthIcon);
+                    if (healthBar != null) {
+                        healthBar.createFilledBar(dad.healthColor, boyfriend.healthColor);
+                    }
                 } else if (targetType == "bf" || targetType == "boyfriend" || targetType == "player") {
                     boyfriend.curCharacter = newCharName;
                     boyfriend.loadCharacter();
                     iconP1.changeIcon(boyfriend.healthIcon);
+                    if (healthBar != null) {
+                        healthBar.createFilledBar(dad.healthColor, boyfriend.healthColor);
+                    }
                 }
         }
         scripts.callAll("onEvent", [name, val1, val2]);

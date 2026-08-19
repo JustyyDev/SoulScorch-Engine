@@ -5,6 +5,8 @@ import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
@@ -17,29 +19,31 @@ import soulscorch.ui.menus.editors.CharacterEditorState;
 import soulscorch.ui.menus.editors.ChartingState;
 import soulscorch.ui.menus.editors.ModchartWorkspaceState;
 import soulscorch.ui.menus.editors.StageEditorState;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
 
 class EditorPickerMenu extends MusicBeatState {
     public static var curSelected:Int = 0;
 
     private var options:Array<String> = [
-        "Chart Editor",
-        "Character Editor",
-        "Stage Editor",
-        "Modchart Workspace"
+        "Chart Studio",
+        "Actor Studio",
+        "Stage Architect",
+        "Modchart Matrix"
     ];
 
-    private var grpOptions:FlxTypedGroup<Alphabet>;
+    private var descriptions:Array<String> = [
+        "Interactive audio-synced node mapping with Codename/Psych event pipelines.",
+        "Character offset calibrator, animation matrices, and canvas ghost overlays.",
+        "Layered stage layout builder, viewport anchors, and multi-parallax editors.",
+        "Visual real-time receptor modifier suite, math matrix curves, and live tests."
+    ];
+
+    private var grpCards:FlxTypedGroup<FlxSprite>;
+    private var grpTexts:FlxTypedGroup<Alphabet>;
     private var bg:FlxSprite;
     private var descText:FlxText;
     private var mobileControls:MobilePad;
-
-    private var descriptions:Array<String> = [
-        "Edit note placements, BPM changes, and timing charts.",
-        "Configure character sprites, Sparrow atlases, and animation offsets.",
-        "Construct stage layouts, parallax backgrounds, and actor spawns.",
-        "Program custom camera modcharts, receptor rotations, and lane shaders."
-    ];
 
     override public function create():Void {
         super.create();
@@ -48,40 +52,51 @@ class EditorPickerMenu extends MusicBeatState {
         DiscordRPC.changePresence("Developer Suite", "Browsing Engine Editors");
         #end
 
-        bg = new FlxSprite();
-        if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
-            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF1B1424);
-        }
-        bg.color = 0xFF2A2035;
-        bg.screenCenter();
-        bg.antialiasing = true;
+        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
         add(bg);
 
-        var titleBox = new FlxSprite(0, 0).makeGraphic(FlxG.width, 85, 0xEE0B0910);
-        add(titleBox);
+        var gridLines = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
+        for (i in 0...Std.int(FlxG.width / 40)) {
+            gridLines.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x0CFFFFFF);
+        }
+        for (i in 0...Std.int(FlxG.height / 40)) {
+            gridLines.pixels.fillRect(new openfl.geom.Rectangle(0, i * 40, FlxG.width, 1), 0x0CFFFFFF);
+        }
+        gridLines.dirty = true;
+        add(gridLines);
 
-        var title = new Alphabet(0, 16, "SOULSCORCH EDITORS", true);
-        title.screenCenter(X);
-        add(title);
+        var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 70, EditorTheme.PANEL_HEADER);
+        add(topBar);
 
-        grpOptions = new FlxTypedGroup<Alphabet>();
-        add(grpOptions);
+        var accentTag = new FlxSprite(30, 20).makeGraphic(5, 30, EditorTheme.ACCENT_CYAN);
+        add(accentTag);
+
+        var headerTitle = new FlxText(45, 18, FlxG.width, "SOULSCORCH // CREATIVE STUDIO SUITE", 22);
+        headerTitle.setFormat(Paths.font("vcr"), 22, EditorTheme.TEXT_PRIMARY, LEFT);
+        add(headerTitle);
+
+        grpCards = new FlxTypedGroup<FlxSprite>();
+        add(grpCards);
+
+        grpTexts = new FlxTypedGroup<Alphabet>();
+        add(grpTexts);
 
         for (i in 0...options.length) {
-            var opt = new Alphabet(0, (i * 90) + 140, options[i], true);
-            opt.isMenuItem = true;
-            opt.targetY = i;
-            opt.screenCenter(X);
-            opt.ID = i;
-            grpOptions.add(opt);
+            var card = new FlxSprite(80, 110 + (i * 115)).makeGraphic(FlxG.width - 160, 95, EditorTheme.PANEL_BG);
+            card.ID = i;
+            grpCards.add(card);
+
+            var title = new Alphabet(110, 125 + (i * 115), options[i], true);
+            title.ID = i;
+            title.scale.set(0.8, 0.8);
+            grpTexts.add(title);
         }
 
-        var descBox = new FlxSprite(0, FlxG.height - 65).makeGraphic(FlxG.width, 65, 0xEE0B0910);
-        add(descBox);
+        var footer = new FlxSprite(0, FlxG.height - 60).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
+        add(footer);
 
-        descText = new FlxText(20, FlxG.height - 44, FlxG.width - 40, "", 16);
-        descText.setFormat(Paths.font("vcr"), 16, 0xFF00FFCC, CENTER, OUTLINE, FlxColor.BLACK);
-        descText.borderSize = 1.0;
+        descText = new FlxText(30, FlxG.height - 42, FlxG.width - 60, "", 16);
+        descText.setFormat(Paths.font("vcr"), 16, EditorTheme.ACCENT_CYAN, LEFT);
         add(descText);
 
         #if (mobile || debug)
@@ -106,7 +121,7 @@ class EditorPickerMenu extends MusicBeatState {
 
         if (Controls.instance.ACCEPT) {
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
-            selectOption(options[curSelected]);
+            launchEditor(curSelected);
         }
     }
 
@@ -114,27 +129,26 @@ class EditorPickerMenu extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
-        for (i in 0...grpOptions.members.length) {
-            var item = grpOptions.members[i];
-            item.targetY = i - curSelected;
-            item.alpha = (i == curSelected ? 1.0 : 0.4);
+        for (card in grpCards.members) {
+            var isSel = (card.ID == curSelected);
+            card.color = isSel ? EditorTheme.PANEL_BORDER : EditorTheme.PANEL_BG;
+            card.x = isSel ? 95 : 80;
+        }
+
+        for (text in grpTexts.members) {
+            text.alpha = (text.ID == curSelected ? 1.0 : 0.4);
+            text.x = (text.ID == curSelected ? 125 : 110);
         }
 
         descText.text = descriptions[curSelected];
     }
 
-    private function selectOption(option:String):Void {
-        switch (option) {
-            case "Chart Editor":
-                MusicBeatState.switchState(new ChartingState("tutorial", "normal"));
-            case "Character Editor":
-                MusicBeatState.switchState(new CharacterEditorState("dad", false));
-            case "Stage Editor":
-                MusicBeatState.switchState(new StageEditorState("stage"));
-            case "Modchart Workspace":
-                MusicBeatState.switchState(new ModchartWorkspaceState());
-            default:
-                AssetHelper.playSoundSafely("cancelMenu", 0.7);
+    private function launchEditor(index:Int):Void {
+        switch (index) {
+            case 0: MusicBeatState.switchState(new ChartingState("tutorial", "normal"));
+            case 1: MusicBeatState.switchState(new CharacterEditorState("dad", false));
+            case 2: MusicBeatState.switchState(new StageEditorState("stage"));
+            case 3: MusicBeatState.switchState(new ModchartWorkspaceState());
         }
     }
 

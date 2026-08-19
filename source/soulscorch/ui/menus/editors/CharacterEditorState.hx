@@ -3,28 +3,26 @@ package soulscorch.ui.menus.editors;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
-import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.Json;
-import openfl.events.Event;
 import openfl.net.FileReference;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
-import soulscorch.backend.input.Controls;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.actors.CharacterJson;
-import soulscorch.gameplay.stage.Stage;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.editors.editorui.EditorButton;
 import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
 import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
+import soulscorch.ui.menus.editors.editorui.EditorToast;
+import soulscorch.ui.menus.editors.editorui.EditorTopBar;
 import soulscorch.ui.menus.editors.editorui.EditorWindow;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -48,23 +46,13 @@ class CharacterEditorState extends MusicBeatState {
     private var camFollowMarker:FlxSprite;
     private var camFollow:FlxPoint;
 
-    // --- Windows & UI Toolboxes ---
-    private var toolWindow:EditorWindow;
-    private var cameraWindow:EditorWindow;
-    
-    private var stepperSingDuration:EditorNumericStepper;
-    private var stepperScale:EditorNumericStepper;
-    private var stepperCamX:EditorNumericStepper;
-    private var stepperCamY:EditorNumericStepper;
-    private var checkFlipX:EditorCheckbox;
-    private var checkGhost:EditorCheckbox;
-    private var checkAntialiasing:EditorCheckbox;
+    private var topBar:EditorTopBar;
+    private var propertiesWindow:EditorWindow;
+    private var offsetsWindow:EditorWindow;
 
-    private var animListTxt:FlxText;
     private var curAnimTxt:FlxText;
     private var offsetTxt:FlxText;
-    private var helpTxt:FlxText;
-    private var statusTxt:FlxText;
+    private var animListTxt:FlxText;
 
     private var animList:Array<String> = [];
     private var curAnimIndex:Int = 0;
@@ -88,57 +76,45 @@ class CharacterEditorState extends MusicBeatState {
         FlxG.cameras.setDefaultDrawTarget(camEditor, true);
 
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
-        camEditor.target = null;
         camEditor.zoom = 0.9;
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width * 3, FlxG.height * 3, 0xFF1B1624);
+        var bg = new FlxSprite().makeGraphic(FlxG.width * 3, FlxG.height * 3, EditorTheme.BG_DARK);
         bg.screenCenter();
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        var groundLine = new FlxSprite(0, FlxG.height * 0.75).makeGraphic(FlxG.width * 4, 4, 0xFF3F3652);
-        groundLine.screenCenter(X);
-        groundLine.scrollFactor.set(1, 1);
-        add(groundLine);
+        var ground = new FlxSprite(0, FlxG.height * 0.75).makeGraphic(FlxG.width * 4, 2, EditorTheme.ACCENT_PURPLE);
+        ground.screenCenter(X);
+        ground.scrollFactor.set(1, 1);
+        add(ground);
 
-        crosshair = new FlxSprite().makeGraphic(20, 20, FlxColor.TRANSPARENT);
-        crosshair.pixels.lock();
-        for (i in 0...20) {
-            crosshair.pixels.setPixel32(i, 10, 0xFFFF0044);
-            crosshair.pixels.setPixel32(10, i, 0xFFFF0044);
+        crosshair = new FlxSprite().makeGraphic(18, 18, FlxColor.TRANSPARENT);
+        for (i in 0...18) {
+            crosshair.pixels.setPixel32(i, 9, EditorTheme.ACCENT_MAGENTA);
+            crosshair.pixels.setPixel32(9, i, EditorTheme.ACCENT_MAGENTA);
         }
-        crosshair.pixels.unlock();
         crosshair.dirty = true;
         crosshair.scrollFactor.set(1, 1);
         add(crosshair);
 
-        camFollowMarker = new FlxSprite().makeGraphic(16, 16, 0xFF00FFCC);
+        camFollowMarker = new FlxSprite().makeGraphic(14, 14, EditorTheme.ACCENT_CYAN);
         camFollowMarker.scrollFactor.set(1, 1);
         add(camFollowMarker);
 
         reloadCharacters();
-        setupHUD();
-        setupToolbox();
+        setupWindows();
 
-        updateCrosshair();
-        updateHUDText();
-
+        add(new EditorToast());
         FlxG.mouse.visible = true;
     }
 
     private function reloadCharacters():Void {
-        if (ghostChar != null) {
-            remove(ghostChar, true);
-            ghostChar.destroy();
-        }
-        if (charLayer != null) {
-            remove(charLayer, true);
-            charLayer.destroy();
-        }
+        if (ghostChar != null) { remove(ghostChar, true); ghostChar.destroy(); }
+        if (charLayer != null) { remove(charLayer, true); charLayer.destroy(); }
 
         ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
         ghostChar.alpha = showGhost ? 0.35 : 0.0;
-        ghostChar.color = 0xFF8888FF;
+        ghostChar.color = EditorTheme.ACCENT_PURPLE;
         add(ghostChar);
 
         charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
@@ -147,132 +123,78 @@ class CharacterEditorState extends MusicBeatState {
         animList = [];
         if (charLayer.animation != null) {
             @:privateAccess
-            for (key in charLayer.animation._animations.keys()) {
-                animList.push(key);
-            }
+            for (key in charLayer.animation._animations.keys()) animList.push(key);
         }
-
-        if (animList.length == 0) {
-            animList = ["idle", "singUP", "singRIGHT", "singDOWN", "singLEFT"];
-        }
+        if (animList.length == 0) animList = ["idle", "singUP", "singRIGHT", "singDOWN", "singLEFT"];
 
         curAnimIndex = 0;
         playCurrentAnim();
     }
 
-    private function setupHUD():Void {
-        var hudBox = new FlxSprite(10, 10).makeGraphic(320, 390, 0xEE121824);
-        hudBox.scrollFactor.set(0, 0);
-        hudBox.cameras = [camHUD];
-        add(hudBox);
+    private function setupWindows():Void {
+        topBar = new EditorTopBar('ACTOR STUDIO [${curCharacter.toUpperCase()}]');
+        topBar.cameras = [camHUD];
+        topBar.addAction("Save (Ctrl+S)", saveOffsetsJson);
+        topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
+        add(topBar);
 
-        curAnimTxt = new FlxText(20, 15, 300, "Anim: idle", 18);
-        curAnimTxt.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-        curAnimTxt.scrollFactor.set(0, 0);
-        curAnimTxt.cameras = [camHUD];
-        add(curAnimTxt);
+        var infoWindow = new EditorWindow(15, 45, 300, 360, "Animation Matrix");
+        infoWindow.cameras = [camHUD];
+        add(infoWindow);
 
-        offsetTxt = new FlxText(20, 42, 300, "Offset: [0, 0]", 16);
-        offsetTxt.setFormat(Paths.font("vcr"), 16, 0xFF00FFCC, LEFT, OUTLINE, FlxColor.BLACK);
-        offsetTxt.scrollFactor.set(0, 0);
-        offsetTxt.cameras = [camHUD];
-        add(offsetTxt);
+        curAnimTxt = new FlxText(10, 4, 280, "Anim: idle", 16);
+        curAnimTxt.setFormat(Paths.font("vcr"), 16, EditorTheme.ACCENT_CYAN, LEFT);
+        infoWindow.addElement(curAnimTxt);
 
-        animListTxt = new FlxText(20, 72, 300, "", 13);
-        animListTxt.setFormat(Paths.font("vcr"), 13, 0xFFDDDDDD, LEFT);
-        animListTxt.scrollFactor.set(0, 0);
-        animListTxt.cameras = [camHUD];
-        add(animListTxt);
+        offsetTxt = new FlxText(10, 26, 280, "Offset: [0, 0]", 14);
+        offsetTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_MUTED, LEFT);
+        infoWindow.addElement(offsetTxt);
 
-        statusTxt = new FlxText(20, 370, 300, "", 12);
-        statusTxt.setFormat(Paths.font("vcr"), 12, 0xFF00FFCC, LEFT);
-        statusTxt.scrollFactor.set(0, 0);
-        statusTxt.cameras = [camHUD];
-        add(statusTxt);
+        animListTxt = new FlxText(10, 50, 280, "", 12);
+        animListTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
+        infoWindow.addElement(animListTxt);
 
-        var helpBox = new FlxSprite(FlxG.width - 340, 10).makeGraphic(330, 270, 0xEE121824);
-        helpBox.scrollFactor.set(0, 0);
-        helpBox.cameras = [camHUD];
-        add(helpBox);
+        propertiesWindow = new EditorWindow(FlxG.width - 325, 45, 310, 250, "Actor Settings");
+        propertiesWindow.cameras = [camHUD];
+        add(propertiesWindow);
 
-        helpTxt = new FlxText(FlxG.width - 330, 15, 310,
-            "CHARACTER EDITOR STUDIO:\n" +
-            "[W / S] - Next / Prev Animation\n" +
-            "[ARROWS] - Move Offsets (1px)\n" +
-            "[SHIFT + ARROWS] - Move Offsets (10px)\n" +
-            "[SPACE] - Replay Animation\n" +
-            "[Q / E] - Zoom Camera In/Out\n" +
-            "[I / J / K / L] - Pan Camera Focus\n" +
-            "[G] - Toggle Ghost Overlay\n" +
-            "[F] - Flip Character (FlipX)\n" +
-            "[CTRL + S] - Export Character JSON\n" +
-            "[ESCAPE] - Exit Editor",
-            13
-        );
-        helpTxt.setFormat(Paths.font("vcr"), 13, FlxColor.WHITE, LEFT);
-        helpTxt.scrollFactor.set(0, 0);
-        helpTxt.cameras = [camHUD];
-        add(helpTxt);
-    }
-
-    private function setupToolbox():Void {
-        toolWindow = new EditorWindow(FlxG.width - 340, FlxG.height - 290, 330, 280, "Character Properties");
-        toolWindow.cameras = [camHUD];
-        add(toolWindow);
-
-        stepperSingDuration = new EditorNumericStepper(10, 8, 310, "Sing Duration", charLayer.singDuration, 1.0, 16.0, 0.5, 1, function(v) {
-            charLayer.singDuration = v;
-        });
-        toolWindow.addElement(stepperSingDuration);
-
-        stepperScale = new EditorNumericStepper(10, 44, 310, "Scale Multiplier", charLayer.scale.x, 0.1, 8.0, 0.05, 2, function(v) {
+        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale", charLayer.scale.x, 0.1, 5.0, 0.05, 2, function(v) {
             charLayer.scale.set(v, v);
             charLayer.updateHitbox();
-            if (ghostChar != null) {
-                ghostChar.scale.set(v, v);
-                ghostChar.updateHitbox();
-            }
+            if (ghostChar != null) { ghostChar.scale.set(v, v); ghostChar.updateHitbox(); }
         });
-        toolWindow.addElement(stepperScale);
+        propertiesWindow.addElement(stepperScale);
 
-        checkFlipX = new EditorCheckbox(10, 82, "Flip X Axis", charLayer.flipX, function(checked) {
-            charLayer.flipX = checked;
-            if (ghostChar != null) ghostChar.flipX = checked;
-        });
-        toolWindow.addElement(checkFlipX);
-
-        checkGhost = new EditorCheckbox(165, 82, "Ghost Overlay", showGhost, function(checked) {
-            showGhost = checked;
+        var checkGhost = new EditorCheckbox(10, 44, "Ghost Overlay", showGhost, function(c) {
+            showGhost = c;
             if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
         });
-        toolWindow.addElement(checkGhost);
+        propertiesWindow.addElement(checkGhost);
 
-        checkAntialiasing = new EditorCheckbox(10, 116, "Antialiasing", charLayer.antialiasing, function(checked) {
-            charLayer.antialiasing = checked;
-            if (ghostChar != null) ghostChar.antialiasing = checked;
+        var checkFlip = new EditorCheckbox(160, 44, "Flip X Axis", charLayer.flipX, function(c) {
+            charLayer.flipX = c;
+            if (ghostChar != null) ghostChar.flipX = c;
         });
-        toolWindow.addElement(checkAntialiasing);
+        propertiesWindow.addElement(checkFlip);
 
-        cameraWindow = new EditorWindow(FlxG.width - 340, FlxG.height - 480, 330, 180, "Camera Anchor Offsets");
-        cameraWindow.cameras = [camHUD];
-        add(cameraWindow);
+        offsetsWindow = new EditorWindow(FlxG.width - 325, 305, 310, 180, "Camera Focus Anchor");
+        offsetsWindow.cameras = [camHUD];
+        add(offsetsWindow);
 
-        stepperCamX = new EditorNumericStepper(10, 8, 310, "Cam Offset X", charLayer.cameraOffset[0], -500, 500, 1.0, 1, function(v) {
+        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", charLayer.cameraOffset[0], -600, 600, 5.0, 1, function(v) {
             charLayer.cameraOffset[0] = v;
             updateCrosshair();
         });
-        cameraWindow.addElement(stepperCamX);
+        offsetsWindow.addElement(stepperCamX);
 
-        stepperCamY = new EditorNumericStepper(10, 44, 310, "Cam Offset Y", charLayer.cameraOffset[1], -500, 500, 1.0, 1, function(v) {
+        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", charLayer.cameraOffset[1], -600, 600, 5.0, 1, function(v) {
             charLayer.cameraOffset[1] = v;
             updateCrosshair();
         });
-        cameraWindow.addElement(stepperCamY);
+        offsetsWindow.addElement(stepperCamY);
 
-        var btnSave = new EditorButton(10, 84, 310, 32, "Save Character JSON (Ctrl+S)", function() {
-            saveOffsetsJson();
-        });
-        cameraWindow.addElement(btnSave);
+        updateHUDText();
+        updateCrosshair();
     }
 
     override public function update(elapsed:Float):Void {
@@ -282,36 +204,19 @@ class CharacterEditorState extends MusicBeatState {
         handleAnimationControls();
         handleOffsetControls();
 
-        if (FlxG.keys.justPressed.G) {
-            showGhost = !showGhost;
-            if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
-            if (checkGhost != null) checkGhost.checked = showGhost;
-        }
-
-        if (FlxG.keys.justPressed.F && charLayer != null) {
-            charLayer.flipX = !charLayer.flipX;
-            if (ghostChar != null) ghostChar.flipX = charLayer.flipX;
-            if (checkFlipX != null) checkFlipX.checked = charLayer.flipX;
-        }
-
-        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
-            saveOffsetsJson();
-        }
-
-        if (FlxG.keys.justPressed.ESCAPE) {
-            MusicBeatState.switchState(new MainMenuState());
-        }
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveOffsetsJson();
+        if (FlxG.keys.justPressed.ESCAPE) MusicBeatState.switchState(new MainMenuState());
     }
 
     private function handleCameraControls(elapsed:Float):Void {
         if (FlxG.keys.pressed.Q) camEditor.zoom += 0.8 * elapsed;
         if (FlxG.keys.pressed.E) camEditor.zoom = Math.max(0.2, camEditor.zoom - 0.8 * elapsed);
 
-        var moveSpeed:Float = FlxG.keys.pressed.SHIFT ? 1000.0 : 400.0;
-        if (FlxG.keys.pressed.I) camFollow.y -= moveSpeed * elapsed;
-        if (FlxG.keys.pressed.K) camFollow.y += moveSpeed * elapsed;
-        if (FlxG.keys.pressed.J) camFollow.x -= moveSpeed * elapsed;
-        if (FlxG.keys.pressed.L) camFollow.x += moveSpeed * elapsed;
+        var spd = FlxG.keys.pressed.SHIFT ? 1200.0 : 450.0;
+        if (FlxG.keys.pressed.I) camFollow.y -= spd * elapsed;
+        if (FlxG.keys.pressed.K) camFollow.y += spd * elapsed;
+        if (FlxG.keys.pressed.J) camFollow.x -= spd * elapsed;
+        if (FlxG.keys.pressed.L) camFollow.x += spd * elapsed;
 
         camEditor.focusOn(camFollow);
     }
@@ -327,29 +232,23 @@ class CharacterEditorState extends MusicBeatState {
             curAnimIndex = FlxMath.wrap(curAnimIndex + 1, 0, animList.length - 1);
             playCurrentAnim();
         }
-
-        if (FlxG.keys.justPressed.SPACE) {
-            playCurrentAnim();
-        }
+        if (FlxG.keys.justPressed.SPACE) playCurrentAnim();
     }
 
     private function handleOffsetControls():Void {
         if (charLayer == null || animList.length == 0) return;
 
         var anim = animList[curAnimIndex];
-        var multiplier:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
+        var mult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
         var changed:Bool = false;
 
         var curOffset = charLayer.animOffsets.get(anim);
-        if (curOffset == null) {
-            curOffset = [0.0, 0.0];
-            charLayer.animOffsets.set(anim, curOffset);
-        }
+        if (curOffset == null) { curOffset = [0.0, 0.0]; charLayer.animOffsets.set(anim, curOffset); }
 
-        if (FlxG.keys.justPressed.LEFT) { curOffset[0] += multiplier; changed = true; }
-        if (FlxG.keys.justPressed.RIGHT) { curOffset[0] -= multiplier; changed = true; }
-        if (FlxG.keys.justPressed.UP) { curOffset[1] += multiplier; changed = true; }
-        if (FlxG.keys.justPressed.DOWN) { curOffset[1] -= multiplier; changed = true; }
+        if (FlxG.keys.justPressed.LEFT) { curOffset[0] += mult; changed = true; }
+        if (FlxG.keys.justPressed.RIGHT) { curOffset[0] -= mult; changed = true; }
+        if (FlxG.keys.justPressed.UP) { curOffset[1] += mult; changed = true; }
+        if (FlxG.keys.justPressed.DOWN) { curOffset[1] -= mult; changed = true; }
 
         if (changed) {
             charLayer.offset.set(curOffset[0], curOffset[1]);
@@ -360,25 +259,16 @@ class CharacterEditorState extends MusicBeatState {
 
     private function playCurrentAnim():Void {
         if (charLayer == null || animList.length == 0) return;
-
         var anim = animList[curAnimIndex];
         charLayer.playAnim(anim, true);
 
         var curOffset = charLayer.animOffsets.get(anim);
-        if (curOffset != null) {
-            charLayer.offset.set(curOffset[0], curOffset[1]);
-        } else {
-            charLayer.offset.set(0, 0);
-        }
+        charLayer.offset.set(curOffset != null ? curOffset[0] : 0, curOffset != null ? curOffset[1] : 0);
 
         if (ghostChar != null && showGhost) {
             ghostChar.playAnim(anim, true);
-            var ghostOffset = ghostChar.animOffsets.get(anim);
-            if (ghostOffset != null) {
-                ghostChar.offset.set(ghostOffset[0], ghostOffset[1]);
-            } else {
-                ghostChar.offset.set(0, 0);
-            }
+            var gOffset = ghostChar.animOffsets.get(anim);
+            ghostChar.offset.set(gOffset != null ? gOffset[0] : 0, gOffset != null ? gOffset[1] : 0);
         }
 
         updateCrosshair();
@@ -387,48 +277,30 @@ class CharacterEditorState extends MusicBeatState {
 
     private function updateCrosshair():Void {
         if (charLayer != null) {
-            if (crosshair != null) crosshair.setPosition(charLayer.x, charLayer.y);
-            if (camFollowMarker != null) {
-                var camOffX = (charLayer.cameraOffset != null && charLayer.cameraOffset.length > 0) ? charLayer.cameraOffset[0] : 0.0;
-                var camOffY = (charLayer.cameraOffset != null && charLayer.cameraOffset.length > 1) ? charLayer.cameraOffset[1] : 0.0;
-                camFollowMarker.setPosition(
-                    charLayer.getMidpoint().x + camOffX - 8,
-                    charLayer.getMidpoint().y + camOffY - 8
-                );
-            }
+            crosshair.setPosition(charLayer.x, charLayer.y);
+            camFollowMarker.setPosition(
+                charLayer.getMidpoint().x + charLayer.cameraOffset[0] - 7,
+                charLayer.getMidpoint().y + charLayer.cameraOffset[1] - 7
+            );
         }
     }
 
     private function updateHUDText():Void {
         if (animList.length == 0) return;
+        var anim = animList[curAnimIndex];
+        curAnimTxt.text = 'Anim: $anim (${curAnimIndex + 1}/${animList.length})';
 
-        var curAnim = animList[curAnimIndex];
-        curAnimTxt.text = 'Anim: $curAnim (${curAnimIndex + 1}/${animList.length})';
+        var off = charLayer.animOffsets.get(anim);
+        offsetTxt.text = off != null ? 'Offset: [${off[0]}, ${off[1]}]' : 'Offset: [0, 0]';
 
-        var curOffset = charLayer.animOffsets.get(curAnim);
-        offsetTxt.text = curOffset != null ? 'Offset: [${curOffset[0]}, ${curOffset[1]}]' : 'Offset: [0, 0]';
-
-        var listStr:String = "ANIMATIONS:\n";
+        var list = "";
         for (i in 0...animList.length) {
             var name = animList[i];
-            var off = charLayer.animOffsets.get(name);
-            var offStr = off != null ? '[${off[0]}, ${off[1]}]' : '[0, 0]';
-            if (i == curAnimIndex) {
-                listStr += '> $name: $offStr <\n';
-            } else {
-                listStr += '  $name: $offStr\n';
-            }
+            var aOff = charLayer.animOffsets.get(name);
+            var str = aOff != null ? '[${aOff[0]}, ${aOff[1]}]' : '[0, 0]';
+            list += (i == curAnimIndex ? '> $name: $str <\n' : '  $name: $str\n');
         }
-        animListTxt.text = listStr;
-    }
-
-    private function showStatus(msg:String):Void {
-        if (statusTxt != null) {
-            statusTxt.text = msg;
-            statusTxt.alpha = 1.0;
-            FlxTween.cancelTweensOf(statusTxt);
-            FlxTween.tween(statusTxt, {alpha: 0.0}, 2.0, {startDelay: 1.0});
-        }
+        animListTxt.text = list;
     }
 
     private function saveOffsetsJson():Void {
@@ -447,42 +319,36 @@ class CharacterEditorState extends MusicBeatState {
 
         for (anim in animList) {
             var off = charLayer.animOffsets.get(anim);
-            var offArray = off != null ? [off[0], off[1]] : [0.0, 0.0];
             charJson.animations.push({
                 anim: anim,
                 name: anim,
                 fps: 24,
                 loop: (anim == "idle"),
-                offsets: offArray
+                offsets: off != null ? [off[0], off[1]] : [0.0, 0.0]
             });
         }
 
-        var formattedJson = Json.stringify(charJson, "\t");
-        var savePath = '$curCharacter.json';
+        var json = Json.stringify(charJson, "\t");
 
         #if sys
         var targetDir = 'assets/data/characters';
         if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
             targetDir = 'mods/${ModManager.activeMods[0]}/data/characters';
         }
-        var targetFile = '$targetDir/$savePath';
+        var targetFile = '$targetDir/$curCharacter.json';
 
         try {
-            if (!FileSystem.exists(targetDir)) {
-                FileSystem.createDirectory(targetDir);
-            }
-            File.saveContent(targetFile, formattedJson);
-            Logger.info('Saved character JSON to $targetFile', "editor");
-            showStatus("Saved successfully!");
+            if (!FileSystem.exists(targetDir)) FileSystem.createDirectory(targetDir);
+            File.saveContent(targetFile, json);
+            EditorToast.show("Character JSON Saved Successfully!");
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
         } catch (e:Dynamic) {
-            Logger.error('Failed to save character file: $e', "editor");
-            showStatus("Save failed!");
+            EditorToast.show("Save Failed!", true);
         }
         #else
-        var fileRef = new FileReference();
-        fileRef.save(formattedJson, '$curCharacter.json');
-        showStatus("Exported file!");
+        var ref = new FileReference();
+        ref.save(json, '$curCharacter.json');
+        EditorToast.show("Exported Character JSON!");
         #end
     }
 }

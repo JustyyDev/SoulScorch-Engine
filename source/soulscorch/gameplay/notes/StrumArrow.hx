@@ -1,7 +1,6 @@
 package soulscorch.gameplay.notes;
 
 import flixel.FlxSprite;
-import soulscorch.backend.assets.AssetHelper;
 
 class StrumArrow extends FlxSprite {
     public var noteData:Int = 0;
@@ -14,7 +13,7 @@ class StrumArrow extends FlxSprite {
 
     private static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
 
-    public function new(x:Float, y:Float, noteData:Int, isPlayer:Bool = false, downscroll:Bool = false) {
+    public function new(x:Float, y:Float, noteData:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "default") {
         super(x, y);
 
         this.noteData = noteData;
@@ -23,22 +22,22 @@ class StrumArrow extends FlxSprite {
         this.baseX = x;
         this.baseY = y;
 
-        loadSkin();
+        loadSkin(skin);
         playAnim("static");
     }
 
     public function loadSkin(?skinPath:String):Void {
-        var path = (skinPath != null) ? skinPath : "gameplay/notes/NOTE_assets";
-        if (!AssetHelper.loadSparrowSafely(this, path)) {
-            if (!AssetHelper.loadSparrowSafely(this, "notes/NOTE_assets")) {
-                AssetHelper.loadSparrowSafely(this, "NOTE_assets");
-            }
+        var atlas = NoteSkinManager.getSkinAtlas(skinPath);
+        if (atlas != null) {
+            frames = atlas;
+            var col = colArray[noteData % 4];
+            animation.addByPrefix("static", 'arrow' + col.toUpperCase(), 24, false);
+            animation.addByPrefix("pressed", '$col press', 24, false);
+            animation.addByPrefix("confirm", '$col confirm', 24, false);
+        } else {
+            var colors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
+            makeGraphic(100, 100, colors[noteData % 4]);
         }
-
-        var col = colArray[noteData % 4];
-        animation.addByPrefix("static", 'arrow' + col.toUpperCase(), 24, false);
-        animation.addByPrefix("pressed", '$col press', 24, false);
-        animation.addByPrefix("confirm", '$col confirm', 24, false);
 
         antialiasing = true;
         setGraphicSize(Std.int(width * 0.7));

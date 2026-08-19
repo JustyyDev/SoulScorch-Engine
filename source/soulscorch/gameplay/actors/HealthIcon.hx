@@ -5,6 +5,7 @@ import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import openfl.display.BitmapData;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
 
 using StringTools;
 
@@ -30,12 +31,18 @@ class HealthIcon extends FlxSprite {
         this.char = cleanChar;
 
         var iconCandidates = [
+            'ui/game/icons/icon-$cleanChar',
+            'ui/game/icons/$cleanChar',
+            'ui/game/icons/$cleanChar/icon',
+            'images/ui/game/icons/icon-$cleanChar',
+            'images/ui/game/icons/$cleanChar',
             'images/icons/icon-$cleanChar',
             'images/icons/$cleanChar',
             'icons/icon-$cleanChar',
             'icons/$cleanChar',
-            'images/icons/icon-face',
-            'icons/icon-face'
+            'ui/game/icons/icon-face',
+            'icons/icon-face',
+            'images/icons/icon-face'
         ];
 
         var resolved:String = null;
@@ -74,7 +81,7 @@ class HealthIcon extends FlxSprite {
             makeGraphic(150, 150, 0xFFFF00FF);
         }
 
-        antialiasing = true;
+        antialiasing = !cleanChar.endsWith("-pixel");
         updateHitbox();
     }
 

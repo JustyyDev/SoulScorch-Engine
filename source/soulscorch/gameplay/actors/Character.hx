@@ -45,7 +45,9 @@ class Character extends FlxSprite {
             'characters/$curCharacter.json',
             'data/characters/$curCharacter.json',
             'assets/characters/$curCharacter.json',
-            'assets/data/characters/$curCharacter.json'
+            'assets/data/characters/$curCharacter.json',
+            'assets/preload/data/characters/$curCharacter.json',
+            'assets/preload/characters/$curCharacter.json'
         ];
 
         var resolvedJson:String = null;
@@ -89,6 +91,8 @@ class Character extends FlxSprite {
                 var colors = (data.healthBarColor != null) ? data.healthBarColor : data.healthbar_colors;
                 if (colors != null && colors.length >= 3) {
                     healthColor = FlxColor.fromRGB(colors[0], colors[1], colors[2]);
+                } else {
+                    healthColor = isPlayer ? 0xFF66FF33 : 0xFFFF0000;
                 }
 
                 AssetHelper.loadSparrowSafely(this, imageToLoad);
@@ -115,7 +119,6 @@ class Character extends FlxSprite {
                 Logger.error('Failed parsing character data for $curCharacter: $e', "actor");
             }
         } else {
-            // Hardcoded Fallback Initialization
             AssetHelper.loadSparrowSafely(this, imageToLoad);
             animation.addByPrefix("idle", "BF idle dance", 24, false);
             animation.addByPrefix("singLEFT", "BF NOTE LEFT0", 24, false);
@@ -152,7 +155,7 @@ class Character extends FlxSprite {
             offset.set(0, 0);
         }
 
-        if (curCharacter == "gf") {
+        if (curCharacter == "gf" || curCharacter.startsWith("gf-")) {
             if (animName == "singLEFT") danced = true;
             else if (animName == "singRIGHT") danced = false;
             if (animName == "singUP" || animName == "singDOWN") danced = !danced;

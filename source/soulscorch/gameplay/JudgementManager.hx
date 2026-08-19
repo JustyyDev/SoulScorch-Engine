@@ -1,18 +1,20 @@
 package soulscorch.gameplay;
 
 import flixel.FlxG;
+import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.EventBus;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
 
-class JudgementManager extends FlxTypedGroup<FlxText> {
+class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public static var MARVELOUS_WINDOW:Float = 22.5;
     public static var SICK_WINDOW:Float = 45.0;
     public static var GOOD_WINDOW:Float = 90.0;
@@ -32,7 +34,7 @@ class JudgementManager extends FlxTypedGroup<FlxText> {
     public var onHealthChange:Float->Void;
     public var onMiss:Note->Void;
 
-    private var activeTweens:Map<FlxText, FlxTween> = new Map<FlxText, FlxTween>();
+    private var activeTweens:Map<FlxSprite, FlxTween> = new Map<FlxSprite, FlxTween>();
 
     public function new() {
         super();
@@ -112,68 +114,88 @@ class JudgementManager extends FlxTypedGroup<FlxText> {
     }
 
     private function showPopup(result:Judgment, currentCombo:Int):Void {
-        var text:FlxText = recycle(FlxText);
-        var judgeName:String = (result == MISS ? "MISS" : Std.string(result)).toUpperCase();
-        
-        text.text = judgeName;
-        text.setFormat(Paths.font("vcr"), 24, colorFor(result), CENTER, OUTLINE, FlxColor.BLACK);
-        text.borderSize = 1.5;
-        text.screenCenter(X);
-        text.y = FlxG.height * 0.42;
-        text.scrollFactor.set(0, 0);
-        text.scale.set(0.85, 0.85);
-        text.alpha = 1.0;
-        text.visible = true;
+        var ratingSpr:FlxSprite = recycle(FlxSprite);
+        var ratingName:String = (result == MISS ? "bad" : Std.string(result)).toLowerCase();
 
-        if (activeTweens.exists(text)) {
-            activeTweens.get(text).cancel();
-            activeTweens.remove(text);
+        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
+        if (!loaded) {
+            loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
         }
 
-        var twn = FlxTween.tween(text, {y: text.y - 20, alpha: 0, "scale.x": 1.05, "scale.y": 1.05}, 0.5, {
-            ease: FlxEase.cubeOut,
+        ratingSpr.screenCenter();
+        ratingSpr.x = (FlxG.width * 0.55) - 40;
+        ratingSpr.y -= 60;
+        ratingSpr.acceleration.y = 550;
+        ratingSpr.velocity.y = -FlxG.random.int(140, 175);
+        ratingSpr.velocity.x = -FlxG.random.int(0, 10);
+        ratingSpr.alpha = 1.0;
+        ratingSpr.scale.set(0.7, 0.7);
+        ratingSpr.visible = true;
+        add(ratingSpr);
+
+        if (activeTweens.exists(ratingSpr)) {
+            activeTweens.get(ratingSpr).cancel();
+            activeTweens.remove(ratingSpr);
+        }
+
+        var twn = FlxTween.tween(ratingSpr, {alpha: 0}, 0.2, {
+            startDelay: 0.35,
             onComplete: function(_) {
-                text.kill();
-                activeTweens.remove(text);
+                ratingSpr.kill();
+                activeTweens.remove(ratingSpr);
             }
         });
-        activeTweens.set(text, twn);
+        activeTweens.set(ratingSpr, twn);
 
-        if (currentCombo > 1 && result != MISS) {
-            var comboText:FlxText = recycle(FlxText);
-            comboText.text = 'x$currentCombo';
-            comboText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-            comboText.borderSize = 1.25;
-            comboText.screenCenter(X);
-            comboText.y = (FlxG.height * 0.42) + 28;
-            comboText.scrollFactor.set(0, 0);
-            comboText.scale.set(0.85, 0.85);
-            comboText.alpha = 1.0;
-            comboText.visible = true;
+        if (currentCombo > 0 && result != MISS) {
+            var comboDigits = Std.string(currentCombo).split("");
+            var startX:Float = ratingSpr.x + 20;
 
-            if (activeTweens.exists(comboText)) {
-                activeTweens.get(comboText).cancel();
-                activeTweens.remove(comboText);
-            }
-
-            var comboTwn = FlxTween.tween(comboText, {y: comboText.y - 20, alpha: 0, "scale.x": 1.05, "scale.y": 1.05}, 0.5, {
-                ease: FlxEase.cubeOut,
-                onComplete: function(_) {
-                    comboText.kill();
-                    activeTweens.remove(comboText);
+            for (i in 0...comboDigits.length) {
+                var numSpr:FlxSprite = recycle(FlxSprite);
+                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/score/num' + comboDigits[i]);
+                if (!numLoaded) {
+                    AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num' + comboDigits[i]);
                 }
-            });
-            activeTweens.set(comboText, comboTwn);
+
+                numSpr.setPosition(startX + (i * 24), ratingSpr.y + 70);
+                numSpr.acceleration.y = 550;
+                numSpr.velocity.y = -FlxG.random.int(120, 150);
+                numSpr.velocity.x = FlxG.random.float(-5, 5);
+                numSpr.alpha = 1.0;
+                numSpr.scale.set(0.5, 0.5);
+                numSpr.visible = true;
+                add(numSpr);
+
+                if (activeTweens.exists(numSpr)) {
+                    activeTweens.get(numSpr).cancel();
+                    activeTweens.remove(numSpr);
+                }
+
+                var numTwn = FlxTween.tween(numSpr, {alpha: 0}, 0.2, {
+                    startDelay: 0.35,
+                    onComplete: function(_) {
+                        numSpr.kill();
+                        activeTweens.remove(numSpr);
+                    }
+                });
+                activeTweens.set(numSpr, numTwn);
+            }
         }
     }
 
     private function dispatchHit(result:Judgment, difference:Float):Void {
         try {
             var bus:Dynamic = EventBus;
-            if (Reflect.hasField(bus, "publish")) {
-                bus.publish("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+            if (Reflect.hasField(bus, "instance") && Reflect.field(bus, "instance") != null) {
+                var inst = Reflect.field(bus, "instance");
+                if (Reflect.hasField(inst, "emit")) {
+                    inst.emit("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+                } else if (Reflect.hasField(inst, "publish")) {
+                    inst.publish("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+                }
             } else if (Reflect.hasField(bus, "emit")) {
-                bus.emit("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+                Reflect.callMethod(bus, Reflect.field(bus, "emit"), ["judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy}]);
             }
         } catch (e:Dynamic) {}
     }
@@ -181,10 +203,15 @@ class JudgementManager extends FlxTypedGroup<FlxText> {
     private function dispatchMiss():Void {
         try {
             var bus:Dynamic = EventBus;
-            if (Reflect.hasField(bus, "publish")) {
-                bus.publish("judgement/miss", {misses: misses, accuracy: accuracy});
+            if (Reflect.hasField(bus, "instance") && Reflect.field(bus, "instance") != null) {
+                var inst = Reflect.field(bus, "instance");
+                if (Reflect.hasField(inst, "emit")) {
+                    inst.emit("judgement/miss", {misses: misses, accuracy: accuracy});
+                } else if (Reflect.hasField(inst, "publish")) {
+                    inst.publish("judgement/miss", {misses: misses, accuracy: accuracy});
+                }
             } else if (Reflect.hasField(bus, "emit")) {
-                bus.emit("judgement/miss", {misses: misses, accuracy: accuracy});
+                Reflect.callMethod(bus, Reflect.field(bus, "emit"), ["judgement/miss", {misses: misses, accuracy: accuracy}]);
             }
         } catch (e:Dynamic) {}
     }
@@ -192,7 +219,7 @@ class JudgementManager extends FlxTypedGroup<FlxText> {
     public function reset():Void {
         for (twn in activeTweens) twn.cancel();
         activeTweens.clear();
-        forEach(function(txt:FlxText) txt.kill());
+        forEach(function(spr:FlxSprite) spr.kill());
 
         combo = 0;
         misses = 0;
@@ -201,16 +228,6 @@ class JudgementManager extends FlxTypedGroup<FlxText> {
         totalWeight = 0.0;
         accuracy = 0.0;
         health = 1.0;
-    }
-
-    private static function colorFor(result:Judgment):FlxColor {
-        return switch (result) {
-            case SICK: 0xFF00FFFF;
-            case GOOD: 0xFF55E055;
-            case BAD: 0xFFE08833;
-            case SHIT, MISS: 0xFFE03333;
-            default: FlxColor.WHITE;
-        };
     }
 
     override public function destroy():Void {

@@ -56,8 +56,10 @@ class FreeplayState extends MusicBeatState {
         songs = (SongRegistry.songs != null) ? SongRegistry.songs : [];
 
         bg = new FlxSprite();
-        if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
-            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF444444);
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, 0xFF444444);
+            }
         }
         bg.screenCenter();
         bg.antialiasing = true;

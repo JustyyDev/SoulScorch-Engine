@@ -41,13 +41,14 @@ typedef StageJson = {
     var ?name:String;
     var ?stage:String;
     var ?defaultZoom:Float;
+    var ?zoom:Float;
     var ?cameraSpeed:Float;
     var ?camera_speed:Float;
     var ?hideGirlfriend:Bool;
     var ?hide_girlfriend:Bool;
 
-    // Supports both object spawn declarations and flat float arrays
     var ?boyfriend:Dynamic;
+    var ?player:Dynamic;
     var ?opponent:Dynamic;
     var ?dad:Dynamic;
     var ?girlfriend:Dynamic;

@@ -5,7 +5,8 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.Chart;
-import soulscorch.scripting.mod.ModManager;
+
+using StringTools;
 
 typedef ParsedSection = {
     var startTime:Float;
@@ -25,10 +26,8 @@ typedef ParsedSong = {
 }
 
 class SongParser {
-    public static function parse(rawJson:String, ?songId:String = "song"):ParsedSong {
-        if (rawJson == null || rawJson.length == 0) {
-            return null;
-        }
+    public static function parse(rawJson:String, ?songId:String = "song"):Null<ParsedSong> {
+        if (rawJson == null || rawJson.trim().length == 0) return null;
 
         var root:Dynamic = Json.parse(rawJson);
         var song:Dynamic = Reflect.hasField(root, "song") ? Reflect.field(root, "song") : root;
@@ -110,7 +109,7 @@ class SongParser {
             for (event in (cast rootEvents : Array<Dynamic>)) events.push(event);
         }
 
-        return {
+        var result:ParsedSong = {
             songId: songId,
             songName: stringField(song, "song", songId),
             bpm: bpm,
@@ -119,29 +118,37 @@ class SongParser {
             sections: sections,
             events: events
         };
+
+        return result;
     }
 
-    public static function load(songId:String, difficulty:String = "normal"):Null<ParsedSong> {
-        var diff = difficulty.toLowerCase().trim();
+    public static function load(songId:String, ?difficulty:String = "normal"):Null<ParsedSong> {
+        var cleanSong = (songId != null && songId.trim().length > 0) ? songId.toLowerCase().trim() : "tutorial";
+        var diff = (difficulty != null && difficulty.trim().length > 0) ? difficulty.toLowerCase().trim() : "normal";
         var diffSuffix = (diff == "normal") ? "" : '-$diff';
 
         var possiblePaths = [
-            'songs/$songId/charts/$diff.json',
-            'songs/$songId/chart$diffSuffix.json',
-            'songs/$songId/$songId$diffSuffix.json',
-            'songs/$songId/chart.json',
-            'data/$songId/$songId$diffSuffix.json',
-            'data/$songId/chart$diffSuffix.json'
+            'songs/$cleanSong/charts/$diff.json',
+            'songs/$cleanSong/chart$diffSuffix.json',
+            'songs/$cleanSong/$cleanSong$diffSuffix.json',
+            'songs/$cleanSong/chart.json',
+            'data/$cleanSong/$cleanSong$diffSuffix.json',
+            'data/$cleanSong/chart$diffSuffix.json',
+            'assets/preload/songs/$cleanSong/charts/$diff.json',
+            'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix.json'
         ];
 
         for (path in possiblePaths) {
             var resolved = AssetResolver.resolveFile(path, [".json", ""]);
             if (resolved != null) {
-                return parse(AssetResolver.getText(resolved), songId);
+                var content = AssetResolver.getText(resolved);
+                if (content != null && content.trim().length > 0) {
+                    return parse(content, cleanSong);
+                }
             }
         }
 
-        Logger.warn('Failed to locate chart file for: $songId ($difficulty)', "parser");
+        Logger.warn('Failed to locate chart file for: $cleanSong ($diff)', "parser");
         return null;
     }
 
@@ -153,7 +160,7 @@ class SongParser {
             if (values.length < 2) return null;
             var lane:Int = Std.int(numberValue(values[1], 0));
             var player:Bool = (lane >= 4) ? !mustHit : mustHit;
-            var type:String = (values.length > 3 && values[3] != null) ? Std.string(values[3]) : "Default";
+            var type:String = (values.length > 3 && values[3] != null) ? Std.string(values[3]) : "default";
 
             return new Note(
                 numberValue(values[0], 0),
@@ -176,7 +183,7 @@ class SongParser {
             false,
             false,
             boolField(raw, "mustPress", mustHit),
-            stringField(raw, "noteType", "Default")
+            stringField(raw, "noteType", "default")
         );
     }
 
