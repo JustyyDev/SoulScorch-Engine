@@ -2,6 +2,8 @@ package soulscorch.backend.system;
 
 import soulscorch.backend.utils.Logger;
 
+using StringTools;
+
 typedef EventHandler = Dynamic->Void;
 
 class EventBus {
@@ -85,8 +87,6 @@ class EventBus {
     public function clearAll():Void {
         handlers.clear();
     }
-
-    // --- Static Convenience API ---
 
     public static inline function subscribe(event:String, handler:EventHandler):Void {
         instance.on(event, handler);

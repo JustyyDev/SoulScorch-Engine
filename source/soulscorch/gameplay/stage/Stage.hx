@@ -170,6 +170,51 @@ class Stage extends FlxGroup {
         }
     }
 
+    /**
+     * Dynamically spawn a new stage prop or animated sprite at runtime via script or code.
+     */
+    public function spawnDynamicProp(id:String, image:String, x:Float, y:Float, layer:String = "background", animated:Bool = false, scrollX:Float = 1.0, scrollY:Float = 1.0):FlxSprite {
+        var spr = new FlxSprite(x, y);
+        if (animated) {
+            AssetHelper.loadSparrowSafely(spr, image);
+        } else {
+            AssetHelper.loadGraphicSafely(spr, image);
+        }
+
+        spr.scrollFactor.set(scrollX, scrollY);
+        spr.antialiasing = true;
+
+        if (layers.exists(layer)) {
+            layers.get(layer).add(spr);
+        } else {
+            layers.get("background").add(spr);
+        }
+
+        if (id != null && id.trim().length > 0) {
+            stageSprites.set(id, spr);
+        }
+
+        return spr;
+    }
+
+    /**
+     * Remove a stage sprite by its unique ID.
+     */
+    public function removeProp(id:String):Bool {
+        if (stageSprites.exists(id)) {
+            var spr = stageSprites.get(id);
+            for (layerGroup in layers) {
+                if (layerGroup.members.contains(spr)) {
+                    layerGroup.remove(spr, true);
+                    spr.destroy();
+                    stageSprites.remove(id);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private function parseSpawnPosition(raw:Dynamic, fallback:Array<Float>):Array<Float> {
         if (raw == null) return fallback;
 

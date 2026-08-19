@@ -30,7 +30,7 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var playerStrums:Array<FlxSprite> = [];
     private var opponentStrums:Array<FlxSprite> = [];
     private var defaultPositions:Array<Array<Float>> = [];
-    private var fallingNotesGroup:FlxSpriteGroup;
+    private var fallingNotesGroup:FlxTypedGroup<FlxSprite>;
 
     private var drunkIntensity:Float = 0.0;
     private var tipsyIntensity:Float = 0.0;
@@ -47,6 +47,7 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var modifierListTxt:FlxText;
     private var toastTxt:FlxText;
     private var simSongTime:Float = 0.0;
+    private var spawnTimer:Float = 0.0;
 
     override public function create():Void {
         super.create();
@@ -66,7 +67,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         var centerLine = new FlxSprite(FlxG.width * 0.5 - 1, 0).makeGraphic(2, FlxG.height, 0xFF282038);
         add(centerLine);
 
-        fallingNotesGroup = new FlxSpriteGroup();
+        fallingNotesGroup = new FlxTypedGroup<FlxSprite>();
         add(fallingNotesGroup);
 
         createMockStrumlines();
@@ -81,9 +82,10 @@ class ModchartWorkspaceState extends MusicBeatState {
         var noteColors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
         defaultPositions = [];
 
+        // Opponent Strums
         for (i in 0...4) {
             var xPos:Float = 120 + (i * 110);
-            var yPos:Float = 80;
+            var yPos:Float = 100;
             defaultPositions.push([xPos, yPos]);
 
             var strum = new FlxSprite(xPos, yPos).makeGraphic(90, 90, noteColors[i]);
@@ -92,9 +94,10 @@ class ModchartWorkspaceState extends MusicBeatState {
             add(strum);
         }
 
+        // Player Strums
         for (i in 0...4) {
             var xPos:Float = (FlxG.width * 0.5) + 80 + (i * 110);
-            var yPos:Float = 80;
+            var yPos:Float = 100;
             defaultPositions.push([xPos, yPos]);
 
             var strum = new FlxSprite(xPos, yPos).makeGraphic(90, 90, noteColors[i]);
@@ -109,7 +112,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         infoBox.cameras = [camHUD];
         add(infoBox);
 
-        var titleTxt = new FlxText(25, 25, 320, "MODCHART WORKSPACE", 18);
+        var titleTxt = new FlxText(25, 25, 320, "MODCHART WORKSPACE STUDIO", 18);
         titleTxt.setFormat(Paths.font("vcr"), 18, 0xFF00FFCC, LEFT);
         titleTxt.scrollFactor.set();
         titleTxt.cameras = [camHUD];
@@ -152,7 +155,7 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function setupToolbox():Void {
-        toolWindow = new EditorWindow(15, FlxG.height - 230, 340, 210, "Presets & Actions");
+        toolWindow = new EditorWindow(15, FlxG.height - 240, 340, 220, "Presets & Actions");
         toolWindow.cameras = [camHUD];
         add(toolWindow);
 
@@ -179,7 +182,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         });
         toolWindow.addElement(btnReset);
 
-        var btnCopy = new EditorButton(10, 90, 310, 32, "Copy SoulScript Event (C)", function() {
+        var btnCopy = new EditorButton(10, 92, 310, 32, "Copy SoulScript Event (C)", function() {
             copySoulScriptToClipboard();
         });
         toolWindow.addElement(btnCopy);
@@ -307,8 +310,20 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function spawnContinuousTestNotes(elapsed:Float):Void {
+        spawnTimer += elapsed;
+        if (spawnTimer >= 0.25) {
+            spawnTimer = 0.0;
+            var lane = FlxG.random.int(0, 3);
+            var noteColors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
+            var def = defaultPositions[lane + 4];
+
+            var note = new FlxSprite(def[0] + 15, FlxG.height + 50).makeGraphic(60, 60, noteColors[lane]);
+            note.alpha = 0.8;
+            fallingNotesGroup.add(note);
+        }
+
         fallingNotesGroup.forEachAlive(function(note:FlxSprite) {
-            note.y -= elapsed * 400.0 * strumSpeed;
+            note.y -= elapsed * 350.0 * strumSpeed;
             if (note.y < -100) {
                 note.kill();
                 fallingNotesGroup.remove(note, true);

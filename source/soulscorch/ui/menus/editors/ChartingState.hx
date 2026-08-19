@@ -19,8 +19,8 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.chart.Chart;
 import soulscorch.gameplay.chart.Song;
-import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongLoader;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.editors.editorui.EditorButton;
@@ -41,6 +41,7 @@ class ChartingState extends MusicBeatState {
     public static var curDifficulty:String = "normal";
 
     private var _song:SwagSong;
+    private var copiedSection:SwagSection = null;
 
     private var camGrid:FlxCamera;
     private var camHUD:FlxCamera;
@@ -56,6 +57,7 @@ class ChartingState extends MusicBeatState {
 
     private var grpNotes:FlxSpriteGroup;
     private var grpSustains:FlxSpriteGroup;
+    private var grpEvents:FlxSpriteGroup;
 
     private var vocals:FlxSound;
 
@@ -64,15 +66,22 @@ class ChartingState extends MusicBeatState {
     private var isPlaying:Bool = false;
     private var playbackSpeed:Float = 1.0;
     private var snapDivider:Int = 16;
+    private var metronomeEnabled:Bool = false;
 
+    // --- Editor Windows ---
     private var toolWindow:EditorWindow;
+    private var actionWindow:EditorWindow;
     private var stepperBPM:EditorNumericStepper;
     private var stepperSpeed:EditorNumericStepper;
     private var checkMustHit:EditorCheckbox;
+    private var checkMetronome:EditorCheckbox;
 
+    // --- HUD Texts ---
     private var infoTxt:FlxText;
     private var helpTxt:FlxText;
     private var sectionTxt:FlxText;
+    private var statusTxt:FlxText;
+    private var statusTimer:Float = 0.0;
 
     public function new(?song:String = "tutorial", ?difficulty:String = "normal") {
         super();
@@ -100,13 +109,16 @@ class ChartingState extends MusicBeatState {
         grpNotes = new FlxSpriteGroup();
         add(grpNotes);
 
+        grpEvents = new FlxSpriteGroup();
+        add(grpEvents);
+
         cursorSprite = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE, 0x55FFFFFF);
         cursorSprite.visible = false;
         add(cursorSprite);
 
         loadAudio();
         setupHUD();
-        setupToolbox();
+        setupToolboxes();
 
         refreshSectionNotes();
         updateInfoText();
@@ -202,39 +214,46 @@ class ChartingState extends MusicBeatState {
     }
 
     private function setupHUD():Void {
-        var bgHUD = new FlxSprite(0, 0).makeGraphic(320, FlxG.height, 0xDD110E17);
+        var bgHUD = new FlxSprite(0, 0).makeGraphic(330, FlxG.height, 0xEE120E1A);
         bgHUD.scrollFactor.set();
         bgHUD.cameras = [camHUD];
         add(bgHUD);
 
-        infoTxt = new FlxText(15, 15, 290, "", 14);
-        infoTxt.setFormat(Paths.font("vcr"), 14, FlxColor.WHITE, LEFT);
+        infoTxt = new FlxText(15, 15, 300, "", 13);
+        infoTxt.setFormat(Paths.font("vcr"), 13, FlxColor.WHITE, LEFT);
         infoTxt.scrollFactor.set();
         infoTxt.cameras = [camHUD];
         add(infoTxt);
 
-        sectionTxt = new FlxText(15, 240, 290, "", 14);
-        sectionTxt.setFormat(Paths.font("vcr"), 14, 0xFF00FFCC, LEFT);
+        sectionTxt = new FlxText(15, 220, 300, "", 13);
+        sectionTxt.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, LEFT);
         sectionTxt.scrollFactor.set();
         sectionTxt.cameras = [camHUD];
         add(sectionTxt);
 
-        var rightHUD = new FlxSprite(FlxG.width - 320, 0).makeGraphic(320, FlxG.height, 0xDD110E17);
+        statusTxt = new FlxText(15, FlxG.height - 40, 300, "", 14);
+        statusTxt.setFormat(Paths.font("vcr"), 14, 0xFF00FFCC, LEFT, OUTLINE, FlxColor.BLACK);
+        statusTxt.scrollFactor.set();
+        statusTxt.cameras = [camHUD];
+        add(statusTxt);
+
+        var rightHUD = new FlxSprite(FlxG.width - 330, 0).makeGraphic(330, FlxG.height, 0xEE120E1A);
         rightHUD.scrollFactor.set();
         rightHUD.cameras = [camHUD];
         add(rightHUD);
 
-        helpTxt = new FlxText(FlxG.width - 305, 15, 290,
-            "CHART EDITOR CONTROLS:\n\n" +
-            "[L-CLICK] - Place Note\n" +
+        helpTxt = new FlxText(FlxG.width - 315, 15, 300,
+            "SOULSCORCH CHART STUDIO:\n\n" +
+            "[L-CLICK] - Place Note / Sustain\n" +
             "[R-CLICK] - Delete Note\n" +
-            "[SCROLL WHEEL] - Adjust Sustain\n" +
+            "[SCROLL WHEEL] - Adjust Sustain Length\n" +
             "[SPACE] - Play / Pause Song\n" +
-            "[W / S] - Step Navigation\n" +
-            "[Q / E] - Prev / Next Section\n" +
-            "[TAB] - Toggle Section Must-Hit\n" +
+            "[W / S] - Step Navigation (1-16)\n" +
+            "[Q / E] - Previous / Next Section\n" +
+            "[TAB] - Toggle Must-Hit Section\n" +
             "[A / D] - Adjust Playback Speed\n" +
             "[1 / 2 / 3] - Snap Division (4/8/16)\n" +
+            "[CTRL + C / V] - Copy / Paste Section\n" +
             "[CTRL + S] - Export Chart JSON\n" +
             "[ESCAPE] - Return to Main Menu",
             12
@@ -245,25 +264,25 @@ class ChartingState extends MusicBeatState {
         add(helpTxt);
     }
 
-    private function setupToolbox():Void {
-        toolWindow = new EditorWindow(10, FlxG.height - 230, 300, 220, "Song Properties");
+    private function setupToolboxes():Void {
+        toolWindow = new EditorWindow(10, FlxG.height - 270, 310, 260, "Song & Chart Properties");
         toolWindow.cameras = [camHUD];
         add(toolWindow);
 
-        stepperBPM = new EditorNumericStepper(10, 10, 270, "BPM", _song.bpm, 1.0, 500.0, 1.0, 1, function(v) {
+        stepperBPM = new EditorNumericStepper(10, 8, 290, "Song BPM", _song.bpm, 1.0, 500.0, 1.0, 1, function(v) {
             _song.bpm = v;
             Conductor.changeBPM(v);
             updateInfoText();
         });
         toolWindow.addElement(stepperBPM);
 
-        stepperSpeed = new EditorNumericStepper(10, 45, 270, "Speed", _song.speed, 0.5, 6.0, 0.1, 2, function(v) {
+        stepperSpeed = new EditorNumericStepper(10, 44, 290, "Scroll Speed", _song.speed, 0.5, 8.0, 0.1, 2, function(v) {
             _song.speed = v;
             updateInfoText();
         });
         toolWindow.addElement(stepperSpeed);
 
-        checkMustHit = new EditorCheckbox(10, 85, "Must Hit Section", _song.notes[curSection] != null && _song.notes[curSection].mustHitSection, function(checked) {
+        checkMustHit = new EditorCheckbox(10, 82, "Must Hit Section", _song.notes[curSection] != null && _song.notes[curSection].mustHitSection, function(checked) {
             if (_song.notes[curSection] != null) {
                 _song.notes[curSection].mustHitSection = checked;
                 refreshSectionNotes();
@@ -272,14 +291,44 @@ class ChartingState extends MusicBeatState {
         });
         toolWindow.addElement(checkMustHit);
 
-        var btnSave = new EditorButton(10, 125, 270, 32, "Save Chart (Ctrl+S)", function() {
+        checkMetronome = new EditorCheckbox(160, 82, "Metronome", metronomeEnabled, function(checked) {
+            metronomeEnabled = checked;
+        });
+        toolWindow.addElement(checkMetronome);
+
+        var btnSave = new EditorButton(10, 116, 290, 32, "Export Chart JSON (Ctrl+S)", function() {
             saveChartJson();
         });
         toolWindow.addElement(btnSave);
+
+        // --- Action Toolbox Window ---
+        actionWindow = new EditorWindow(10, FlxG.height - 430, 310, 150, "Section Utilities");
+        actionWindow.cameras = [camHUD];
+        add(actionWindow);
+
+        var btnCopy = new EditorButton(10, 8, 140, 30, "Copy Section", function() {
+            copyCurrentSection();
+        });
+        actionWindow.addElement(btnCopy);
+
+        var btnPaste = new EditorButton(160, 8, 140, 30, "Paste Section", function() {
+            pasteCurrentSection();
+        });
+        actionWindow.addElement(btnPaste);
+
+        var btnClear = new EditorButton(10, 46, 290, 30, "Clear All Notes in Section", function() {
+            clearCurrentSection();
+        });
+        actionWindow.addElement(btnClear);
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+
+        if (statusTimer > 0) {
+            statusTimer -= elapsed;
+            if (statusTimer <= 0) statusTxt.text = "";
+        }
 
         if (isPlaying) {
             updateAudioPlayback();
@@ -313,6 +362,13 @@ class ChartingState extends MusicBeatState {
         curSectionMarker.y = gridBG.y + (stepInSection * GRID_SIZE);
     }
 
+    override public function stepHit(step:Int):Void {
+        super.stepHit(step);
+        if (metronomeEnabled && (step % 4 == 0)) {
+            AssetHelper.playSoundSafely("scrollMenu", 0.3);
+        }
+    }
+
     private function handleNavigationInput():Void {
         if (FlxG.keys.justPressed.E) changeSection(1);
         if (FlxG.keys.justPressed.Q) changeSection(-1);
@@ -333,6 +389,14 @@ class ChartingState extends MusicBeatState {
                 checkMustHit.checked = _song.notes[curSection].mustHitSection;
                 refreshSectionNotes();
             }
+        }
+
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.C) {
+            copyCurrentSection();
+        }
+
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.V) {
+            pasteCurrentSection();
         }
     }
 
@@ -433,6 +497,60 @@ class ChartingState extends MusicBeatState {
         if (vocals != null) vocals.pause();
     }
 
+    private function copyCurrentSection():Void {
+        var sec = _song.notes[curSection];
+        if (sec != null) {
+            copiedSection = {
+                sectionNotes: [],
+                mustHitSection: sec.mustHitSection,
+                bpm: sec.bpm,
+                changeBPM: sec.changeBPM,
+                altAnim: sec.altAnim,
+                lengthInSteps: sec.lengthInSteps
+            };
+            for (n in sec.sectionNotes) {
+                copiedSection.sectionNotes.push([n[0], n[1], n[2]]);
+            }
+            statusTxt.text = "Section copied!";
+            statusTimer = 2.0;
+            AssetHelper.playSoundSafely("confirmMenu", 0.5);
+        }
+    }
+
+    private function pasteCurrentSection():Void {
+        if (copiedSection != null && _song.notes[curSection] != null) {
+            var sec = _song.notes[curSection];
+            sec.mustHitSection = copiedSection.mustHitSection;
+            sec.bpm = copiedSection.bpm;
+            sec.changeBPM = copiedSection.changeBPM;
+            sec.altAnim = copiedSection.altAnim;
+            sec.sectionNotes = [];
+
+            var timeOffset = curSection * ROWS_PER_SECTION * Conductor.stepCrochet;
+            var baseTime = copiedSection.sectionNotes.length > 0 ? copiedSection.sectionNotes[0][0] : 0;
+
+            for (n in copiedSection.sectionNotes) {
+                var relativeTime = n[0] - baseTime;
+                sec.sectionNotes.push([timeOffset + relativeTime, n[1], n[2]]);
+            }
+
+            if (checkMustHit != null) checkMustHit.checked = sec.mustHitSection;
+            refreshSectionNotes();
+            statusTxt.text = "Section pasted!";
+            statusTimer = 2.0;
+        }
+    }
+
+    private function clearCurrentSection():Void {
+        var sec = _song.notes[curSection];
+        if (sec != null) {
+            sec.sectionNotes = [];
+            refreshSectionNotes();
+            statusTxt.text = "Section cleared!";
+            statusTimer = 2.0;
+        }
+    }
+
     private function addNote(time:Float, data:Int):Void {
         var sec = _song.notes[curSection];
         if (sec == null) return;
@@ -507,7 +625,7 @@ class ChartingState extends MusicBeatState {
         var sec = _song.notes[curSection];
         var isPlayer = sec != null ? sec.mustHitSection : true;
 
-        infoTxt.text = 'CHART EDITOR\n\n' +
+        infoTxt.text = 'CHART STUDIO\n\n' +
             'Song: ${_song.song}\n' +
             'Difficulty: ${curDifficulty.toUpperCase()}\n' +
             'BPM: ${_song.bpm}\n' +
@@ -516,7 +634,7 @@ class ChartingState extends MusicBeatState {
             'Snap: 1/$snapDivider\n' +
             'Time: ${Math.floor(Conductor.songPosition / 1000)}s';
 
-        sectionTxt.text = 'SECTION INFO\n\n' +
+        sectionTxt.text = 'SECTION STATS\n\n' +
             'Section: $curSection / ${_song.notes.length - 1}\n' +
             'Camera Focus: ${isPlayer ? "Boyfriend" : "Opponent"}\n' +
             'Steps in Sec: ${sec != null ? sec.lengthInSteps : 16}';
@@ -539,13 +657,19 @@ class ChartingState extends MusicBeatState {
             }
             File.saveContent(fullPath, formatted);
             Logger.info('Successfully saved chart to $fullPath', "charting");
+            statusTxt.text = "Chart saved successfully!";
+            statusTimer = 2.5;
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
         } catch (e:Dynamic) {
             Logger.error('Failed saving chart JSON: $e', "charting");
+            statusTxt.text = "Save failed!";
+            statusTimer = 2.5;
         }
         #else
         var fileRef = new FileReference();
         fileRef.save(formatted, fileName);
+        statusTxt.text = "Chart exported!";
+        statusTimer = 2.5;
         #end
     }
 }

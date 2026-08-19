@@ -21,7 +21,7 @@
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
 	<haxelib name="hxCodec" if="SOULSCORCH_VIDEO_HXCODEC" />
 
-	<!-- Discord Rich Presence (All Desktop C++ Targets) -->
+	<!-- Discord Rich Presence (Desktop C++ Targets) -->
 	<haxelib name="hxdiscord_rpc" if="desktop" unless="mobile" />
 
 	<!-- Custom Application Icons -->
@@ -43,28 +43,17 @@
 	<!-- Source Roots -->
 	<source path="source" />
 
-	<!-- Dynamic External Folders -->
-	<assets path="mods" embed="false" unless="mobile" />
-
-	<!-- Core Asset Pipelines -->
-	<assets path="assets" rename="assets" exclude="*.ogg" if="web" />
-	<assets path="assets" rename="assets" exclude="*.mp3" unless="web" embed="false" />
-	<assets path="assets" rename="assets" embed="true" if="mobile" />
-
+	<!-- Core Asset Pipelines (Mapped from assets/preload) -->
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
 	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" embed="false" />
 	<assets path="assets/preload" rename="assets" embed="true" if="mobile" />
 
-	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
-	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" embed="false" />
-	<assets path="assets/shared" rename="assets/shared" embed="true" if="mobile" />
+	<!-- Engine Data & Song Route Aliases -->
+	<assets path="assets/preload/data" rename="data" embed="false" unless="mobile" />
+	<assets path="assets/preload/data" rename="data" embed="true" if="mobile" />
 
-	<!-- Standalone Engine Data Folders -->
-	<assets path="data" rename="data" embed="false" unless="mobile" />
-	<assets path="data" rename="data" embed="true" if="mobile" />
-
-	<assets path="songs" rename="songs" exclude="*.mp3" unless="web" embed="false" />
-	<assets path="songs" rename="songs" embed="true" if="mobile" />
+	<assets path="assets/preload/songs" rename="songs" exclude="*.mp3" unless="web" embed="false" />
+	<assets path="assets/preload/songs" rename="songs" embed="true" if="mobile" />
 
 	<!-- Engine Optimization & Crash Prevention Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />

@@ -50,24 +50,24 @@ class EditorNumericStepper extends FlxSpriteGroup {
         this.decimals = decimals;
         this.onChange = onChange;
 
-        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), 30, 0xFF3F557A);
+        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), 32, 0xFF2F364D);
         add(border);
 
-        bg = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 28, 0xFF1B2434);
+        bg = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 30, 0xFF141722);
         add(bg);
 
-        label = new FlxText(8, 6, width * 0.45, labelText, 14);
-        label.setFormat(Paths.font("vcr"), 14, FlxColor.WHITE, LEFT);
+        label = new FlxText(10, 8, width * 0.45, labelText, 13);
+        label.setFormat(Paths.font("vcr"), 13, FlxColor.WHITE, LEFT);
         add(label);
 
-        valueText = new FlxText(width * 0.45, 6, width * 0.55 - 32, Std.string(initialValue), 14);
-        valueText.setFormat(Paths.font("vcr"), 14, 0xFFFFCC00, RIGHT);
+        valueText = new FlxText(width * 0.45, 8, width * 0.55 - 34, Std.string(initialValue), 13);
+        valueText.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, RIGHT);
         add(valueText);
 
-        btnUp = new FlxSprite(width - 26, 2).makeGraphic(24, 12, 0xFF2E3D54);
+        btnUp = new FlxSprite(width - 28, 2).makeGraphic(26, 13, 0xFF22283A);
         add(btnUp);
 
-        btnDown = new FlxSprite(width - 26, 16).makeGraphic(24, 12, 0xFF2E3D54);
+        btnDown = new FlxSprite(width - 28, 17).makeGraphic(26, 13, 0xFF22283A);
         add(btnDown);
 
         this.value = initialValue;
@@ -94,11 +94,17 @@ class EditorNumericStepper extends FlxSpriteGroup {
         var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
-        var inUpBtn = (mousePos.x >= x + bg.width - 26 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 2 && mousePos.y <= y + 14);
-        var inDownBtn = (mousePos.x >= x + bg.width - 26 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 16 && mousePos.y <= y + 28);
+        var inBox = (mousePos.x >= x && mousePos.x <= x + bg.width + 2 && mousePos.y >= y && mousePos.y <= y + 32);
+        if (inBox && FlxG.mouse.wheel != 0) {
+            var mult = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
+            value += FlxG.mouse.wheel * step * mult;
+        }
 
-        btnUp.color = inUpBtn ? 0xFF4F6991 : 0xFF2E3D54;
-        btnDown.color = inDownBtn ? 0xFF4F6991 : 0xFF2E3D54;
+        var inUpBtn = (mousePos.x >= x + bg.width - 28 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 2 && mousePos.y <= y + 15);
+        var inDownBtn = (mousePos.x >= x + bg.width - 28 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 17 && mousePos.y <= y + 30);
+
+        if (btnUp != null) btnUp.color = inUpBtn ? 0xFF00FFCC : 0xFF22283A;
+        if (btnDown != null) btnDown.color = inDownBtn ? 0xFF00FFCC : 0xFF22283A;
 
         var mult = 1.0;
         if (FlxG.keys.pressed.SHIFT) mult = 10.0;

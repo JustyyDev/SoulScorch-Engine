@@ -69,7 +69,7 @@ class GPUTextureManager {
             }
 
             graphic.persist = persist;
-            graphic.destroyOnUse = false;
+            graphic.destroyOnNoUse = false;
 
             cachedGraphics.set(resolved, graphic);
             FlxG.bitmap.addGraphic(graphic);

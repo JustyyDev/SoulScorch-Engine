@@ -29,7 +29,12 @@ class ChartParser {
             var parsed = new Song(songName, songName);
 
             if (Reflect.hasField(songData, "bpm")) parsed.bpm = Std.parseFloat(Std.string(Reflect.field(songData, "bpm")));
-            if (Reflect.hasField(songData, "speed")) parsed.scrollSpeed = Std.parseFloat(Std.string(Reflect.field(songData, "speed")));
+            if (Reflect.hasField(songData, "scrollSpeed")) {
+                parsed.scrollSpeed = Std.parseFloat(Std.string(Reflect.field(songData, "scrollSpeed")));
+            } else if (Reflect.hasField(songData, "speed")) {
+                parsed.scrollSpeed = Std.parseFloat(Std.string(Reflect.field(songData, "speed")));
+            }
+
             if (Reflect.hasField(songData, "player1")) parsed.player1 = Std.string(Reflect.field(songData, "player1"));
             if (Reflect.hasField(songData, "player2")) parsed.player2 = Std.string(Reflect.field(songData, "player2"));
             if (Reflect.hasField(songData, "gfVersion")) parsed.gfVersion = Std.string(Reflect.field(songData, "gfVersion"));
@@ -42,15 +47,38 @@ class ChartParser {
             var runningTime:Float = 0.0;
             var totalSteps:Int = 0;
 
-            // 1. Parse Notes, Sections & Legacy Section BPM Changes
-            if (Reflect.hasField(songData, "notes") && songData.notes != null) {
+            // --- SUPPORT FOR CODENAME / PSYCH "strumLines" FORMAT ---
+            if (Reflect.hasField(songData, "strumLines") && songData.strumLines != null) {
+                var strumLines:Array<Dynamic> = cast Reflect.field(songData, "strumLines");
+                if (strumLines != null) {
+                    for (line in strumLines) {
+                        if (line == null) continue;
+                        var isPlayer:Bool = (line.type == 1 || line.position == "boyfriend" || line.position == "bf");
+
+                        if (Reflect.hasField(line, "notes") && line.notes != null) {
+                            var notesList:Array<Dynamic> = cast line.notes;
+                            for (note in notesList) {
+                                if (note == null) continue;
+                                var time:Float = Reflect.hasField(note, "time") ? Std.parseFloat(Std.string(note.time)) : 0.0;
+                                var rawDir:Int = Reflect.hasField(note, "id") ? Std.parseInt(Std.string(note.id)) : (Reflect.hasField(note, "noteData") ? Std.parseInt(Std.string(note.noteData)) : 0);
+                                var susLen:Float = Reflect.hasField(note, "sLen") ? Std.parseFloat(Std.string(note.sLen)) : (Reflect.hasField(note, "sustainLength") ? Std.parseFloat(Std.string(note.sustainLength)) : 0.0);
+                                var type:String = Reflect.hasField(note, "type") ? Std.string(note.type) : "Default";
+
+                                var direction:Int = rawDir % 4;
+                                parsed.chart.addNote(time, direction, susLen, type, isPlayer);
+                            }
+                        }
+                    }
+                }
+            } 
+            // --- LEGACY FNF SECTION NOTES FORMAT ---
+            else if (Reflect.hasField(songData, "notes") && songData.notes != null) {
                 var sections:Array<Dynamic> = cast Reflect.field(songData, "notes");
                 if (sections != null) {
                     for (sec in sections) {
                         if (sec == null) continue;
                         var mustHitSection:Bool = Reflect.hasField(sec, "mustHitSection") ? (sec.mustHitSection == true) : true;
 
-                        // Section BPM Change conversion
                         if (Reflect.hasField(sec, "changeBPM") && sec.changeBPM == true && Reflect.hasField(sec, "bpm") && sec.bpm != null) {
                             curBpm = Std.parseFloat(Std.string(sec.bpm));
                             parsed.chart.addEvent(runningTime, "BPM Change", Std.string(curBpm), "");
@@ -83,7 +111,7 @@ class ChartParser {
                 }
             }
 
-            // 2. Parse Embedded Events (Psych / Codename / V-Slice format)
+            // 2. Parse Embedded Events
             if (Reflect.hasField(songData, "events") && songData.events != null) {
                 var rawEvents:Array<Dynamic> = cast Reflect.field(songData, "events");
                 if (rawEvents != null) {
@@ -106,7 +134,19 @@ class ChartParser {
 
     private static function parseEventsArray(rawEvents:Array<Dynamic>, chart:Chart):Void {
         for (e in rawEvents) {
-            if (e != null && e.length >= 2) {
+            if (e == null) continue;
+            
+            // Handle Codename format: { time: ..., name: ..., params: [...] }
+            if (Reflect.hasField(e, "time") && Reflect.hasField(e, "name")) {
+                var time:Float = Std.parseFloat(Std.string(e.time));
+                var name:String = Std.string(e.name);
+                var params:Array<Dynamic> = Reflect.hasField(e, "params") ? cast e.params : [];
+                var val1:String = (params.length > 0 && params[0] != null) ? Std.string(params[0]) : "";
+                var val2:String = (params.length > 1 && params[1] != null) ? Std.string(params[1]) : "";
+                chart.addEvent(time, name, val1, val2);
+            } 
+            // Handle Legacy Psych array format: [time, [[name, val1, val2], ...]]
+            else if (e.length >= 2) {
                 var time:Float = Std.parseFloat(Std.string(e[0]));
                 var subEvents:Array<Dynamic> = cast e[1];
                 if (subEvents != null) {
@@ -129,6 +169,7 @@ class ChartParser {
             'songs/$clean/events',
             'data/$clean/events',
             'assets/songs/$clean/events',
+            'assets/preload/songs/$clean/events',
             'assets/data/$clean/events'
         ];
 

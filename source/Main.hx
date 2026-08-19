@@ -23,6 +23,7 @@ import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.backend.system.engine.EngineOptimizer; // Added import
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.FileWatcher;
 import soulscorch.scripting.mod.ModManager;
@@ -94,6 +95,9 @@ class Main extends Sprite {
             Runtime.bootstrap(config);
             Runtime.setupFlixel();
 
+            // Initialize Optimizer
+            EngineOptimizer.init(framerate);
+
             ModManager.reloadMods();
             SoulGlobalScript.init();
 
@@ -126,22 +130,18 @@ class Main extends Sprite {
     }
 
     private function onKeyDown(event:KeyboardEvent):Void {
-        // Toggle FPS Counter Display
         if (event.keyCode == Keyboard.F3 && fpsCounter != null) {
             fpsCounter.visible = !fpsCounter.visible;
         }
 
-        // Live Hot-Reload
         if (event.keyCode == Keyboard.F5) {
             HotReloader.reload();
         }
 
-        // Quick Mod Switcher SubState
         if (event.keyCode == Keyboard.TAB && FlxG.state != null && FlxG.state.subState == null) {
             FlxG.state.openSubState(new ModSwitchMenu());
         }
 
-        // Quick Developer Editor Suite
         if (event.keyCode == Keyboard.NUMBER_7 && FlxG.state != null && FlxG.state.subState == null) {
             MusicBeatState.switchState(new EditorPickerMenu());
         }
@@ -152,5 +152,6 @@ class Main extends Sprite {
             fileWatcher.update(FlxG.elapsed);
         }
         HotReloader.update();
+        EngineOptimizer.update(FlxG.elapsed); // Tick optimizer every frame
     }
 }

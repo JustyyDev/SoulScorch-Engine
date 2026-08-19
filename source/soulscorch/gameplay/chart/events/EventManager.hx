@@ -34,7 +34,7 @@ class EventManager {
     }
 
     /**
-     * Parses raw event arrays from Chart JSONs (supports Psych and V-Slice schemas).
+     * Parses raw event arrays from Chart JSONs (supports Psych, Codename params, and V-Slice schemas).
      */
     public function parse(raw:Dynamic):Void {
         if (raw == null) return;
@@ -46,28 +46,40 @@ class EventManager {
         for (entry in (cast rawList : Array<Dynamic>)) {
             if (entry == null) continue;
 
-            // Format A: [strumTime, [[eventName, val1, val2]]] (Psych format)
+            // Format A: [strumTime, [[eventName, val1, val2]]] (Legacy Psych format)
             if (Std.isOfType(entry, Array) && entry.length >= 2) {
                 var time:Float = entry[0];
                 var subEvents:Array<Dynamic> = cast entry[1];
-                for (sub in subEvents) {
-                    if (sub != null && sub.length >= 1) {
-                        events.push({
-                            time: time,
-                            name: Std.string(sub[0]),
-                            val1: sub.length > 1 ? Std.string(sub[1]) : "",
-                            val2: sub.length > 2 ? Std.string(sub[2]) : "",
-                            fired: false
-                        });
+                if (subEvents != null) {
+                    for (sub in subEvents) {
+                        if (sub != null && sub.length >= 1) {
+                            events.push({
+                                time: time,
+                                name: Std.string(sub[0]),
+                                val1: sub.length > 1 ? Std.string(sub[1]) : "",
+                                val2: sub.length > 2 ? Std.string(sub[2]) : "",
+                                fired: false
+                            });
+                        }
                     }
                 }
             } 
-            // Format B: {time: Float, name/type: String, val1/data: Dynamic}
-            else {
+            // Format B: Codename Engine / Modern Object format {time: Float, name: String, params: Array}
+            else if (Reflect.hasField(entry, "name")) {
                 var time:Float = StringTools.forceFloat(Reflect.field(entry, "time"), StringTools.forceFloat(Reflect.field(entry, "strumTime"), 0.0));
-                var name:String = Reflect.hasField(entry, "name") ? Std.string(Reflect.field(entry, "name")) : (Reflect.hasField(entry, "type") ? Std.string(Reflect.field(entry, "type")) : "");
-                var val1:String = Reflect.hasField(entry, "val1") ? Std.string(Reflect.field(entry, "val1")) : (Reflect.hasField(entry, "data") ? Std.string(Reflect.field(entry, "data")) : "");
-                var val2:String = Reflect.hasField(entry, "val2") ? Std.string(Reflect.field(entry, "val2")) : "";
+                var name:String = Std.string(Reflect.field(entry, "name"));
+                
+                var val1:String = "";
+                var val2:String = "";
+
+                if (Reflect.hasField(entry, "params") && Reflect.field(entry, "params") != null) {
+                    var params:Array<Dynamic> = cast Reflect.field(entry, "params");
+                    if (params.length > 0 && params[0] != null) val1 = Std.string(params[0]);
+                    if (params.length > 1 && params[1] != null) val2 = Std.string(params[1]);
+                } else {
+                    val1 = Reflect.hasField(entry, "val1") ? Std.string(Reflect.field(entry, "val1")) : (Reflect.hasField(entry, "data") ? Std.string(Reflect.field(entry, "data")) : "");
+                    val2 = Reflect.hasField(entry, "val2") ? Std.string(Reflect.field(entry, "val2")) : "";
+                }
 
                 if (name.length > 0) {
                     events.push({
@@ -111,7 +123,6 @@ class EventManager {
             }
         }
 
-        // Decay beat bump zoom over time
         if (zoomBump > 0.0) {
             zoomBump = Math.max(0.0, zoomBump - (elapsed * 3.0));
             if (camera != null) {
@@ -137,7 +148,7 @@ class EventManager {
         var cleanName:String = name.toLowerCase().trim();
 
         switch (cleanName) {
-            case "camera pan", "camera_pan", "camerapan", "focus camera":
+            case "camera movement", "camera pan", "camera_pan", "camerapan", "focus camera":
                 var target = (val1.length > 0) ? val1 : "stage";
                 var duration = StringTools.forceFloat(val2, 0.4);
                 panCamera(target, duration);
@@ -175,7 +186,6 @@ class EventManager {
                 EventBus.emit('event/$name', {val1: val1, val2: val2, data: data});
         }
 
-        // Notify global event subscribers and custom scripts
         EventBus.emit("event/dispatched", {name: name, val1: val1, val2: val2, data: data});
         if (ScriptManager.instance != null) {
             ScriptManager.instance.callAll("onEvent", [name, val1, val2]);
@@ -184,8 +194,8 @@ class EventManager {
 
     private function panCamera(target:String, duration:Float):Void {
         var point:{x:Float, y:Float} = switch (target.toLowerCase().trim()) {
-            case "opponent", "dad", "0": opponentPosition;
-            case "player", "bf", "1": playerPosition;
+            case "opponent", "dad", "0", "false": opponentPosition;
+            case "player", "bf", "1", "true": playerPosition;
             case "gf", "girlfriend", "2": gfPosition;
             default: stageCenter;
         };

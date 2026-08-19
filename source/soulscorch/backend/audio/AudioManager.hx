@@ -5,6 +5,8 @@ import flixel.sound.FlxSound;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.StemMixer;
 
+using StringTools;
+
 class AudioManager {
     public var inst:FlxSound;
     public var vocals:FlxSound;
@@ -12,8 +14,7 @@ class AudioManager {
     public var mixer:StemMixer;
 
     public var onSongComplete:Void->Void;
-    public var isMutedVocalPlayer:Bool = false;
-    public var isMutedVocalOpponent:Bool = false;
+    public var isPlaying:Bool = false;
 
     public function new() {
         mixer = new StemMixer();
@@ -22,82 +23,72 @@ class AudioManager {
     public function loadSong(songId:String):Void {
         clear();
 
-        var instSound = Paths.inst(songId);
-        if (instSound != null) {
-            inst = new FlxSound().loadEmbedded(instSound);
+        var instAsset = Paths.inst(songId);
+        if (instAsset != null) {
+            inst = new FlxSound().loadEmbedded(instAsset);
             inst.onComplete = function() {
                 if (onSongComplete != null) onSongComplete();
             };
             FlxG.sound.list.add(inst);
-            mixer.registerStem("inst", inst);
+            mixer.addStem("inst", inst);
         }
 
-        var voiceSound = Paths.voices(songId);
-        if (voiceSound != null) {
-            vocals = new FlxSound().loadEmbedded(voiceSound);
+        var voicesAsset = Paths.voices(songId);
+        if (voicesAsset != null) {
+            vocals = new FlxSound().loadEmbedded(voicesAsset);
             FlxG.sound.list.add(vocals);
-            mixer.registerStem("vocals", vocals);
+            mixer.addStem("voices", vocals);
         }
 
-        var oppVoiceSound = Paths.voices(songId + "-opponent");
-        if (oppVoiceSound == null) oppVoiceSound = Paths.voices(songId + "-dad");
-
-        if (oppVoiceSound != null) {
-            opponentVocals = new FlxSound().loadEmbedded(oppVoiceSound);
+        var oppVoicesAsset = Paths.voices(songId + "-opponent");
+        if (oppVoicesAsset != null) {
+            opponentVocals = new FlxSound().loadEmbedded(oppVoicesAsset);
             FlxG.sound.list.add(opponentVocals);
-            mixer.registerStem("opponentVocals", opponentVocals);
+            mixer.addStem("opponent_voices", opponentVocals);
         }
     }
 
     public function play():Void {
+        isPlaying = true;
         mixer.play();
     }
 
     public function pause():Void {
+        isPlaying = false;
         mixer.pause();
     }
 
     public function resume():Void {
+        isPlaying = true;
         mixer.resume();
     }
 
     public function stop():Void {
+        isPlaying = false;
         mixer.stop();
     }
 
-    public function muteVocal(isPlayer:Bool, muted:Bool):Void {
-        if (isPlayer) {
-            isMutedVocalPlayer = muted;
-            if (vocals != null) vocals.volume = muted ? 0.0 : 1.0;
-        } else {
-            isMutedVocalOpponent = muted;
-            if (opponentVocals != null) opponentVocals.volume = muted ? 0.0 : 1.0;
+    public function update(elapsed:Float):Void {
+        if (isPlaying && inst != null && vocals != null) {
+            if (Math.abs(inst.time - vocals.time) > 20) {
+                vocals.time = inst.time;
+            }
         }
     }
 
-    public function update(elapsed:Float):Void {
-        if (inst != null && inst.playing) {
-            mixer.syncAll(inst.time, 25.0);
+    public function muteVocal(isPlayer:Bool, muted:Bool):Void {
+        if (isPlayer && vocals != null) {
+            vocals.volume = muted ? 0.0 : 1.0;
+        } else if (!isPlayer && opponentVocals != null) {
+            opponentVocals.volume = muted ? 0.0 : 1.0;
         }
     }
 
     public function clear():Void {
+        isPlaying = false;
         mixer.clear();
-
-        if (inst != null) {
-            FlxG.sound.list.remove(inst, true);
-            inst.destroy();
-            inst = null;
-        }
-        if (vocals != null) {
-            FlxG.sound.list.remove(vocals, true);
-            vocals.destroy();
-            vocals = null;
-        }
-        if (opponentVocals != null) {
-            FlxG.sound.list.remove(opponentVocals, true);
-            opponentVocals.destroy();
-            opponentVocals = null;
-        }
+        inst = null;
+        vocals = null;
+        opponentVocals = null;
     }
 }

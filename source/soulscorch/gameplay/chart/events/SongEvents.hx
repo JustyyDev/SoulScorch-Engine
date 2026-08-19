@@ -19,6 +19,13 @@ typedef EventDefinition = {
 
 class SongEvents {
     public static var registeredEvents:Map<String, EventDefinition> = [
+        "Camera Movement" => {
+            name: "Camera Movement",
+            description: "Pans the camera to opponent (0) or player (1) as used in Codename/Psych charts.",
+            defaultVal1: "1",
+            defaultVal2: "0.4",
+            color: 0xFF22AACC
+        },
         "Camera Pan" => {
             name: "Camera Pan",
             description: "Pans the game camera to a target character (bf/dad/gf/stage).",
@@ -64,6 +71,7 @@ class SongEvents {
     ];
 
     public static inline function getDefinition(name:String):Null<EventDefinition> {
+        if (name == null) return null;
         return registeredEvents.get(name);
     }
 }

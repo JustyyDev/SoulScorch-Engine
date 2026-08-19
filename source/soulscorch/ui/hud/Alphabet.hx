@@ -54,51 +54,57 @@ class AlphaCharacter extends FlxSprite {
             createFallbackCharacter(char, bold);
         }
 
+        scale.set(0.85, 0.85);
         updateHitbox();
     }
 
     private function loadAtlasFrames(bold:Bool):Void {
-        var primaryKey = bold ? "ui/alphabet-bold" : "ui/alphabet";
-        var altKey = bold ? "alphabet-bold" : "alphabet";
-        var legacyKey = bold ? "bold" : "alphabet";
-
         if (bold) {
             if (cachedBoldFrames == null) {
-                cachedBoldFrames = Paths.getSparrowAtlas(primaryKey);
-                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas(altKey);
-                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas(legacyKey);
+                cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet-bold");
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("bold");
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet");
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet");
             }
             this.frames = cachedBoldFrames;
         } else {
             if (cachedFrames == null) {
-                cachedFrames = Paths.getSparrowAtlas(primaryKey);
-                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas(altKey);
-                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas(legacyKey);
+                cachedFrames = Paths.getSparrowAtlas("ui/alphabet");
+                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet");
+                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
+                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet-bold");
             }
             this.frames = cachedFrames;
         }
     }
 
     private function setupBold(char:String):Void {
-        var clean = char.toUpperCase();
-        var candidates:Array<String> = switch (clean) {
-            case ".": ["period bold", "bold period", "period0", "period", "."];
+        var upper = char.toUpperCase();
+        var lower = char.toLowerCase();
+        var candidates:Array<String> = switch (char) {
+            case "&": ["ampersand bold", "bold ampersand", "ampersand0", "ampersand", "and bold", "&"];
+            case ".": ["period bold", "bold period", "period0", "period", "full stop bold", "."];
             case "'": ["apostrophe bold", "bold apostrophe", "apostrophe0", "apostrophe", "'"];
-            case "?": ["question bold", "bold question", "question0", "question", "?"];
-            case "!": ["exclamation bold", "bold exclamation", "exclamation0", "exclamation", "!"];
-            case "-": ["dash bold", "bold dash", "dash0", "dash", "-"];
+            case "?": ["question bold", "bold question", "question0", "question mark bold", "question", "?"];
+            case "!": ["exclamation bold", "bold exclamation", "exclamation0", "exclamation point bold", "exclamation", "!"];
+            case "-": ["dash bold", "bold dash", "dash0", "dash", "hyphen bold", "-"];
             case "/": ["forward slash bold", "slash bold", "bold slash", "slash0", "slash", "/"];
             case "\\": ["back slash bold", "bold back slash", "backslash0", "\\"];
             case ":": ["colon bold", "bold colon", "colon0", ":"];
             case ";": ["semicolon bold", "bold semicolon", "semicolon0", ";"];
-            case "\"": ["quote bold", "bold quote", "quote0", "\""];
+            case "\'", "\'": ["quote bold", "bold quote", "quote0", "quote", "\""];
+            case "(": ["left parenthesis bold", "parenthesis left bold", "open paren", "("];
+            case ")": ["right parenthesis bold", "parenthesis right bold", "close paren", ")"];
             default: [
-                clean + " bold",
-                "bold " + clean,
-                clean + "0",
-                clean + " uppercase",
-                "bold uppercase " + clean,
-                clean
+                upper + " bold",
+                lower + " bold",
+                "bold " + upper,
+                "bold " + lower,
+                upper + "0",
+                lower + "0",
+                upper,
+                lower
             ];
         };
 
@@ -107,7 +113,10 @@ class AlphaCharacter extends FlxSprite {
 
     private function setupNormal(char:String):Void {
         var isLower = (char == char.toLowerCase());
+        var upper = char.toUpperCase();
+        var lower = char.toLowerCase();
         var candidates:Array<String> = switch (char) {
+            case "&": ["ampersand0", "ampersand", "and", "&"];
             case ".": ["period0", "period", "full stop", "."];
             case "'": ["apostrophe0", "apostrophe", "single quote", "'"];
             case "?": ["question mark0", "question mark", "question0", "?"];
@@ -118,11 +127,21 @@ class AlphaCharacter extends FlxSprite {
             case "\\": ["backslash0", "backslash", "\\"];
             case ":": ["colon0", "colon", ":"];
             case ";": ["semicolon0", "semicolon", ";"];
-            case "\"": ["quote0", "quote", "double quote", "\""];
+            case "\'", "\"": ["quote0", "quote", "double quote", "\""];
+            case "(": ["open paren", "parenthesis left", "("];
+            case ")": ["close paren", "parenthesis right", ")"];
             default:
                 if (isAlpha(char)) {
                     var caseSuffix = isLower ? "lowercase" : "uppercase";
-                    [char + " " + caseSuffix, char + caseSuffix, char + (isLower ? " lower" : " upper"), char + "0", char];
+                    [
+                        char + " " + caseSuffix,
+                        char + caseSuffix,
+                        char + (isLower ? " lower" : " upper"),
+                        upper + " " + caseSuffix,
+                        lower + " " + caseSuffix,
+                        char + "0",
+                        char
+                    ];
                 } else if (isNumber(char)) {
                     [char + "0", char, "number " + char];
                 } else {
@@ -137,11 +156,19 @@ class AlphaCharacter extends FlxSprite {
         if (frames == null || frames.frames == null) return false;
 
         for (p in prefixes) {
+            var pLower = p.toLowerCase();
             for (f in frames.frames) {
-                if (f.name != null && (f.name == p || f.name.toLowerCase().startsWith(p.toLowerCase()))) {
-                    animation.addByPrefix("idle", f.name, 24, true);
-                    animation.play("idle");
-                    return true;
+                if (f.name == null) continue;
+                var fLower = f.name.toLowerCase();
+                if (fLower == pLower || fLower.startsWith(pLower)) {
+                    var reg = ~/[0-9]+$/;
+                    var prefixToUse = reg.replace(f.name, "");
+
+                    animation.addByPrefix("idle", prefixToUse, 24, true);
+                    if (animation.getByName("idle") != null && animation.getByName("idle").numFrames > 0) {
+                        animation.play("idle");
+                        return true;
+                    }
                 }
             }
         }
@@ -149,16 +176,16 @@ class AlphaCharacter extends FlxSprite {
     }
 
     private function createFallbackCharacter(char:String, bold:Bool):Void {
-        var size:Int = bold ? 38 : 28;
+        var size:Int = bold ? 48 : 36;
         var renderText = new FlxText(0, 0, 0, char, size);
         renderText.setFormat(Paths.font("vcr"), size, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-        renderText.borderSize = bold ? 2 : 1;
+        renderText.borderSize = 2;
         renderText.drawFrame(true);
 
         if (renderText.framePixels != null) {
             loadGraphic(renderText.framePixels);
         } else {
-            makeGraphic(Std.int(Math.max(16, size * 0.65)), size, FlxColor.TRANSPARENT);
+            makeGraphic(Std.int(Math.max(24, size * 0.6)), size, FlxColor.TRANSPARENT);
         }
 
         renderText.destroy();
@@ -213,9 +240,9 @@ class Alphabet extends FlxSpriteGroup {
     private var fullTextBuffer:String = "";
     private var visibleCharCount:Int = 0;
 
-    public static inline var X_SPACING:Float = 2.0;
-    public static inline var Y_SPACING:Float = 65.0;
-    public static inline var SPACE_WIDTH:Float = 28.0;
+    public static inline var X_SPACING:Float = 4.0;
+    public static inline var Y_SPACING:Float = 75.0;
+    public static inline var SPACE_WIDTH:Float = 36.0;
 
     public function new(x:Float, y:Float, text:String = "", bold:Bool = false) {
         super(x, y);
@@ -224,7 +251,8 @@ class Alphabet extends FlxSpriteGroup {
         this.text = text != null ? text : "";
     }
 
-    private function set_text(newText:String):String {
+    // Make set_text public to prevent Invalid field access errors across classes and macros
+    public function set_text(newText:String):String {
         text = newText != null ? newText : "";
         if (!isTyping) {
             clearLetters();

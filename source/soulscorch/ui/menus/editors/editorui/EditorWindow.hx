@@ -17,6 +17,7 @@ class EditorWindow extends FlxSpriteGroup {
 
     public var container:FlxSpriteGroup;
     private var headerBar:FlxSprite;
+    private var headerAccent:FlxSprite;
     private var bodyBg:FlxSprite;
     private var border:FlxSprite;
     private var titleText:FlxText;
@@ -32,30 +33,40 @@ class EditorWindow extends FlxSpriteGroup {
         this.windowHeight = height;
         this.windowTitle = title;
 
-        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), 0xFF3F557A);
+        // Outer Border Frame
+        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), 0xFF2F364D);
         add(border);
 
-        bodyBg = new FlxSprite(1, 30).makeGraphic(Std.int(width - 2), Std.int(height - 31), 0xEE121824);
+        // Body Background Panel
+        bodyBg = new FlxSprite(1, 32).makeGraphic(Std.int(width - 2), Std.int(height - 33), 0xEE0B0E14);
         add(bodyBg);
 
-        headerBar = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 29, 0xFF1B2434);
+        // Header Title Bar
+        headerBar = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 31, 0xFF161A26);
         add(headerBar);
 
-        titleText = new FlxText(10, 6, width - 40, title, 14);
-        titleText.setFormat(Paths.font("vcr"), 14, 0xFF00FFCC, LEFT);
+        // Header Neon Accent Line
+        headerAccent = new FlxSprite(1, 31).makeGraphic(Std.int(width - 2), 2, 0xFF00FFCC);
+        add(headerAccent);
+
+        titleText = new FlxText(12, 8, width - 45, title, 13);
+        titleText.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, LEFT, OUTLINE, FlxColor.BLACK);
+        titleText.borderSize = 1.0;
         add(titleText);
 
-        btnMinimize = new FlxSprite(width - 24, 6).makeGraphic(16, 16, 0xFF2E3D54);
+        btnMinimize = new FlxSprite(width - 26, 8).makeGraphic(16, 16, 0xFF22283A);
         add(btnMinimize);
 
-        container = new FlxSpriteGroup(1, 30);
+        container = new FlxSpriteGroup(1, 34);
         add(container);
 
         scrollFactor.set(0, 0);
     }
 
     public function addElement(element:FlxSprite):Void {
-        container.add(element);
+        if (container != null) {
+            container.add(element);
+        }
     }
 
     override public function update(elapsed:Float):Void {
@@ -64,15 +75,18 @@ class EditorWindow extends FlxSpriteGroup {
         var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
-        var onHeader = (mousePos.x >= x && mousePos.x <= x + windowWidth - 30 && mousePos.y >= y && mousePos.y <= y + 30);
-        var onMinBtn = (mousePos.x >= x + windowWidth - 28 && mousePos.x <= x + windowWidth - 6 && mousePos.y >= y + 4 && mousePos.y <= y + 26);
+        var onHeader = (mousePos.x >= x && mousePos.x <= x + windowWidth - 30 && mousePos.y >= y && mousePos.y <= y + 32);
+        var onMinBtn = (mousePos.x >= x + windowWidth - 30 && mousePos.x <= x + windowWidth - 6 && mousePos.y >= y + 6 && mousePos.y <= y + 26);
 
         if (onMinBtn && FlxG.mouse.justPressed) {
             isMinimized = !isMinimized;
-            bodyBg.visible = !isMinimized;
-            container.visible = !isMinimized;
-            border.setGraphicSize(Std.int(windowWidth), isMinimized ? 30 : Std.int(windowHeight));
-            border.updateHitbox();
+            if (bodyBg != null) bodyBg.visible = !isMinimized;
+            if (headerAccent != null) headerAccent.visible = !isMinimized;
+            if (container != null) container.visible = !isMinimized;
+            if (border != null) {
+                border.setGraphicSize(Std.int(windowWidth), isMinimized ? 32 : Std.int(windowHeight));
+                border.updateHitbox();
+            }
             return;
         }
 
@@ -88,7 +102,7 @@ class EditorWindow extends FlxSpriteGroup {
 
         if (isDragging) {
             x = Math.max(0, Math.min(FlxG.width - windowWidth, mousePos.x - dragOffsetX));
-            y = Math.max(0, Math.min(FlxG.height - 30, mousePos.y - dragOffsetY));
+            y = Math.max(0, Math.min(FlxG.height - 32, mousePos.y - dragOffsetY));
         }
     }
 }

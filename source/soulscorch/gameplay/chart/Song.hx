@@ -69,7 +69,9 @@ class Song {
             'songs/$cleanSong/$cleanSong$diffSuffix',
             'data/$cleanSong/$cleanSong$diffSuffix',
             'data/$cleanSong/$diffName',
-            'data/charts/$cleanSong/$diffName'
+            'data/charts/$cleanSong/$diffName',
+            'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix',
+            'assets/preload/songs/$cleanSong/$diffName'
         ];
 
         if (diffName == "normal") {

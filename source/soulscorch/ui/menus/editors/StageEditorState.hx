@@ -128,9 +128,26 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function loadStageData():Void {
-        var rawText:String = AssetResolver.getText('stages/$curStage');
-        if (rawText.length == 0) rawText = AssetResolver.getText('data/stages/$curStage.json');
-        if (rawText.length == 0) rawText = AssetResolver.getText('assets/stages/$curStage.json');
+        var rawText:String = "";
+        var candidates = [
+            'stages/$curStage.json',
+            'data/stages/$curStage.json',
+            'stages/$curStage',
+            'data/stages/$curStage',
+            'assets/data/stages/$curStage.json',
+            'assets/stages/$curStage.json'
+        ];
+
+        for (c in candidates) {
+            var res = AssetResolver.resolveFile(c, [".json", ""]);
+            if (res != null) {
+                var txt = AssetResolver.getText(res);
+                if (txt != null && txt.trim().startsWith("{")) {
+                    rawText = txt;
+                    break;
+                }
+            }
+        }
 
         if (rawText.trim().length > 0) {
             try {
