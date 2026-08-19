@@ -12,7 +12,6 @@ import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
-import soulscorch.scripting.ScriptManager;
 
 class Scene extends FlxState implements IBeatReceiver {
     public var curStep:Int = 0;
@@ -64,7 +63,6 @@ class Scene extends FlxState implements IBeatReceiver {
         } catch (e:Dynamic) {}
         #end
 
-        ScriptManager.call("onSceneCreate", [sceneName]);
         Logger.info('[SCENE] Initialized scene: $sceneName', "scene");
     }
 
@@ -96,7 +94,6 @@ class Scene extends FlxState implements IBeatReceiver {
         #end
 
         updateConductorTrackers();
-        ScriptManager.call("onSceneUpdate", [elapsed]);
     }
 
     private function updateConductorTrackers():Void {
@@ -107,19 +104,16 @@ class Scene extends FlxState implements IBeatReceiver {
         if (curStep != _lastStep) {
             _lastStep = curStep;
             stepHit(curStep);
-            ScriptManager.call("onStepHit", [curStep]);
         }
 
         if (curBeat != _lastBeat) {
             _lastBeat = curBeat;
             beatHit(curBeat);
-            ScriptManager.call("onBeatHit", [curBeat]);
         }
 
         if (curMeasure != _lastMeasure) {
             _lastMeasure = curMeasure;
             measureHit(curMeasure);
-            ScriptManager.call("onMeasureHit", [curMeasure]);
         }
     }
 
@@ -167,8 +161,6 @@ class Scene extends FlxState implements IBeatReceiver {
     }
 
     override public function destroy():Void {
-        ScriptManager.call("onSceneDestroy", [sceneName]);
-
         try {
             EventBus.instance.offTarget(this);
         } catch (e:Dynamic) {}

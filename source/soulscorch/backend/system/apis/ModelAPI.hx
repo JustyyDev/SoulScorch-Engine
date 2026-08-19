@@ -21,6 +21,7 @@ import away3d.loaders.parsers.MD5MeshParser;
 import away3d.loaders.parsers.OBJParser;
 import away3d.materials.ColorMaterial;
 import away3d.materials.MaterialBase;
+import away3d.materials.SinglePassMaterialBase;
 import away3d.materials.TextureMaterial;
 import away3d.materials.lightpickers.StaticLightPicker;
 import away3d.materials.methods.EnvMapMethod;
@@ -253,7 +254,9 @@ class ModelAPI {
 
     public static function applyDistanceFog(material:MaterialBase, minDistance:Float = 500, maxDistance:Float = 3000, fogColor:Int = 0x000000):Void {
         if (material == null) return;
-        material.addMethod(new FogMethod(minDistance, maxDistance, fogColor));
+        if (Std.isOfType(material, SinglePassMaterialBase)) {
+            cast(material, SinglePassMaterialBase).addMethod(new FogMethod(minDistance, maxDistance, fogColor));
+        }
     }
 
     public static function getTexture(path:String):BitmapTexture {
@@ -303,13 +306,14 @@ class ModelAPI {
         if (mesh == null || mesh.animator == null) return;
         var animator:SkeletonAnimator = cast(mesh.animator, SkeletonAnimator);
         if (animator != null) {
+            animator.playbackSpeed = 1.0;
             animator.play(animName, null, 0);
         }
     }
 
     public static function pauseAnimation(mesh:Mesh):Void {
         if (mesh != null && mesh.animator != null) {
-            mesh.animator.stop();
+            mesh.animator.playbackSpeed = 0.0;
         }
     }
 

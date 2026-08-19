@@ -48,7 +48,6 @@ class ChartingState extends MusicBeatState {
     private var copiedSection:SwagSection = null;
 
     private var camGrid:FlxCamera;
-    private var camHUD:FlxCamera;
 
     public static inline var GRID_SIZE:Int = 40;
     public static inline var STRUM_COLS:Int = 8;

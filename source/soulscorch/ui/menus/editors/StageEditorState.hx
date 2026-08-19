@@ -46,7 +46,6 @@ class StageEditorState extends MusicBeatState {
     public static var curStage:String = "stage";
 
     private var camStage:FlxCamera;
-    private var camHUD:FlxCamera;
     private var camFollow:FlxPoint;
 
     private var stageData:StageJson;

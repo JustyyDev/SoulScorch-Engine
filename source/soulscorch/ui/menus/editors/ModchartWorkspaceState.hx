@@ -28,7 +28,6 @@ using StringTools;
 
 class ModchartWorkspaceState extends MusicBeatState {
     private var camWorkspace:FlxCamera;
-    private var camHUD:FlxCamera;
 
     private var playerStrumline:Strumline;
     private var opponentStrumline:Strumline;

@@ -28,7 +28,6 @@ class DiscordRPC extends ModuleBase {
     public static var currentSmallKey:String = "";
     public static var currentSmallText:String = "";
 
-    // Discord API Rate-Limiting Protection (Max 1 push per 1.5s unless forced)
     private static var lastUpdateTime:Float = 0.0;
     private static inline var MIN_UPDATE_INTERVAL:Float = 1.5;
     private static var isDirty:Bool = false;
@@ -58,12 +57,12 @@ class DiscordRPC extends ModuleBase {
         try {
             mutex.acquire();
 
-            handlers = DiscordEventHandlers.create();
+            handlers = untyped __cpp__("DiscordEventHandlers()");
             handlers.ready = cpp.Function.fromStaticFunction(onReady);
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
             handlers.errored = cpp.Function.fromStaticFunction(onError);
 
-            Discord.Initialize(clientID, cpp.RawPointer.addressOf(handlers), 1, null);
+            Discord.Initialize(clientID, cpp.RawPointer.addressOf(handlers), true, null);
             isInitialized = true;
             isRunning = true;
             mutex.release();
@@ -139,10 +138,6 @@ class DiscordRPC extends ModuleBase {
         setClientID(DEFAULT_CLIENT_ID);
     }
 
-    // =========================================================================
-    // MASTER PRESENCE UPDATER
-    // =========================================================================
-
     public static function changePresence(
         details:String,
         ?state:String,
@@ -177,7 +172,7 @@ class DiscordRPC extends ModuleBase {
             currentSmallKey = (smallImageKey != null) ? smallImageKey : "";
             currentSmallText = (smallImageKey != null) ? smallImageKey : "";
 
-            var presence:DiscordRichPresence = DiscordRichPresence.create();
+            var presence:DiscordRichPresence = untyped __cpp__("DiscordRichPresence()");
             presence.details = currentDetails;
             presence.state = currentState;
             presence.largeImageKey = currentLargeKey;
@@ -223,10 +218,6 @@ class DiscordRPC extends ModuleBase {
         }
         #end
     }
-
-    // =========================================================================
-    // GAMEPLAY, MENUS, EDITORS & RESULTS PRESETS
-    // =========================================================================
 
     public static function updateSongPresence(
         songName:String,

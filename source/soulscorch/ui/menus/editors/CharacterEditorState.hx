@@ -40,7 +40,6 @@ class CharacterEditorState extends MusicBeatState {
     public var isPlayer:Bool = false;
 
     private var camEditor:FlxCamera;
-    private var camHUD:FlxCamera;
 
     private var charLayer:Character;
     private var ghostChar:Character;
