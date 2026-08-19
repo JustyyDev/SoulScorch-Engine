@@ -10,6 +10,7 @@ import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import haxe.Json;
+import openfl.geom.Rectangle;
 import openfl.net.FileReference;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
@@ -64,7 +65,17 @@ class StageEditorState extends MusicBeatState {
 
     // --- Layer Ordering Hierarchy ---
     private var layerOrder:Array<String> = ["background", "behindGF", "behindDad", "behindBF", "foreground"];
-    private var curLayerIdx:Int = 0;
+
+    // --- Selection Box & Multi-Selection ---
+    private var selectionBox:FlxSprite;
+    private var isBoxSelecting:Bool = false;
+    private var boxStartPoint:FlxPoint;
+    private var selectedPieces:Array<String> = [];
+    private var selectionOutline:FlxSprite;
+
+    // --- Grid Snapping ---
+    private var gridSnapEnabled:Bool = false;
+    private var snapGridSize:Float = 20.0;
 
     // --- Windows & UI ---
     private var topBar:EditorTopBar;
@@ -86,6 +97,7 @@ class StageEditorState extends MusicBeatState {
     private var stepperAlpha:EditorNumericStepper;
     private var checkAntialias:EditorCheckbox;
     private var checkIs3D:EditorCheckbox;
+    private var checkGridSnap:EditorCheckbox;
 
     private var inputPropName:EditorInputText;
     private var inputPropImage:EditorInputText;
@@ -121,13 +133,14 @@ class StageEditorState extends MusicBeatState {
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
         dragStartOffset = FlxPoint.get(0, 0);
         dragStartMouse = FlxPoint.get(0, 0);
+        boxStartPoint = FlxPoint.get(0, 0);
 
-        var bgGrid = new FlxSprite().makeGraphic(FlxG.width * 4, FlxG.height * 4, EditorTheme.BG_DARK);
+        var bgGrid = new FlxSprite().makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
         bgGrid.screenCenter();
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
 
-        var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(FlxG.width * 4, 2, EditorTheme.ACCENT_PURPLE);
+        var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(Std.int(FlxG.width * 4), 2, EditorTheme.ACCENT_PURPLE);
         ground.screenCenter(X);
         ground.scrollFactor.set(1, 1);
         add(ground);
@@ -151,6 +164,14 @@ class StageEditorState extends MusicBeatState {
         targetMarker.dirty = true;
         targetMarker.scrollFactor.set(1, 1);
         add(targetMarker);
+
+        selectionOutline = new FlxSprite().makeGraphic(1, 1, 0x4400FFFF);
+        selectionOutline.visible = false;
+        add(selectionOutline);
+
+        selectionBox = new FlxSprite().makeGraphic(1, 1, 0x3300FFFF);
+        selectionBox.visible = false;
+        add(selectionBox);
 
         setupWindows();
         updateHUD();
@@ -318,9 +339,9 @@ class StageEditorState extends MusicBeatState {
         topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        // --- 1. Hierarchy & Selection Window ---
         hierarchyWindow = new EditorWindow(15, 45, 300, 420, "Stage Tree & Pieces");
         hierarchyWindow.cameras = [camHUD];
+        hierarchyWindow.setCameras([camHUD]);
         add(hierarchyWindow);
 
         infoTxt = new FlxText(10, 4, 280, "", 14);
@@ -343,9 +364,9 @@ class StageEditorState extends MusicBeatState {
         var btnDelProp = new EditorButton(155, 345, 135, 26, "- Remove", removeCurrentPiece);
         hierarchyWindow.addElement(btnDelProp);
 
-        // --- 2. Piece Transformation Window ---
         transformWindow = new EditorWindow(FlxG.width - 325, 45, 310, 230, "Transform & Parallax");
         transformWindow.cameras = [camHUD];
+        transformWindow.setCameras([camHUD]);
         add(transformWindow);
 
         stepperPieceScaleX = new EditorNumericStepper(10, 8, 135, "Scale X", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
@@ -387,9 +408,9 @@ class StageEditorState extends MusicBeatState {
         var btnChangeLayer = new EditorButton(10, 130, 280, 26, "Cycle Layer (L Key)", cyclePieceLayer);
         transformWindow.addElement(btnChangeLayer);
 
-        // --- 3. Stage Global Properties Window ---
         stageSettingsWindow = new EditorWindow(FlxG.width - 325, 285, 310, 190, "Global Environment");
         stageSettingsWindow.cameras = [camHUD];
+        stageSettingsWindow.setCameras([camHUD]);
         add(stageSettingsWindow);
 
         var stepperZoom = new EditorNumericStepper(10, 8, 290, "Default Camera Zoom", stageData.defaultZoom != null ? stageData.defaultZoom : 0.9, 0.2, 3.0, 0.05, 2, function(v) {
@@ -406,16 +427,21 @@ class StageEditorState extends MusicBeatState {
         });
         stageSettingsWindow.addElement(stepperCamSpeed);
 
-        var checkGF = new EditorCheckbox(10, 84, "Hide Girlfriend", stageData.hideGirlfriend == true, function(c) {
+        checkGridSnap = new EditorCheckbox(10, 84, "Enable Grid Snap (20px)", gridSnapEnabled, function(c) {
+            gridSnapEnabled = c;
+        });
+        stageSettingsWindow.addElement(checkGridSnap);
+
+        var checkGF = new EditorCheckbox(160, 84, "Hide Girlfriend", stageData.hideGirlfriend == true, function(c) {
             pushUndoSnapshot();
             stageData.hideGirlfriend = c;
             if (dummyGF != null) dummyGF.visible = !c;
         });
         stageSettingsWindow.addElement(checkGF);
 
-        // --- 4. 2.5D / Hybrid Props Tool Window ---
         propExtrasWindow = new EditorWindow(15, 475, 300, 135, "2.5D & 3D Extensions");
         propExtrasWindow.cameras = [camHUD];
+        propExtrasWindow.setCameras([camHUD]);
         add(propExtrasWindow);
 
         checkIs3D = new EditorCheckbox(10, 8, "Render as 3D Mesh", false, function(c) {
@@ -444,9 +470,9 @@ class StageEditorState extends MusicBeatState {
         });
         propExtrasWindow.addElement(btnApply3D);
 
-        // --- 5. Add Prop Creation Window ---
         newPropWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Inject Stage Prop");
         newPropWindow.cameras = [camHUD];
+        newPropWindow.setCameras([camHUD]);
         newPropWindow.visible = false;
         add(newPropWindow);
 
@@ -497,20 +523,19 @@ class StageEditorState extends MusicBeatState {
         handleSelectionInput();
         handleTransformInput();
         handleMouseDragControls();
+        handleMarqueeSelection();
 
-        // Hotkey dummy camera focus
         if (FlxG.keys.justPressed.ONE) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
         if (FlxG.keys.justPressed.TWO) camFollow.set(dummyDad.getMidpoint().x, dummyDad.getMidpoint().y);
         if (FlxG.keys.justPressed.THREE) camFollow.set(dummyGF.getMidpoint().x, dummyGF.getMidpoint().y);
 
-        // Dummy Animation test triggers
         if (FlxG.keys.justPressed.SPACE) {
             dummyBF.playSingAnim(FlxG.random.int(0, 3), true);
             dummyDad.playSingAnim(FlxG.random.int(0, 3), true);
         }
 
-        // Layer cycle hotkey
         if (FlxG.keys.justPressed.L) cyclePieceLayer();
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.D) duplicateCurrentProp();
 
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveStageJson();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) undo();
@@ -577,8 +602,7 @@ class StageEditorState extends MusicBeatState {
     private function handleMouseDragControls():Void {
         var worldMouse = FlxG.mouse.getWorldPosition(camStage);
 
-        // 1. Left-Click Marker Drag
-        if (FlxG.mouse.justPressed && !newPropWindow.visible) {
+        if (FlxG.mouse.justPressed && !newPropWindow.visible && !FlxG.keys.pressed.SHIFT) {
             if (worldMouse.x >= targetMarker.x - 12 && worldMouse.x <= targetMarker.x + 36 &&
                 worldMouse.y >= targetMarker.y - 12 && worldMouse.y <= targetMarker.y + 36) {
                 isDraggingTarget = true;
@@ -591,13 +615,16 @@ class StageEditorState extends MusicBeatState {
             if (FlxG.mouse.pressed) {
                 var targetX = Math.round(worldMouse.x - dragStartOffset.x);
                 var targetY = Math.round(worldMouse.y - dragStartOffset.y);
+                if (gridSnapEnabled) {
+                    targetX = Math.round(targetX / snapGridSize) * Std.int(snapGridSize);
+                    targetY = Math.round(targetY / snapGridSize) * Std.int(snapGridSize);
+                }
                 setAbsoluteCurrentTarget(targetX, targetY);
             } else {
                 isDraggingTarget = false;
             }
         }
 
-        // 2. Middle-Click Real-Time Freeform Drag
         if (FlxG.mouse.justPressedMiddle && !newPropWindow.visible) {
             isMiddleDragging = true;
             pushUndoSnapshot();
@@ -610,10 +637,81 @@ class StageEditorState extends MusicBeatState {
             if (FlxG.mouse.pressedMiddle) {
                 var dx = Math.round(worldMouse.x - dragStartMouse.x);
                 var dy = Math.round(worldMouse.y - dragStartMouse.y);
-                setAbsoluteCurrentTarget(dragStartOffset.x + dx, dragStartOffset.y + dy);
+                var targetX = dragStartOffset.x + dx;
+                var targetY = dragStartOffset.y + dy;
+                if (gridSnapEnabled) {
+                    targetX = Math.round(targetX / snapGridSize) * snapGridSize;
+                    targetY = Math.round(targetY / snapGridSize) * snapGridSize;
+                }
+                setAbsoluteCurrentTarget(targetX, targetY);
             } else {
                 isMiddleDragging = false;
             }
+        }
+    }
+
+    private function handleMarqueeSelection():Void {
+        if (FlxG.keys.pressed.SHIFT && FlxG.mouse.justPressed && !newPropWindow.visible) {
+            isBoxSelecting = true;
+            boxStartPoint.set(FlxG.mouse.x, FlxG.mouse.y);
+            selectionBox.visible = true;
+        }
+
+        if (isBoxSelecting) {
+            var boxX = Math.min(boxStartPoint.x, FlxG.mouse.x);
+            var boxY = Math.min(boxStartPoint.y, FlxG.mouse.y);
+            var boxW = Math.abs(FlxG.mouse.x - boxStartPoint.x);
+            var boxH = Math.abs(FlxG.mouse.y - boxStartPoint.y);
+
+            selectionBox.setPosition(boxX, boxY);
+            selectionBox.setGraphicSize(Std.int(Math.max(1, boxW)), Std.int(Math.max(1, boxH)));
+            selectionBox.updateHitbox();
+
+            if (FlxG.mouse.justReleased) {
+                isBoxSelecting = false;
+                selectionBox.visible = false;
+
+                var bounds = new Rectangle(boxX, boxY, boxW, boxH);
+                selectedPieces = [];
+                for (pName in pieceNames) {
+                    var spr = pieceSprites.get(pName);
+                    if (spr != null && bounds.contains(spr.x, spr.y)) {
+                        selectedPieces.push(pName);
+                    }
+                }
+                EditorToast.show('Selected ${selectedPieces.length} stage props.');
+            }
+        }
+    }
+
+    private function duplicateCurrentProp():Void {
+        if (currentMode != PIECE || pieceNames.length == 0) return;
+        pushUndoSnapshot();
+
+        var pName = pieceNames[curPieceIndex];
+        var original = pieceDataMap.get(pName);
+        if (original != null) {
+            var cloneName = pName + "_copy";
+            var clonePiece:StagePieceJson = {
+                name: cloneName,
+                image: original.image,
+                position: [(original.position != null ? original.position[0] : 0.0) + 50, (original.position != null ? original.position[1] : 0.0) + 50],
+                scroll: original.scroll,
+                scale: original.scale,
+                layer: original.layer,
+                animated: original.animated,
+                animations: original.animations,
+                antialiasing: original.antialiasing,
+                alpha: original.alpha
+            };
+
+            if (stageData.pieces == null) stageData.pieces = [];
+            stageData.pieces.push(clonePiece);
+
+            buildStagePieces();
+            curPieceIndex = pieceNames.indexOf(cloneName);
+            updateHUD();
+            EditorToast.show('Duplicated prop -> $cloneName');
         }
     }
 
@@ -917,6 +1015,11 @@ class StageEditorState extends MusicBeatState {
                         stepperScrollY.value = spr.scrollFactor.y;
                         stepperAlpha.value = spr.alpha;
                         checkAntialias.checked = spr.antialiasing;
+
+                        selectionOutline.setPosition(spr.x, spr.y);
+                        selectionOutline.setGraphicSize(Std.int(spr.width), Std.int(spr.height));
+                        selectionOutline.updateHitbox();
+                        selectionOutline.visible = true;
                     }
                     if (p != null) {
                         layerIndicatorTxt.text = 'Layer: ${p.layer != null ? p.layer : "background"}';
@@ -928,14 +1031,17 @@ class StageEditorState extends MusicBeatState {
                 curPos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
                 targetMarker.setPosition(dummyBF.x, dummyBF.y);
                 layerIndicatorTxt.text = "Layer: behindBF";
+                selectionOutline.visible = false;
             case DAD_SPAWN:
                 curPos = getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
                 targetMarker.setPosition(dummyDad.x, dummyDad.y);
                 layerIndicatorTxt.text = "Layer: behindDad";
+                selectionOutline.visible = false;
             case GF_SPAWN:
                 curPos = getSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, [400.0, 130.0]);
                 targetMarker.setPosition(dummyGF.x, dummyGF.y);
                 layerIndicatorTxt.text = "Layer: behindGF";
+                selectionOutline.visible = false;
         }
 
         infoTxt.text = 'Target: $targetName\nPos: [${Math.round(curPos[0])}, ${Math.round(curPos[1])}]\nZoom: ${Math.round(stageData.defaultZoom * 100) / 100}x';
@@ -978,6 +1084,7 @@ class StageEditorState extends MusicBeatState {
     override public function destroy():Void {
         if (dragStartOffset != null) { dragStartOffset.put(); dragStartOffset = null; }
         if (dragStartMouse != null) { dragStartMouse.put(); dragStartMouse = null; }
+        if (boxStartPoint != null) { boxStartPoint.put(); boxStartPoint = null; }
         super.destroy();
     }
 }

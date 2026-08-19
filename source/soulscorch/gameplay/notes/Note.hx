@@ -68,7 +68,7 @@ class Note extends FlxSprite {
             multAlpha = 0.6;
         }
 
-        updateHitbox();
+        playAnim();
     }
 
     public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
@@ -84,7 +84,7 @@ class Note extends FlxSprite {
                 case 3: 0xFFF9393F;
                 default: 0xFFFFFFFF;
             };
-            makeGraphic(Std.int(112 * DEFAULT_SCALE), isSustainNote ? 40 : Std.int(112 * DEFAULT_SCALE), colorInt);
+            makeGraphic(Std.int(STRUM_SPACING * DEFAULT_SCALE), isSustainNote ? 40 : Std.int(STRUM_SPACING * DEFAULT_SCALE), colorInt);
         }
     }
 
@@ -119,8 +119,6 @@ class Note extends FlxSprite {
             ];
             tryAddAnimation("scroll", scrollPrefixes, 24, true);
         }
-
-        playAnim();
     }
 
     private function tryAddAnimation(animName:String, prefixes:Array<String>, fps:Int = 24, loop:Bool = true):Bool {
@@ -138,51 +136,59 @@ class Note extends FlxSprite {
         return false;
     }
 
-    public function playAnim():Void {
+    public function playAnim(?songSpeed:Float = 2.0):Void {
         if (isSustainNote) {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") != null) animation.play("holdend");
+                scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
             } else {
                 if (animation.getByName("hold") != null) animation.play("hold");
+                // Seamlessly bridge the gap between note steps
+                var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
+                var baseH:Float = frameHeight > 0 ? frameHeight : 87.0;
+                scale.set(DEFAULT_SCALE, (stepHeight + 2.0) / baseH);
             }
         } else {
             if (animation.getByName("scroll") != null) animation.play("scroll");
+            scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
         }
 
-        scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
         updateHitbox();
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
-        var distance = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
+        var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
-        x = strumX + offsetX;
-        if (downscroll) {
-            y = strumY + distance + offsetY;
-        } else {
-            y = strumY - distance + offsetY;
-        }
+        // Dead-center hold and arrow alignment on the receptor axis
+        x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
 
         if (isSustainNote) {
-            x += (STRUM_SPACING * DEFAULT_SCALE * 0.5) - (width * 0.5);
-
             if (downscroll) {
                 flipY = true;
-                y -= height * 0.5;
+                y = strumY + distance + (STRUM_SPACING * 0.5) - height + offsetY;
             } else {
                 flipY = false;
+                y = strumY - distance + (STRUM_SPACING * 0.5) + offsetY;
             }
 
-            // Clip active holds past the receptor line
+            // Clip active hold notes that pass the receptor
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
-                var clipHeight:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
-                if (clipHeight > 0) {
+                var diff:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
+                if (diff > 0) {
                     if (downscroll) {
-                        clipRect = new FlxRect(0, 0, width / scale.x, Math.max(0, (height / scale.y) - (clipHeight / scale.y)));
+                        clipRect = new FlxRect(0, 0, frameWidth, Math.max(0, frameHeight - (diff / scale.y)));
                     } else {
-                        clipRect = new FlxRect(0, clipHeight / scale.y, width / scale.x, (height / scale.y) - (clipHeight / scale.y));
+                        clipRect = new FlxRect(0, diff / scale.y, frameWidth, Math.max(0, frameHeight - (diff / scale.y)));
                     }
                 }
+            } else {
+                clipRect = null;
+            }
+        } else {
+            if (downscroll) {
+                y = strumY + distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
+            } else {
+                y = strumY - distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
             }
         }
 

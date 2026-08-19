@@ -13,6 +13,8 @@ import openfl.events.KeyboardEvent;
 import openfl.ui.Keyboard;
 
 import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
@@ -32,6 +34,10 @@ import soulscorch.ui.menus.editors.EditorPickerMenu;
 import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.menus.substate.ModSwitchMenu;
 
+#if cpp
+import cpp.vm.Gc;
+#end
+
 class Main extends Sprite {
     public static var gameWidth:Int = 1280;
     public static var gameHeight:Int = 720;
@@ -43,6 +49,10 @@ class Main extends Sprite {
 
     public static var fpsCounter:Framerate;
     public static var fileWatcher:FileWatcher;
+
+    // Asynchronous / throttled background tick timer
+    private static var fileWatchTimer:Float = 0.0;
+    private static inline var FILE_WATCH_INTERVAL:Float = 0.5;
 
     public function new() {
         super();
@@ -66,7 +76,6 @@ class Main extends Sprite {
             var stageWidth:Int = Lib.current.stage.stageWidth;
             var stageHeight:Int = Lib.current.stage.stageHeight;
 
-            // Prevent divide-by-zero crashes on headless/minimized launches
             if (stageWidth <= 0) stageWidth = gameWidth;
             if (stageHeight <= 0) stageHeight = gameHeight;
 
@@ -84,10 +93,13 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-            // Optimize Flixel timing & input responsiveness
+            // Zero-latency input & non-blocking timestep configuration
             FlxG.fixedTimestep = false;
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
+
+            // Register asynchronous state switch signals for zero-lag cleanup
+            setupStateSwitchOptimization();
 
             var devConsole = DevConsole.instance;
             if (devConsole != null && devConsole.parent == null) {
@@ -103,7 +115,6 @@ class Main extends Sprite {
             Runtime.bootstrap(config);
             Runtime.setupFlixel();
 
-            // Initialize optimization subsystems and adaptive GC scheduling
             EngineOptimizer.init(framerate);
 
             ModManager.reloadMods();
@@ -137,6 +148,28 @@ class Main extends Sprite {
         }
     }
 
+    /**
+     * Optimizes state transitions by eliminating blocking GC cycles,
+     * retaining core UI texture buffers, and preventing main-thread stalls.
+     */
+    private function setupStateSwitchOptimization():Void {
+        FlxG.signals.preStateSwitch.add(function() {
+            // Cancel lingering tweens, timers, and sounds to prevent CPU leaks
+            FlxG.tweens.clear();
+            FlxG.timers.clear();
+
+            // Clear unreferenced dynamic graphics without destroying persistent UI/Font textures
+            Paths.clearUnusedMemory();
+        });
+
+        FlxG.signals.postStateSwitch.add(function() {
+            #if cpp
+            // Run an incremental, non-blocking garbage collection step
+            Gc.run(false);
+            #end
+        });
+    }
+
     private function onKeyDown(event:KeyboardEvent):Void {
         if (event.keyCode == Keyboard.F3 && fpsCounter != null) {
             fpsCounter.visible = !fpsCounter.visible;
@@ -156,11 +189,15 @@ class Main extends Sprite {
     }
 
     private function onEnterFrame(event:Event):Void {
-        // Clamp delta time to prevent physics/math explosions after window dragging/stalls
         var safeElapsed:Float = Math.min(FlxG.elapsed, 0.1);
 
-        if (fileWatcher != null) {
-            fileWatcher.update(safeElapsed);
+        // Throttle file watching I/O checks to twice per second instead of every single frame
+        fileWatchTimer += safeElapsed;
+        if (fileWatchTimer >= FILE_WATCH_INTERVAL) {
+            fileWatchTimer = 0.0;
+            if (fileWatcher != null) {
+                fileWatcher.update(FILE_WATCH_INTERVAL);
+            }
         }
 
         HotReloader.update();

@@ -149,7 +149,7 @@ class ChartingState extends MusicBeatState {
 
         loadChart();
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width * 2, FlxG.height * 4, EditorTheme.BG_DARK);
+        var bg = new FlxSprite().makeGraphic(Std.int(FlxG.width * 2), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
         bg.screenCenter();
         bg.scrollFactor.set(0, 0);
         add(bg);
@@ -242,7 +242,6 @@ class ChartingState extends MusicBeatState {
         var gridH = GRID_SIZE * ROWS_PER_SECTION * VISIBLE_SECTIONS;
         var startX = (FlxG.width - gridW) * 0.5;
 
-        // Waveform gutters
         waveformSpriteInst.setPosition(startX - 26, 40);
         waveformSpriteVocals.setPosition(startX + gridW + 8, 40);
 
@@ -326,9 +325,9 @@ class ChartingState extends MusicBeatState {
         });
         add(topBar);
 
-        // --- 1. Song & Metronome Window ---
         songPropsWindow = new EditorWindow(15, 45, 300, 340, "Song & Quantization");
         songPropsWindow.cameras = [camHUD];
+        songPropsWindow.setCameras([camHUD]);
         add(songPropsWindow);
 
         infoTxt = new FlxText(10, 4, 280, "", 13);
@@ -359,9 +358,9 @@ class ChartingState extends MusicBeatState {
         checkMetronome = new EditorCheckbox(10, 255, "Beat Metronome", metronomeEnabled, function(c) metronomeEnabled = c);
         songPropsWindow.addElement(checkMetronome);
 
-        // --- 2. Mania Key Scaling Tool ---
         maniaToolWindow = new EditorWindow(15, 395, 300, 170, "Mania Key Matrix");
         maniaToolWindow.cameras = [camHUD];
+        maniaToolWindow.setCameras([camHUD]);
         add(maniaToolWindow);
 
         var stepperKeys = new EditorNumericStepper(10, 8, 280, "Key Count (1K - 9K)", keyCount, 1, 9, 1, 0, function(v) {
@@ -375,9 +374,9 @@ class ChartingState extends MusicBeatState {
         var btnMirror = new EditorButton(10, 84, 280, 26, "Mirror Section Pattern", mirrorSectionPattern);
         maniaToolWindow.addElement(btnMirror);
 
-        // --- 3. Section Utilities Window ---
         sectionToolsWindow = new EditorWindow(FlxG.width - 315, 45, 300, 210, "Section Utilities");
         sectionToolsWindow.cameras = [camHUD];
+        sectionToolsWindow.setCameras([camHUD]);
         add(sectionToolsWindow);
 
         checkMustHit = new EditorCheckbox(10, 4, "Must Hit (BF Focus)", _song.notes[curSection] != null && _song.notes[curSection].mustHitSection, function(checked) {
@@ -404,9 +403,9 @@ class ChartingState extends MusicBeatState {
         });
         sectionToolsWindow.addElement(btnFlipLanes);
 
-        // --- 4. Event Automator Window ---
         eventMasterWindow = new EditorWindow(FlxG.width - 315, 265, 300, 270, "Event Automator");
         eventMasterWindow.cameras = [camHUD];
+        eventMasterWindow.setCameras([camHUD]);
         add(eventMasterWindow);
 
         inputEventName = new EditorInputText(10, 4, 280, "Event Name", "Camera Zoom");
@@ -667,7 +666,6 @@ class ChartingState extends MusicBeatState {
         var exportDir = 'assets/data/${curSong.toLowerCase().trim()}';
         if (!FileSystem.exists(exportDir)) FileSystem.createDirectory(exportDir);
 
-        // 1. Export Osu!Mania .osu format
         var osuData = '[General]\nAudioFilename: Inst.ogg\nMode: 3\n\n[Difficulty]\nCircleSize: $keyCount\nOverallDifficulty: ${_song.speed * 3}\n\n[HitObjects]\n';
         for (sec in _song.notes) {
             for (n in sec.sectionNotes) {

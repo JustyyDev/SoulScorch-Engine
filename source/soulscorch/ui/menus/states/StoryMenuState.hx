@@ -48,9 +48,10 @@ class StoryMenuState extends MusicBeatState {
 
     private var weeks:Array<WeekData> = [];
     private var grpWeekTitles:FlxTypedGroup<Alphabet>;
-    private var grpWeekCharacters:FlxTypedGroup<Character>;
+    private var grpWeekPortraits:FlxTypedGroup<FlxSprite>;
     private var diffText:FlxText;
     private var tracklistText:FlxText;
+    private var weekNameText:FlxText;
     private var stageBanner:FlxSprite;
     private var mobileControls:MobilePad;
 
@@ -67,44 +68,55 @@ class StoryMenuState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        stageBanner = new FlxSprite(0, 60).makeGraphic(FlxG.width, 360, 0xFFF9CF51);
+        stageBanner = new FlxSprite(0, 60).makeGraphic(FlxG.width, 340, 0xFFF9CF51);
+        stageBanner.scrollFactor.set(0, 0);
         add(stageBanner);
 
-        grpWeekCharacters = new FlxTypedGroup<Character>();
-        add(grpWeekCharacters);
+        grpWeekPortraits = new FlxTypedGroup<FlxSprite>();
+        add(grpWeekPortraits);
 
         // Top Banner Header
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
+        topBar.scrollFactor.set(0, 0);
         add(topBar);
 
         var topBorder = new FlxSprite(0, 59).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
+        topBorder.scrollFactor.set(0, 0);
         add(topBorder);
 
         var accentTag = new FlxSprite(25, 16).makeGraphic(4, 28, EditorTheme.ACCENT_CYAN);
+        accentTag.scrollFactor.set(0, 0);
         add(accentTag);
 
         var headerTitle = new FlxText(38, 17, 450, "SOULSCORCH // STORY CAMPAIGN", 18);
         headerTitle.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
+        headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
 
         grpWeekTitles = new FlxTypedGroup<Alphabet>();
         add(grpWeekTitles);
 
         for (i in 0...weeks.length) {
-            var weekText = new Alphabet(0, (i * 48) + 450, weeks[i].name, true);
-            weekText.scale.set(0.7, 0.7);
-            weekText.alignment = CENTER;
+            var weekText = new Alphabet(0, (i * 70) + 420, weeks[i].name, false);
+            weekText.scale.set(0.75, 0.75);
             weekText.screenCenter(X);
             weekText.ID = i;
             grpWeekTitles.add(weekText);
         }
 
-        diffText = new FlxText(FlxG.width - 340, 460, 300, "< NORMAL >", 22);
+        weekNameText = new FlxText(40, 75, FlxG.width - 80, "", 24);
+        weekNameText.setFormat(Paths.font("vcr"), 24, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
+        weekNameText.borderSize = 1.5;
+        add(weekNameText);
+
+        diffText = new FlxText(FlxG.width - 340, 430, 300, "< NORMAL >", 22);
         diffText.setFormat(Paths.font("vcr"), 22, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
+        diffText.borderSize = 1.5;
         add(diffText);
 
-        tracklistText = new FlxText(40, 460, 320, "TRACKLIST:\n\n", 16);
-        tracklistText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT);
+        tracklistText = new FlxText(40, 430, 320, "TRACKLIST:\n\n", 16);
+        tracklistText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
+        tracklistText.borderSize = 1.0;
         add(tracklistText);
 
         #if (mobile || debug)
@@ -194,12 +206,19 @@ class StoryMenuState extends MusicBeatState {
         curWeek = FlxMath.wrap(curWeek + change, 0, weeks.length - 1);
         if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
+        var i = 0;
         for (item in grpWeekTitles.members) {
-            item.alpha = (item.ID == curWeek ? 1.0 : 0.4);
+            item.alpha = (i == curWeek ? 1.0 : 0.4);
+            item.y = ((i - curWeek) * 70) + 420;
+            item.screenCenter(X);
+            i++;
         }
 
+        var week = weeks[curWeek];
+        weekNameText.text = week.name.toUpperCase();
+
         var trackStr = "TRACKLIST:\n\n";
-        var currentSongs = weeks[curWeek].songs;
+        var currentSongs = week.songs;
         if (currentSongs != null) {
             for (song in currentSongs) {
                 trackStr += '• ' + song.toUpperCase() + "\n";
@@ -207,8 +226,8 @@ class StoryMenuState extends MusicBeatState {
         }
         tracklistText.text = trackStr;
 
-        if (weeks[curWeek].color != null) {
-            stageBanner.color = FlxColor.fromString(weeks[curWeek].color);
+        if (week.color != null) {
+            stageBanner.color = FlxColor.fromString(week.color);
         } else {
             stageBanner.color = 0xFFF9CF51;
         }

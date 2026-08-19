@@ -20,6 +20,7 @@ import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
+import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.KeybindRow;
 import soulscorch.ui.menus.option.OptionCategory;
 import soulscorch.ui.menus.option.OptionRow;
@@ -32,6 +33,10 @@ class OptionsMenuState extends MusicBeatState {
     public static var curCategory:Int = 0;
 
     private var categories:Array<OptionCategory> = [];
+    private var filteredOptions:Array<OptionData> = [];
+    private var isFiltering:Bool = false;
+    private var filterQuery:String = "";
+
     private var grpRows:FlxTypedGroup<FlxSprite>;
     private var categoryTabs:Array<FlxText> = [];
 
@@ -40,6 +45,7 @@ class OptionsMenuState extends MusicBeatState {
     private var descText:FlxText;
     private var categoryHeader:FlxSprite;
     private var tabSelectorHighlight:FlxSprite;
+    private var searchPromptTxt:FlxText;
     private var mobileControls:MobilePad;
 
     private var isRebinding:Bool = false;
@@ -61,7 +67,7 @@ class OptionsMenuState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Grid Background lines
+        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -99,6 +105,11 @@ class OptionsMenuState extends MusicBeatState {
         grpRows = new FlxTypedGroup<FlxSprite>();
         add(grpRows);
 
+        searchPromptTxt = new FlxText(20, 75, FlxG.width - 40, "[F] Search Preferences", 12);
+        searchPromptTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, RIGHT);
+        searchPromptTxt.scrollFactor.set(0, 0);
+        add(searchPromptTxt);
+
         descBox = new FlxSprite(0, FlxG.height - 70).makeGraphic(FlxG.width, 70, EditorTheme.PANEL_HEADER);
         descBox.scrollFactor.set(0, 0);
         add(descBox);
@@ -121,6 +132,7 @@ class OptionsMenuState extends MusicBeatState {
 
         rebuildRows();
         changeSelection();
+        add(new EditorToast());
     }
 
     private function initCategories():Void {
@@ -134,6 +146,7 @@ class OptionsMenuState extends MusicBeatState {
                     setValue: function(v) {
                         if (Runtime.config != null) Runtime.config.downscroll = v;
                         GameplayFlags.set("downscroll", v);
+                        savePreferences();
                     }
                 },
                 {
@@ -141,7 +154,7 @@ class OptionsMenuState extends MusicBeatState {
                     description: "Centers your player strumline receptor lane in the middle of the display.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("middlescroll", false),
-                    setValue: function(v) GameplayFlags.set("middlescroll", v)
+                    setValue: function(v) { GameplayFlags.set("middlescroll", v); savePreferences(); }
                 },
                 {
                     name: "Ghost Tapping",
@@ -151,6 +164,7 @@ class OptionsMenuState extends MusicBeatState {
                     setValue: function(v) {
                         if (Runtime.config != null) Runtime.config.ghostTapping = v;
                         GameplayFlags.set("ghostTapping", v);
+                        savePreferences();
                     }
                 },
                 {
@@ -162,7 +176,7 @@ class OptionsMenuState extends MusicBeatState {
                     step: 0.1,
                     formatValue: function(v) return Math.round(v * 10) / 10 + "x",
                     getValue: function() return GameplayFlags.getFloat("songSpeedMultiplier", 1.0),
-                    setValue: function(v) GameplayFlags.set("songSpeedMultiplier", v)
+                    setValue: function(v) { GameplayFlags.set("songSpeedMultiplier", v); savePreferences(); }
                 },
                 {
                     name: "Audio Latency Offset",
@@ -173,21 +187,21 @@ class OptionsMenuState extends MusicBeatState {
                     step: 1,
                     formatValue: function(v) return v + " ms",
                     getValue: function() return GameplayFlags.getInt("noteOffset", 0),
-                    setValue: function(v) GameplayFlags.set("noteOffset", Std.int(v))
+                    setValue: function(v) { GameplayFlags.set("noteOffset", Std.int(v)); savePreferences(); }
                 },
                 {
                     name: "Botplay Demonstration",
                     description: "Automates perfect inputs for demonstration, charting, and testing.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("botplay", false),
-                    setValue: function(v) GameplayFlags.set("botplay", v)
+                    setValue: function(v) { GameplayFlags.set("botplay", v); savePreferences(); }
                 },
                 {
                     name: "Hit Particle Splashes",
                     description: "Emits dynamic particle splashes on 'Sick!' and 'Marvelous!' note hits.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("noteSplash", true),
-                    setValue: function(v) GameplayFlags.set("noteSplash", v)
+                    setValue: function(v) { GameplayFlags.set("noteSplash", v); savePreferences(); }
                 }
             ]),
             new OptionCategory("Visuals", "options", 0xFF1A2A30, [
@@ -204,6 +218,7 @@ class OptionsMenuState extends MusicBeatState {
                         var val = Std.int(v);
                         if (Runtime.config != null) Runtime.config.framerate = val;
                         EngineUtils.setFramerate(val);
+                        savePreferences();
                     }
                 },
                 {
@@ -213,6 +228,7 @@ class OptionsMenuState extends MusicBeatState {
                     getValue: function() return Main.fpsCounter != null ? Main.fpsCounter.visible : true,
                     setValue: function(v) {
                         if (Main.fpsCounter != null) Main.fpsCounter.visible = v;
+                        savePreferences();
                     }
                 },
                 {
@@ -223,6 +239,7 @@ class OptionsMenuState extends MusicBeatState {
                     setValue: function(v) {
                         if (Runtime.config != null) Runtime.config.antialiasing = v;
                         GameplayFlags.set("antialiasing", v);
+                        savePreferences();
                     }
                 },
                 {
@@ -233,6 +250,7 @@ class OptionsMenuState extends MusicBeatState {
                     setValue: function(v) {
                         if (Runtime.config != null) Runtime.config.flashingLights = v;
                         GameplayFlags.set("flashingLights", v);
+                        savePreferences();
                     }
                 },
                 {
@@ -240,7 +258,7 @@ class OptionsMenuState extends MusicBeatState {
                     description: "Triggers rhythmic camera zoom pulses on quarter beat marks.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("cameraZoomOnBeat", true),
-                    setValue: function(v) GameplayFlags.set("cameraZoomOnBeat", v)
+                    setValue: function(v) { GameplayFlags.set("cameraZoomOnBeat", v); savePreferences(); }
                 }
             ]),
             new OptionCategory("Audio", "options", 0xFF301A1A, [
@@ -253,7 +271,7 @@ class OptionsMenuState extends MusicBeatState {
                     step: 0.05,
                     formatValue: function(v) return Math.round(v * 100) + "%",
                     getValue: function() return FlxG.sound.volume,
-                    setValue: function(v) FlxG.sound.volume = v
+                    setValue: function(v) { FlxG.sound.volume = v; savePreferences(); }
                 },
                 {
                     name: "Music Channel Volume",
@@ -266,6 +284,7 @@ class OptionsMenuState extends MusicBeatState {
                     getValue: function() return FlxG.sound.music != null ? FlxG.sound.music.volume : 1.0,
                     setValue: function(v) {
                         if (FlxG.sound.music != null) FlxG.sound.music.volume = v;
+                        savePreferences();
                     }
                 },
                 {
@@ -273,7 +292,7 @@ class OptionsMenuState extends MusicBeatState {
                     description: "Mutes all active audio playback when the engine window loses focus.",
                     type: "bool",
                     getValue: function() return FlxG.autoPause,
-                    setValue: function(v) FlxG.autoPause = v
+                    setValue: function(v) { FlxG.autoPause = v; savePreferences(); }
                 }
             ]),
             new OptionCategory("Controls", "options", 0xFF1A3022, [
@@ -307,22 +326,33 @@ class OptionsMenuState extends MusicBeatState {
                 },
                 {
                     name: "Reset Controls To Default",
-                    description: "Restores directional inputs and key mappings back to defaults (D-F-J-K).",
+                    description: "Restores directional inputs and key mappings back to defaults.",
                     type: "button",
                     getValue: function() return "EXECUTE",
                     setValue: function(_) {
                         InputMap.resetToDefaults();
                         updateRowValues();
+                        EditorToast.show("Controls Reset to Default");
                     }
                 }
             ])
         ];
     }
 
+    private function savePreferences():Void {
+        if (Runtime.config != null) {
+            Runtime.config.save();
+        }
+        if (FlxG.save != null) {
+            FlxG.save.flush();
+        }
+        EditorToast.show("Preferences Saved!");
+    }
+
     private function rebuildRows():Void {
         grpRows.clear();
 
-        var currentOptions = categories[curCategory].options;
+        var currentOptions = getActiveOptions();
         var rowWidth = FlxG.width * 0.84;
         var rowX = (FlxG.width - rowWidth) * 0.5;
 
@@ -353,6 +383,21 @@ class OptionsMenuState extends MusicBeatState {
         updateRowValues();
     }
 
+    private function getActiveOptions():Array<OptionData> {
+        if (isFiltering && filterQuery.length > 0) {
+            var results:Array<OptionData> = [];
+            for (cat in categories) {
+                for (opt in cat.options) {
+                    if (opt.name.toLowerCase().contains(filterQuery) || opt.description.toLowerCase().contains(filterQuery)) {
+                        results.push(opt);
+                    }
+                }
+            }
+            return results;
+        }
+        return categories[curCategory].options;
+    }
+
     override public function update(elapsed:Float):Void {
         if (isRebinding) {
             handleKeybindInput();
@@ -361,19 +406,25 @@ class OptionsMenuState extends MusicBeatState {
 
         super.update(elapsed);
 
-        var currentOptions = categories[curCategory].options;
+        if (FlxG.keys.justPressed.F) {
+            promptSearchQuery();
+            return;
+        }
+
+        var currentOptions = getActiveOptions();
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        // Switch category tabs using Q/E, Tab, or PageUp/Down
-        if (FlxG.keys.justPressed.Q || FlxG.keys.justPressed.PAGEUP) {
-            changeCategory(-1);
-            return;
-        }
-        if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN || FlxG.keys.justPressed.TAB) {
-            changeCategory(1);
-            return;
+        if (!isFiltering) {
+            if (FlxG.keys.justPressed.Q || FlxG.keys.justPressed.PAGEUP) {
+                changeCategory(-1);
+                return;
+            }
+            if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN || FlxG.keys.justPressed.TAB) {
+                changeCategory(1);
+                return;
+            }
         }
 
         if (currentOptions.length > 0) {
@@ -445,9 +496,17 @@ class OptionsMenuState extends MusicBeatState {
         }
 
         if (Controls.instance.BACK) {
-            if (Runtime.config != null) Runtime.config.save();
-            AssetHelper.playSoundSafely("cancelMenu", 0.7);
-            MusicBeatState.switchState(new MainMenuState());
+            if (isFiltering) {
+                isFiltering = false;
+                filterQuery = "";
+                searchPromptTxt.text = "[F] Search Preferences";
+                rebuildRows();
+                changeSelection();
+            } else {
+                savePreferences();
+                AssetHelper.playSoundSafely("cancelMenu", 0.7);
+                MusicBeatState.switchState(new MainMenuState());
+            }
         }
     }
 
@@ -470,6 +529,25 @@ class OptionsMenuState extends MusicBeatState {
         changeSelection();
     }
 
+    private function promptSearchQuery():Void {
+        #if sys
+        // Desktop console query prompt fallback
+        Sys.print("Enter search filter: ");
+        var query = Sys.stdin().readLine();
+        if (query != null && query.trim().length > 0) {
+            filterQuery = query.toLowerCase().trim();
+            isFiltering = true;
+            searchPromptTxt.text = 'FILTER: "$filterQuery" [ESC to Clear]';
+            curSelected = 0;
+            rebuildRows();
+            changeSelection();
+            EditorToast.show('Filtered preferences by "$filterQuery"');
+        }
+        #else
+        EditorToast.show("Search prompt requires desktop console environment.");
+        #end
+    }
+
     private function handleKeybindInput():Void {
         var pressedKey = FlxG.keys.firstJustPressed();
         if (pressedKey != FlxKey.NONE) {
@@ -487,12 +565,13 @@ class OptionsMenuState extends MusicBeatState {
             }
             isRebinding = false;
             activeKeybindRow = null;
+            savePreferences();
             updateRowValues();
         }
     }
 
     private function changeSelection(change:Int = 0):Void {
-        var currentOptions = categories[curCategory].options;
+        var currentOptions = getActiveOptions();
         if (currentOptions.length == 0) return;
 
         curSelected = FlxMath.wrap(curSelected + change, 0, currentOptions.length - 1);
@@ -517,9 +596,10 @@ class OptionsMenuState extends MusicBeatState {
     }
 
     private function updateRowValues():Void {
-        var currentOptions = categories[curCategory].options;
+        var currentOptions = getActiveOptions();
 
         for (i in 0...grpRows.members.length) {
+            if (i >= currentOptions.length) break;
             var opt = currentOptions[i];
             var member = grpRows.members[i];
 

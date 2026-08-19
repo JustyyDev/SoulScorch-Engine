@@ -1,6 +1,5 @@
 package soulscorch.gameplay.notes;
 
-import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
@@ -32,6 +31,10 @@ class StrumArrow extends FlxSprite {
 
         antialiasing = true;
         scrollFactor.set(0, 0);
+
+        scale.set(baseScale, baseScale);
+        updateHitbox();
+
         playAnim("static");
     }
 
@@ -99,9 +102,6 @@ class StrumArrow extends FlxSprite {
         animation.play(animName, force);
         centerOffsets();
         centerOrigin();
-
-        scale.set(baseScale, baseScale);
-        updateHitbox();
 
         if (animName == "confirm") {
             centerOffsets();

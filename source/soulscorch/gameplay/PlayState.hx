@@ -133,8 +133,6 @@ class PlayState extends MusicBeatState {
 
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
-
-    // Hold note hit debounce timers (4 lanes)
     private var holdDebounceTimers:Array<Float> = [0.0, 0.0, 0.0, 0.0];
 
     public function new(?songId:String, ?difficulty:String) {
@@ -252,9 +250,11 @@ class PlayState extends MusicBeatState {
             Conductor.changeBPM(songData.bpm);
             Conductor.mapBpmChanges(songData.chart);
             prepareChartNotes();
+            
+            // Fix: Robust audio asset loading check
             audio.loadSong(songId);
 
-            if (audio.inst != null && audio.inst.length > 0) {
+            if (audio.inst != null) {
                 songLength = audio.inst.length;
             } else if (unspawnNotes.length > 0) {
                 songLength = unspawnNotes[unspawnNotes.length - 1].strumTime + 3000;
@@ -487,7 +487,10 @@ class PlayState extends MusicBeatState {
 
             if (countdownIndex == 4) {
                 countdownEnded = true;
-                audio.play();
+                // Fix: Ensure audio starts reliably upon countdown completion
+                if (audio != null) {
+                    audio.play();
+                }
                 scripts.callAll("onSongStart", []);
                 #if desktop
                 DiscordRPC.updateSongPresence(
@@ -513,13 +516,13 @@ class PlayState extends MusicBeatState {
         audio.update(elapsed);
         ShaderManager.instance.update(elapsed);
 
-        // Robust Conductor audio sync with resync threshold to prevent audio drift
-        if (countdownEnded && audio.inst != null && audio.inst.playing) {
+        // Fix: Reliable Conductor audio synchronization
+        if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
             var audioTime:Float = audio.inst.time;
-            if (Math.abs(Conductor.songPosition - audioTime) > 30.0) {
+            if (Math.abs(Conductor.songPosition - audioTime) > 35.0) {
                 Conductor.songPosition = audioTime;
             } else {
-                Conductor.songPosition = FlxMath.lerp(Conductor.songPosition, audioTime, FlxMath.bound(elapsed * 20.0, 0, 1));
+                Conductor.songPosition = FlxMath.lerp(Conductor.songPosition, audioTime, FlxMath.bound(elapsed * 25.0, 0, 1));
             }
         } else {
             Conductor.songPosition += elapsed * 1000.0;
@@ -537,15 +540,14 @@ class PlayState extends MusicBeatState {
 
         super.update(elapsed);
 
-        // Fixed camera follower lerp math (current -> target)
-        var camLerpRatio:Float = FlxMath.bound(elapsed * 3.5 * cameraSpeed, 0, 1);
+        var camLerpRatio:Float = FlxMath.bound(elapsed * 4.0 * cameraSpeed, 0, 1);
         camFollowPos.setPosition(
             FlxMath.lerp(camFollowPos.x, camFollow.x, camLerpRatio),
             FlxMath.lerp(camFollowPos.y, camFollow.y, camLerpRatio)
         );
 
         if (camZooming) {
-            var zoomLerpRatio:Float = FlxMath.bound(elapsed * 3.0, 0, 1);
+            var zoomLerpRatio:Float = FlxMath.bound(elapsed * 3.5, 0, 1);
             camGame.zoom = FlxMath.lerp(camGame.zoom, defaultCamZoom, zoomLerpRatio);
             camHUD.zoom = FlxMath.lerp(camHUD.zoom, defaultHUDZoom, zoomLerpRatio);
         }
@@ -611,7 +613,6 @@ class PlayState extends MusicBeatState {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
                 }
 
-                // Opponent hits or Botplay player hits
                 if ((!daNote.mustPress || botplay) && daNote.strumTime <= Conductor.songPosition) {
                     if (daNote.mustPress) {
                         goodNoteHit(daNote);
@@ -624,7 +625,7 @@ class PlayState extends MusicBeatState {
                             centerCameraOnDad();
                         }
 
-                        audio.muteVocal(false, false);
+                        if (audio != null) audio.muteVocal(false, false);
                         scripts.callAll("onOpponentHit", [daNote]);
                         daNote.kill();
                         notes.remove(daNote, false);
@@ -634,7 +635,6 @@ class PlayState extends MusicBeatState {
                 }
             }
 
-            // Player misses note offscreen
             if (daNote.mustPress && !botplay && daNote.strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !daNote.wasGoodHit) {
                 daNote.tooLate = true;
                 noteMiss(daNote.noteData);
@@ -694,7 +694,6 @@ class PlayState extends MusicBeatState {
                 ReplayManager.recordInput(i, false);
             }
 
-            // Debounced sustain note continuous hitting
             if (keysHeld[i] && holdDebounceTimers[i] <= 0.0) {
                 notes.forEachAlive(function(daNote:Note) {
                     if (daNote.mustPress && daNote.noteData == i && daNote.isSustainNote && daNote.canBeHit && !daNote.wasGoodHit) {
@@ -760,7 +759,7 @@ class PlayState extends MusicBeatState {
             songScore += 10;
         }
 
-        audio.muteVocal(true, false);
+        if (audio != null) audio.muteVocal(true, false);
 
         var pStrum = playerStrumline.receptors[note.noteData];
         if (pStrum != null) {
@@ -849,7 +848,7 @@ class PlayState extends MusicBeatState {
         combo = 0;
         songScore = Std.int(Math.max(0, songScore - 10));
         health = Math.max(0.0, health - GameplayFlags.getFloat("missPenalty", 0.085));
-        audio.muteVocal(true, true);
+        if (audio != null) audio.muteVocal(true, true);
 
         if (boyfriend != null) {
             boyfriend.playSingAnim(dir, true);
@@ -976,7 +975,7 @@ class PlayState extends MusicBeatState {
 
     public function openPauseMenu():Void {
         paused = true;
-        audio.pause();
+        if (audio != null) audio.pause();
         scripts.callAll("onPause", []);
         openSubState(new PauseSubState());
     }
@@ -984,14 +983,14 @@ class PlayState extends MusicBeatState {
     public function resumeSong():Void {
         if (paused) {
             paused = false;
-            audio.resume();
+            if (audio != null) audio.resume();
             scripts.callAll("onResume", []);
         }
     }
 
     public function gameOver():Void {
         paused = true;
-        audio.stop();
+        if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
         openSubState(new GameOverSubState(boyfriend != null ? boyfriend.x : 100, boyfriend != null ? boyfriend.y : 100));
     }

@@ -173,20 +173,18 @@ class TitleState extends MusicBeatState {
         super.update(elapsed);
     }
 
-    private function createIntroText(text:String, offset:Float = 0):Void {
-        var t = new Alphabet(0, (FlxG.height * 0.4) + offset, text, true);
-        t.alignment = CENTER;
-        t.screenCenter(X);
-        t.color = FlxColor.WHITE;
-        textGroup.add(t);
+    private function createIntroText(text:String, yOffset:Float = 0):Void {
+        var seq = textGroup.length;
+        var alph = new Alphabet(0, (FlxG.height * 0.38) + yOffset + (seq * 55), text, false);
+        alph.screenCenter(X);
+        textGroup.add(alph);
     }
 
-    private function addMoreIntroText(text:String, offset:Float = 0):Void {
-        var t = new Alphabet(0, (FlxG.height * 0.4) + (textGroup.length * 60) + offset, text, true);
-        t.alignment = CENTER;
-        t.screenCenter(X);
-        t.color = FlxColor.WHITE;
-        textGroup.add(t);
+    private function addMoreIntroText(text:String, yOffset:Float = 0):Void {
+        var seq = textGroup.length;
+        var alph = new Alphabet(0, (FlxG.height * 0.38) + yOffset + (seq * 55), text, false);
+        alph.screenCenter(X);
+        textGroup.add(alph);
     }
 
     private function deleteIntroText():Void {
@@ -212,31 +210,31 @@ class TitleState extends MusicBeatState {
         if (!closedIntro) {
             switch (beat) {
                 case 1:
-                    createIntroText("SoulScorch Team", -40);
+                    createIntroText("SoulScorch Team", -30);
                 case 3:
-                    addMoreIntroText("Presents", -40);
+                    addMoreIntroText("Presents", -30);
                 case 4:
                     deleteIntroText();
                 case 5:
-                    createIntroText("In collaboration with", -40);
+                    createIntroText("Not affiliated with", -30);
                 case 7:
-                    addMoreIntroText("Newgrounds", -40);
+                    addMoreIntroText("Newgrounds", -30);
                     if (ngSpr != null && ngSpr.graphic != null) ngSpr.visible = true;
                 case 8:
                     deleteIntroText();
                     if (ngSpr != null) ngSpr.visible = false;
                 case 9:
-                    createIntroText(curWacky[0], -40);
+                    createIntroText(curWacky[0], -30);
                 case 11:
-                    addMoreIntroText(curWacky[1], -40);
+                    addMoreIntroText(curWacky[1], -30);
                 case 12:
                     deleteIntroText();
                 case 13:
-                    createIntroText("SoulScorch Engine", -60);
+                    createIntroText("SoulScorch Engine", -45);
                 case 14:
-                    addMoreIntroText(Version.CODENAME, -60);
+                    addMoreIntroText(Version.CODENAME, -45);
                 case 15:
-                    addMoreIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, -60);
+                    addMoreIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, -45);
                 case 16:
                     skipIntro();
             }

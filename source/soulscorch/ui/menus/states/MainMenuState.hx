@@ -58,7 +58,7 @@ class MainMenuState extends MusicBeatState {
         bg = new FlxSprite(-80);
         if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuBG")) {
             if (!AssetHelper.loadGraphicSafely(bg, "menuBG")) {
-                bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282828);
+                bg.makeGraphic(Std.int(FlxG.width), Std.int(FlxG.height), 0xFF282828);
             }
         }
         bg.scrollFactor.set(0, 0.15);
@@ -72,7 +72,7 @@ class MainMenuState extends MusicBeatState {
         if (!AssetHelper.loadGraphicSafely(magenta, "ui/menubgs/menuBGMagenta")) {
             if (!AssetHelper.loadGraphicSafely(magenta, "ui/menubgs/menuDesat")) {
                 if (!AssetHelper.loadGraphicSafely(magenta, "menuDesat")) {
-                    magenta.makeGraphic(FlxG.width, FlxG.height, 0xFFFD719B);
+                    magenta.makeGraphic(Std.int(FlxG.width), Std.int(FlxG.height), 0xFFFD719B);
                 }
             }
         }
@@ -123,7 +123,7 @@ class MainMenuState extends MusicBeatState {
                 menuItem.antialiasing = true;
                 grpMenuItems.add(menuItem);
             } else {
-                var alphaLabel = new Alphabet(0, (i * 140) + offset, keyNormalized.toUpperCase(), true);
+                var alphaLabel = new Alphabet(0, (i * 140) + offset, keyNormalized.toUpperCase(), false);
                 alphaLabel.screenCenter(X);
                 alphaLabel.ID = i;
                 grpMenuItems.add(cast alphaLabel);
@@ -168,8 +168,9 @@ class MainMenuState extends MusicBeatState {
     }
 
     override public function update(elapsed:Float):Void {
-        camFollowPos.x = FlxMath.lerp(camFollow.x, camFollowPos.x, Math.exp(-elapsed * 6.0));
-        camFollowPos.y = FlxMath.lerp(camFollow.y, camFollowPos.y, Math.exp(-elapsed * 6.0));
+        var lerpFactor = FlxMath.bound(elapsed * 9.0, 0, 1);
+        camFollowPos.x = FlxMath.lerp(camFollowPos.x, camFollow.x, lerpFactor);
+        camFollowPos.y = FlxMath.lerp(camFollowPos.y, camFollow.y, lerpFactor);
 
         if (!selectedSomethin) {
             if (Controls.instance.UI_UP_P) {
@@ -225,19 +226,27 @@ class MainMenuState extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + huh, 0, menuItems.length - 1);
 
         grpMenuItems.forEach(function(spr:FlxSprite) {
-            if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("idle") != null) {
-                spr.animation.play("idle");
-                spr.updateHitbox();
-            }
-
-            spr.alpha = (spr.ID == curSelected ? 1.0 : 0.6);
-
-            if (spr.ID == curSelected) {
-                if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("selected") != null) {
-                    spr.animation.play("selected");
-                    spr.centerOffsets();
+            if (Std.isOfType(spr, Alphabet)) {
+                var alphaItem:Alphabet = cast spr;
+                alphaItem.alpha = (alphaItem.ID == curSelected ? 1.0 : 0.6);
+                if (alphaItem.ID == curSelected) {
+                    camFollow.setPosition(alphaItem.getGraphicMidpoint().x, alphaItem.getGraphicMidpoint().y);
                 }
-                camFollow.setPosition(spr.getGraphicMidpoint().x, spr.getGraphicMidpoint().y);
+            } else {
+                if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("idle") != null) {
+                    spr.animation.play("idle");
+                    spr.updateHitbox();
+                }
+
+                spr.alpha = (spr.ID == curSelected ? 1.0 : 0.6);
+
+                if (spr.ID == curSelected) {
+                    if (Reflect.hasField(spr, "animation") && spr.animation != null && spr.animation.getByName("selected") != null) {
+                        spr.animation.play("selected");
+                        spr.centerOffsets();
+                    }
+                    camFollow.setPosition(spr.getGraphicMidpoint().x, spr.getGraphicMidpoint().y);
+                }
             }
         });
     }

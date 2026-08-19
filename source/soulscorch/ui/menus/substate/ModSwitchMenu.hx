@@ -49,6 +49,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
     private var initialEnabledMods:Array<String> = [];
     private var hasChanges:Bool = false;
     private var targetListY:Float = 0.0;
+    private var curListY:Float = 0.0;
 
     override public function create():Void {
         super.create();
@@ -157,7 +158,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var modFolder = modList[i];
             var isEnabled = ModRegistry.instance.isEnabled(modFolder);
 
-            var rowGroup = new FlxSpriteGroup(40, (i * 68));
+            var rowGroup = new FlxSpriteGroup(40, 80 + (i * 68));
             rowGroup.ID = i;
 
             var rBg = new FlxSprite(0, 0).makeGraphic(rowW, 58, EditorTheme.PANEL_BG);
@@ -250,15 +251,15 @@ class ModSwitchMenu extends MusicBeatSubstate {
             applyAndExit();
         }
 
-        targetListY = -(curSelected * 68) + (FlxG.height * 0.38);
-        targetListY = Math.min(80, Math.max(targetListY, -(modList.length * 68) + FlxG.height - 120));
-        grpRows.y = FlxMath.lerp(grpRows.y, targetListY, FlxMath.bound(elapsed * 12.0, 0, 1));
+        targetListY = -(curSelected * 68) + (FlxG.height * 0.38) - 80;
+        curListY = FlxMath.lerp(curListY, targetListY, FlxMath.bound(elapsed * 12.0, 0, 1));
 
         for (i in 0...grpRows.members.length) {
             var row = grpRows.members[i];
             var isCur = (i == curSelected);
             rowBgs[i].color = isCur ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
             row.x = isCur ? 52 : 40;
+            row.y = 80 + (i * 68) + curListY;
             row.alpha = isCur ? 1.0 : 0.55;
         }
     }

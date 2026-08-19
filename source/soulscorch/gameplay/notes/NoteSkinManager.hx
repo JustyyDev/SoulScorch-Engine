@@ -5,6 +5,8 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 
+using StringTools;
+
 class NoteSkinManager {
     public static var defaultSkin:String = "default";
     private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
