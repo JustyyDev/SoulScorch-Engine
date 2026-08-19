@@ -206,8 +206,8 @@ function onBeatHit(beat:Int) {
 
 ## 4. Engine Architecture & Core Subsystems
 
-* **`Main.hx` & `EngineOptimizer.hx**`: Bootstraps the engine, configures high-performance Flixel timing (`FlxG.fixedTimestep = false`), manages VRAM asset purging every 15 seconds, and executes emergency garbage collection sweeps when frame rates dip below 50 FPS.
+* **`Main.hx` & `EngineOptimizer.hx`**: Bootstraps the engine, configures **high-performance Flixel timing** (`FlxG.fixedTimestep = false`), manages VRAM asset purging every 15 seconds, and executes emergency garbage collection sweeps *when frame rates dip below 50 FPS*.
 * **`ChartingState.hx`**: An Etterna-grade chart editor featuring multi-division quantization snaps (`1/4` to `1/64`), real-time hitsound audio feedback, section lane inversion, and event automator integration.
 * **`ModchartWorkspaceState.hx`**: A visual modchart matrix suite that calculates receptor transformations (`Drunk`, `Tipsy`, `Beat Pulse`, `Confusion`, `Reverse`, `Cross`, `Invert`, `Bumpy`, `Stealth`) in real time and exports clean **SoulScript** event triggers.
-* **`CharacterEditorState.hx` & `StageEditorState.hx**`: In-engine visual IDE studios allowing creators to live-inject XML animations, calibrate offsets, test character trajectories, and drag-and-drop stage props without touching external code editors.
-* **`HomeSoulDBModule.hx`**: A native package manager connecting directly to online community repositories, allowing users to browse, bump, download, and install community mods securely inside the game.
+* **`CharacterEditorState.hx` & `StageEditorState.hx`**: In-engine visual IDE studios allowing creators to live-inject XML animations, calibrate offsets, test character trajectories, and drag-and-drop stage props without touching external code editors.
+* **`HomeSoulDBModule.hx`**: A native package manager connecting directly to **online** community **repositories**, allowing users to browse, bump, download, and install community mods securely inside the game.
