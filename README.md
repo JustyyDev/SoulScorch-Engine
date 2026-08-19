@@ -1,22 +1,6 @@
-SoulScorch Engine is a high-performance and modular game engine designed specifically for Friday Night Funkin and rhythm game development. It serves as a comprehensive ecosystem that replaces traditional modding limitations with built-in development suites and advanced rhythm mechanics.
+# SoulScorch Engine: Comprehensive Architecture & Modding Guide
 
-### Core Architectural Features
-
-* **Mania Chart Studio:** A high-precision mapping environment providing multi-division beat quantization ranging from 1/4 down to 1/64 beats, real-time audio hitsound feedback during scrubbing, continuous multi-section viewports, and integrated event automation for triggers and script events.
-* **Modchart Matrix Studio:** A visual workspace designed for configuring receptor transformation math. It allows creators to preview and manipulate modifiers like Drunk, Tipsy, Beat Pulse, Confusion, Reverse, Cross, Invert, Bumpy, and Stealth in real time, with instant SoulScript event generation.
-* **Actor Studio and Stage Architect:** Complete in-engine visual editors that eliminate the need for external tools. Actor Studio handles Sparrow XML animation injection, frame-by-frame scrubbing, and camera focus anchoring, while Stage Architect enables drag-and-drop prop placement, multi-layer parallax scrolling configuration, and JSON stage serialization.
-* **HomeSoulDB Workshop Ecosystem:** A native package manager and community repository built directly into the engine, allowing users to browse, bump, download, and install community packages, custom weeks, and shaders without manual file management.
-* **Advanced Performance Optimizer:** A background memory management subsystem that monitors frame rates, purges unused VRAM graphic assets, performs generational garbage collection sweeps, and clamps delta time to prevent stutter spikes during heavy modchart execution.
-
-### What Makes It Different From Other FNF Modding Engines
-
-* **Unified Creative Suite:** Traditional engines require external applications or basic debug menus for charting and staging. SoulScorch embeds an entire developer studio directly into the game binaries, allowing creators to map, script, animate, and build stages within a single environment.
-* **Etterna-Grade Precision:** Borrowing performance and customization standards from rhythm games like Etterna and Osu, the engine offers robust playback rate scaling from 0.25x to 2.0x, strict quantization color coding, multi-key mapping slots, and millisecond-accurate input calibration.
-* **Smart Garbage Collection and Memory Management:** Standard modding engines frequently suffer from memory leaks and stutter spikes due to unmanaged asset accumulation. SoulScorch utilizes targeted VRAM asset caching and focus-lost throttling profiles to maintain stable frame rates over extended play sessions.
-
-# SoulScorch Engine: Comprehensive Modding & Architecture Guide
-
-This guide details how every subsystem, directory structure, and modding pipeline operates within **SoulScorch Engine**.
+This guide details how every subsystem, directory structure, modding pipeline, and custom scripting language operates within **SoulScorch Engine**.
 
 ---
 
@@ -56,7 +40,48 @@ SoulScorch-Engine/
 
 ---
 
-## 2. How Mods Work & Mod Structure (`mods/`)
+## 2. SoulScript Specification & Syntax
+
+**SoulScript** is SoulScorch Engine's custom, human-readable domain-specific scripting language (DSL) designed specifically for declarative modcharts, receptor transformation timelines, and event automation. Instead of writing complex raw HScript or Lua boilerplate for basic wave movements, creators use SoulScript to define smooth property transitions, easing curves, and timed event triggers.
+
+### Structure and Syntax Rules
+
+* **Comments:** Lines starting with `#` or `//` are treated as comments.
+* **Event Blocks:** Modchart triggers are wrapped inside `on event("Name")` and `end` blocks.
+* **Property Interpolation:** Modifiers are modified using the arrow operator (`->`), targeting properties, specifying target intensities, durations, and easing curves.
+
+### Supported Properties and Modifiers
+
+* `drunk`: Horizontal sine wave oscillation across receptor lanes.
+* `tipsy`: Vertical wave motion.
+* `beat`: Quarter-note snappy scaling and position pulse.
+* `confusion`: Receptor rotation angle in degrees.
+* `stealth`: Receptor transparency and opacity control.
+* `reverse`: Flips receptor layout to downscroll positioning.
+* `cross`: Swaps inner lane positioning.
+* `bumpy`: Simulates 3D perspective distortion.
+* `invert`: Mirrors strumline layouts.
+
+### Example SoulScript File (`wave_event.soul`)
+
+```soul
+# SoulScript Modchart Event Trigger Script
+on event("Modchart Wave Matrix"):
+    modchart.drunk -> 1.5 in 0.5s (cubeOut)
+    modchart.tipsy -> 0.8 in 0.5s (cubeOut)
+    modchart.confusion -> 180.0 in 0.8s (elasticOut)
+    modchart.bumpy -> 1.2 in 0.4s (bounceOut)
+end
+
+on event("Stealth Fade"):
+    modchart.stealth -> 1.0 in 0.3s (quadOut)
+end
+
+```
+
+---
+
+## 3. How Mods Work & Mod Structure (`mods/`)
 
 SoulScorch features a dynamic mod loader managed by `ModManager.hx` and `ModRegistry.hx`. Every folder placed inside the `mods/` directory is treated as an independent modification package.
 
@@ -85,7 +110,7 @@ When the engine loads assets via `Paths.hx` or `AssetResolver.hx`, it checks dir
 
 ---
 
-## 3. Modding Examples & Subsystem Breakdown
+## 4. Modding Examples & Subsystem Breakdown
 
 ### A. Custom Characters (`assets/data/characters/` or `mods/[Mod]/data/characters/`)
 
@@ -204,10 +229,10 @@ function onBeatHit(beat:Int) {
 
 ---
 
-## 4. Engine Architecture & Core Subsystems
+## 5. Engine Architecture & Core Subsystems
 
-* **`Main.hx` & `EngineOptimizer.hx`**: Bootstraps the engine, configures **high-performance Flixel timing** (`FlxG.fixedTimestep = false`), manages VRAM asset purging every 15 seconds, and executes emergency garbage collection sweeps *when frame rates dip below 50 FPS*.
+* **`Main.hx` & `EngineOptimizer.hx`**: Bootstraps the engine, configures high-performance Flixel timing (`FlxG.fixedTimestep = false`), manages VRAM asset purging **every 15 seconds**, and executes emergency garbage collection sweeps *when frame rates dip below 50 FPS*.
 * **`ChartingState.hx`**: An Etterna-grade chart editor featuring multi-division quantization snaps (`1/4` to `1/64`), real-time hitsound audio feedback, section lane inversion, and event automator integration.
 * **`ModchartWorkspaceState.hx`**: A visual modchart matrix suite that calculates receptor transformations (`Drunk`, `Tipsy`, `Beat Pulse`, `Confusion`, `Reverse`, `Cross`, `Invert`, `Bumpy`, `Stealth`) in real time and exports clean **SoulScript** event triggers.
 * **`CharacterEditorState.hx` & `StageEditorState.hx`**: In-engine visual IDE studios allowing creators to live-inject XML animations, calibrate offsets, test character trajectories, and drag-and-drop stage props without touching external code editors.
-* **`HomeSoulDBModule.hx`**: A native package manager connecting directly to **online** community **repositories**, allowing users to browse, bump, download, and install community mods securely inside the game.
+* **`HomeSoulDBModule.hx`**: A native package manager connecting directly to **online community repositories**, allowing users to **browse, bump, download,** and **install community mods** securely inside the game.
