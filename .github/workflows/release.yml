@@ -111,7 +111,7 @@ jobs:
           haxelib run lime setup flixel -y
 
       - name: Compile SoulScorch Engine
-        run: haxelib run lime build ${{ matrix.target }} -release
+        run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_SILENT: 1

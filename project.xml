@@ -93,7 +93,7 @@
 
 		<!-- Force MSVC Conformant Preprocessor & Undefine Windows Macro Conflicts -->
 		<cppflag value="/Zc:preprocessor" />
-		<compilerflag value="/Uconstant" />
+		<cppflag value="/Uconstant" />
 
 		<!-- Verbose Build Logs -->
 		<set name="HXCPP_VERBOSE" value="1" />

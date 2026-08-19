@@ -76,7 +76,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 4
           HXCPP_SILENT: 1
@@ -128,7 +128,7 @@ jobs:
           haxelib run lime setup flixel -y
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_SILENT: 1
