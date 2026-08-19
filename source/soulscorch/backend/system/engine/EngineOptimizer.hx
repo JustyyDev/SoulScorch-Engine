@@ -16,6 +16,7 @@ import hl.Gc;
 import java.lang.System;
 #end
 
+@:headerInclude("windows.h")
 class EngineOptimizer {
     public static var enabled(default, set):Bool = true;
     public static var targetFPS:Int = 120;
@@ -43,7 +44,7 @@ class EngineOptimizer {
 
         #if (cpp && windows)
         // Optimize working memory block allocation size for C++ target
-        untyped __cpp__("SetProcessWorkingSetSize(GetCurrentProcess(), -1, -1)");
+        untyped __cpp__("SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1)");
         #end
 
         Logger.info("[OPTIMIZER] SoulScorch High-Performance Engine Optimizer initialized.", "optimizer");
