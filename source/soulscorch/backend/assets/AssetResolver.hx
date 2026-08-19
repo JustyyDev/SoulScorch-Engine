@@ -55,6 +55,10 @@ class AssetResolver {
 
         var folderPrefixes = [
             "",
+            "images/ui/game/notes/",
+            "ui/game/notes/",
+            "images/ui/game/",
+            "ui/game/",
             "data/ui/",
             "data/",
             "shaders/",
@@ -73,6 +77,11 @@ class AssetResolver {
             "fonts/",
             "assets/",
             "assets/preload/",
+            "assets/preload/images/ui/game/notes/",
+            "assets/preload/images/ui/game/",
+            "assets/preload/images/ui/",
+            "assets/preload/images/characters/",
+            "assets/preload/images/",
             "assets/shared/",
             "assets/data/",
             "assets/images/",
@@ -110,6 +119,10 @@ class AssetResolver {
                 var assetsPrefix = 'assets/$combined';
                 if (FileSystem.exists(assetsPrefix) && !FileSystem.isDirectory(assetsPrefix)) {
                     return assetsPrefix;
+                }
+                var preloadPrefix = 'assets/preload/$combined';
+                if (FileSystem.exists(preloadPrefix) && !FileSystem.isDirectory(preloadPrefix)) {
+                    return preloadPrefix;
                 }
             }
         }

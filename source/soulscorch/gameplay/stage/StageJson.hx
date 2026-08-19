@@ -28,6 +28,13 @@ typedef StagePieceJson = {
     var ?antialiasing:Bool;
     var ?alpha:Float;
     var ?color:String;
+
+    // 3D Environment Extension
+    var ?is3D:Bool;
+    var ?modelPath:String;
+    var ?normalMap:String;
+    var ?specularMap:String;
+    var ?castShadows:Bool;
 }
 
 typedef CharacterSpawnJson = {
@@ -57,4 +64,7 @@ typedef StageJson = {
     var ?pieces:Array<StagePieceJson>;
     var ?sprites:Array<StagePieceJson>;
     var ?objects:Array<StagePieceJson>;
+
+    // 3D Skybox / Environment Setup
+    var ?skybox:Array<String>; // [posX, negX, posY, negY, posZ, negZ]
 }

@@ -11,6 +11,7 @@ class ModState extends Scene {
     public function new(stateName:String, scriptPath:String) {
         super();
         this.stateName = stateName;
+        this.sceneName = stateName;
         this.script = new HScriptIris(scriptPath);
     }
 
@@ -19,15 +20,26 @@ class ModState extends Scene {
 
         if (script != null) {
             script.set("state", this);
+            script.set("game", this);
             script.set("add", this.add);
             script.set("remove", this.remove);
             script.set("insert", this.insert);
             script.set("members", this.members);
-            script.set("switchState", function(nextState) {
-                FlxG.switchState(nextState);
+
+            script.set("camGame", this.camGame);
+            script.set("camHUD", this.camHUD);
+            script.set("camOther", this.camOther);
+
+            script.set("switchState", function(nextState:Dynamic) {
+                if (Std.isOfType(nextState, flixel.FlxState)) {
+                    switchScene(cast nextState);
+                } else {
+                    FlxG.switchState(nextState);
+                }
             });
-            script.set("openSubState", function(subState) {
-                openSubState(subState);
+
+            script.set("openSubState", function(subState:flixel.FlxSubState) {
+                openSubScene(subState);
             });
 
             script.call("create");
@@ -64,6 +76,14 @@ class ModState extends Scene {
         if (script != null && script.active) {
             script.call("stepHit", [step]);
             script.call("onStepHit", [step]);
+        }
+    }
+
+    override public function measureHit(measure:Int):Void {
+        super.measureHit(measure);
+        if (script != null && script.active) {
+            script.call("measureHit", [measure]);
+            script.call("onMeasureHit", [measure]);
         }
     }
 

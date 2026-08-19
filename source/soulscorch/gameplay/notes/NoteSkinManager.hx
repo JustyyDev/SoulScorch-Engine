@@ -2,41 +2,68 @@ package soulscorch.gameplay.notes;
 
 import flixel.FlxG;
 import flixel.graphics.frames.FlxAtlasFrames;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 
 class NoteSkinManager {
     public static var defaultSkin:String = "default";
+    private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
+    private static var _splashCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
 
-    public static function getSkinAtlas(skinName:String):Null<FlxAtlasFrames> {
-        var cleanSkin = (skinName != null && skinName.length > 0) ? skinName : getNoteSkinName();
+    public static var noteColors:Array<String> = ["purple", "blue", "green", "red"];
+    public static var noteDirections:Array<String> = ["left", "down", "up", "right"];
+
+    public static function getSkinAtlas(?skinName:String):Null<FlxAtlasFrames> {
+        var cleanSkin = (skinName != null && skinName.trim().length > 0) ? skinName.trim() : getNoteSkinName();
+
+        if (_skinCache.exists(cleanSkin)) {
+            var cached = _skinCache.get(cleanSkin);
+            if (cached != null && cached.parent != null) return cached;
+            _skinCache.remove(cleanSkin);
+        }
 
         var lookups:Array<String> = [
+            'ui/game/notes/$cleanSkin',
+            'images/ui/game/notes/$cleanSkin',
             'ui/notes/$cleanSkin',
             'notes/$cleanSkin',
             cleanSkin,
+            'ui/game/notes/NOTE_assets',
+            'images/ui/game/notes/NOTE_assets',
+            'ui/game/notes/default',
+            'images/ui/game/notes/default',
             'gameplay/notes/$cleanSkin',
-            "ui/notes/default",
-            "notes/default",
-            "notes/NOTE_assets",
-            "NOTE_assets"
+            "NOTE_assets",
+            "default"
         ];
 
         for (path in lookups) {
             var atlas = Paths.getSparrowAtlas(path);
-            if (atlas != null) return atlas;
+            if (atlas != null) {
+                _skinCache.set(cleanSkin, atlas);
+                return atlas;
+            }
         }
 
         return null;
     }
 
-    public static function getSplashAtlas(skinName:String):Null<FlxAtlasFrames> {
-        var cleanSkin = (skinName != null && skinName.length > 0) ? skinName : getNoteSkinName();
+    public static function getSplashAtlas(?skinName:String):Null<FlxAtlasFrames> {
+        var cleanSkin = (skinName != null && skinName.trim().length > 0) ? skinName.trim() : getNoteSkinName();
+
+        if (_splashCache.exists(cleanSkin)) {
+            var cached = _splashCache.get(cleanSkin);
+            if (cached != null && cached.parent != null) return cached;
+            _splashCache.remove(cleanSkin);
+        }
 
         var lookups:Array<String> = [
+            'ui/game/notes/${cleanSkin}_splashes',
+            'images/ui/game/notes/${cleanSkin}_splashes',
             'ui/notes/${cleanSkin}_splashes',
-            'ui/notes/splashes_$cleanSkin',
             'notes/${cleanSkin}_splashes',
-            '${cleanSkin}_splashes',
+            'ui/game/notes/noteSplashes',
+            'images/ui/game/notes/noteSplashes',
             'ui/noteSplashes',
             'noteSplashes',
             'ui/notes/default_splashes'
@@ -44,7 +71,10 @@ class NoteSkinManager {
 
         for (path in lookups) {
             var atlas = Paths.getSparrowAtlas(path);
-            if (atlas != null) return atlas;
+            if (atlas != null) {
+                _splashCache.set(cleanSkin, atlas);
+                return atlas;
+            }
         }
 
         return null;
@@ -55,5 +85,10 @@ class NoteSkinManager {
             return Std.string(FlxG.save.data.noteSkin);
         }
         return defaultSkin;
+    }
+
+    public static function clearCache():Void {
+        _skinCache.clear();
+        _splashCache.clear();
     }
 }

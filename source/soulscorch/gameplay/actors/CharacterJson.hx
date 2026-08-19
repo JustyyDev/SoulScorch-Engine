@@ -27,4 +27,12 @@ typedef CharacterJson = {
     var ?healthbar_colors:Array<Int>;
     var ?healthBarColor:Array<Int>;
     var ?vocals_file:String;
+
+    // 3D Model Properties
+    var ?is3D:Bool;
+    var ?modelPath:String;
+    var ?texturePath:String;
+    var ?meshScale:Float;
+    var ?meshRotation:Array<Float>;
+    var ?meshOffset:Array<Float>;
 }

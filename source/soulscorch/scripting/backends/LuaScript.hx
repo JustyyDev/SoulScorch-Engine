@@ -313,19 +313,32 @@ class LuaScript implements ScriptInstance {
         if (root == null || dottedPath == null) return;
         var parts = dottedPath.split(".");
         var current:Dynamic = root;
+        var arrayRegex = ~/^(\w+)\[(\d+)\]$/;
 
         for (i in 0...(parts.length - 1)) {
             if (current == null) return;
-            var key = parts[i];
-            current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(key) : Reflect.getProperty(current, key);
+            var part = parts[i];
+            if (arrayRegex.match(part)) {
+                var fieldName = arrayRegex.matched(1);
+                var index = Std.parseInt(arrayRegex.matched(2));
+                var arr = Reflect.getProperty(current, fieldName);
+                current = (arr != null) ? arr[index] : null;
+            } else {
+                current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(part) : Reflect.getProperty(current, part);
+            }
         }
 
         if (current != null && parts.length > 0) {
-            var lastKey = parts[parts.length - 1];
-            if (Std.isOfType(current, haxe.ds.StringMap)) {
-                cast(current, haxe.ds.StringMap<Dynamic>).set(lastKey, value);
+            var lastPart = parts[parts.length - 1];
+            if (arrayRegex.match(lastPart)) {
+                var fieldName = arrayRegex.matched(1);
+                var index = Std.parseInt(arrayRegex.matched(2));
+                var arr = Reflect.getProperty(current, fieldName);
+                if (arr != null) arr[index] = value;
+            } else if (Std.isOfType(current, haxe.ds.StringMap)) {
+                cast(current, haxe.ds.StringMap<Dynamic>).set(lastPart, value);
             } else {
-                Reflect.setProperty(current, lastKey, value);
+                Reflect.setProperty(current, lastPart, value);
             }
         }
     }
@@ -333,10 +346,18 @@ class LuaScript implements ScriptInstance {
     public static function getProperty(root:Dynamic, dottedPath:String):Dynamic {
         if (root == null || dottedPath == null) return null;
         var current:Dynamic = root;
+        var arrayRegex = ~/^(\w+)\[(\d+)\]$/;
 
         for (part in dottedPath.split(".")) {
             if (current == null) return null;
-            current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(part) : Reflect.getProperty(current, part);
+            if (arrayRegex.match(part)) {
+                var fieldName = arrayRegex.matched(1);
+                var index = Std.parseInt(arrayRegex.matched(2));
+                var arr = Reflect.getProperty(current, fieldName);
+                current = (arr != null) ? arr[index] : null;
+            } else {
+                current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(part) : Reflect.getProperty(current, part);
+            }
         }
         return current;
     }

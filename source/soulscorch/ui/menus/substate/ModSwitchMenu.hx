@@ -48,6 +48,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
     private var initialEnabledMods:Array<String> = [];
     private var hasChanges:Bool = false;
+    private var targetListY:Float = 0.0;
 
     override public function create():Void {
         super.create();
@@ -68,6 +69,9 @@ class ModSwitchMenu extends MusicBeatSubstate {
         modList = ModManager.allMods.copy();
         initialEnabledMods = ModRegistry.instance.enabledMods.copy();
 
+        grpRows = new FlxTypedGroup<FlxSpriteGroup>();
+        add(grpRows);
+
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
         topBar.scrollFactor.set(0, 0);
         add(topBar);
@@ -82,9 +86,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
         var workshopBanner = new FlxText(FlxG.width - 440, 20, 400, "[TAB] Open HomeSoulDB Workshop", 14);
         workshopBanner.setFormat(Paths.font("vcr"), 14, EditorTheme.ACCENT_YELLOW, RIGHT);
         add(workshopBanner);
-
-        grpRows = new FlxTypedGroup<FlxSpriteGroup>();
-        add(grpRows);
 
         setupInspectorPanel();
 
@@ -156,7 +157,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var modFolder = modList[i];
             var isEnabled = ModRegistry.instance.isEnabled(modFolder);
 
-            var rowGroup = new FlxSpriteGroup(40, (i * 68) + 80);
+            var rowGroup = new FlxSpriteGroup(40, (i * 68));
             rowGroup.ID = i;
 
             var rBg = new FlxSprite(0, 0).makeGraphic(rowW, 58, EditorTheme.PANEL_BG);
@@ -166,12 +167,10 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var rBorder = new FlxSprite(0, 57).makeGraphic(rowW, 1, EditorTheme.PANEL_BORDER);
             rowGroup.add(rBorder);
 
-            // Mod Status Capsule
             var pill = new FlxSprite(14, 18).makeGraphic(6, 22, isEnabled ? EditorTheme.ACCENT_CYAN : EditorTheme.ACCENT_MAGENTA);
             rowGroup.add(pill);
             statusPills.push(pill);
 
-            // Custom Mod Icon
             var iconSpr = new FlxSprite(32, 10);
             var iconLoaded = AssetHelper.loadGraphicSafely(iconSpr, 'mods/$modFolder/_icon');
             if (!iconLoaded) iconLoaded = AssetHelper.loadGraphicSafely(iconSpr, 'mods/$modFolder/icon');
@@ -213,6 +212,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var temp = modList[curSelected];
             modList[curSelected] = modList[curSelected - 1];
             modList[curSelected - 1] = temp;
+            syncActiveModOrder();
             curSelected--;
             hasChanges = true;
             AssetHelper.playSoundSafely("scrollMenu", 0.7);
@@ -224,6 +224,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             var temp = modList[curSelected];
             modList[curSelected] = modList[curSelected + 1];
             modList[curSelected + 1] = temp;
+            syncActiveModOrder();
             curSelected++;
             hasChanges = true;
             AssetHelper.playSoundSafely("scrollMenu", 0.7);
@@ -249,6 +250,10 @@ class ModSwitchMenu extends MusicBeatSubstate {
             applyAndExit();
         }
 
+        targetListY = -(curSelected * 68) + (FlxG.height * 0.38);
+        targetListY = Math.min(80, Math.max(targetListY, -(modList.length * 68) + FlxG.height - 120));
+        grpRows.y = FlxMath.lerp(grpRows.y, targetListY, FlxMath.bound(elapsed * 12.0, 0, 1));
+
         for (i in 0...grpRows.members.length) {
             var row = grpRows.members[i];
             var isCur = (i == curSelected);
@@ -256,6 +261,16 @@ class ModSwitchMenu extends MusicBeatSubstate {
             row.x = isCur ? 52 : 40;
             row.alpha = isCur ? 1.0 : 0.55;
         }
+    }
+
+    private function syncActiveModOrder():Void {
+        var newEnabled:Array<String> = [];
+        for (mod in modList) {
+            if (ModRegistry.instance.isEnabled(mod)) {
+                newEnabled.push(mod);
+            }
+        }
+        ModRegistry.instance.enabledMods = newEnabled;
     }
 
     private function applyAndExit():Void {

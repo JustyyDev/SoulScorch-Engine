@@ -1,5 +1,6 @@
 package soulscorch.scripting.mod;
 
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.SoulModData;
 
@@ -19,5 +20,13 @@ class ModLoader {
 
     public static inline function getPath(filePath:String):String {
         return ModManager.getPath(filePath);
+    }
+
+    public static inline function resolveAsset(filePath:String, ?extensions:Array<String>):String {
+        return ModManager.resolveModAsset(filePath, extensions);
+    }
+
+    public static inline function exists(filePath:String):Bool {
+        return AssetResolver.exists(filePath);
     }
 }

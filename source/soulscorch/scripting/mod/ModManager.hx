@@ -30,14 +30,18 @@ class ModManager {
                 if (FileSystem.isDirectory(fullDir) && !folder.startsWith(".") && !folder.startsWith("_")) {
                     allMods.push(folder);
 
-                    var configPath = '$fullDir/config.json';
-                    if (FileSystem.exists(configPath)) {
-                        try {
-                            var raw = File.getContent(configPath);
-                            var data:SoulModData = Json.parse(raw);
-                            modConfigs.set(folder, data);
-                        } catch (e:Dynamic) {
-                            Logger.warn('Failed parsing mod config in $folder: $e', "mods");
+                    var configFiles = ['config.json', 'mod.json', '_polymod_meta.json'];
+                    for (cfg in configFiles) {
+                        var configPath = '$fullDir/$cfg';
+                        if (FileSystem.exists(configPath)) {
+                            try {
+                                var raw = File.getContent(configPath);
+                                var data:SoulModData = Json.parse(raw);
+                                modConfigs.set(folder, data);
+                                break;
+                            } catch (e:Dynamic) {
+                                Logger.warn('Failed parsing mod config in $folder ($cfg): $e', "mods");
+                            }
                         }
                     }
                 }
@@ -70,5 +74,42 @@ class ModManager {
         #end
 
         return 'assets/$clean';
+    }
+
+    public static function resolveModAsset(filePath:String, extensions:Array<String>):String {
+        if (filePath == null || filePath.trim().length == 0) return "";
+        var clean = filePath.replace("\\", "/").trim();
+        while (clean.startsWith("/")) clean = clean.substr(1);
+
+        #if sys
+        for (mod in activeMods) {
+            var modPath = 'mods/$mod/$clean';
+            if (FileSystem.exists(modPath) && !FileSystem.isDirectory(modPath)) {
+                return modPath;
+            }
+            if (extensions != null) {
+                for (ext in extensions) {
+                    var probe = modPath + (ext.startsWith(".") ? ext : "." + ext);
+                    if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) {
+                        return probe;
+                    }
+                }
+            }
+        }
+
+        if (FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) {
+            return clean;
+        }
+        if (extensions != null) {
+            for (ext in extensions) {
+                var probe = clean + (ext.startsWith(".") ? ext : "." + ext);
+                if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) {
+                    return probe;
+                }
+            }
+        }
+        #end
+
+        return getPath(clean);
     }
 }

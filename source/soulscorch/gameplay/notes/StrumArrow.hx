@@ -1,57 +1,114 @@
 package soulscorch.gameplay.notes;
 
+import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.math.FlxPoint;
+import flixel.util.FlxColor;
+
+using StringTools;
 
 class StrumArrow extends FlxSprite {
-    public var noteData:Int = 0;
+    public var direction:Int = 0;
     public var resetAnim:Float = 0.0;
-    public var downscroll:Bool = false;
     public var isPlayer:Bool = false;
+    public var downscroll:Bool = false;
 
     public var baseX:Float = 0.0;
     public var baseY:Float = 0.0;
+    public var animOffsets:Map<String, FlxPoint> = new Map<String, FlxPoint>();
+    public var baseScale:Float = 0.7;
 
-    private static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
-
-    public function new(x:Float, y:Float, noteData:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "default") {
+    public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "NOTE_assets") {
         super(x, y);
-
-        this.noteData = noteData;
+        this.direction = direction % 4;
         this.isPlayer = isPlayer;
         this.downscroll = downscroll;
         this.baseX = x;
         this.baseY = y;
 
-        loadSkin(skin);
+        loadReceptorSkin(skin);
+        setupAnimations();
+
+        antialiasing = true;
+        scrollFactor.set(0, 0);
         playAnim("static");
     }
 
-    public function loadSkin(?skinPath:String):Void {
-        var atlas = NoteSkinManager.getSkinAtlas(skinPath);
+    public function loadReceptorSkin(skin:String = "NOTE_assets"):Void {
+        var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
+
         if (atlas != null) {
             frames = atlas;
-            var col = colArray[noteData % 4];
-            animation.addByPrefix("static", 'arrow' + col.toUpperCase(), 24, false);
-            animation.addByPrefix("pressed", '$col press', 24, false);
-            animation.addByPrefix("confirm", '$col confirm', 24, false);
         } else {
-            var colors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
-            makeGraphic(100, 100, colors[noteData % 4]);
+            var colorInt:FlxColor = switch (direction) {
+                case 0: 0xFFC24B99;
+                case 1: 0xFF00FFFF;
+                case 2: 0xFF12FA05;
+                case 3: 0xFFF9393F;
+                default: 0xFFFFFFFF;
+            };
+            makeGraphic(Std.int(112 * baseScale), Std.int(112 * baseScale), colorInt);
         }
+    }
 
-        antialiasing = true;
-        setGraphicSize(Std.int(width * 0.7));
-        updateHitbox();
+    private function setupAnimations():Void {
+        if (frames == null || frames.frames == null || frames.frames.length == 0) return;
+
+        var dirName = NoteSkinManager.noteDirections[direction];
+        var dirUpper = dirName.toUpperCase();
+
+        var staticPrefixes = [
+            'arrow$dirUpper',
+            'arrow $dirUpper',
+            '$dirName static'
+        ];
+        tryAddAnim("static", staticPrefixes, 24, false);
+
+        var pressPrefixes = [
+            '$dirName press',
+            'arrow$dirUpper press'
+        ];
+        tryAddAnim("pressed", pressPrefixes, 24, false);
+
+        var confirmPrefixes = [
+            '$dirName confirm',
+            'arrow$dirUpper confirm'
+        ];
+        tryAddAnim("confirm", confirmPrefixes, 24, false);
+    }
+
+    private function tryAddAnim(animName:String, prefixes:Array<String>, fps:Int = 24, loop:Bool = false):Bool {
+        if (frames == null || frames.frames == null) return false;
+
+        for (prefix in prefixes) {
+            var prefixLower = prefix.toLowerCase().trim();
+            for (f in frames.frames) {
+                if (f.name != null && f.name.toLowerCase().startsWith(prefixLower)) {
+                    animation.addByPrefix(animName, prefix, fps, loop);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public function playAnim(animName:String, force:Bool = false):Void {
+        if (animation.getByName(animName) == null) return;
+
         animation.play(animName, force);
         centerOffsets();
         centerOrigin();
 
+        scale.set(baseScale, baseScale);
+        updateHitbox();
+
         if (animName == "confirm") {
+            centerOffsets();
             offset.x -= 13;
             offset.y -= 13;
+        } else {
+            centerOffsets();
         }
     }
 
@@ -65,5 +122,13 @@ class StrumArrow extends FlxSprite {
                 playAnim("static");
             }
         }
+    }
+
+    override public function destroy():Void {
+        for (pt in animOffsets) {
+            pt.put();
+        }
+        animOffsets.clear();
+        super.destroy();
     }
 }

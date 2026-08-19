@@ -1,6 +1,7 @@
 package soulscorch.scripting.mod;
 
 import flixel.FlxG;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.SoulModData;
@@ -26,22 +27,28 @@ class ModRegistry {
     public function loadConfig():Void {
         enabledMods = [];
 
-        if (FlxG.save != null && FlxG.save.data != null && FlxG.save.data.enabledMods != null) {
+        var rawList:Dynamic = null;
+        if (SaveData.instance != null) {
+            rawList = SaveData.instance.getSetting("enabledMods", null);
+        }
+
+        if (rawList == null && FlxG.save != null && FlxG.save.data != null && FlxG.save.data.enabledMods != null) {
+            rawList = FlxG.save.data.enabledMods;
+        }
+
+        if (rawList != null) {
             try {
-                var list:Array<Dynamic> = cast FlxG.save.data.enabledMods;
+                var list:Array<Dynamic> = cast rawList;
                 for (item in list) {
                     var str = Std.string(item);
-                    if (!enabledMods.contains(str)) {
+                    if (ModManager.allMods.contains(str) && !enabledMods.contains(str)) {
                         enabledMods.push(str);
                     }
                 }
             } catch (e:Dynamic) {
                 Logger.warn('Failed restoring enabled mods list: $e', "mods");
             }
-        }
-
-        // If no saved list exists, enable all discovered mods by default
-        if (enabledMods.length == 0 && ModManager.allMods != null) {
+        } else if (ModManager.allMods != null) {
             enabledMods = ModManager.allMods.copy();
         }
 
@@ -49,11 +56,16 @@ class ModRegistry {
     }
 
     public function saveConfig():Void {
+        if (SaveData.instance != null) {
+            SaveData.instance.setSetting("enabledMods", enabledMods.copy(), true);
+        }
+
         if (FlxG.save != null && FlxG.save.data != null) {
             FlxG.save.data.enabledMods = enabledMods.copy();
             FlxG.save.flush();
-            Logger.info('Mod configuration saved (${enabledMods.length} active).', "mods");
         }
+
+        Logger.info('Mod configuration saved (${enabledMods.length} active).', "mods");
     }
 
     public function isEnabled(modName:String):Bool {
@@ -84,7 +96,7 @@ class ModRegistry {
             var prioA = (dataA != null && dataA.load_priority != null) ? dataA.load_priority : ((dataA != null && dataA.priority != null) ? dataA.priority : 0);
             var prioB = (dataB != null && dataB.load_priority != null) ? dataB.load_priority : ((dataB != null && dataB.priority != null) ? dataB.priority : 0);
 
-            return prioB - prioA; // Higher priority loads first
+            return prioB - prioA;
         });
     }
 }

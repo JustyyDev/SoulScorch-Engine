@@ -14,10 +14,13 @@ import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
+import flixel.util.FlxSort;
 import flixel.util.FlxTimer;
 import lime.app.Application;
 import openfl.Lib;
@@ -40,6 +43,7 @@ import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
+import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.Script;
@@ -84,6 +88,8 @@ class HScriptIris implements ScriptInstance {
         script.set("FlxText", FlxText);
         script.set("FlxBasic", FlxBasic);
         script.set("FlxObject", FlxObject);
+        script.set("FlxSound", FlxSound);
+        script.set("FlxBar", FlxBar);
         script.set("FlxGroup", FlxGroup);
         script.set("FlxTypedGroup", FlxTypedGroup);
         script.set("FlxSpriteGroup", FlxSpriteGroup);
@@ -96,6 +102,7 @@ class HScriptIris implements ScriptInstance {
         script.set("FlxEase", FlxEase);
         script.set("FlxTimer", FlxTimer);
         script.set("FlxMath", FlxMath);
+        script.set("FlxSort", FlxSort);
         
         script.set("FlxPoint", {
             get: FlxPoint.get,
@@ -148,6 +155,7 @@ class HScriptIris implements ScriptInstance {
         script.set("URLRequest", URLRequest);
 
         script.set("SoulShader", SoulShader);
+        script.set("ShaderManager", ShaderManager.instance);
         script.set("ShaderFilter", function(shaderOrFilter:Dynamic) {
             if (Std.isOfType(shaderOrFilter, ShaderFilter)) {
                 return shaderOrFilter;
@@ -179,8 +187,6 @@ class HScriptIris implements ScriptInstance {
         script.set("ScriptedState", ScriptedState);
         script.set("ScriptedSubState", ScriptedSubState);
 
-        script.set("game", FlxG.state);
-        script.set("state", FlxG.state);
         script.set("controls", Controls.instance);
         script.set("PlayState", PlayState);
 
@@ -236,7 +242,12 @@ class HScriptIris implements ScriptInstance {
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
-        return (script != null && active) ? script.call(func, args) : null;
+        if (script != null && active) {
+            script.set("game", FlxG.state);
+            script.set("state", FlxG.state);
+            return script.call(func, args);
+        }
+        return null;
     }
 
     public function set(key:String, value:Dynamic):Void {

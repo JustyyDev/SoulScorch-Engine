@@ -160,7 +160,7 @@ class SongParser {
             if (values.length < 2) return null;
             var lane:Int = Std.int(numberValue(values[1], 0));
             var player:Bool = (lane >= 4) ? !mustHit : mustHit;
-            var type:String = (values.length > 3 && values[3] != null) ? Std.string(values[3]) : "default";
+            var type:String = (values.length > 3 && values[3] != null) ? Std.string(values[3]) : "normal";
 
             return new Note(
                 numberValue(values[0], 0),
@@ -183,7 +183,7 @@ class SongParser {
             false,
             false,
             boolField(raw, "mustPress", mustHit),
-            stringField(raw, "noteType", "default")
+            stringField(raw, "noteType", "normal")
         );
     }
 

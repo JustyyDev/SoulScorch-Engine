@@ -6,6 +6,7 @@ import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import flixel.ui.FlxBar;
 import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
 import hscript.Interp;
@@ -77,6 +78,7 @@ class SoulScript implements ScriptInstance {
         interp.variables.set("FlxG", FlxG);
         interp.variables.set("FlxSprite", FlxSprite);
         interp.variables.set("FlxText", FlxText);
+        interp.variables.set("FlxBar", FlxBar);
         interp.variables.set("FlxMath", FlxMath);
         interp.variables.set("FlxTween", FlxTween);
         interp.variables.set("FlxEase", FlxEase);
@@ -185,6 +187,17 @@ class SoulScript implements ScriptInstance {
                         spr.alpha = alphaVal;
                         if (id != null) uiElements.set(id, spr);
                         if (FlxG.state != null) FlxG.state.add(spr);
+
+                    case "text":
+                        var content = (node.get("content") != null) ? node.get("content") : "";
+                        var size = (node.get("size") != null) ? Std.parseInt(node.get("size")) : 16;
+                        var width = (node.get("width") != null) ? Std.parseFloat(node.get("width")) : 0;
+                        var txt = new FlxText(xPos, yPos, width, content, size);
+                        var col = (node.get("color") != null) ? FlxColor.fromString(node.get("color")) : FlxColor.WHITE;
+                        txt.setFormat(Paths.font("vcr"), size, col, LEFT);
+                        txt.alpha = alphaVal;
+                        if (id != null) uiElements.set(id, txt);
+                        if (FlxG.state != null) FlxG.state.add(txt);
 
                     case "button":
                         var w = (node.get("width") != null) ? Std.parseInt(node.get("width")) : 100;
