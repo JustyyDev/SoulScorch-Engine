@@ -327,7 +327,6 @@ class ChartingState extends MusicBeatState {
 
         songPropsWindow = new EditorWindow(15, 45, 300, 340, "Song & Quantization");
         songPropsWindow.cameras = [camHUD];
-        songPropsWindow.setCameras([camHUD]);
         add(songPropsWindow);
 
         infoTxt = new FlxText(10, 4, 280, "", 13);
@@ -360,7 +359,6 @@ class ChartingState extends MusicBeatState {
 
         maniaToolWindow = new EditorWindow(15, 395, 300, 170, "Mania Key Matrix");
         maniaToolWindow.cameras = [camHUD];
-        maniaToolWindow.setCameras([camHUD]);
         add(maniaToolWindow);
 
         var stepperKeys = new EditorNumericStepper(10, 8, 280, "Key Count (1K - 9K)", keyCount, 1, 9, 1, 0, function(v) {
@@ -376,7 +374,6 @@ class ChartingState extends MusicBeatState {
 
         sectionToolsWindow = new EditorWindow(FlxG.width - 315, 45, 300, 210, "Section Utilities");
         sectionToolsWindow.cameras = [camHUD];
-        sectionToolsWindow.setCameras([camHUD]);
         add(sectionToolsWindow);
 
         checkMustHit = new EditorCheckbox(10, 4, "Must Hit (BF Focus)", _song.notes[curSection] != null && _song.notes[curSection].mustHitSection, function(checked) {
@@ -405,7 +402,6 @@ class ChartingState extends MusicBeatState {
 
         eventMasterWindow = new EditorWindow(FlxG.width - 315, 265, 300, 270, "Event Automator");
         eventMasterWindow.cameras = [camHUD];
-        eventMasterWindow.setCameras([camHUD]);
         add(eventMasterWindow);
 
         inputEventName = new EditorInputText(10, 4, 280, "Event Name", "Camera Zoom");

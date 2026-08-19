@@ -49,12 +49,10 @@ class CharacterEditorState extends MusicBeatState {
     private var camFollowMarker:FlxSprite;
     private var camFollow:FlxPoint;
 
-    // --- Live In-Game HUD Preview ---
     private var previewHealthBarBG:FlxSprite;
     private var previewHealthBar:FlxBar;
     private var previewIcon:HealthIcon;
 
-    // --- Windows & UI Components ---
     private var topBar:EditorTopBar;
     private var animMatrixWindow:EditorWindow;
     private var propertiesWindow:EditorWindow;
@@ -78,13 +76,11 @@ class CharacterEditorState extends MusicBeatState {
     private var ghostAnimIndex:Int = 0;
     private var showGhost:Bool = true;
 
-    // --- Drag & Drop State ---
     private var isDraggingCamAnchor:Bool = false;
     private var isDraggingCharOffset:Bool = false;
     private var dragStartOffset:FlxPoint;
     private var dragStartMouse:FlxPoint;
 
-    // --- Undo / Redo History Stack ---
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 40;
@@ -203,7 +199,6 @@ class CharacterEditorState extends MusicBeatState {
 
         animMatrixWindow = new EditorWindow(15, 45, 300, 420, "Animation Matrix");
         animMatrixWindow.cameras = [camHUD];
-        animMatrixWindow.setCameras([camHUD]);
         add(animMatrixWindow);
 
         curAnimTxt = new FlxText(10, 4, 280, "Anim: idle", 16);
@@ -232,7 +227,6 @@ class CharacterEditorState extends MusicBeatState {
 
         propertiesWindow = new EditorWindow(FlxG.width - 325, 45, 310, 270, "Actor Settings");
         propertiesWindow.cameras = [camHUD];
-        propertiesWindow.setCameras([camHUD]);
         add(propertiesWindow);
 
         var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale Multiplier", charLayer != null ? charLayer.scale.x : 1.0, 0.1, 8.0, 0.05, 2, function(v) {
@@ -273,7 +267,6 @@ class CharacterEditorState extends MusicBeatState {
 
         offsetsWindow = new EditorWindow(FlxG.width - 325, 325, 310, 150, "Camera Focus Anchor");
         offsetsWindow.cameras = [camHUD];
-        offsetsWindow.setCameras([camHUD]);
         add(offsetsWindow);
 
         var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", charLayer != null ? charLayer.cameraOffset[0] : 0, -900, 900, 5.0, 1, function(v) {
@@ -292,7 +285,6 @@ class CharacterEditorState extends MusicBeatState {
 
         quickToolsWindow = new EditorWindow(15, 475, 300, 135, "Quick Offset Helpers");
         quickToolsWindow.cameras = [camHUD];
-        quickToolsWindow.setCameras([camHUD]);
         add(quickToolsWindow);
 
         var btnZeroOffset = new EditorButton(10, 8, 280, 26, "Reset Current Offset to [0, 0]", function() {
@@ -310,7 +302,6 @@ class CharacterEditorState extends MusicBeatState {
 
         newAnimWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Create Animation Node");
         newAnimWindow.cameras = [camHUD];
-        newAnimWindow.setCameras([camHUD]);
         newAnimWindow.visible = false;
         add(newAnimWindow);
 

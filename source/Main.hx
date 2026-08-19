@@ -3,6 +3,8 @@ package;
 import flixel.FlxG;
 import flixel.FlxGame;
 import flixel.FlxState;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxTimer;
 import haxe.CallStack;
 import openfl.Lib;
 import openfl.display.Sprite;
@@ -50,7 +52,6 @@ class Main extends Sprite {
     public static var fpsCounter:Framerate;
     public static var fileWatcher:FileWatcher;
 
-    // Asynchronous / throttled background tick timer
     private static var fileWatchTimer:Float = 0.0;
     private static inline var FILE_WATCH_INTERVAL:Float = 0.5;
 
@@ -93,12 +94,10 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-            // Zero-latency input & non-blocking timestep configuration
             FlxG.fixedTimestep = false;
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
 
-            // Register asynchronous state switch signals for zero-lag cleanup
             setupStateSwitchOptimization();
 
             var devConsole = DevConsole.instance;
@@ -148,23 +147,15 @@ class Main extends Sprite {
         }
     }
 
-    /**
-     * Optimizes state transitions by eliminating blocking GC cycles,
-     * retaining core UI texture buffers, and preventing main-thread stalls.
-     */
     private function setupStateSwitchOptimization():Void {
         FlxG.signals.preStateSwitch.add(function() {
-            // Cancel lingering tweens, timers, and sounds to prevent CPU leaks
-            FlxG.tweens.clear();
-            FlxG.timers.clear();
-
-            // Clear unreferenced dynamic graphics without destroying persistent UI/Font textures
+            FlxTween.globalManager.clear();
+            FlxTimer.globalManager.clear();
             Paths.clearUnusedMemory();
         });
 
         FlxG.signals.postStateSwitch.add(function() {
             #if cpp
-            // Run an incremental, non-blocking garbage collection step
             Gc.run(false);
             #end
         });
@@ -191,7 +182,6 @@ class Main extends Sprite {
     private function onEnterFrame(event:Event):Void {
         var safeElapsed:Float = Math.min(FlxG.elapsed, 0.1);
 
-        // Throttle file watching I/O checks to twice per second instead of every single frame
         fileWatchTimer += safeElapsed;
         if (fileWatchTimer >= FILE_WATCH_INTERVAL) {
             fileWatchTimer = 0.0;

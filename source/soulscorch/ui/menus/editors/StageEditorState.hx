@@ -341,7 +341,6 @@ class StageEditorState extends MusicBeatState {
 
         hierarchyWindow = new EditorWindow(15, 45, 300, 420, "Stage Tree & Pieces");
         hierarchyWindow.cameras = [camHUD];
-        hierarchyWindow.setCameras([camHUD]);
         add(hierarchyWindow);
 
         infoTxt = new FlxText(10, 4, 280, "", 14);
@@ -366,7 +365,6 @@ class StageEditorState extends MusicBeatState {
 
         transformWindow = new EditorWindow(FlxG.width - 325, 45, 310, 230, "Transform & Parallax");
         transformWindow.cameras = [camHUD];
-        transformWindow.setCameras([camHUD]);
         add(transformWindow);
 
         stepperPieceScaleX = new EditorNumericStepper(10, 8, 135, "Scale X", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
@@ -410,7 +408,6 @@ class StageEditorState extends MusicBeatState {
 
         stageSettingsWindow = new EditorWindow(FlxG.width - 325, 285, 310, 190, "Global Environment");
         stageSettingsWindow.cameras = [camHUD];
-        stageSettingsWindow.setCameras([camHUD]);
         add(stageSettingsWindow);
 
         var stepperZoom = new EditorNumericStepper(10, 8, 290, "Default Camera Zoom", stageData.defaultZoom != null ? stageData.defaultZoom : 0.9, 0.2, 3.0, 0.05, 2, function(v) {
@@ -441,7 +438,6 @@ class StageEditorState extends MusicBeatState {
 
         propExtrasWindow = new EditorWindow(15, 475, 300, 135, "2.5D & 3D Extensions");
         propExtrasWindow.cameras = [camHUD];
-        propExtrasWindow.setCameras([camHUD]);
         add(propExtrasWindow);
 
         checkIs3D = new EditorCheckbox(10, 8, "Render as 3D Mesh", false, function(c) {
@@ -472,7 +468,6 @@ class StageEditorState extends MusicBeatState {
 
         newPropWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Inject Stage Prop");
         newPropWindow.cameras = [camHUD];
-        newPropWindow.setCameras([camHUD]);
         newPropWindow.visible = false;
         add(newPropWindow);
 
