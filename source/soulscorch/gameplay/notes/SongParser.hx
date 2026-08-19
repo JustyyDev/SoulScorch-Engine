@@ -5,7 +5,7 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.Chart;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 typedef ParsedSection = {
     var startTime:Float;
@@ -33,14 +33,14 @@ class SongParser {
         var root:Dynamic = Json.parse(rawJson);
         var song:Dynamic = Reflect.hasField(root, "song") ? Reflect.field(root, "song") : root;
 
-        var bpm:Float = numberField(song, "bpm", 120.0);[cite: 72]
-        var speed:Float = numberField(song, "speed", numberField(song, "scrollSpeed", 1.0));[cite: 72]
-        var chart:Chart = new Chart(bpm, speed);[cite: 72]
-        var sections:Array<ParsedSection> = [];[cite: 72]
-        var events:Array<Dynamic> = [];[cite: 72]
+        var bpm:Float = numberField(song, "bpm", 120.0);
+        var speed:Float = numberField(song, "speed", numberField(song, "scrollSpeed", 1.0));
+        var chart:Chart = new Chart(bpm, speed);
+        var sections:Array<ParsedSection> = [];
+        var events:Array<Dynamic> = [];
 
-        var sectionArray:Dynamic = field(song, "notes");[cite: 72]
-        if (sectionArray == null) sectionArray = field(song, "sections");[cite: 72]
+        var sectionArray:Dynamic = field(song, "notes");
+        if (sectionArray == null) sectionArray = field(song, "sections");
 
         if (sectionArray != null && Std.isOfType(sectionArray, Array)) {
             var index:Int = 0;
@@ -53,19 +53,18 @@ class SongParser {
                     curBpmCalc = rawSection.bpm;
                 }
 
-                var mustHit:Bool = boolField(rawSection, "mustHitSection", boolField(rawSection, "mustHit", true));[cite: 72]
-                var sectionNotes:Array<Note> = [];[cite: 72]
-                var noteArray:Dynamic = field(rawSection, "sectionNotes");[cite: 72]
-                if (noteArray == null) noteArray = field(rawSection, "notes");[cite: 72]
+                var mustHit:Bool = boolField(rawSection, "mustHitSection", boolField(rawSection, "mustHit", true));
+                var sectionNotes:Array<Note> = [];
+                var noteArray:Dynamic = field(rawSection, "sectionNotes");
+                if (noteArray == null) noteArray = field(rawSection, "notes");
 
                 if (noteArray != null && Std.isOfType(noteArray, Array)) {
                     for (rawNote in (cast noteArray : Array<Dynamic>)) {
-                        var parsed:Note = parseNote(rawNote, mustHit);[cite: 72]
+                        var parsed:Note = parseNote(rawNote, mustHit);
                         if (parsed != null) {
                             chart.addNote(parsed.strumTime, parsed.noteData, parsed.sustainLength, parsed.noteType, parsed.mustPress);
                             sectionNotes.push(parsed);
 
-                            // Construct sustain hold trail and end pieces
                             if (parsed.sustainLength > 0) {
                                 var stepCrochet:Float = ((60.0 / curBpmCalc) * 1000.0) / 4.0;
                                 var holdLength:Float = parsed.sustainLength;
@@ -91,29 +90,29 @@ class SongParser {
                     }
                 }
 
-                var sectionEvents:Dynamic = field(rawSection, "events");[cite: 72]
+                var sectionEvents:Dynamic = field(rawSection, "events");
                 if (sectionEvents != null && Std.isOfType(sectionEvents, Array)) {
-                    for (event in (cast sectionEvents : Array<Dynamic>)) events.push(event);[cite: 72]
+                    for (event in (cast sectionEvents : Array<Dynamic>)) events.push(event);
                 }
 
                 sections.push({
-                    startTime: numberField(rawSection, "startTime", index * 2000.0),[cite: 72]
-                    mustHitSection: mustHit,[cite: 72]
-                    notes: sectionNotes,[cite: 72]
-                    events: sectionEvents == null ? [] : cast sectionEvents[cite: 72]
+                    startTime: numberField(rawSection, "startTime", index * 2000.0),
+                    mustHitSection: mustHit,
+                    notes: sectionNotes,
+                    events: sectionEvents == null ? [] : cast sectionEvents
                 });
                 index++;
             }
         }
 
-        var rootEvents:Dynamic = field(song, "events");[cite: 72]
+        var rootEvents:Dynamic = field(song, "events");
         if (rootEvents != null && Std.isOfType(rootEvents, Array)) {
-            for (event in (cast rootEvents : Array<Dynamic>)) events.push(event);[cite: 72]
+            for (event in (cast rootEvents : Array<Dynamic>)) events.push(event);
         }
 
         return {
             songId: songId,
-            songName: stringField(song, "song", songId),[cite: 72]
+            songName: stringField(song, "song", songId),
             bpm: bpm,
             speed: speed,
             chart: chart,
@@ -127,15 +126,17 @@ class SongParser {
         var diffSuffix = (diff == "normal") ? "" : '-$diff';
 
         var possiblePaths = [
-            'assets/songs/$songId/charts/$diff.json',
-            'assets/songs/$songId/chart$diffSuffix.json',
-            'assets/songs/$songId/$songId$diffSuffix.json',
-            'assets/songs/$songId/chart.json'
+            'songs/$songId/charts/$diff.json',
+            'songs/$songId/chart$diffSuffix.json',
+            'songs/$songId/$songId$diffSuffix.json',
+            'songs/$songId/chart.json',
+            'data/$songId/$songId$diffSuffix.json',
+            'data/$songId/chart$diffSuffix.json'
         ];
 
         for (path in possiblePaths) {
-            var resolved = ModLoader.getPath(path);
-            if (AssetResolver.exists(resolved)) {
+            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
+            if (resolved != null) {
                 return parse(AssetResolver.getText(resolved), songId);
             }
         }
@@ -145,19 +146,19 @@ class SongParser {
     }
 
     private static function parseNote(raw:Dynamic, mustHit:Bool):Null<Note> {
-        if (raw == null) return null;[cite: 72]
+        if (raw == null) return null;
 
         if (Std.isOfType(raw, Array)) {
             var values:Array<Dynamic> = cast raw;
-            if (values.length < 2) return null;[cite: 72]
-            var lane:Int = Std.int(numberValue(values[1], 0));[cite: 72]
-            var player:Bool = (lane >= 4) ? !mustHit : mustHit;[cite: 72]
-            var type:String = (values.length > 3) ? Std.string(values[3]) : "Default";
+            if (values.length < 2) return null;
+            var lane:Int = Std.int(numberValue(values[1], 0));
+            var player:Bool = (lane >= 4) ? !mustHit : mustHit;
+            var type:String = (values.length > 3 && values[3] != null) ? Std.string(values[3]) : "Default";
 
             return new Note(
-                numberValue(values[0], 0),[cite: 72]
-                lane % 4,[cite: 72]
-                values.length > 2 ? numberValue(values[2], 0) : 0,[cite: 72]
+                numberValue(values[0], 0),
+                lane % 4,
+                values.length > 2 ? numberValue(values[2], 0) : 0,
                 null,
                 false,
                 false,
@@ -166,38 +167,38 @@ class SongParser {
             );
         }
 
-        var laneValue:Int = Std.int(numberField(raw, "noteData", numberField(raw, "direction", 0)));[cite: 72]
+        var laneValue:Int = Std.int(numberField(raw, "noteData", numberField(raw, "direction", 0)));
         return new Note(
-            numberField(raw, "strumTime", numberField(raw, "time", 0)),[cite: 72]
-            laneValue % 4,[cite: 72]
-            numberField(raw, "sustainLength", 0),[cite: 72]
+            numberField(raw, "strumTime", numberField(raw, "time", 0)),
+            laneValue % 4,
+            numberField(raw, "sustainLength", 0),
             null,
             false,
             false,
-            boolField(raw, "mustPress", mustHit),[cite: 72]
-            stringField(raw, "noteType", "Default")[cite: 72]
+            boolField(raw, "mustPress", mustHit),
+            stringField(raw, "noteType", "Default")
         );
     }
 
     private static inline function field(value:Dynamic, name:String):Dynamic {
-        return (value != null && Reflect.hasField(value, name)) ? Reflect.field(value, name) : null;[cite: 72]
+        return (value != null && Reflect.hasField(value, name)) ? Reflect.field(value, name) : null;
     }
 
     private static inline function numberField(value:Dynamic, name:String, fallback:Float):Float {
-        return numberValue(field(value, name), fallback);[cite: 72]
+        return numberValue(field(value, name), fallback);
     }
 
     private static inline function numberValue(value:Dynamic, fallback:Float):Float {
-        return (value == null) ? fallback : (Std.isOfType(value, Float) || Std.isOfType(value, Int) ? cast value : fallback);[cite: 72]
+        return (value == null) ? fallback : (Std.isOfType(value, Float) || Std.isOfType(value, Int) ? cast value : fallback);
     }
 
     private static inline function boolField(value:Dynamic, name:String, fallback:Bool):Bool {
-        var found:Dynamic = field(value, name);[cite: 72]
-        return (found == null) ? fallback : cast found;[cite: 72]
+        var found:Dynamic = field(value, name);
+        return (found == null) ? fallback : cast found;
     }
 
     private static inline function stringField(value:Dynamic, name:String, fallback:String):String {
-        var found:Dynamic = field(value, name);[cite: 72]
-        return (found == null) ? fallback : Std.string(found);[cite: 72]
+        var found:Dynamic = field(value, name);
+        return (found == null) ? fallback : Std.string(found);
     }
 }

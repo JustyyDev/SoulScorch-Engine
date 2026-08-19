@@ -5,7 +5,7 @@ import flixel.graphics.FlxGraphic;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 #if sys
 import sys.FileSystem;
@@ -26,9 +26,9 @@ class AssetResolver {
     public static function resolveFile(basePath:String, ?extensions:Array<String>):Null<String> {
         if (basePath == null || basePath.trim().length == 0) return null;
         var clean = basePath.trim().replace("\\", "/");
-        if (clean.startsWith("/")) clean = clean.substr(1);
+        while (clean.startsWith("/")) clean = clean.substr(1);
 
-        var exts = (extensions != null) ? extensions : [
+        var exts = (extensions != null && extensions.length > 0) ? extensions : [
             "",
             ".png",
             ".xml",
@@ -41,7 +41,9 @@ class AssetResolver {
             ".hx",
             ".lua",
             ".frag",
-            ".vert"
+            ".vert",
+            ".ttf",
+            ".otf"
         ];
 
         var folderPrefixes = [
@@ -53,10 +55,15 @@ class AssetResolver {
             "images/ui/main/",
             "images/ui/title/",
             "images/ui/warning/",
+            "images/icons/",
+            "images/characters/",
             "images/",
             "sounds/",
+            "sounds/menu/",
             "music/",
+            "music/menu/",
             "songs/",
+            "fonts/",
             "assets/",
             "assets/preload/",
             "assets/shared/",
@@ -64,19 +71,23 @@ class AssetResolver {
             "assets/images/",
             "assets/sounds/",
             "assets/music/",
+            "assets/songs/",
+            "assets/fonts/",
             "assets/shaders/"
         ];
 
         #if sys
-        // 1. Search in active mod folders
-        for (mod in ModLoader.activeMods) {
-            for (ext in exts) {
-                var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
-                for (prefix in folderPrefixes) {
-                    var combined = (pathWithExt.startsWith(prefix) || pathWithExt.startsWith("mods/")) ? pathWithExt : prefix + pathWithExt;
-                    var fullModPath = 'mods/$mod/$combined';
-                    if (FileSystem.exists(fullModPath) && !FileSystem.isDirectory(fullModPath)) {
-                        return fullModPath;
+        // 1. Search in active enabled mods (highest priority first)
+        if (ModManager.activeMods != null) {
+            for (mod in ModManager.activeMods) {
+                for (ext in exts) {
+                    var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
+                    for (prefix in folderPrefixes) {
+                        var combined = (pathWithExt.startsWith(prefix) || pathWithExt.startsWith("mods/")) ? pathWithExt : prefix + pathWithExt;
+                        var fullModPath = 'mods/$mod/$combined';
+                        if (FileSystem.exists(fullModPath) && !FileSystem.isDirectory(fullModPath)) {
+                            return fullModPath;
+                        }
                     }
                 }
             }
@@ -120,9 +131,7 @@ class AssetResolver {
 
     public static function getShader(key:String):String {
         var frag = getText('shaders/$key.frag');
-        if (frag.length == 0) {
-            frag = getText('$key.frag');
-        }
+        if (frag.length == 0) frag = getText('$key.frag');
         return frag;
     }
 
@@ -163,7 +172,11 @@ class AssetResolver {
         if (resolved == null) return null;
 
         if (FlxG.bitmap.checkCache(resolved)) {
-            return FlxG.bitmap.get(resolved);
+            var cached = FlxG.bitmap.get(resolved);
+            if (cached != null && cached.bitmap != null) {
+                return cached;
+            }
+            FlxG.bitmap.remove(cached);
         }
 
         var bmp:BitmapData = null;
@@ -179,9 +192,10 @@ class AssetResolver {
         #end
 
         if (bmp != null) {
-            var graph = FlxG.bitmap.add(bmp, false, resolved);
+            var graph = FlxGraphic.fromBitmapData(bmp, false, resolved);
             graph.persist = true;
             graph.destroyOnNoUse = false;
+            FlxG.bitmap.addGraphic(graph);
             return graph;
         }
 

@@ -1,5 +1,6 @@
 package soulscorch.scripting.mod;
 
+import flixel.FlxG;
 import soulscorch.scripting.mod.SoulModData;
 
 class ModRegistry {
@@ -35,6 +36,7 @@ class ModRegistry {
         } else if (!enabled) {
             enabledMods.remove(folder);
         }
+        saveConfig();
     }
 
     public function sortPriority():Void {
@@ -48,6 +50,26 @@ class ModRegistry {
             if (prioA < prioB) return 1;
             return 0;
         });
+    }
+
+    public function loadSavedConfig():Void {
+        if (FlxG.save != null && FlxG.save.data.enabledMods != null) {
+            var saved:Array<String> = cast FlxG.save.data.enabledMods;
+            enabledMods = [];
+            for (mod in saved) {
+                if (registeredMods.exists(mod)) {
+                    enabledMods.push(mod);
+                }
+            }
+            sortPriority();
+        }
+    }
+
+    public function saveConfig():Void {
+        if (FlxG.save != null) {
+            FlxG.save.data.enabledMods = enabledMods;
+            FlxG.save.flush();
+        }
     }
 
     public function clear():Void {

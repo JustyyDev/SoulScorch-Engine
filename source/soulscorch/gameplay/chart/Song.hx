@@ -3,10 +3,9 @@ package soulscorch.gameplay.chart;
 import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.Chart;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.gameplay.chart.ChartParser;
 
 using StringTools;
 
@@ -29,6 +28,7 @@ typedef SwagSong = {
     var stage:String;
     var notes:Array<SwagSection>;
     var ?events:Array<Dynamic>;
+    var ?needsVoices:Bool;
 }
 
 class Song {
@@ -56,59 +56,66 @@ class Song {
     }
 
     /**
-     * Searches mod and base asset paths to deserialize a raw SwagSong structure.
+     * Resolves chart JSON from active mods or base assets and returns a fully initialized Song instance.
      */
-    public static function loadFromJson(songId:String, difficulty:String = "normal"):SwagSong {
+    public static function load(songId:String, difficulty:String = "normal"):Song {
         var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
         var diffName = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
         var diffSuffix = (diffName == "normal") ? "" : '-$diffName';
 
         var pathsToTry = [
-            'assets/songs/$cleanSong/charts/$diffName.json',
-            'assets/songs/$cleanSong/chart$diffSuffix.json',
-            'assets/songs/$cleanSong/$cleanSong$diffSuffix.json',
-            'assets/data/$cleanSong/$cleanSong$diffSuffix.json',
-            'assets/data/$cleanSong/$diffName.json',
-            'data/$cleanSong/$cleanSong$diffSuffix.json',
-            'data/charts/$cleanSong/$diffName.json'
+            'songs/$cleanSong/charts/$diffName',
+            'songs/$cleanSong/chart$diffSuffix',
+            'songs/$cleanSong/$cleanSong$diffSuffix',
+            'data/$cleanSong/$cleanSong$diffSuffix',
+            'data/$cleanSong/$diffName',
+            'data/charts/$cleanSong/$diffName'
         ];
 
         if (diffName == "normal") {
-            pathsToTry.push('assets/songs/$cleanSong/chart.json');
-            pathsToTry.push('assets/songs/$cleanSong/$cleanSong.json');
-            pathsToTry.push('assets/data/$cleanSong/$cleanSong.json');
-            pathsToTry.push('data/$cleanSong/$cleanSong.json');
+            pathsToTry.push('songs/$cleanSong/chart');
+            pathsToTry.push('songs/$cleanSong/$cleanSong');
+            pathsToTry.push('data/$cleanSong/$cleanSong');
         }
 
         var finalPath:String = null;
         for (p in pathsToTry) {
-            var resolved = ModLoader.getPath(p);
-            if (AssetResolver.exists(resolved)) {
+            var resolved = AssetResolver.resolveFile(p, [".json", ""]);
+            if (resolved != null) {
                 finalPath = resolved;
                 break;
             }
         }
 
         if (finalPath == null) {
-            Logger.warn('Chart JSON not found for "$cleanSong" [$diffName]', "chart");
-            return null;
+            Logger.warn('Chart file not found for "$cleanSong" [$diffName]', "chart");
+            return new Song(cleanSong, cleanSong);
         }
 
-        try {
-            var rawText = AssetResolver.getText(finalPath);
-            var rawJson:Dynamic = Json.parse(rawText);
-            var songData:SwagSong = null;
+        var rawText = AssetResolver.getText(finalPath);
+        var songInstance = ChartParser.parse(rawText, cleanSong);
+        songInstance.difficulty = diffName;
+        return songInstance;
+    }
 
-            if (rawJson != null && Reflect.hasField(rawJson, "song") && Reflect.isObject(Reflect.field(rawJson, "song"))) {
-                songData = cast Reflect.field(rawJson, "song");
-            } else {
-                songData = cast rawJson;
-            }
+    /**
+     * Legacy deserializer returning raw SwagSong dynamic data.
+     */
+    public static function loadFromJson(songId:String, difficulty:String = "normal"):Null<SwagSong> {
+        var songObj = load(songId, difficulty);
+        if (songObj == null) return null;
 
-            return songData;
-        } catch (e:Dynamic) {
-            Logger.error('Failed to parse raw chart JSON ($finalPath): $e', "chart");
-            return null;
-        }
+        return {
+            song: songObj.song,
+            bpm: songObj.bpm,
+            speed: songObj.scrollSpeed,
+            player1: songObj.player1,
+            player2: songObj.player2,
+            gfVersion: songObj.gfVersion,
+            stage: songObj.stage,
+            notes: [],
+            events: songObj.chart != null ? cast songObj.chart.events : [],
+            needsVoices: songObj.needsVoices
+        };
     }
 }

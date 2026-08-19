@@ -26,13 +26,13 @@ class LogEntry {
 class Logger {
     public static var instance(get, null):Logger;
     private static var _instance:Logger;
-    private static var _isLogging:Bool = false; // Recursion lock
+    private static var _isLogging:Bool = false;
 
-    static inline var MAX_ENTRIES:Int = 250;
+    static inline var MAX_ENTRIES:Int = 300;
 
     public var entries:Array<LogEntry> = [];
     public var minLevel:LogLevel = TRACE;
-    public var enabledChannels:Map<String, Bool> = new Map();
+    public var enabledChannels:Map<String, Bool> = new Map<String, Bool>();
 
     public function new() {
         _instance = this;
@@ -46,7 +46,6 @@ class Logger {
     }
 
     public function log(level:LogLevel, channel:String, message:String):Void {
-        // Break any circular recursion immediately
         if (_isLogging) return;
         _isLogging = true;
 
@@ -61,7 +60,8 @@ class Logger {
             }
 
             var cleanMsg = (message != null) ? Std.string(message) : "";
-            var entry = new LogEntry(level, channel, cleanMsg, Sys.time());
+            var timeStamp:Float = #if sys Sys.time() #else Date.now().getTime() / 1000.0 #end;
+            var entry = new LogEntry(level, channel, cleanMsg, timeStamp);
             entries.push(entry);
             if (entries.length > MAX_ENTRIES) entries.shift();
 
@@ -72,15 +72,16 @@ class Logger {
                 case ERROR: "ERROR";
             };
 
+            var formatted = '[$prefix][$channel] $cleanMsg';
+
             #if sys
-            Sys.println('[$prefix][$channel] $cleanMsg');
+            Sys.println(formatted);
             #else
-            trace('[$prefix][$channel] $cleanMsg');
+            trace(formatted);
             #end
 
-            // Safely forward to dev console without recursion
             if (DevConsole.instance != null) {
-                DevConsole.instance.log('[$prefix][$channel] $cleanMsg');
+                DevConsole.instance.log(formatted);
             }
         } catch (e:Dynamic) {}
 

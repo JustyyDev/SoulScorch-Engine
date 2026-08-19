@@ -9,6 +9,7 @@ import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
 import flixel.addons.effects.FlxTrail;
 import flixel.group.FlxGroup;
+import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
@@ -24,6 +25,7 @@ import openfl.display.BlendMode;
 import openfl.filters.ShaderFilter;
 import openfl.geom.Matrix;
 import openfl.net.URLRequest;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
@@ -37,6 +39,7 @@ import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.PlayState;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.Script;
@@ -44,7 +47,10 @@ import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.ScriptedSubState;
+import soulscorch.scripting.mod.ModCustomState;
 import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
+import soulscorch.scripting.mod.SoulGlobalScript;
 
 #if sys
 import sys.FileSystem;
@@ -79,7 +85,7 @@ class HScriptIris implements ScriptInstance {
         script.set("FlxBasic", FlxBasic);
         script.set("FlxObject", FlxObject);
         script.set("FlxGroup", FlxGroup);
-        script.set("FlxTypedGroup", flixel.group.FlxGroup.FlxTypedGroup);
+        script.set("FlxTypedGroup", FlxTypedGroup);
         script.set("FlxSpriteGroup", FlxSpriteGroup);
         
         script.set("FlxBackdrop", FlxBackdrop);
@@ -107,7 +113,6 @@ class HScriptIris implements ScriptInstance {
             fromRGB: FlxColor.fromRGB, fromHSL: FlxColor.fromHSL, fromString: FlxColor.fromString
         });
 
-        // Fixed BlendMode abstract mapping for hscript
         script.set("BlendMode", {
             NORMAL: BlendMode.NORMAL,
             ADD: BlendMode.ADD,
@@ -126,7 +131,6 @@ class HScriptIris implements ScriptInstance {
         });
 
         script.set("Matrix", Matrix);
-        
         script.set("Type", Type);
         script.set("Reflect", Reflect);
         script.set("Std", Std);
@@ -143,8 +147,19 @@ class HScriptIris implements ScriptInstance {
         script.set("Application", Application);
         script.set("URLRequest", URLRequest);
 
-        script.set("ShaderFilter", ShaderFilter);
         script.set("SoulShader", SoulShader);
+        script.set("ShaderFilter", function(shaderOrFilter:Dynamic) {
+            if (Std.isOfType(shaderOrFilter, ShaderFilter)) {
+                return shaderOrFilter;
+            } else if (Std.isOfType(shaderOrFilter, SoulShader)) {
+                var s:SoulShader = cast shaderOrFilter;
+                return s.filter;
+            } else if (Std.isOfType(shaderOrFilter, flixel.system.FlxAssets.FlxShader)) {
+                return new ShaderFilter(cast shaderOrFilter);
+            }
+            return null;
+        });
+
         script.set("Away3DManager", Away3DManager);
         script.set("ModelAPI", ModelAPI);
 
@@ -159,6 +174,7 @@ class HScriptIris implements ScriptInstance {
         script.set("AssetResolver", AssetResolver);
         script.set("AssetHelper", AssetHelper);
         script.set("ModLoader", ModLoader);
+        script.set("ModManager", ModManager);
         script.set("ScriptManager", ScriptManager);
         script.set("ScriptedState", ScriptedState);
         script.set("ScriptedSubState", ScriptedSubState);
@@ -166,6 +182,7 @@ class HScriptIris implements ScriptInstance {
         script.set("game", FlxG.state);
         script.set("state", FlxG.state);
         script.set("controls", Controls.instance);
+        script.set("PlayState", PlayState);
 
         #if desktop
         script.set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
@@ -180,8 +197,18 @@ class HScriptIris implements ScriptInstance {
             #else Lib.getURL(new URLRequest(url)); #end
         });
 
-        script.set("switchState", function(stateName:String):Void {
-            FlxG.switchState(new ScriptedState(stateName));
+        script.set("switchState", function(target:Dynamic):Void {
+            if (Std.isOfType(target, String)) {
+                var targetName:String = cast target;
+                var redirect = SoulGlobalScript.getRedirect(targetName);
+                if (redirect != null) {
+                    MusicBeatState.switchState(new ModCustomState(redirect));
+                } else {
+                    MusicBeatState.switchState(new ScriptedState(targetName));
+                }
+            } else {
+                MusicBeatState.switchState(target);
+            }
         });
 
         script.set("importClass", function(className:String):Bool {

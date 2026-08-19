@@ -5,7 +5,6 @@ import flixel.group.FlxSpriteGroup;
 import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
 import soulscorch.gameplay.actors.HealthIcon;
 
 class HealthBar extends FlxSpriteGroup {

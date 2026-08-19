@@ -14,10 +14,12 @@ class AssetHelper {
     private static var _cachedAtlases:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
 
     public static function loadGraphicSafely(sprite:FlxSprite, graphicPath:String):Bool {
-        if (sprite == null || graphicPath == null) return false;
+        if (sprite == null || graphicPath == null || graphicPath.trim().length == 0) return false;
 
         var graphic:FlxGraphic = AssetResolver.getGraphic(graphicPath);
-        if (graphic != null) {
+        if (graphic != null && graphic.bitmap != null) {
+            graphic.persist = true;
+            graphic.destroyOnNoUse = false;
             sprite.loadGraphic(graphic);
             return true;
         }
@@ -32,29 +34,27 @@ class AssetHelper {
     }
 
     public static function loadSparrowSafely(sprite:FlxSprite, assetName:String):Bool {
-        if (sprite == null || assetName == null) return false;
+        if (sprite == null || assetName == null || assetName.trim().length == 0) return false;
 
         var clean = assetName.trim().replace("\\", "/");
+        if (clean.startsWith("/")) clean = clean.substr(1);
+
         if (_cachedAtlases.exists(clean)) {
-            sprite.frames = _cachedAtlases.get(clean);
-            return true;
+            var cached = _cachedAtlases.get(clean);
+            if (cached != null && cached.parent != null && cached.parent.bitmap != null) {
+                sprite.frames = cached;
+                return true;
+            }
+            _cachedAtlases.remove(clean);
         }
 
-        var pngResolved = AssetResolver.resolveFile(clean, [".png"]);
-        var xmlResolved = AssetResolver.resolveFile(clean, [".xml"]);
-
-        if (pngResolved != null && xmlResolved != null) {
-            var graphic:FlxGraphic = AssetResolver.getGraphic(pngResolved);
-            var xmlText:String = AssetResolver.getText(xmlResolved);
-
-            if (graphic != null && xmlText != null && xmlText.length > 0) {
-                var frames = FlxAtlasFrames.fromSparrow(graphic, xmlText);
-                if (frames != null) {
-                    _cachedAtlases.set(clean, frames);
-                    sprite.frames = frames;
-                    return true;
-                }
-            }
+        var frames = Paths.getSparrowAtlas(clean);
+        if (frames != null && frames.parent != null && frames.parent.bitmap != null) {
+            frames.parent.persist = true;
+            frames.parent.destroyOnNoUse = false;
+            _cachedAtlases.set(clean, frames);
+            sprite.frames = frames;
+            return true;
         }
 
         Logger.warn('Missing or corrupt Sparrow atlas: $assetName', "engine");
@@ -65,7 +65,9 @@ class AssetHelper {
     public static function playSoundSafely(soundName:String, volume:Float = 1.0):Void {
         if (soundName == null || soundName.trim().length == 0) return;
 
-        var soundObj:Sound = AssetResolver.getSound(soundName);
+        var soundObj:Sound = Paths.sound(soundName);
+        if (soundObj == null) soundObj = AssetResolver.getSound(soundName);
+
         if (soundObj != null) {
             FlxG.sound.play(soundObj, volume);
         } else {

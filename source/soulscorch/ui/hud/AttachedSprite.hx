@@ -41,6 +41,7 @@ class AttachedSprite extends FlxSprite {
             if (copyAngle) angle = sprTracker.angle + angleAdd;
             if (copyAlpha) alpha = sprTracker.alpha * alphaMult;
             if (copyVisible) visible = sprTracker.visible;
+            cameras = sprTracker.cameras;
         }
     }
 }

@@ -1,8 +1,5 @@
 package soulscorch.backend.system.engine;
 
-import flixel.FlxG;
-import flixel.FlxState;
-import flixel.math.FlxMath;
 import soulscorch.backend.utils.Logger;
 
 class ObjectPoolingManager {
@@ -16,7 +13,7 @@ class ObjectPoolingManager {
         for (i in 0...count) {
             pool.push(factory());
         }
-        Logger.info('[POOLER] Pre-allocated $count instances for pool: "$key"', "profiler");
+        Logger.info('Pre-allocated $count instances for pool: "$key"', "profiler");
     }
 
     public static function obtain<T>(key:String, factory:Void->T):T {
@@ -41,10 +38,9 @@ class ObjectPoolingManager {
     public static function clearPool(key:String):Void {
         if (pools.exists(key)) {
             var pool = pools.get(key);
-            // Instantly clear array references without triggering new allocations
             pool.resize(0);
             pools.remove(key);
-            Logger.info('[POOLER] Cleared and disposed pool: "$key"', "profiler");
+            Logger.info('Cleared and disposed pool: "$key"', "profiler");
         }
     }
 
@@ -53,6 +49,6 @@ class ObjectPoolingManager {
             clearPool(key);
         }
         pools.clear();
-        Logger.info('[POOLER] Flushed all object pools.', "profiler");
+        Logger.info("Flushed all object pools.", "profiler");
     }
 }

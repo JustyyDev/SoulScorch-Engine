@@ -17,8 +17,8 @@ import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.SoulModData;
-import soulscorch.ui.menus.states.HomeSoulState;
 import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.states.HomeSoulState;
 
 class ModSwitchMenu extends MusicBeatSubstate {
     public static var curSelected:Int = 0;
@@ -85,7 +85,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
         descText.setFormat(Paths.font("vcr"), 15, FlxColor.WHITE, LEFT);
         add(descText);
 
-        helpText = new FlxText(0, FlxG.height - 45, FlxG.width, "[SPACE] Toggle | [W/S] Reorder | [TAB] HomeSoulDB | [SHIFT+S] Submit | [ESC] Apply & Restart", 14);
+        helpText = new FlxText(0, FlxG.height - 45, FlxG.width, "[SPACE] Toggle | [W/S] Reorder | [TAB] HomeSoulDB | [SHIFT+S] Submit | [ESC] Apply & Exit", 14);
         helpText.setFormat(Paths.font("vcr"), 14, 0xFF88829C, CENTER);
         add(helpText);
 
@@ -169,7 +169,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
         if (Controls.instance.BACK) {
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
-            applyAndRestart();
+            applyAndExit();
         }
 
         for (i in 0...grpRows.members.length) {
@@ -185,7 +185,8 @@ class ModSwitchMenu extends MusicBeatSubstate {
         }
     }
 
-    private function applyAndRestart():Void {
+    private function applyAndExit():Void {
+        ModRegistry.instance.saveConfig();
         ModManager.activeMods = ModRegistry.instance.enabledMods.copy();
 
         var currentActive = ModRegistry.instance.enabledMods;
@@ -194,14 +195,20 @@ class ModSwitchMenu extends MusicBeatSubstate {
             Paths.clearUnusedMemory();
             ModManager.reloadMods();
             SoulGlobalScript.init();
-            FlxG.resetGame();
+            FlxG.resetState();
         } else {
             close();
         }
     }
 
     private function changeSelection(change:Int = 0):Void {
-        if (modList.length == 0) return;
+        if (modList.length == 0) {
+            modTitleText.text = "No Mods Found";
+            authorText.text = "";
+            descText.text = "Place modifications into your 'mods/' directory.";
+            return;
+        }
+
         curSelected = FlxMath.wrap(curSelected + change, 0, modList.length - 1);
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
 

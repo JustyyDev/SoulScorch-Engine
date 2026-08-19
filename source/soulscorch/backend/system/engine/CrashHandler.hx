@@ -13,6 +13,8 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 
+using StringTools;
+
 class CrashHandler {
     public static function install():Void {
         Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtError);
@@ -42,8 +44,21 @@ class CrashHandler {
     #end
 
     public static function handleCrash(error:String, stack:Array<StackItem>):Void {
-        var stackFormatted:String = CallStack.toString(stack);
-        var dateFormatted:String = StringTools.replace(GameTime.dateString(), ":", "-");
+        var stackFormatted:String = "";
+        for (item in stack) {
+            switch (item) {
+                case FilePos(s, file, line, col):
+                    stackFormatted += '    at $file:$line\n';
+                case Method(classname, method):
+                    stackFormatted += '    at $classname.$method\n';
+                default:
+            }
+        }
+        if (stackFormatted.length == 0) {
+            stackFormatted = CallStack.toString(stack);
+        }
+
+        var dateFormatted:String = GameTime.dateString().replace(":", "-").replace(" ", "_");
         var logContent:String = '==============================\n'
             + '${Version.fullVersion()}\n'
             + 'CRASH REPORT - $dateFormatted\n'
@@ -51,18 +66,21 @@ class CrashHandler {
             + 'ERROR:\n$error\n\n'
             + 'CALL STACK:\n$stackFormatted\n';
 
-        Logger.error('FATAL ENGINE CRASH:\n$error\n$stackFormatted');
+        Logger.error('FATAL ENGINE CRASH:\n$error\n$stackFormatted', "crash");
 
         #if sys
         try {
             if (!FileSystem.exists("crash")) FileSystem.createDirectory("crash");
             File.saveContent('crash/SoulScorch_$dateFormatted.txt', logContent);
         } catch (e:Dynamic) {
-            Logger.error('Failed to write crash dump to file: $e');
+            Logger.error('Failed to write crash dump to file: $e', "crash");
         }
         #end
 
-        NativeAPI.showMessageError("SoulScorch Engine - Crash Detected", 'An unhandled exception occurred:\n\n$error\n\nA crash log was generated in the crash/ folder.');
+        try {
+            NativeAPI.showMessageError("SoulScorch Engine - Crash Detected", 'An unhandled exception occurred:\n\n$error\n\nA crash log was generated in the crash/ folder.');
+        } catch (e:Dynamic) {}
+
         #if sys
         Sys.exit(1);
         #end

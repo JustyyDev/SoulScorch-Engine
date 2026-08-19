@@ -3,16 +3,16 @@ package soulscorch.ui.hud;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.frames.FlxAtlasFrames;
-import flixel.graphics.frames.FlxFrame;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
-import openfl.display.BitmapData;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
+
+using StringTools;
 
 enum abstract Alignment(String) from String to String {
     var LEFT = "left";
@@ -81,124 +81,54 @@ class AlphaCharacter extends FlxSprite {
 
     private function setupBold(char:String):Void {
         var clean = char.toUpperCase();
-        var candidates:Array<String> = [];
-
-        switch (clean) {
-            case ".":
-                candidates = ["period bold", "bold period", "period0", "period", "."];
-            case "'":
-                candidates = ["apostrophe bold", "bold apostrophe", "apostrophe0", "apostrophe", "'"];
-            case "?":
-                candidates = ["question bold", "bold question", "question0", "question", "?"];
-            case "!":
-                candidates = ["exclamation bold", "bold exclamation", "exclamation0", "exclamation", "!"];
-            case "-":
-                candidates = ["dash bold", "bold dash", "dash0", "dash", "-"];
-            case "/":
-                candidates = ["forward slash bold", "slash bold", "bold slash", "slash0", "slash", "/"];
-            case "\\":
-                candidates = ["back slash bold", "bold back slash", "backslash0", "\\"];
-            case ":":
-                candidates = ["colon bold", "bold colon", "colon0", ":"];
-            case ";":
-                candidates = ["semicolon bold", "bold semicolon", "semicolon0", ";"];
-            case "\"":
-                candidates = ["quote bold", "bold quote", "quote0", "\""];
-            case "#":
-                candidates = ["hashtag bold", "bold hashtag", "pound bold", "#"];
-            case "$":
-                candidates = ["dollar bold", "bold dollar", "$"];
-            case "%":
-                candidates = ["percent bold", "bold percent", "%"];
-            case "&":
-                candidates = ["ampersand bold", "bold ampersand", "&"];
-            case "(":
-                candidates = ["left parent bold", "bold left parent", "("];
-            case ")":
-                candidates = ["right parent bold", "bold right parent", ")"];
-            case "+":
-                candidates = ["plus bold", "bold plus", "+"];
-            case "=":
-                candidates = ["equal bold", "bold equal", "="];
-            case ">":
-                candidates = ["greater bold", "bold greater", ">"];
-            case "<":
-                candidates = ["less bold", "bold less", "<"];
-            case "_":
-                candidates = ["underscore bold", "bold underscore", "_"];
-            default:
-                candidates = [
-                    clean + " bold",
-                    "bold " + clean,
-                    clean + "0",
-                    clean + " uppercase",
-                    "bold uppercase " + clean,
-                    clean
-                ];
-        }
+        var candidates:Array<String> = switch (clean) {
+            case ".": ["period bold", "bold period", "period0", "period", "."];
+            case "'": ["apostrophe bold", "bold apostrophe", "apostrophe0", "apostrophe", "'"];
+            case "?": ["question bold", "bold question", "question0", "question", "?"];
+            case "!": ["exclamation bold", "bold exclamation", "exclamation0", "exclamation", "!"];
+            case "-": ["dash bold", "bold dash", "dash0", "dash", "-"];
+            case "/": ["forward slash bold", "slash bold", "bold slash", "slash0", "slash", "/"];
+            case "\\": ["back slash bold", "bold back slash", "backslash0", "\\"];
+            case ":": ["colon bold", "bold colon", "colon0", ":"];
+            case ";": ["semicolon bold", "bold semicolon", "semicolon0", ";"];
+            case "\"": ["quote bold", "bold quote", "quote0", "\""];
+            default: [
+                clean + " bold",
+                "bold " + clean,
+                clean + "0",
+                clean + " uppercase",
+                "bold uppercase " + clean,
+                clean
+            ];
+        };
 
         isValid = tryAddAnimation(candidates);
     }
 
     private function setupNormal(char:String):Void {
         var isLower = (char == char.toLowerCase());
-        var candidates:Array<String> = [];
-
-        switch (char) {
-            case ".":
-                candidates = ["period0", "period", "full stop", "."];
-            case "'":
-                candidates = ["apostrophe0", "apostrophe", "single quote", "'"];
-            case "?":
-                candidates = ["question mark0", "question mark", "question0", "?"];
-            case "!":
-                candidates = ["exclamation point0", "exclamation point", "exclamation0", "!"];
-            case ",":
-                candidates = ["comma0", "comma", ","];
-            case "-":
-                candidates = ["dash0", "dash", "hyphen", "-"];
-            case "/":
-                candidates = ["slash0", "slash", "forward slash", "/"];
-            case "\\":
-                candidates = ["backslash0", "backslash", "\\"];
-            case ":":
-                candidates = ["colon0", "colon", ":"];
-            case ";":
-                candidates = ["semicolon0", "semicolon", ";"];
-            case "\"":
-                candidates = ["quote0", "quote", "double quote", "\""];
-            case "#":
-                candidates = ["hashtag0", "hashtag", "pound", "#"];
-            case "$":
-                candidates = ["dollar0", "dollar", "$"];
-            case "%":
-                candidates = ["percent0", "percent", "%"];
-            case "&":
-                candidates = ["ampersand0", "ampersand", "&"];
-            case "(":
-                candidates = ["left parent0", "left parent", "("];
-            case ")":
-                candidates = ["right parent0", "right parent", ")"];
-            case "+":
-                candidates = ["plus0", "plus", "+"];
-            case "=":
-                candidates = ["equal0", "equal", "="];
+        var candidates:Array<String> = switch (char) {
+            case ".": ["period0", "period", "full stop", "."];
+            case "'": ["apostrophe0", "apostrophe", "single quote", "'"];
+            case "?": ["question mark0", "question mark", "question0", "?"];
+            case "!": ["exclamation point0", "exclamation point", "exclamation0", "!"];
+            case ",": ["comma0", "comma", ","];
+            case "-": ["dash0", "dash", "hyphen", "-"];
+            case "/": ["slash0", "slash", "forward slash", "/"];
+            case "\\": ["backslash0", "backslash", "\\"];
+            case ":": ["colon0", "colon", ":"];
+            case ";": ["semicolon0", "semicolon", ";"];
+            case "\"": ["quote0", "quote", "double quote", "\""];
             default:
                 if (isAlpha(char)) {
                     var caseSuffix = isLower ? "lowercase" : "uppercase";
-                    candidates = [
-                        char + " " + caseSuffix,
-                        char + caseSuffix,
-                        char + (isLower ? " lower" : " upper"),
-                        char + "0",
-                        char
-                    ];
+                    [char + " " + caseSuffix, char + caseSuffix, char + (isLower ? " lower" : " upper"), char + "0", char];
                 } else if (isNumber(char)) {
-                    candidates = [char + "0", char, "number " + char];
+                    [char + "0", char, "number " + char];
                 } else {
-                    candidates = [char + "0", char];
+                    [char + "0", char];
                 }
-        }
+        };
 
         isValid = tryAddAnimation(candidates);
     }
@@ -208,7 +138,7 @@ class AlphaCharacter extends FlxSprite {
 
         for (p in prefixes) {
             for (f in frames.frames) {
-                if (f.name != null && (f.name == p || StringTools.startsWith(f.name.toLowerCase(), p.toLowerCase()))) {
+                if (f.name != null && (f.name == p || f.name.toLowerCase().startsWith(p.toLowerCase()))) {
                     animation.addByPrefix("idle", f.name, 24, true);
                     animation.play("idle");
                     return true;
@@ -236,12 +166,12 @@ class AlphaCharacter extends FlxSprite {
     }
 
     private static inline function isAlpha(char:String):Bool {
-        var code = StringTools.fastCodeAt(char, 0);
+        var code = char.fastCodeAt(0);
         return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
     }
 
     private static inline function isNumber(char:String):Bool {
-        var code = StringTools.fastCodeAt(char, 0);
+        var code = char.fastCodeAt(0);
         return (code >= 48 && code <= 57);
     }
 
@@ -274,7 +204,6 @@ class Alphabet extends FlxSpriteGroup {
     public var letters:Array<AlphaCharacter> = [];
     public var rows:Int = 0;
 
-    // Typing effect variables
     public var isTyping:Bool = false;
     public var typingSpeed:Float = 0.05;
     public var typingSound:String = "scrollMenu";

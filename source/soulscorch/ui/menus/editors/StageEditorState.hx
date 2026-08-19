@@ -19,7 +19,12 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.stage.Stage;
-import soulscorch.gameplay.stage.StageData;
+import soulscorch.gameplay.stage.StageJson;
+import soulscorch.scripting.mod.ModManager;
+import soulscorch.ui.menus.editors.editorui.EditorButton;
+import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
+import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
+import soulscorch.ui.menus.editors.editorui.EditorWindow;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -39,27 +44,27 @@ enum SelectedTargetType {
 class StageEditorState extends MusicBeatState {
     public static var curStage:String = "stage";
 
-    // --- Cameras ---
     private var camStage:FlxCamera;
     private var camHUD:FlxCamera;
     private var camFollow:FlxPoint;
 
-    // --- Stage Data ---
     private var stageData:StageJson;
     private var stagePiecesGroup:FlxSpriteGroup;
-    private var pieceSprites:Map<String, FlxSprite> = new Map();
+    private var pieceSprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
 
-    // --- Actor Dummies ---
     private var dummyBF:Character;
     private var dummyDad:Character;
     private var dummyGF:Character;
 
-    // --- Selection State ---
     private var currentMode:SelectedTargetType = PIECE;
     private var curPieceIndex:Int = 0;
     private var pieceNames:Array<String> = [];
 
-    // --- HUD Overlays ---
+    private var toolWindow:EditorWindow;
+    private var stepperZoom:EditorNumericStepper;
+    private var stepperSpeed:EditorNumericStepper;
+    private var checkHideGF:EditorCheckbox;
+
     private var infoTxt:FlxText;
     private var listTxt:FlxText;
     private var helpTxt:FlxText;
@@ -116,6 +121,7 @@ class StageEditorState extends MusicBeatState {
         add(targetMarker);
 
         setupHUD();
+        setupToolbox();
         updateHUD();
 
         FlxG.mouse.visible = true;
@@ -123,12 +129,8 @@ class StageEditorState extends MusicBeatState {
 
     private function loadStageData():Void {
         var rawText:String = AssetResolver.getText('stages/$curStage');
-        if (rawText.length == 0) {
-            rawText = AssetResolver.getText('assets/stages/$curStage.json');
-        }
-        if (rawText.length == 0) {
-            rawText = AssetResolver.getText('data/stages/$curStage.json');
-        }
+        if (rawText.length == 0) rawText = AssetResolver.getText('data/stages/$curStage.json');
+        if (rawText.length == 0) rawText = AssetResolver.getText('assets/stages/$curStage.json');
 
         if (rawText.trim().length > 0) {
             try {
@@ -142,21 +144,23 @@ class StageEditorState extends MusicBeatState {
             stageData = {
                 name: curStage,
                 defaultZoom: 0.9,
-                boyfriend: {position: [770.0, 450.0], scale: 1.0, cameraOffset: [0.0, 0.0]},
-                dad: {position: [100.0, 100.0], scale: 1.0, cameraOffset: [0.0, 0.0]},
-                girlfriend: {position: [400.0, 130.0], scale: 1.0, cameraOffset: [0.0, 0.0]},
+                cameraSpeed: 1.0,
+                hideGirlfriend: false,
+                boyfriend: [770.0, 450.0],
+                dad: [100.0, 100.0],
+                girlfriend: [400.0, 130.0],
                 pieces: [
                     {
                         name: "stageback",
-                        image: "stages/stageback",
+                        image: "stages/default/stageback",
                         position: [-600.0, -200.0],
                         scroll: [0.9, 0.9],
                         scale: [1.0, 1.0],
-                        layer: "behindGF"
+                        layer: "background"
                     },
                     {
                         name: "stagefront",
-                        image: "stages/stagefront",
+                        image: "stages/default/stagefront",
                         position: [-650.0, 600.0],
                         scroll: [1.0, 1.0],
                         scale: [1.1, 1.1],
@@ -166,7 +170,7 @@ class StageEditorState extends MusicBeatState {
             };
         }
 
-        camStage.zoom = stageData.defaultZoom;
+        camStage.zoom = (stageData.defaultZoom != null && stageData.defaultZoom > 0) ? stageData.defaultZoom : 0.9;
     }
 
     private function buildStagePieces():Void {
@@ -174,26 +178,30 @@ class StageEditorState extends MusicBeatState {
         pieceSprites.clear();
         pieceNames = [];
 
-        if (stageData.pieces != null) {
-            for (p in stageData.pieces) {
-                var spr = new FlxSprite(p.position[0], p.position[1]);
+        var piecesList = (stageData.pieces != null) ? stageData.pieces : stageData.sprites;
+        if (piecesList != null) {
+            for (p in piecesList) {
+                var pName = (p.id != null) ? p.id : ((p.name != null) ? p.name : "piece_" + pieceNames.length);
+                var posX = (p.position != null && p.position.length > 0) ? p.position[0] : (p.x != null ? p.x : 0.0);
+                var posY = (p.position != null && p.position.length > 1) ? p.position[1] : (p.y != null ? p.y : 0.0);
+
+                var spr = new FlxSprite(posX, posY);
                 if (!AssetHelper.loadGraphicSafely(spr, p.image)) {
                     spr.makeGraphic(400, 300, 0x88AA00FF);
                 }
-                
-                // Safe JSON Fallbacks
-                var scX = (p.scroll != null && p.scroll.length > 0) ? p.scroll[0] : 1.0;
-                var scY = (p.scroll != null && p.scroll.length > 1) ? p.scroll[1] : 1.0;
-                var scaleX = (p.scale != null && p.scale.length > 0) ? p.scale[0] : 1.0;
-                var scaleY = (p.scale != null && p.scale.length > 1) ? p.scale[1] : 1.0;
-                
+
+                var scX = (p.scroll != null && p.scroll.length > 0) ? p.scroll[0] : (p.scrollX != null ? p.scrollX : 1.0);
+                var scY = (p.scroll != null && p.scroll.length > 1) ? p.scroll[1] : (p.scrollY != null ? p.scrollY : 1.0);
+                var scaleX = (p.scale != null && p.scale.length > 0) ? p.scale[0] : (p.scaleX != null ? p.scaleX : 1.0);
+                var scaleY = (p.scale != null && p.scale.length > 1) ? p.scale[1] : (p.scaleY != null ? p.scaleY : 1.0);
+
                 spr.scrollFactor.set(scX, scY);
                 spr.scale.set(scaleX, scaleY);
                 spr.updateHitbox();
                 spr.antialiasing = (p.antialiasing != null) ? p.antialiasing : true;
 
-                pieceSprites.set(p.name, spr);
-                pieceNames.push(p.name);
+                pieceSprites.set(pName, spr);
+                pieceNames.push(pName);
                 stagePiecesGroup.add(spr);
             }
         }
@@ -204,17 +212,47 @@ class StageEditorState extends MusicBeatState {
         if (dummyDad != null) { remove(dummyDad, true); dummyDad.destroy(); }
         if (dummyBF != null) { remove(dummyBF, true); dummyBF.destroy(); }
 
-        dummyGF = new Character(stageData.girlfriend.position[0], stageData.girlfriend.position[1], "gf", false);
-        dummyDad = new Character(stageData.dad.position[0], stageData.dad.position[1], "dad", false);
-        dummyBF = new Character(stageData.boyfriend.position[0], stageData.boyfriend.position[1], "bf", true);
+        var gfPos = getSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, [400.0, 130.0]);
+        var dadPos = getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
+        var bfPos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
+
+        dummyGF = new Character(gfPos[0], gfPos[1], "gf", false);
+        dummyDad = new Character(dadPos[0], dadPos[1], "dad", false);
+        dummyBF = new Character(bfPos[0], bfPos[1], "bf", true);
 
         dummyGF.alpha = 0.85;
         dummyDad.alpha = 0.85;
         dummyBF.alpha = 0.85;
 
+        dummyGF.visible = !(stageData.hideGirlfriend == true || stageData.hide_girlfriend == true);
+
         add(dummyGF);
         add(dummyDad);
         add(dummyBF);
+    }
+
+    private function getSpawnPos(raw:Dynamic, fallback:Array<Float>):Array<Float> {
+        if (raw == null) return fallback;
+        if (Std.isOfType(raw, Array)) {
+            var a:Array<Dynamic> = cast raw;
+            if (a.length >= 2) return [Std.parseFloat(Std.string(a[0])), Std.parseFloat(Std.string(a[1]))];
+        } else if (Reflect.isObject(raw) && Reflect.hasField(raw, "position")) {
+            var posArr:Array<Dynamic> = cast Reflect.field(raw, "position");
+            if (posArr != null && posArr.length >= 2) return [Std.parseFloat(Std.string(posArr[0])), Std.parseFloat(Std.string(posArr[1]))];
+        }
+        return fallback;
+    }
+
+    private function setSpawnPos(target:Dynamic, x:Float, y:Float):Void {
+        if (Std.isOfType(target, Array)) {
+            var a:Array<Float> = cast target;
+            a[0] = x;
+            a[1] = y;
+        } else if (Reflect.isObject(target) && Reflect.hasField(target, "position")) {
+            var p:Array<Float> = cast Reflect.field(target, "position");
+            p[0] = x;
+            p[1] = y;
+        }
     }
 
     private function setupHUD():Void {
@@ -242,15 +280,14 @@ class StageEditorState extends MusicBeatState {
 
         helpTxt = new FlxText(FlxG.width - 320, 18, 300,
             "STAGE CONTROLS:\n\n" +
-            "[TAB] - Switch Target (Piece/BF/Dad/GF)\n" +
+            "[TAB] - Cycle Selected Target\n" +
             "[W / S] - Next / Prev Stage Piece\n" +
             "[ARROWS] - Move Selected (1px)\n" +
             "[SHIFT + ARROWS] - Move Selected (10px)\n" +
             "[Q / E] - Zoom Cam In / Out\n" +
             "[I / J / K / L] - Pan Editor Camera\n" +
-            "[Z / X] - Stage Zoom Preset (+/-)\n" +
             "[CTRL + S] - Export Stage JSON\n" +
-            "[ESCAPE] - Exit to Menu",
+            "[ESCAPE] - Return to Main Menu",
             13
         );
         helpTxt.setFormat(Paths.font("vcr"), 13, 0xFFDDDDDD, LEFT);
@@ -259,23 +296,41 @@ class StageEditorState extends MusicBeatState {
         add(helpTxt);
     }
 
+    private function setupToolbox():Void {
+        toolWindow = new EditorWindow(10, FlxG.height - 210, 320, 200, "Stage Settings");
+        toolWindow.cameras = [camHUD];
+        add(toolWindow);
+
+        stepperZoom = new EditorNumericStepper(10, 10, 290, "Default Zoom", stageData.defaultZoom != null ? stageData.defaultZoom : 0.9, 0.3, 3.0, 0.05, 2, function(v) {
+            stageData.defaultZoom = v;
+            camStage.zoom = v;
+            updateHUD();
+        });
+        toolWindow.addElement(stepperZoom);
+
+        stepperSpeed = new EditorNumericStepper(10, 45, 290, "Cam Speed", stageData.cameraSpeed != null ? stageData.cameraSpeed : 1.0, 0.1, 5.0, 0.1, 2, function(v) {
+            stageData.cameraSpeed = v;
+        });
+        toolWindow.addElement(stepperSpeed);
+
+        checkHideGF = new EditorCheckbox(10, 85, "Hide Girlfriend", stageData.hideGirlfriend == true, function(checked) {
+            stageData.hideGirlfriend = checked;
+            if (dummyGF != null) dummyGF.visible = !checked;
+        });
+        toolWindow.addElement(checkHideGF);
+
+        var btnSave = new EditorButton(10, 120, 290, 32, "Save Stage (Ctrl+S)", function() {
+            saveStageJson();
+        });
+        toolWindow.addElement(btnSave);
+    }
+
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
         handleCameraControls(elapsed);
         handleSelectionInput();
         handleTransformInput();
-
-        if (FlxG.keys.justPressed.Z) {
-            stageData.defaultZoom = Math.min(2.0, stageData.defaultZoom + 0.05);
-            camStage.zoom = stageData.defaultZoom;
-            updateHUD();
-        }
-        if (FlxG.keys.justPressed.X) {
-            stageData.defaultZoom = Math.max(0.4, stageData.defaultZoom - 0.05);
-            camStage.zoom = stageData.defaultZoom;
-            updateHUD();
-        }
 
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
             saveStageJson();
@@ -342,27 +397,45 @@ class StageEditorState extends MusicBeatState {
                     if (spr != null) {
                         spr.x += dx;
                         spr.y += dy;
-                        for (p in stageData.pieces) {
-                            if (p.name == pName) {
-                                p.position[0] = spr.x;
-                                p.position[1] = spr.y;
-                                break;
+                        var piecesList = (stageData.pieces != null) ? stageData.pieces : stageData.sprites;
+                        if (piecesList != null) {
+                            for (p in piecesList) {
+                                if (p.name == pName || p.id == pName) {
+                                    if (p.position != null && p.position.length >= 2) {
+                                        p.position[0] = spr.x;
+                                        p.position[1] = spr.y;
+                                    } else {
+                                        p.x = spr.x;
+                                        p.y = spr.y;
+                                    }
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             case BF_SPAWN:
-                stageData.boyfriend.position[0] += dx;
-                stageData.boyfriend.position[1] += dy;
-                dummyBF.setPosition(stageData.boyfriend.position[0], stageData.boyfriend.position[1]);
+                var pos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
+                pos[0] += dx;
+                pos[1] += dy;
+                setSpawnPos(stageData.boyfriend, pos[0], pos[1]);
+                dummyBF.setPosition(pos[0], pos[1]);
+
             case DAD_SPAWN:
-                stageData.dad.position[0] += dx;
-                stageData.dad.position[1] += dy;
-                dummyDad.setPosition(stageData.dad.position[0], stageData.dad.position[1]);
+                var oppData = stageData.dad != null ? stageData.dad : stageData.opponent;
+                var pos = getSpawnPos(oppData, [100.0, 100.0]);
+                pos[0] += dx;
+                pos[1] += dy;
+                setSpawnPos(oppData, pos[0], pos[1]);
+                dummyDad.setPosition(pos[0], pos[1]);
+
             case GF_SPAWN:
-                stageData.girlfriend.position[0] += dx;
-                stageData.girlfriend.position[1] += dy;
-                dummyGF.setPosition(stageData.girlfriend.position[0], stageData.girlfriend.position[1]);
+                var gfData = stageData.girlfriend != null ? stageData.girlfriend : stageData.gf;
+                var pos = getSpawnPos(gfData, [400.0, 130.0]);
+                pos[0] += dx;
+                pos[1] += dy;
+                setSpawnPos(gfData, pos[0], pos[1]);
+                dummyGF.setPosition(pos[0], pos[1]);
         }
 
         updateHUD();
@@ -387,13 +460,13 @@ class StageEditorState extends MusicBeatState {
                     }
                 }
             case BF_SPAWN:
-                curPos = stageData.boyfriend.position;
+                curPos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
                 targetMarker.setPosition(dummyBF.x, dummyBF.y);
             case DAD_SPAWN:
-                curPos = stageData.dad.position;
+                curPos = getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
                 targetMarker.setPosition(dummyDad.x, dummyDad.y);
             case GF_SPAWN:
-                curPos = stageData.girlfriend.position;
+                curPos = getSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, [400.0, 130.0]);
                 targetMarker.setPosition(dummyGF.x, dummyGF.y);
         }
 
@@ -419,7 +492,11 @@ class StageEditorState extends MusicBeatState {
         var fileName = '$curStage.json';
 
         #if sys
-        var targetDir = 'assets/stages';
+        var targetDir = 'assets/data/stages';
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            targetDir = 'mods/${ModManager.activeMods[0]}/data/stages';
+        }
+
         var fullPath = '$targetDir/$fileName';
 
         try {

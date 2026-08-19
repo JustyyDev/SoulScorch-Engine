@@ -13,13 +13,17 @@ class ScheduledTask {
         this.interval = interval;
         this.callback = callback;
     }
+
+    public function cancel():Void {
+        this.alive = false;
+    }
 }
 
 class Scheduler {
     public static var instance(get, null):Scheduler;
     private static var _instance:Scheduler;
 
-    var tasks:Array<ScheduledTask> = [];
+    private var tasks:Array<ScheduledTask> = [];
 
     public function new() {
         _instance = this;
@@ -49,24 +53,27 @@ class Scheduler {
     }
 
     public function update(elapsed:Float):Void {
-        for (task in tasks) {
+        if (tasks.length == 0) return;
+
+        var currentTasks = tasks.copy();
+        for (task in currentTasks) {
             if (!task.alive) continue;
             task.remaining -= elapsed;
             if (task.remaining <= 0) {
-                task.callback();
-                if (task.repeat) {
+                if (task.callback != null) task.callback();
+                if (task.repeat && task.alive) {
                     task.remaining += task.interval;
                 } else {
                     task.alive = false;
                 }
             }
         }
-        if (tasks.length > 0) {
-            tasks = tasks.filter(function(t) return t.alive);
-        }
+
+        tasks = tasks.filter(function(t) return t.alive);
     }
 
     public function clear():Void {
+        for (t in tasks) t.alive = false;
         tasks = [];
     }
 }

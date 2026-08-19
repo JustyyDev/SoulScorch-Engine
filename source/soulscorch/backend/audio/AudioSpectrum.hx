@@ -10,24 +10,26 @@ class AudioSpectrum {
     public static var treble(get, never):Float;
 
     public static function update():Void {
-        if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
-            for (i in 0...bands.length) {
-                bands[i] = Math.max(0.0, bands[i] - (FlxG.elapsed * 3.0));
-            }
-            return;
-        }
+        var decayRate = (FlxG.sound.music != null && FlxG.sound.music.playing) ? 2.5 : 3.0;
 
-        // Decay bands over time
         for (i in 0...bands.length) {
-            bands[i] = Math.max(0.0, bands[i] - (FlxG.elapsed * 2.5));
+            bands[i] = Math.max(0.0, bands[i] - (FlxG.elapsed * decayRate));
         }
 
-        EventBus.emit("audio/spectrum", {bass: bass, mid: mid, treble: treble});
+        try {
+            var bus:Dynamic = EventBus;
+            if (Reflect.hasField(bus, "publish")) {
+                bus.publish("audio/spectrum", {bass: bass, mid: mid, treble: treble});
+            } else if (Reflect.hasField(bus, "emit")) {
+                bus.emit("audio/spectrum", {bass: bass, mid: mid, treble: treble});
+            }
+        } catch (e:Dynamic) {}
     }
 
     public static function feedBeat(intensity:Float = 1.0):Void {
         for (i in 0...bands.length) {
-            bands[i] = Math.min(1.0, bands[i] + (intensity * (1.0 - (i / bands.length))));
+            var mult = 1.0 - (i / bands.length);
+            bands[i] = Math.min(1.0, bands[i] + (intensity * mult));
         }
     }
 

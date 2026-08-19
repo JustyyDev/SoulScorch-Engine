@@ -8,7 +8,7 @@ import soulscorch.gameplay.chart.Chart;
 import soulscorch.gameplay.chart.ChartParser;
 import soulscorch.gameplay.chart.Song;
 import soulscorch.gameplay.song.SongMetadata;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 using StringTools;
 
@@ -16,61 +16,54 @@ class SongLoader {
     public static function load(songId:String, ?difficulty:String = "normal"):Song {
         var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
         var cleanDiff = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
+        var diffSuffix = (cleanDiff == "normal") ? "" : '-$cleanDiff';
 
         var chartCandidates = [
-            'data/charts/$cleanSong/$cleanDiff.json',
-            'data/$cleanSong/$cleanSong-$cleanDiff.json',
-            'data/$cleanSong/${cleanSong}_$cleanDiff.json',
-            'data/$cleanSong/$cleanDiff.json',
-            'assets/data/$cleanSong/$cleanSong-$cleanDiff.json',
-            'assets/data/$cleanSong/$cleanDiff.json',
-            'assets/songs/$cleanSong/charts/$cleanDiff.json',
-            'assets/songs/$cleanSong/chart-${cleanDiff}.json',
-            'assets/songs/$cleanSong/$cleanSong-$cleanDiff.json'
+            'songs/$cleanSong/charts/$cleanDiff',
+            'songs/$cleanSong/chart$diffSuffix',
+            'songs/$cleanSong/$cleanSong$diffSuffix',
+            'data/$cleanSong/$cleanSong$diffSuffix',
+            'data/$cleanSong/$cleanDiff',
+            'data/charts/$cleanSong/$cleanDiff',
+            'songs/$cleanSong/${cleanSong}_$cleanDiff'
         ];
 
         if (cleanDiff == "normal") {
-            chartCandidates.unshift('data/$cleanSong/$cleanSong.json');
-            chartCandidates.unshift('data/$cleanSong/chart.json');
-            chartCandidates.push('assets/data/$cleanSong/$cleanSong.json');
-            chartCandidates.push('assets/songs/$cleanSong/chart.json');
-            chartCandidates.push('assets/songs/$cleanSong/$cleanSong.json');
+            chartCandidates.push('songs/$cleanSong/chart');
+            chartCandidates.push('songs/$cleanSong/$cleanSong');
+            chartCandidates.push('data/$cleanSong/$cleanSong');
+            chartCandidates.push('data/$cleanSong/chart');
         }
 
         var resolvedChart:String = null;
         for (c in chartCandidates) {
-            var res = ModLoader.getPath(c);
-            if (AssetResolver.exists(res)) {
-                resolvedChart = res;
-                break;
-            }
+            resolvedChart = AssetResolver.resolveFile(c, [".json", ""]);
+            if (resolvedChart != null) break;
         }
 
         if (resolvedChart == null) {
-            Logger.error('Failed to resolve song chart for: $cleanSong ($cleanDiff)', "song");
+            Logger.error('Failed resolving song chart for: $cleanSong ($cleanDiff)', "song");
             var fallback = new Song(cleanSong, cleanSong);
-            if (fallback.chart == null) fallback.chart = new Chart();
+            fallback.difficulty = cleanDiff;
             return fallback;
         }
 
         try {
             var rawJson = AssetResolver.getText(resolvedChart);
-            var parsedSong:Song = ChartParser.parse(rawJson);
-            if (parsedSong == null) {
-                var fallback = new Song(cleanSong, cleanSong);
-                if (fallback.chart == null) fallback.chart = new Chart();
-                return fallback;
-            }
+            var parsedSong:Song = ChartParser.parse(rawJson, cleanSong);
+            parsedSong.difficulty = cleanDiff;
 
+            // Load Metadata (meta.json, _meta.json, song.json)
             var metaCandidates = [
-                'data/$cleanSong/meta.json',
-                'assets/data/$cleanSong/meta.json',
-                'assets/songs/$cleanSong/meta.json'
+                'songs/$cleanSong/meta',
+                'songs/$cleanSong/_meta',
+                'data/$cleanSong/meta',
+                'data/$cleanSong/_meta'
             ];
 
             for (m in metaCandidates) {
-                var metaRes = ModLoader.getPath(m);
-                if (AssetResolver.exists(metaRes)) {
+                var metaRes = AssetResolver.resolveFile(m, [".json", ""]);
+                if (metaRes != null) {
                     try {
                         var metaRaw = AssetResolver.getText(metaRes);
                         var meta:SongMetadata = Json.parse(metaRaw);
@@ -83,28 +76,28 @@ class SongLoader {
                         if (meta.player1 != null) parsedSong.player1 = meta.player1;
                         if (meta.player2 != null) parsedSong.player2 = meta.player2;
                         if (meta.gfVersion != null) parsedSong.gfVersion = meta.gfVersion;
-                        if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices;
-                        
+                        if (meta.needsVoices != null) parsedSong.needsVoices = meta.needsVoices == true;
+
                         if (meta.color != null && meta.color.trim().length > 0) {
                             var parsedColor:Null<FlxColor> = FlxColor.fromString(meta.color);
                             parsedSong.color = (parsedColor != null) ? parsedColor : 0xFF9271FD;
                         }
                     } catch (err:Dynamic) {
-                        Logger.warn('Failed parsing meta for $cleanSong: $err', "song");
+                        Logger.warn('Failed parsing metadata for $cleanSong: $err', "song");
                     }
                     break;
                 }
             }
 
             if (parsedSong.chart == null) {
-                parsedSong.chart = new Chart();
+                parsedSong.chart = new Chart(parsedSong.bpm, parsedSong.scrollSpeed);
             }
 
             return parsedSong;
         } catch (e:Dynamic) {
             Logger.error('Exception parsing chart for $cleanSong: $e', "song");
             var fallback = new Song(cleanSong, cleanSong);
-            if (fallback.chart == null) fallback.chart = new Chart();
+            fallback.difficulty = cleanDiff;
             return fallback;
         }
     }

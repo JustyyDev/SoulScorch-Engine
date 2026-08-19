@@ -17,14 +17,15 @@ typedef AchievementDef = {
     var title:String;
     var description:String;
     var ?hidden:Bool;
+    var ?icon:String;
 }
 
 class Achievements {
     public static var instance(get, null):Achievements;
     private static var _instance:Achievements;
 
-    public var definitions:Map<String, AchievementDef> = new Map();
-    public var unlockedAchievements:Map<String, Bool> = new Map();
+    public var definitions:Map<String, AchievementDef> = new Map<String, AchievementDef>();
+    public var unlockedAchievements:Map<String, Bool> = new Map<String, Bool>();
     public var popupGroup:FlxGroup;
 
     private var popupQueue:Array<AchievementDef> = [];
@@ -51,12 +52,13 @@ class Achievements {
         add("no_miss_streak", "Flawless", "Clear a song with 100% accuracy.");
     }
 
-    public function add(id:String, title:String, description:String, hidden:Bool = false):Void {
+    public function add(id:String, title:String, description:String, hidden:Bool = false, ?icon:String = "achievements/default"):Void {
         definitions.set(id, {
             id: id,
             title: title,
             description: description,
-            hidden: hidden
+            hidden: hidden,
+            icon: icon
         });
     }
 
@@ -73,9 +75,17 @@ class Achievements {
         saveAchievements();
 
         var def = definitions.get(id);
-        Logger.info('Achievement Unlocked: ${def.title} (${def.id})');
-        EventBus.instance.emit("achievement/unlocked", def);
-        
+        Logger.info('Achievement Unlocked: ${def.title} (${def.id})', "achievements");
+
+        try {
+            var bus:Dynamic = EventBus;
+            if (Reflect.hasField(bus, "publish")) {
+                bus.publish("achievement/unlocked", def);
+            } else if (Reflect.hasField(bus, "emit")) {
+                bus.emit("achievement/unlocked", def);
+            }
+        } catch (e:Dynamic) {}
+
         popupQueue.push(def);
         if (!isDisplayingPopup) {
             displayNextPopup();
@@ -108,23 +118,29 @@ class Achievements {
     }
 
     private function loadSavedAchievements():Void {
-        if (FlxG.save.data.unlockedAchievements != null) {
-            var saved:Array<String> = cast FlxG.save.data.unlockedAchievements;
-            for (id in saved) {
-                unlockedAchievements.set(id, true);
+        if (FlxG.save != null && FlxG.save.data != null && FlxG.save.data.unlockedAchievements != null) {
+            try {
+                var saved:Array<Dynamic> = cast FlxG.save.data.unlockedAchievements;
+                for (id in saved) {
+                    unlockedAchievements.set(Std.string(id), true);
+                }
+            } catch (e:Dynamic) {
+                Logger.warn('Failed restoring unlocked achievements: $e', "achievements");
             }
         }
     }
 
     private function saveAchievements():Void {
-        var list:Array<String> = [];
-        for (id in unlockedAchievements.keys()) {
-            if (unlockedAchievements.get(id)) {
-                list.push(id);
+        if (FlxG.save != null && FlxG.save.data != null) {
+            var list:Array<String> = [];
+            for (id in unlockedAchievements.keys()) {
+                if (unlockedAchievements.get(id)) {
+                    list.push(id);
+                }
             }
+            FlxG.save.data.unlockedAchievements = list;
+            FlxG.save.flush();
         }
-        FlxG.save.data.unlockedAchievements = list;
-        FlxG.save.flush();
     }
 }
 
@@ -135,24 +151,26 @@ class AchievementPopup extends FlxSpriteGroup {
         super(20, FlxG.height);
         this.onFinished = onFinished;
 
-        var bg = new flixel.FlxSprite().makeGraphic(380, 80, 0xDD111122);
+        var bg = new flixel.FlxSprite().makeGraphic(390, 80, 0xEE11101D);
         add(bg);
 
         var accent = new flixel.FlxSprite().makeGraphic(6, 80, 0xFFFFCC00);
         add(accent);
 
-        var title = new FlxText(20, 12, 345, "ACHIEVEMENT UNLOCKED", 11);
+        var title = new FlxText(20, 10, 355, "ACHIEVEMENT UNLOCKED", 11);
         title.setFormat(Paths.font("vcr"), 11, 0xFFFFCC00, LEFT);
         add(title);
 
-        var name = new FlxText(20, 28, 345, def.title, 16);
+        var name = new FlxText(20, 26, 355, def.title, 16);
         name.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         name.borderSize = 1.25;
         add(name);
 
-        var desc = new FlxText(20, 50, 345, def.description, 12);
+        var desc = new FlxText(20, 48, 355, def.description, 12);
         desc.setFormat(Paths.font("vcr"), 12, 0xFFCCCCCC, LEFT);
         add(desc);
+
+        scrollFactor.set(0, 0);
 
         var targetY = FlxG.height - 100;
         FlxTween.tween(this, {y: targetY}, 0.45, {
@@ -160,7 +178,7 @@ class AchievementPopup extends FlxSpriteGroup {
             onComplete: function(_) {
                 FlxTween.tween(this, {y: FlxG.height + 10, alpha: 0}, 0.4, {
                     ease: FlxEase.quadIn,
-                    startDelay: 2.8,
+                    startDelay: 3.0,
                     onComplete: function(_) {
                         destroy();
                         if (this.onFinished != null) {

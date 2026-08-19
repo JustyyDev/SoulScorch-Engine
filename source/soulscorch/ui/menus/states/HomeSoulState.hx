@@ -16,6 +16,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.system.modules.workshop.HomeSoulDBModule;
 import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.states.MainMenuState;
 
 class HomeSoulState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -45,7 +46,7 @@ class HomeSoulState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        #if (cpp && !neko)
+        #if desktop
         DiscordRPC.changePresence("Browsing HomeSoulDB", "Exploring community mods");
         #end
 
@@ -69,7 +70,6 @@ class HomeSoulState extends MusicBeatState {
         add(grpCards);
         add(grpTags);
 
-        // Sidebar detail inspection card
         sidePanel = new FlxSprite(FlxG.width - 460, 85).makeGraphic(420, FlxG.height - 150, 0xEE161224);
         add(sidePanel);
 
@@ -225,7 +225,6 @@ class HomeSoulState extends MusicBeatState {
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        // Switch category tabs
         if (FlxG.keys.justPressed.Q) {
             curCategoryIdx = FlxMath.wrap(curCategoryIdx - 1, 0, categories.length - 1);
             curSelected = 0;
@@ -240,7 +239,6 @@ class HomeSoulState extends MusicBeatState {
             AssetHelper.playSoundSafely("scrollMenu", 0.7);
         }
 
-        // Install playable mod or launch teaser page
         if (FlxG.keys.justPressed.ENTER && filteredEntries.length > 0 && !isDownloading) {
             var entry = filteredEntries[curSelected];
             if (entry.isWIP) {
@@ -257,7 +255,6 @@ class HomeSoulState extends MusicBeatState {
             }
         }
 
-        // Bump current mod
         if (FlxG.keys.justPressed.B && filteredEntries.length > 0) {
             var entry = filteredEntries[curSelected];
             entry.bumpCount++;
@@ -266,7 +263,6 @@ class HomeSoulState extends MusicBeatState {
             changeSelection(0);
         }
 
-        // Open submission page
         if (FlxG.keys.justPressed.S && !FlxG.keys.pressed.CONTROL) {
             if (HomeSoulDBModule.instance != null) {
                 HomeSoulDBModule.instance.openSubmissionPage();
@@ -275,10 +271,9 @@ class HomeSoulState extends MusicBeatState {
             }
         }
 
-        // Back to Mod Switch / Main Menu
         if (Controls.instance.BACK) {
-            AssetHelper.playSoundSafely("confirmMenu", 0.7);
-            FlxG.switchState(new soulscorch.ui.menus.states.MainMenuState());
+            AssetHelper.playSoundSafely("cancelMenu", 0.7);
+            MusicBeatState.switchState(new MainMenuState());
         }
 
         for (i in 0...grpCards.members.length) {

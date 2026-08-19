@@ -59,11 +59,9 @@ class Scene extends FlxState implements IBeatReceiver {
     }
 
     private function updateConductorTrackers():Void {
-        if (Conductor.stepCrochet <= 0) return;
-
-        curStep = Std.int(Conductor.songPosition / Conductor.stepCrochet);
-        curBeat = Std.int(curStep / 4);
-        curMeasure = Std.int(curBeat / 4);
+        curStep = Conductor.curStep;
+        curBeat = Conductor.curBeat;
+        curMeasure = Conductor.curMeasure;
 
         if (curStep != _lastStep) {
             _lastStep = curStep;

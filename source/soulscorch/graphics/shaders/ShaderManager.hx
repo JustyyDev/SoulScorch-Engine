@@ -24,9 +24,9 @@ class ShaderManager {
         var filter = shader.filter;
         filters.push(filter);
 
-        var cam = camera != null ? camera : FlxG.camera;
+        var cam = (camera != null) ? camera : FlxG.camera;
         if (cam != null) {
-            var currentFilters = cam.filters != null ? cam.filters : [];
+            var currentFilters = (cam.filters != null) ? cam.filters : [];
             currentFilters.push(filter);
             cam.setFilters(currentFilters);
         }
@@ -40,9 +40,9 @@ class ShaderManager {
         shaders.remove(shader);
         filters.remove(shader.filter);
 
-        var cam = camera != null ? camera : FlxG.camera;
+        var cam = (camera != null) ? camera : FlxG.camera;
         if (cam != null) {
-            var currentFilters = cam.filters != null ? cam.filters : [];
+            var currentFilters = (cam.filters != null) ? cam.filters : [];
             currentFilters.remove(shader.filter);
             cam.setFilters(currentFilters);
         }
@@ -57,7 +57,7 @@ class ShaderManager {
     }
 
     public function clearShaders(?camera:FlxCamera):Void {
-        var cam = camera != null ? camera : FlxG.camera;
+        var cam = (camera != null) ? camera : FlxG.camera;
         if (cam != null) {
             cam.setFilters([]);
         }

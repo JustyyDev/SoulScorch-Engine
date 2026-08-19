@@ -3,10 +3,10 @@ package soulscorch.backend.system.engine;
 import flixel.FlxG;
 import flixel.FlxState;
 import flixel.math.FlxMath;
-import flixel.util.FlxColor;
 import openfl.Lib;
-import openfl.display.StageScaleMode;
 import openfl.display.StageAlign;
+import openfl.display.StageScaleMode;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.utils.Logger;
@@ -67,16 +67,13 @@ class Runtime {
             if (engine != null) {
                 engine.notifyStateSwitch();
             }
-            #if cpp
-            cpp.vm.Gc.run(true);
-            #end
-            FlxG.bitmap.clearUnused();
+            Paths.clearUnusedMemory();
         });
 
         FlxG.signals.focusLost.add(onFocusLost);
         FlxG.signals.focusGained.add(onFocusGained);
 
-        Logger.info("[RUNTIME] Flixel core environment configured successfully.", "runtime");
+        Logger.info("Flixel core environment configured successfully.", "runtime");
         DevConsole.instance;
     }
 
@@ -95,11 +92,13 @@ class Runtime {
 
     private static function onFocusLost():Void {
         if (engine != null && engine.config != null) {
+            // Focus loss handling
         }
     }
 
     private static function onFocusGained():Void {
         if (engine != null && engine.config != null) {
+            // Focus gain handling
         }
     }
 
@@ -112,9 +111,6 @@ class Runtime {
     }
 
     public static function forceGC():Void {
-        #if cpp
-        cpp.vm.Gc.run(true);
-        #end
-        FlxG.bitmap.clearUnused();
+        Paths.clearUnusedMemory();
     }
 }

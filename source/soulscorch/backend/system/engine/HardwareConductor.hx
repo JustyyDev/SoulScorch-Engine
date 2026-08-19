@@ -84,9 +84,7 @@ class HardwareConductor {
         var hardwareDelta = currentHardwareTime - lastHardwareTime;
         lastHardwareTime = currentHardwareTime;
 
-        var timeScaleVal:Float = 1.0;
-        
-        var predictedPosition = Conductor.songPosition + (hardwareDelta * timeScaleVal);
+        var predictedPosition = Conductor.songPosition + hardwareDelta;
         var difference = audioPosition - predictedPosition;
 
         if (Math.abs(difference) > maxAllowedDrift) {

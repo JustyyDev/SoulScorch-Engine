@@ -1,6 +1,8 @@
 package soulscorch.ui.menus.states;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
+import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.effects.FlxFlicker;
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -17,11 +19,11 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.ui.menus.states.HomeSoulState;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.FreeplayState;
+import soulscorch.ui.menus.states.HomeSoulState;
 import soulscorch.ui.menus.states.StoryMenuState;
 import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.menus.substate.ModSwitchMenu;
@@ -35,6 +37,8 @@ class MainMenuState extends MusicBeatState {
     private var grpMenuItems:FlxTypedGroup<FlxSprite>;
     private var bg:FlxSprite;
     private var magenta:FlxSprite;
+    private var camFollow:FlxObject;
+    private var camFollowPos:FlxObject;
     private var versionText:FlxText;
     private var mobileControls:MobilePad;
 
@@ -54,7 +58,7 @@ class MainMenuState extends MusicBeatState {
         if (!AssetHelper.loadGraphicSafely(bg, "menuBG")) {
             bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282828);
         }
-        bg.scrollFactor.set(0, 0.12);
+        bg.scrollFactor.set(0, 0.15);
         bg.setGraphicSize(Std.int(bg.width * 1.175));
         bg.updateHitbox();
         bg.screenCenter();
@@ -65,7 +69,7 @@ class MainMenuState extends MusicBeatState {
         if (!AssetHelper.loadGraphicSafely(magenta, "menuDesat")) {
             magenta.makeGraphic(FlxG.width, FlxG.height, 0xFFFD719B);
         }
-        magenta.scrollFactor.set(0, 0.12);
+        magenta.scrollFactor.set(0, 0.15);
         magenta.setGraphicSize(Std.int(magenta.width * 1.175));
         magenta.updateHitbox();
         magenta.screenCenter();
@@ -73,6 +77,11 @@ class MainMenuState extends MusicBeatState {
         magenta.color = 0xFFFD719B;
         magenta.antialiasing = true;
         add(magenta);
+
+        camFollow = new FlxObject(0, 0, 1, 1);
+        camFollowPos = new FlxObject(0, 0, 1, 1);
+        add(camFollow);
+        add(camFollowPos);
 
         grpMenuItems = new FlxTypedGroup<FlxSprite>();
         add(grpMenuItems);
@@ -98,6 +107,8 @@ class MainMenuState extends MusicBeatState {
                 grpMenuItems.add(cast alphaLabel);
             }
         }
+
+        FlxG.camera.follow(camFollowPos, null, 1.0);
 
         versionText = new FlxText(12, FlxG.height - 24, 0, 'SoulScorch Engine ${Version.fullVersion()} | [TAB] Mods & HomeSoulDB', 12);
         versionText.setFormat(Paths.font("vcr"), 12, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
@@ -135,6 +146,9 @@ class MainMenuState extends MusicBeatState {
     }
 
     override public function update(elapsed:Float):Void {
+        camFollowPos.x = FlxMath.lerp(camFollow.x, camFollowPos.x, Math.exp(-elapsed * 6.0));
+        camFollowPos.y = FlxMath.lerp(camFollow.y, camFollowPos.y, Math.exp(-elapsed * 6.0));
+
         if (!selectedSomethin) {
             if (Controls.instance.UI_UP_P) {
                 AssetHelper.playSoundSafely("scrollMenu", 0.7);
@@ -201,6 +215,7 @@ class MainMenuState extends MusicBeatState {
                     spr.animation.play("selected");
                     spr.centerOffsets();
                 }
+                camFollow.setPosition(spr.getGraphicMidpoint().x, spr.getGraphicMidpoint().y);
             }
         });
     }
@@ -216,6 +231,8 @@ class MainMenuState extends MusicBeatState {
                 MusicBeatState.switchState(new OptionsMenuState());
             case "credits":
                 MusicBeatState.switchState(new CreditsState());
+            case "workshop" | "homesouldb":
+                MusicBeatState.switchState(new HomeSoulState());
             default:
                 MusicBeatState.switchState(new FreeplayState());
         }

@@ -20,8 +20,8 @@ class SoulGlobalScript {
         stateRedirects.clear();
         isLoaded = false;
 
-        for (modFolder in ModLoader.activeMods) {
-            var config = ModLoader.loadedModConfigs.get(modFolder);
+        for (modFolder in ModManager.activeMods) {
+            var config = ModManager.modConfigs.get(modFolder);
             var scriptsToRun:Array<String> = (config != null && config.global_scripts != null) 
                 ? config.global_scripts 
                 : ["data/global.soul"];
@@ -75,19 +75,13 @@ class SoulGlobalScript {
         }
     }
 
-    /**
-     * Strips packages, imports, and access modifiers that break vanilla HScript parser.
-     */
     private static function preprocessScript(code:String):String {
-        // Strip package declarations (e.g., package;)
         var rPackage = ~/package\s+[\w\.]*;/g;
         code = rPackage.replace(code, "");
 
-        // Strip imports (e.g., import flixel.FlxG;)
         var rImport = ~/import\s+[\w\.\*]+;/g;
         code = rImport.replace(code, "");
 
-        // Strip access modifiers (e.g., public var, static var, override function)
         var rModifiers = ~/\b(public|private|static|override)\s+(var|function)\b/g;
         code = rModifiers.replace(code, "$2");
 

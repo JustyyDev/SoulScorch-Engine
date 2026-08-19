@@ -12,7 +12,12 @@ typedef SongMetadata = {
     var ?difficulties:Array<String>;
     var ?color:String;
     var ?freeplayIcon:String;
+    var ?icon:String;
     var ?cutscene:String;
     var ?endCutscene:String;
     var ?needsVoices:Bool;
+    var ?previewStart:Float;
+    var ?previewEnd:Float;
+    var ?week:Int;
+    var ?locked:Bool;
 }

@@ -2,27 +2,37 @@ package soulscorch.scripting.backends;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.math.FlxMath;
+import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import flixel.ui.FlxButton;
 import flixel.util.FlxColor;
-import haxe.xml.Parser;
-import haxe.xml.Access;
+import hscript.Interp;
+import hscript.Parser;
+import openfl.filters.ShaderFilter;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.mod.ModCustomState;
+import soulscorch.scripting.mod.ModManager;
+import soulscorch.scripting.mod.SoulGlobalScript;
+
+using StringTools;
 
 class SoulScript implements ScriptInstance {
     public var active:Bool = false;
     public var path(default, null):String;
 
-    public var variables:Map<String, Dynamic> = new Map();
-    public var uiElements:Map<String, Dynamic> = new Map();
-    public var customCallbacks:Map<String, String> = new Map();
-    
-    private var rawLines:Array<String> = [];
+    public var uiElements:Map<String, FlxSprite> = new Map<String, FlxSprite>();
+    private var interp:Interp;
 
     public function new(scriptPath:String) {
         this.path = (scriptPath == null) ? "" : scriptPath;
@@ -30,7 +40,7 @@ class SoulScript implements ScriptInstance {
     }
 
     public function load():Bool {
-        var fullPath = ModLoader.getPath(path);
+        var fullPath = ModManager.getPath(path);
         if (!AssetResolver.exists(fullPath)) {
             active = false;
             return false;
@@ -38,9 +48,8 @@ class SoulScript implements ScriptInstance {
 
         try {
             var rawText = AssetResolver.getText(fullPath);
-            parseScript(rawText);
+            initScript(rawText);
             
-            // Automatically look for and parse a matching XML layout file if available
             var xmlPath = fullPath.substr(0, fullPath.lastIndexOf(".")) + ".xml";
             if (AssetResolver.exists(xmlPath)) {
                 parseXML(AssetResolver.getText(xmlPath));
@@ -57,59 +66,138 @@ class SoulScript implements ScriptInstance {
         }
     }
 
-    private function parseScript(raw:String):Void {
-        rawLines = [];
-        var lines = raw.split("\n");
-        for (i in 0...lines.length) {
-            var line = StringTools.trim(lines[i]);
-            if (line.length == 0 || StringTools.startsWith(line, "//") || StringTools.startsWith(line, "#")) continue;
-            rawLines.push(line);
-        }
+    private function initScript(code:String):Void {
+        var sanitized = preprocessScript(code);
+        var parser = new Parser();
+        parser.allowTypes = true;
+        parser.allowJSON = true;
+        var program = parser.parseString(sanitized);
+
+        interp = new Interp();
+        interp.variables.set("FlxG", FlxG);
+        interp.variables.set("FlxSprite", FlxSprite);
+        interp.variables.set("FlxText", FlxText);
+        interp.variables.set("FlxMath", FlxMath);
+        interp.variables.set("FlxTween", FlxTween);
+        interp.variables.set("FlxEase", FlxEase);
+        interp.variables.set("Conductor", Conductor);
+        interp.variables.set("Paths", Paths);
+        interp.variables.set("AssetHelper", AssetHelper);
+        interp.variables.set("AssetResolver", AssetResolver);
+        interp.variables.set("Controls", Controls.instance);
+        interp.variables.set("SoulShader", SoulShader);
+
+        interp.variables.set("ShaderFilter", function(shaderOrFilter:Dynamic) {
+            if (Std.isOfType(shaderOrFilter, ShaderFilter)) {
+                return shaderOrFilter;
+            } else if (Std.isOfType(shaderOrFilter, SoulShader)) {
+                var s:SoulShader = cast shaderOrFilter;
+                return s.filter;
+            } else if (Std.isOfType(shaderOrFilter, flixel.system.FlxAssets.FlxShader)) {
+                return new ShaderFilter(cast shaderOrFilter);
+            }
+            return null;
+        });
+
+        interp.variables.set("FlxColor", {
+            WHITE: 0xFFFFFFFF, BLACK: 0xFF000000, RED: 0xFFFF0000,
+            GREEN: 0xFF00FF00, BLUE: 0xFF0000FF, CYAN: 0xFF00FFFF,
+            MAGENTA: 0xFFFF00FF, YELLOW: 0xFFFFFF00, TRANSPARENT: 0x00000000,
+            fromRGB: FlxColor.fromRGB, fromString: FlxColor.fromString
+        });
+
+        interp.variables.set("lerp", function(a:Float, b:Float, ratio:Float):Float return FlxMath.lerp(a, b, ratio));
+        interp.variables.set("getElement", function(id:String):Null<FlxSprite> return uiElements.get(id));
+        interp.variables.set("openURL", function(url:String):Void FlxG.openURL(url));
+        interp.variables.set("trace", function(v:Dynamic):Void Logger.info(Std.string(v), "soulscript"));
+
+        interp.variables.set("add", function(obj:Dynamic):Void {
+            if (FlxG.state != null) FlxG.state.add(obj);
+        });
+
+        interp.variables.set("remove", function(obj:Dynamic):Void {
+            if (FlxG.state != null) FlxG.state.remove(obj);
+        });
+
+        interp.variables.set("switchState", function(target:Dynamic):Void {
+            if (Std.isOfType(target, String)) {
+                var targetName:String = cast target;
+                var redirect = SoulGlobalScript.getRedirect(targetName);
+                if (redirect != null) {
+                    MusicBeatState.switchState(new ModCustomState(redirect));
+                } else {
+                    switch (targetName.toLowerCase()) {
+                        case "mainmenustate" | "mainmenu": MusicBeatState.switchState(new soulscorch.ui.menus.states.MainMenuState());
+                        case "titlestate" | "title": MusicBeatState.switchState(new soulscorch.ui.menus.states.TitleState());
+                        case "freeplaystate" | "freeplay": MusicBeatState.switchState(new soulscorch.ui.menus.states.FreeplayState());
+                        case "storymenustate" | "storymenu": MusicBeatState.switchState(new soulscorch.ui.menus.states.StoryMenuState());
+                        case "optionsstate" | "optionsmenustate": MusicBeatState.switchState(new soulscorch.ui.menus.option.OptionsMenuState());
+                        case "creditsstate" | "credits": MusicBeatState.switchState(new soulscorch.ui.menus.credits.CreditsState());
+                        default: MusicBeatState.switchState(new ModCustomState(targetName));
+                    }
+                }
+            } else {
+                MusicBeatState.switchState(target);
+            }
+        });
+
+        interp.execute(program);
+    }
+
+    private function preprocessScript(code:String):String {
+        var rPackage = ~/package\s+[\w\.]*;/g;
+        code = rPackage.replace(code, "");
+
+        var rImport = ~/import\s+[\w\.\*]+;/g;
+        code = rImport.replace(code, "");
+
+        var rModifiers = ~/\b(public|private|static|override)\s+(var|function)\b/g;
+        code = rModifiers.replace(code, "$2");
+
+        return code;
     }
 
     private function parseXML(rawXml:String):Void {
+        if (rawXml.length == 0) return;
         try {
-            var xml = Parser.parse(rawXml);
-            var fast = new Access(xml.firstElement());
-
-            if (fast.has.bgColor) {
-                FlxG.camera.bgColor = FlxColor.fromString(fast.att.bgColor);
+            var xml = Xml.parse(rawXml).firstElement();
+            if (xml.get("bgColor") != null) {
+                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(xml.get("bgColor")));
+                bg.scrollFactor.set();
+                if (FlxG.state != null) FlxG.state.add(bg);
             }
 
-            for (node in fast.elements) {
-                var id = node.has.id ? node.att.id : "unnamed_" + Std.random(99999);
-                var x = node.has.x ? Std.parseFloat(node.att.x) : 0;
-                var y = node.has.y ? Std.parseFloat(node.att.y) : 0;
-                var alpha = node.has.alpha ? Std.parseFloat(node.att.alpha) : 1.0;
-                var scale = node.has.scale ? Std.parseFloat(node.att.scale) : 1.0;
-                var antialiasing = node.has.antialiasing ? (node.att.antialiasing == "true") : true;
+            for (node in xml.elements()) {
+                var nodeName = node.nodeName.toLowerCase();
+                var id = node.get("id");
+                var xPos = (node.get("x") != null) ? Std.parseFloat(node.get("x")) : 0.0;
+                var yPos = (node.get("y") != null) ? Std.parseFloat(node.get("y")) : 0.0;
+                var scaleVal = (node.get("scale") != null) ? Std.parseFloat(node.get("scale")) : 1.0;
+                var alphaVal = (node.get("alpha") != null) ? Std.parseFloat(node.get("alpha")) : 1.0;
 
-                switch (node.name.toLowerCase()) {
+                switch (nodeName) {
                     case "sprite":
-                        var spr = new FlxSprite(x, y);
-                        if (node.has.image) {
-                            AssetHelper.loadGraphicSafely(spr, node.att.image);
-                        }
-                        spr.scale.set(scale, scale);
+                        var spr = new FlxSprite(xPos, yPos);
+                        var img = node.get("image");
+                        if (img != null) AssetHelper.loadImageSafely(spr, img);
+                        spr.scale.set(scaleVal, scaleVal);
                         spr.updateHitbox();
-                        spr.alpha = alpha;
-                        spr.antialiasing = antialiasing;
-                        
+                        spr.alpha = alphaVal;
+                        if (id != null) uiElements.set(id, spr);
                         if (FlxG.state != null) FlxG.state.add(spr);
-                        uiElements.set(id, spr);
 
                     case "button":
-                        var width = node.has.width ? Std.parseFloat(node.att.width) : 100;
-                        var height = node.has.height ? Std.parseFloat(node.att.height) : 50;
-                        var btn = new FlxSprite(x, y).makeGraphic(Std.int(width), Std.int(height), 0x00000000);
-                        btn.alpha = alpha;
+                        var w = (node.get("width") != null) ? Std.parseInt(node.get("width")) : 100;
+                        var h = (node.get("height") != null) ? Std.parseInt(node.get("height")) : 40;
+                        var onClickName = node.get("onClick");
 
-                        if (node.has.onClick) {
-                            customCallbacks.set(id, node.att.onClick);
-                        }
-
+                        var btn = new FlxButton(xPos, yPos, "", function() {
+                            if (onClickName != null) call(onClickName, []);
+                        });
+                        btn.makeGraphic(w, h, FlxColor.TRANSPARENT);
+                        btn.alpha = alphaVal;
+                        if (id != null) uiElements.set(id, btn);
                         if (FlxG.state != null) FlxG.state.add(btn);
-                        uiElements.set(id, btn);
                 }
             }
         } catch (e:Dynamic) {
@@ -118,45 +206,29 @@ class SoulScript implements ScriptInstance {
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
-        var targetFunc = func.toLowerCase();
-        
-        for (line in rawLines) {
-            if (StringTools.startsWith(line.toLowerCase(), 'on $targetFunc') || StringTools.startsWith(line.toLowerCase(), '$targetFunc:')) {
-                // Execute basic embedded macro commands matching this state hook
-                executeMacroBlock(targetFunc);
-                return true;
+        if (interp != null && interp.variables.exists(func)) {
+            var fn = interp.variables.get(func);
+            if (Reflect.isFunction(fn)) {
+                return Reflect.callMethod(null, fn, (args != null) ? args : []);
             }
         }
         return null;
     }
 
-    private function executeMacroBlock(blockName:String):Void {
-        // Simple internal hook runner for custom layout scripting
-        if (blockName == "create" || blockName == "oncreate") {
-            for (id in uiElements.keys()) {
-                var el = uiElements.get(id);
-                if (Std.isOfType(el, FlxSprite) && blockName == "create") {
-                    // Pre-configured hooks can trigger here
-                }
-            }
-        }
-    }
-
     public function set(key:String, value:Dynamic):Void {
-        variables.set(key, value);
+        if (interp != null) interp.variables.set(key, value);
     }
 
     public function get(key:String):Dynamic {
-        if (variables.exists(key)) return variables.get(key);
+        if (interp != null && interp.variables.exists(key)) return interp.variables.get(key);
         if (uiElements.exists(key)) return uiElements.get(key);
         return null;
     }
 
     public function destroy():Void {
         active = false;
-        variables.clear();
+        call("onDestroy", []);
         uiElements.clear();
-        customCallbacks.clear();
-        rawLines = [];
+        interp = null;
     }
 }

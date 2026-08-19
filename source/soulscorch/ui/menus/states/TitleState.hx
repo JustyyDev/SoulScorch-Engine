@@ -15,7 +15,7 @@ import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -42,7 +42,7 @@ class TitleState extends MusicBeatState {
 
         if (!initialized) {
             try {
-                ModLoader.scan();
+                ModManager.reloadMods();
                 var config = new GameConfig();
                 var engine = Engine.boot(config);
                 engine.init();
@@ -76,6 +76,8 @@ class TitleState extends MusicBeatState {
 
         logoBump = new FlxSprite(-150, -100);
         var loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "menus/titlescreen/logo");
+        if (!loadedLogo) loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "logoBumpin");
+
         if (loadedLogo && logoBump.frames != null) {
             logoBump.animation.addByPrefix("bump", "logo bumpin", 24, false);
             logoBump.animation.play("bump");
@@ -86,6 +88,8 @@ class TitleState extends MusicBeatState {
 
         gfDance = new FlxSprite(FlxG.width * 0.4, 40);
         var loadedGf = AssetHelper.loadSparrowSafely(gfDance, "menus/titlescreen/gf");
+        if (!loadedGf) loadedGf = AssetHelper.loadSparrowSafely(gfDance, "gfDanceTitle");
+
         if (loadedGf && gfDance.frames != null) {
             gfDance.animation.addByIndices("danceLeft", "gfDance", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
             gfDance.animation.addByIndices("danceRight", "gfDance", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
@@ -96,6 +100,8 @@ class TitleState extends MusicBeatState {
 
         titleText = new FlxSprite(100, FlxG.height * 0.8);
         var loadedTitle = AssetHelper.loadSparrowSafely(titleText, "menus/titlescreen/titleEnter");
+        if (!loadedTitle) loadedTitle = AssetHelper.loadSparrowSafely(titleText, "titleEnter");
+
         if (loadedTitle && titleText.frames != null) {
             titleText.animation.addByPrefix("idle", "Press Enter to Begin", 24);
             titleText.animation.addByPrefix("press", "ENTER PRESSED", 24);
@@ -112,6 +118,8 @@ class TitleState extends MusicBeatState {
 
         ngSpr = new FlxSprite(0, FlxG.height * 0.52);
         var loadedNG = AssetHelper.loadImageSafely(ngSpr, "menus/titlescreen/newgrounds_logo");
+        if (!loadedNG) loadedNG = AssetHelper.loadImageSafely(ngSpr, "newgrounds_logo");
+
         if (!loadedNG) {
             ngSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);
         }

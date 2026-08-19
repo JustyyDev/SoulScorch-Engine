@@ -5,7 +5,7 @@ import flixel.util.FlxColor;
 
 class LocalizedText extends FlxText {
     public var localizationKey(default, set):String;
-    public var tokens:Map<String, Dynamic> = new Map();
+    public var tokens:Map<String, Dynamic> = new Map<String, Dynamic>();
 
     public function new(x:Float = 0, y:Float = 0, fieldWidth:Float = 0, key:String = "", size:Int = 16) {
         super(x, y, fieldWidth, "", size);

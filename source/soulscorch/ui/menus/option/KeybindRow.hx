@@ -1,8 +1,9 @@
 package soulscorch.ui.menus.option;
 
-import flixel.FlxBasic;
+import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
@@ -10,33 +11,34 @@ import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.InputMap;
 
-class KeybindRow extends flixel.group.FlxSpriteGroup {
+class KeybindRow extends FlxSpriteGroup {
     public var label:FlxText;
     public var keyText:FlxText;
     public var rowBg:FlxSprite;
     public var activeIndicator:FlxSprite;
     public var actionName:String;
 
-    private var targetAlpha:Float = 0.0;
+    public var targetY:Float = 0;
+    public var isSelected:Bool = false;
 
     public function new(x:Float, y:Float, width:Float, actionName:String, displayName:String) {
-        super();
+        super(x, y);
         this.actionName = actionName;
 
-        rowBg = new FlxSprite(x, y).makeGraphic(Std.int(width), 46, 0xFF171321);
-        rowBg.alpha = 0.4;
+        rowBg = new FlxSprite(0, 0).makeGraphic(Std.int(width), 50, 0xFF171321);
+        rowBg.alpha = 0.35;
         add(rowBg);
 
-        activeIndicator = new FlxSprite(x + 4, y + 8).makeGraphic(6, 30, 0xFF00FFCC);
+        activeIndicator = new FlxSprite(0, 0).makeGraphic(6, 50, 0xFF00FFCC);
         activeIndicator.alpha = 0.0;
         add(activeIndicator);
 
-        label = new FlxText(x + 24, y + 12, width * 0.5, displayName, 18);
+        label = new FlxText(24, 14, width * 0.5, displayName, 18);
         label.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         label.borderSize = 1.0;
         add(label);
 
-        keyText = new FlxText(x + width * 0.4, y + 12, width * 0.55, "", 18);
+        keyText = new FlxText(width * 0.45, 14, width * 0.50, "", 18);
         keyText.setFormat(Paths.font("vcr"), 18, 0xFF00FFCC, RIGHT, OUTLINE, FlxColor.BLACK);
         keyText.borderSize = 1.0;
         add(keyText);
@@ -45,11 +47,11 @@ class KeybindRow extends flixel.group.FlxSpriteGroup {
     }
 
     public function setActive(active:Bool):Void {
+        isSelected = active;
         label.color = active ? 0xFF00FFCC : FlxColor.WHITE;
-        targetAlpha = active ? 0.85 : 0.2;
         
         FlxTween.cancelTweensOf(rowBg);
-        FlxTween.tween(rowBg, {alpha: targetAlpha}, 0.2, {ease: FlxEase.quadOut});
+        FlxTween.tween(rowBg, {alpha: active ? 0.85 : 0.25}, 0.2, {ease: FlxEase.quadOut});
 
         FlxTween.cancelTweensOf(activeIndicator);
         FlxTween.tween(activeIndicator, {alpha: active ? 1.0 : 0.0}, 0.2, {ease: FlxEase.quadOut});
@@ -67,13 +69,12 @@ class KeybindRow extends flixel.group.FlxSpriteGroup {
     public function refreshKeyLabel():Void {
         var primaryKey = InputMap.getKeyLabel(actionName, 0);
         keyText.text = '[ $primaryKey ]';
-        keyText.color = 0xFF00FFCC;
+        keyText.color = isSelected ? 0xFF00FFCC : 0xFF88EEEE;
     }
 
-    public function setRowVisible(rowVisible:Bool):Void {
-        rowBg.visible = rowVisible;
-        label.visible = rowVisible;
-        keyText.visible = rowVisible;
-        activeIndicator.visible = rowVisible;
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
+        var lerpFactor = FlxMath.bound(elapsed * 12.0, 0, 1);
+        y = FlxMath.lerp(y, targetY, lerpFactor);
     }
 }

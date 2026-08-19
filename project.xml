@@ -21,8 +21,8 @@
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
 	<haxelib name="hxCodec" if="SOULSCORCH_VIDEO_HXCODEC" />
 
-	<!-- Discord Rich Presence (Desktop C++ Only, excluding macOS/iOS) -->
-	<haxelib name="hxdiscord_rpc" if="windows || linux" />
+	<!-- Discord Rich Presence (All Desktop C++ Targets) -->
+	<haxelib name="hxdiscord_rpc" if="desktop" unless="mobile" />
 
 	<!-- Custom Application Icons -->
 	<icon path="art/iconOG.png" />
@@ -35,7 +35,7 @@
 
 	<!-- Android Configuration -->
 	<config:android minimum-sdk-version="21" target-sdk-version="34" if="android" />
-	<setenv name="ANDROID_PERMISSIONS" value="android.permission.READ_EXTERNAL_STORAGE,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.INTERNET,android.permission.VIBRATE,android.permission.WAKE_LOCK" if="android" />
+	<setenv name="ANDROID_PERMISSIONS" value="android.permission.READ_EXTERNAL_STORAGE,android.permission.WRITE_EXTERNAL_STORAGE,android.permission.INTERNET,android.permission.VIBRATE,android.permission.WAKE_LOCK,android.permission.ACCESS_NETWORK_STATE" if="android" />
 
 	<!-- iOS Configuration -->
 	<ios deployment="13.0" devices="universal" if="ios" />
@@ -47,6 +47,10 @@
 	<assets path="mods" embed="false" unless="mobile" />
 
 	<!-- Core Asset Pipelines -->
+	<assets path="assets" rename="assets" exclude="*.ogg" if="web" />
+	<assets path="assets" rename="assets" exclude="*.mp3" unless="web" embed="false" />
+	<assets path="assets" rename="assets" embed="true" if="mobile" />
+
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
 	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" embed="false" />
 	<assets path="assets/preload" rename="assets" embed="true" if="mobile" />
@@ -54,6 +58,13 @@
 	<assets path="assets/shared" rename="assets/shared" exclude="*.ogg" if="web" />
 	<assets path="assets/shared" rename="assets/shared" exclude="*.mp3" unless="web" embed="false" />
 	<assets path="assets/shared" rename="assets/shared" embed="true" if="mobile" />
+
+	<!-- Standalone Engine Data Folders -->
+	<assets path="data" rename="data" embed="false" unless="mobile" />
+	<assets path="data" rename="data" embed="true" if="mobile" />
+
+	<assets path="songs" rename="songs" exclude="*.mp3" unless="web" embed="false" />
+	<assets path="songs" rename="songs" embed="true" if="mobile" />
 
 	<!-- Engine Optimization & Crash Prevention Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
@@ -86,6 +97,7 @@
 		<dependency name="dwmapi.lib" />
 		<dependency name="user32.lib" />
 		<dependency name="shell32.lib" />
+		<dependency name="gdi32.lib" />
 
 		<!-- Enable Pre-Compiled Headers for Rapid Compilation -->
 		<set name="HXCPP_PCH" value="1" />
@@ -95,7 +107,13 @@
 		<copy file="${haxelib:hxdiscord_rpc}/lib/windows/discord-rpc.dll" to="discord-rpc.dll" if="cpp" />
 	</section>
 
-	<!-- Embedded Stripping -->
+	<!-- Linux Desktop Flags & Libraries -->
+	<section if="linux">
+		<dependency name="libudev" />
+		<dependency name="libdbus-1" />
+	</section>
+
+	<!-- Mobile / Web Embedded Stripping -->
 	<haxedef name="openfl-disable-mouse" if="mobile" />
 	<haxedef name="disable-cffi" if="cppia" />
 </project>

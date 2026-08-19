@@ -1,6 +1,8 @@
 package soulscorch.gameplay;
 
+import flixel.FlxG;
 import haxe.Json;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
@@ -11,8 +13,8 @@ import sys.io.File;
 #end
 
 class GameplayFlags {
-    public static var active:Map<String, Dynamic> = new Map();
-    public static var defaults:Map<String, Dynamic> = new Map();
+    public static var active:Map<String, Dynamic> = new Map<String, Dynamic>();
+    public static var defaults:Map<String, Dynamic> = new Map<String, Dynamic>();
 
     public static function reset():Void {
         active.clear();
@@ -38,6 +40,22 @@ class GameplayFlags {
         defaults.set("flashingLights", true);
         defaults.set("botplay", false);
 
+        // Pull active user preferences from Runtime configuration
+        if (Runtime.config != null) {
+            defaults.set("ghostTapping", Runtime.config.ghostTapping);
+            defaults.set("downscroll", Runtime.config.downscroll);
+            defaults.set("flashingLights", Runtime.config.flashingLights);
+            defaults.set("antialiasing", Runtime.config.antialiasing);
+        }
+
+        // Pull active saved options from SaveData / FlxG.save
+        if (FlxG.save != null && FlxG.save.data != null) {
+            if (FlxG.save.data.ghostTapping != null) defaults.set("ghostTapping", FlxG.save.data.ghostTapping);
+            if (FlxG.save.data.downscroll != null) defaults.set("downscroll", FlxG.save.data.downscroll);
+            if (FlxG.save.data.middlescroll != null) defaults.set("middlescroll", FlxG.save.data.middlescroll);
+            if (FlxG.save.data.botplay != null) defaults.set("botplay", FlxG.save.data.botplay);
+        }
+
         for (key => value in defaults) {
             if (!active.exists(key)) {
                 active.set(key, value);
@@ -46,24 +64,30 @@ class GameplayFlags {
     }
 
     public static function set(key:String, value:Dynamic):Dynamic {
-        active.set(normalizeKey(key), value);
+        var normKey = normalizeKey(key);
+        active.set(normKey, value);
         return value;
     }
 
+    public static function has(key:String):Bool {
+        var normKey = normalizeKey(key);
+        return active.exists(normKey) || defaults.exists(normKey);
+    }
+
     public static function get(key:String, fallback:Dynamic = null):Dynamic {
-        var normalized:String = normalizeKey(key);
-        if (active.exists(normalized)) {
-            return active.get(normalized);
+        var normKey = normalizeKey(key);
+        if (active.exists(normKey)) {
+            return active.get(normKey);
         }
-        if (defaults.exists(normalized)) {
-            return defaults.get(normalized);
+        if (defaults.exists(normKey)) {
+            return defaults.get(normKey);
         }
         return fallback;
     }
 
     public static function getBool(key:String, fallback:Bool = false):Bool {
         var value:Dynamic = get(key, fallback);
-        return value == true || value == "true" || value == 1;
+        return value == true || value == "true" || value == 1 || value == "1";
     }
 
     public static function getFloat(key:String, fallback:Float = 0.0):Float {
@@ -93,6 +117,21 @@ class GameplayFlags {
         return fallback;
     }
 
+    public static function getString(key:String, fallback:String = ""):String {
+        var value:Dynamic = get(key, fallback);
+        return (value != null) ? Std.string(value) : fallback;
+    }
+
+    public static function toggle(key:String):Bool {
+        var current = getBool(key, false);
+        set(key, !current);
+        return !current;
+    }
+
+    public static function remove(key:String):Void {
+        active.remove(normalizeKey(key));
+    }
+
     public static function normalizeKey(rawKey:String):String {
         if (rawKey == null) return "";
         var key:String = StringTools.trim(rawKey);
@@ -106,7 +145,7 @@ class GameplayFlags {
     public static function applyFlagString(flagString:String):Void {
         if (flagString == null) return;
         var cleaned:String = StringTools.trim(flagString);
-        if (cleaned == "") return;
+        if (cleaned.length == 0) return;
 
         if (cleaned.indexOf("=") == -1) {
             set(cleaned, true);
@@ -146,7 +185,6 @@ class GameplayFlags {
         reset();
 
         #if sys
-        // Load exclusively from active enabled mods to prevent inactive mods leaking flags
         if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
             for (modName in ModManager.activeMods) {
                 var fullDir:String = 'mods/$modName';
@@ -160,22 +198,32 @@ class GameplayFlags {
 
     public static function loadModFlags(modDirectory:String):Void {
         #if sys
-        var jsonPath:String = '$modDirectory/soulmod.json';
-        if (FileSystem.exists(jsonPath)) {
-            try {
-                var raw:String = File.getContent(jsonPath);
-                var parsed:Dynamic = Json.parse(raw);
+        var manifestCandidates = [
+            '$modDirectory/soulmod.json',
+            '$modDirectory/mod.json',
+            '$modDirectory/config.json'
+        ];
 
-                if (Reflect.hasField(parsed, "flags")) {
-                    var flags:Array<Dynamic> = Reflect.field(parsed, "flags");
-                    for (flag in flags) {
-                        if (Std.isOfType(flag, String)) {
-                            applyFlagString(cast flag);
+        for (jsonPath in manifestCandidates) {
+            if (FileSystem.exists(jsonPath)) {
+                try {
+                    var raw:String = File.getContent(jsonPath);
+                    var parsed:Dynamic = Json.parse(raw);
+
+                    if (Reflect.hasField(parsed, "flags")) {
+                        var flags:Array<Dynamic> = Reflect.field(parsed, "flags");
+                        if (flags != null) {
+                            for (flag in flags) {
+                                if (Std.isOfType(flag, String)) {
+                                    applyFlagString(cast flag);
+                                }
+                            }
                         }
                     }
+                } catch (e:Dynamic) {
+                    Logger.warn('Failed parsing flags in $jsonPath: $e', "flags");
                 }
-            } catch (e:Dynamic) {
-                Logger.warn('Failed parsing flags in $jsonPath: $e', "flags");
+                break;
             }
         }
 

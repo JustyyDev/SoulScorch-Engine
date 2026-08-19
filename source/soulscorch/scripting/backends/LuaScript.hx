@@ -16,11 +16,12 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptInstance;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
+import llua.Lua_helper;
 import llua.State;
 #end
 
@@ -34,10 +35,10 @@ class LuaScript implements ScriptInstance {
     public var luaState:State;
     #end
 
-    private var variables:Map<String, Dynamic> = new Map();
-    private var luaSprites:Map<String, FlxSprite> = new Map();
-    private var luaTweens:Map<String, FlxTween> = new Map();
-    private var luaTimers:Map<String, FlxTimer> = new Map();
+    private var variables:Map<String, Dynamic> = new Map<String, Dynamic>();
+    private var luaSprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
+    private var luaTweens:Map<String, FlxTween> = new Map<String, FlxTween>();
+    private var luaTimers:Map<String, FlxTimer> = new Map<String, FlxTimer>();
 
     public function new(scriptPath:String) {
         this.path = (scriptPath == null) ? "" : scriptPath;
@@ -45,7 +46,7 @@ class LuaScript implements ScriptInstance {
     }
 
     public function load():Bool {
-        var fullPath = ModLoader.getPath(path);
+        var fullPath = ModManager.getPath(path);
         if (!AssetResolver.exists(fullPath)) {
             active = false;
             return false;
@@ -94,10 +95,14 @@ class LuaScript implements ScriptInstance {
 
         Lua_helper.add_callback(luaState, "makeLuaSprite", makeLuaSprite);
         Lua_helper.add_callback(luaState, "makeAnimatedLuaSprite", makeAnimatedLuaSprite);
+        Lua_helper.add_callback(luaState, "addAnimationByPrefix", addAnimationByPrefix);
+        Lua_helper.add_callback(luaState, "addAnimationByIndices", addAnimationByIndices);
+        Lua_helper.add_callback(luaState, "playAnim", playAnim);
         Lua_helper.add_callback(luaState, "addLuaSprite", addLuaSprite);
         Lua_helper.add_callback(luaState, "removeLuaSprite", removeLuaSprite);
         Lua_helper.add_callback(luaState, "setScrollFactor", setScrollFactor);
         Lua_helper.add_callback(luaState, "scaleObject", scaleObject);
+        Lua_helper.add_callback(luaState, "setObjectCamera", setObjectCamera);
 
         Lua_helper.add_callback(luaState, "doTweenX", doTweenX);
         Lua_helper.add_callback(luaState, "doTweenY", doTweenY);
@@ -108,12 +113,15 @@ class LuaScript implements ScriptInstance {
         Lua_helper.add_callback(luaState, "cameraFlash", cameraFlash);
 
         Lua_helper.add_callback(luaState, "playSound", playSound);
+        Lua_helper.add_callback(luaState, "getSongPosition", function() return Conductor.songPosition);
+        Lua_helper.add_callback(luaState, "getCurBeat", function() return Conductor.curBeat);
+        Lua_helper.add_callback(luaState, "getCurStep", function() return Conductor.curStep);
     }
     #end
 
     public function makeLuaSprite(tag:String, image:String, x:Float = 0, y:Float = 0):Void {
         var sprite = new FlxSprite(x, y);
-        if (image != null && image.length > 0) {
+        if (image != null && image.trim().length > 0) {
             AssetHelper.loadGraphicSafely(sprite, image);
         } else {
             sprite.makeGraphic(64, 64, FlxColor.WHITE);
@@ -125,6 +133,32 @@ class LuaScript implements ScriptInstance {
         var sprite = new FlxSprite(x, y);
         AssetHelper.loadSparrowSafely(sprite, image);
         luaSprites.set(tag, sprite);
+    }
+
+    public function addAnimationByPrefix(tag:String, name:String, prefix:String, framerate:Int = 24, loop:Bool = true):Void {
+        var spr = luaSprites.get(tag);
+        if (spr != null && spr.animation != null) {
+            spr.animation.addByPrefix(name, prefix, framerate, loop);
+        }
+    }
+
+    public function addAnimationByIndices(tag:String, name:String, prefix:String, indicesStr:String, framerate:Int = 24):Void {
+        var spr = luaSprites.get(tag);
+        if (spr != null && spr.animation != null) {
+            var indices:Array<Int> = [];
+            for (p in indicesStr.split(",")) {
+                var parsed = Std.parseInt(p.trim());
+                if (parsed != null) indices.push(parsed);
+            }
+            spr.animation.addByIndices(name, prefix, indices, "", framerate, false);
+        }
+    }
+
+    public function playAnim(tag:String, name:String, forced:Bool = false):Void {
+        var spr = luaSprites.get(tag);
+        if (spr != null && spr.animation != null) {
+            spr.animation.play(name, forced);
+        }
     }
 
     public function addLuaSprite(tag:String, inFront:Bool = false):Void {
@@ -159,6 +193,14 @@ class LuaScript implements ScriptInstance {
         if (sprite != null) {
             sprite.scale.set(scaleX, scaleY);
             sprite.updateHitbox();
+        }
+    }
+
+    public function setObjectCamera(tag:String, cameraName:String):Void {
+        var sprite = luaSprites.get(tag);
+        if (sprite != null) {
+            var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") ? getProperty(FlxG.state, "camHUD") : FlxG.camera;
+            if (cam != null) sprite.cameras = [cam];
         }
     }
 

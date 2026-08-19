@@ -2,15 +2,19 @@ package soulscorch.ui.hud;
 
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
+import flixel.text.FlxText;
+import flixel.ui.FlxButton;
+import flixel.util.FlxColor;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 class UILayout extends FlxGroup {
-    public var sprites:Map<String, FlxSprite> = new Map();
-    public var alphabets:Map<String, Alphabet> = new Map();
+    public var sprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
+    public var alphabets:Map<String, Alphabet> = new Map<String, Alphabet>();
     private var unnamedCount:Int = 0;
 
     public function new(xmlPath:String) {
@@ -21,7 +25,7 @@ class UILayout extends FlxGroup {
     }
 
     public function loadLayout(localPath:String):Void {
-        var resolvedPath = ModLoader.getPath(localPath);
+        var resolvedPath = ModManager.getPath(localPath);
 
         if (!AssetResolver.exists(resolvedPath)) {
             Logger.error('Layout XML missing at path: $resolvedPath', "ui");
@@ -53,7 +57,7 @@ class UILayout extends FlxGroup {
                 var spr = new FlxSprite(x, y);
 
                 if (node.has.image) {
-                    var imgPath = 'images/' + node.att.image;
+                    var imgPath = node.att.image;
                     AssetHelper.loadGraphicSafely(spr, imgPath);
                 }
 
@@ -69,6 +73,14 @@ class UILayout extends FlxGroup {
                 sprites.set(id, spr);
                 add(spr);
 
+            case "box":
+                var w:Int = node.has.width ? Std.parseInt(node.att.width) : 100;
+                var h:Int = node.has.height ? Std.parseInt(node.att.height) : 100;
+                var col:FlxColor = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                var box = new FlxSprite(x, y).makeGraphic(w, h, col);
+                sprites.set(id, box);
+                add(box);
+
             case "alphabet":
                 var text = node.has.text ? node.att.text : "";
                 var isBold = node.has.bold ? (node.att.bold == "true") : false;
@@ -76,10 +88,6 @@ class UILayout extends FlxGroup {
                 var alpha = new Alphabet(x, y, text, isBold);
                 alphabets.set(id, alpha);
                 add(alpha);
-
-                if (alpha.letters.length > 0) {
-                    sprites.set(id, alpha.letters[0]);
-                }
         }
     }
 

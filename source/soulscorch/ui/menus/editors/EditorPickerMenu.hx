@@ -10,6 +10,8 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.CharacterEditorState;
 import soulscorch.ui.menus.editors.ChartingState;
@@ -29,9 +31,22 @@ class EditorPickerMenu extends MusicBeatState {
 
     private var grpOptions:FlxTypedGroup<Alphabet>;
     private var bg:FlxSprite;
+    private var descText:FlxText;
+    private var mobileControls:MobilePad;
+
+    private var descriptions:Array<String> = [
+        "Edit note placements, BPM changes, and timing charts.",
+        "Configure character sprites, Sparrow atlases, and animation offsets.",
+        "Construct stage layouts, parallax backgrounds, and actor spawns.",
+        "Program custom camera modcharts, receptor rotations, and lane shaders."
+    ];
 
     override public function create():Void {
         super.create();
+
+        #if desktop
+        DiscordRPC.changePresence("Developer Suite", "Browsing Engine Editors");
+        #end
 
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
@@ -42,10 +57,10 @@ class EditorPickerMenu extends MusicBeatState {
         bg.antialiasing = true;
         add(bg);
 
-        var titleBox = new FlxSprite(0, 0).makeGraphic(FlxG.width, 100, 0xAA000000);
+        var titleBox = new FlxSprite(0, 0).makeGraphic(FlxG.width, 85, 0xEE0B0910);
         add(titleBox);
 
-        var title = new Alphabet(0, 20, "SOULSCORCH EDITORS", true);
+        var title = new Alphabet(0, 16, "SOULSCORCH EDITORS", true);
         title.screenCenter(X);
         add(title);
 
@@ -53,13 +68,27 @@ class EditorPickerMenu extends MusicBeatState {
         add(grpOptions);
 
         for (i in 0...options.length) {
-            var opt = new Alphabet(0, (i * 100) + 160, options[i], true);
+            var opt = new Alphabet(0, (i * 90) + 140, options[i], true);
             opt.isMenuItem = true;
             opt.targetY = i;
             opt.screenCenter(X);
             opt.ID = i;
             grpOptions.add(opt);
         }
+
+        var descBox = new FlxSprite(0, FlxG.height - 65).makeGraphic(FlxG.width, 65, 0xEE0B0910);
+        add(descBox);
+
+        descText = new FlxText(20, FlxG.height - 44, FlxG.width - 40, "", 16);
+        descText.setFormat(Paths.font("vcr"), 16, 0xFF00FFCC, CENTER, OUTLINE, FlxColor.BLACK);
+        descText.borderSize = 1.0;
+        add(descText);
+
+        #if (mobile || debug)
+        mobileControls = new MobilePad(FULL, A_B);
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
 
         changeSelection();
     }
@@ -88,8 +117,10 @@ class EditorPickerMenu extends MusicBeatState {
         for (i in 0...grpOptions.members.length) {
             var item = grpOptions.members[i];
             item.targetY = i - curSelected;
-            item.alpha = (i == curSelected ? 1.0 : 0.45);
+            item.alpha = (i == curSelected ? 1.0 : 0.4);
         }
+
+        descText.text = descriptions[curSelected];
     }
 
     private function selectOption(option:String):Void {
@@ -105,5 +136,10 @@ class EditorPickerMenu extends MusicBeatState {
             default:
                 AssetHelper.playSoundSafely("cancelMenu", 0.7);
         }
+    }
+
+    override public function destroy():Void {
+        Controls.instance.unbindMobilePad();
+        super.destroy();
     }
 }

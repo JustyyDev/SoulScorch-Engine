@@ -1,7 +1,6 @@
 package soulscorch.scripting.backends;
 
 import soulscorch.scripting.ScriptInstance;
-import soulscorch.scripting.soul.SoulScript;
 
 using StringTools;
 
@@ -15,11 +14,11 @@ enum abstract ScriptBackendType(String) from String to String {
         if (path == null) return UNKNOWN;
         var clean = path.toLowerCase().trim();
 
-        if (StringTools.endsWith(clean, ".hx") || StringTools.endsWith(clean, ".hscript")) {
+        if (clean.endsWith(".hx") || clean.endsWith(".hscript")) {
             return HSCRIPT;
-        } else if (StringTools.endsWith(clean, ".lua")) {
+        } else if (clean.endsWith(".lua")) {
             return LUA;
-        } else if (StringTools.endsWith(clean, ".soul")) {
+        } else if (clean.endsWith(".soul")) {
             return SOULSCRIPT;
         }
         return UNKNOWN;

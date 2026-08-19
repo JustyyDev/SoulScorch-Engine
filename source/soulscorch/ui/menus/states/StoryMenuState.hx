@@ -6,43 +6,44 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
+import haxe.Json;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
+import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.song.Difficulty;
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.states.MainMenuState;
+
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+#end
+
+using StringTools;
 
 typedef WeekData = {
     var id:String;
     var name:String;
     var songs:Array<String>;
     var characters:Array<String>;
+    var ?color:String;
+    var ?difficulties:Array<String>;
 }
 
 class StoryMenuState extends MusicBeatState {
     public static var curWeek:Int = 0;
     public static var curDifficulty:Int = 1;
 
-    private var weeks:Array<WeekData> = [
-        {
-            id: "week0",
-            name: "TEACHING TIME",
-            songs: ["Tutorial"],
-            characters: ["dad", "bf", "gf"]
-        },
-        {
-            id: "week1",
-            name: "SCORCHED CAMPAIGN",
-            songs: ["Bopeebo", "Fresh", "Dad Battle"],
-            characters: ["dad", "bf", "gf"]
-        }
-    ];
-
+    private var weeks:Array<WeekData> = [];
     private var grpWeekTitles:FlxTypedGroup<FlxText>;
+    private var grpWeekCharacters:FlxTypedGroup<Character>;
     private var diffText:FlxText;
     private var tracklistText:FlxText;
     private var yellowBg:FlxSprite;
@@ -55,8 +56,13 @@ class StoryMenuState extends MusicBeatState {
         DiscordRPC.changePresence("Story Menu", "Selecting Campaign Week");
         #end
 
+        loadWeeks();
+
         yellowBg = new FlxSprite(0, 56).makeGraphic(FlxG.width, 380, 0xFFF9CF51);
         add(yellowBg);
+
+        grpWeekCharacters = new FlxTypedGroup<Character>();
+        add(grpWeekCharacters);
 
         grpWeekTitles = new FlxTypedGroup<FlxText>();
         add(grpWeekTitles);
@@ -87,6 +93,54 @@ class StoryMenuState extends MusicBeatState {
         changeDifficulty();
     }
 
+    private function loadWeeks():Void {
+        weeks = [];
+
+        #if sys
+        var weekDirs = ["data/weeks", "assets/data/weeks"];
+        if (ModManager.activeMods != null) {
+            for (m in ModManager.activeMods) {
+                weekDirs.unshift('mods/$m/data/weeks');
+                weekDirs.unshift('mods/$m/weeks');
+            }
+        }
+
+        for (dir in weekDirs) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".json")) {
+                        try {
+                            var content = File.getContent('$dir/$file');
+                            var data:WeekData = Json.parse(content);
+                            if (data.id == null) data.id = file.substr(0, file.length - 5);
+                            weeks.push(data);
+                        } catch (e:Dynamic) {
+                            Logger.warn('Failed parsing week file $file: $e', "weeks");
+                        }
+                    }
+                }
+            }
+        }
+        #end
+
+        if (weeks.length == 0) {
+            weeks = [
+                {
+                    id: "week0",
+                    name: "TEACHING TIME",
+                    songs: ["Tutorial"],
+                    characters: ["dad", "bf", "gf"]
+                },
+                {
+                    id: "week1",
+                    name: "SCORCHED CAMPAIGN",
+                    songs: ["Bopeebo", "Fresh", "Dad Battle"],
+                    characters: ["dad", "bf", "gf"]
+                }
+            ];
+        }
+    }
+
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
@@ -105,7 +159,8 @@ class StoryMenuState extends MusicBeatState {
             if (currentWeek.songs != null && currentWeek.songs.length > 0) {
                 PlayState.curSong = currentWeek.songs[0].toLowerCase();
             }
-            PlayState.curDifficulty = Difficulty.defaultList[curDifficulty];
+            var diffs = (currentWeek.difficulties != null && currentWeek.difficulties.length > 0) ? currentWeek.difficulties : Difficulty.defaultList;
+            PlayState.curDifficulty = diffs[curDifficulty];
             MusicBeatState.switchState(new PlayState());
         }
     }
@@ -127,11 +182,21 @@ class StoryMenuState extends MusicBeatState {
             }
         }
         tracklistText.text = trackStr;
+
+        if (weeks[curWeek].color != null) {
+            yellowBg.color = FlxColor.fromString(weeks[curWeek].color);
+        } else {
+            yellowBg.color = 0xFFF9CF51;
+        }
+
+        curDifficulty = 0;
+        changeDifficulty();
     }
 
     private function changeDifficulty(change:Int = 0):Void {
-        curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.defaultList.length - 1);
-        var diff = Difficulty.defaultList[curDifficulty];
+        var diffs = (weeks[curWeek].difficulties != null && weeks[curWeek].difficulties.length > 0) ? weeks[curWeek].difficulties : Difficulty.defaultList;
+        curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
+        var diff = diffs[curDifficulty];
         diffText.text = '< ${diff.toUpperCase()} >';
         diffText.color = Difficulty.getColor(diff);
     }

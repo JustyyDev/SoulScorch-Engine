@@ -1,13 +1,16 @@
 package soulscorch.backend.localization;
 
 import haxe.Json;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 #end
+
+using StringTools;
 
 typedef LanguageChangedCallback = String->Void;
 
@@ -18,10 +21,13 @@ class LanguageManager {
     public var currentLanguage(default, null):String = "en";
     public var fallbackLanguage(default, null):String = "en";
 
-    private var strings:Map<String, String> = new Map();
+    private var strings:Map<String, String> = new Map<String, String>();
+    private var fallbackStrings:Map<String, String> = new Map<String, String>();
     private var callbacks:Array<LanguageChangedCallback> = [];
 
-    public function new() {}
+    public function new() {
+        loadFallback();
+    }
 
     public static inline function get_instance():LanguageManager {
         if (_instance == null) {
@@ -30,16 +36,23 @@ class LanguageManager {
         return _instance;
     }
 
+    private function loadFallback():Void {
+        fallbackStrings.clear();
+        loadTableIntoMap(fallbackLanguage, fallbackStrings);
+    }
+
     /**
-     * Loads a locale file, falling back to the default language if not found.
+     * Loads a locale file, falling back to the default language table if missing.
      */
     public function load(?lang:String):Bool {
-        var target:String = (lang != null && lang.length > 0) ? lang : currentLanguage;
-        var success:Bool = loadFile(target);
+        var target:String = (lang != null && lang.trim().length > 0) ? lang.trim().toLowerCase() : currentLanguage;
+        
+        strings.clear();
+        var success:Bool = loadTableIntoMap(target, strings);
 
         if (!success && target != fallbackLanguage) {
-            Logger.warn('Locale "$target" not found. Falling back to "$fallbackLanguage".');
-            success = loadFile(fallbackLanguage);
+            Logger.warn('Locale "$target" not found. Falling back to "$fallbackLanguage".', "i18n");
+            success = loadTableIntoMap(fallbackLanguage, strings);
         }
 
         if (success) {
@@ -56,7 +69,7 @@ class LanguageManager {
         var loaded:Bool = load(lang);
 
         if (loaded && previous != currentLanguage) {
-            Logger.info('Language switched from "$previous" to "$currentLanguage".');
+            Logger.info('Language switched from "$previous" to "$currentLanguage".', "i18n");
             for (callback in callbacks) {
                 if (callback != null) {
                     callback(currentLanguage);
@@ -70,11 +83,19 @@ class LanguageManager {
      * Resolves a key into translated text with token interpolation (e.g., {score}).
      */
     public function get(key:String, ?tokens:Map<String, Dynamic>):String {
-        var result:String = strings.exists(key) ? strings.get(key) : key;
+        var result:String = null;
+
+        if (strings.exists(key)) {
+            result = strings.get(key);
+        } else if (fallbackStrings.exists(key)) {
+            result = fallbackStrings.get(key);
+        } else {
+            result = key;
+        }
 
         if (tokens != null) {
             for (tokenName in tokens.keys()) {
-                result = StringTools.replace(result, '{$tokenName}', Std.string(tokens.get(tokenName)));
+                result = result.replace('{$tokenName}', Std.string(tokens.get(tokenName)));
             }
         }
         return result;
@@ -85,7 +106,7 @@ class LanguageManager {
     }
 
     public function has(key:String):Bool {
-        return strings.exists(key);
+        return strings.exists(key) || fallbackStrings.exists(key);
     }
 
     public function onLanguageChanged(callback:LanguageChangedCallback):Void {
@@ -98,34 +119,75 @@ class LanguageManager {
         callbacks.remove(callback);
     }
 
-    public function loadFile(lang:String):Bool {
-        var path:String = ModLoader.getPath('assets/locales/$lang.json');
-        if (path == null) {
-            path = ModLoader.getPath('locales/$lang.json');
-        }
+    public function getAvailableLanguages():Array<String> {
+        var langs:Array<String> = [];
+        var candidates = ["locales", "languages", "data/locales"];
 
         #if sys
-        if (path == null || !FileSystem.exists(path)) {
-            return false;
+        for (dir in candidates) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".json")) {
+                        var id = file.substr(0, file.length - 5).toLowerCase();
+                        if (!langs.contains(id)) langs.push(id);
+                    }
+                }
+            }
         }
 
-        try {
-            var rawContent:String = File.getContent(path);
-            var parsed:Dynamic = Json.parse(rawContent);
-            strings.clear();
-            flattenJson(parsed, "");
-            Logger.info('Loaded localization file: $path (${Lambda.count(strings)} entries)');
-            return true;
-        } catch (error:Dynamic) {
-            Logger.error('Failed parsing locale file "$path": $error');
-            return false;
+        if (ModManager.activeMods != null) {
+            for (mod in ModManager.activeMods) {
+                for (dir in candidates) {
+                    var full = 'mods/$mod/$dir';
+                    if (FileSystem.exists(full) && FileSystem.isDirectory(full)) {
+                        for (file in FileSystem.readDirectory(full)) {
+                            if (file.endsWith(".json")) {
+                                var id = file.substr(0, file.length - 5).toLowerCase();
+                                if (!langs.contains(id)) langs.push(id);
+                            }
+                        }
+                    }
+                }
+            }
         }
-        #else
-        return false;
         #end
+
+        if (langs.length == 0) langs = ["en"];
+        return langs;
     }
 
-    private function flattenJson(value:Dynamic, prefix:String):Void {
+    private function loadTableIntoMap(lang:String, targetMap:Map<String, String>):Bool {
+        var candidates = [
+            'locales/$lang',
+            'languages/$lang',
+            'data/locales/$lang',
+            'assets/locales/$lang',
+            'assets/languages/$lang'
+        ];
+
+        var resolved:String = null;
+        for (c in candidates) {
+            resolved = AssetResolver.resolveFile(c, [".json", ""]);
+            if (resolved != null) break;
+        }
+
+        if (resolved == null) return false;
+
+        try {
+            var rawContent = AssetResolver.getText(resolved);
+            if (rawContent.length == 0) return false;
+
+            var parsed:Dynamic = Json.parse(rawContent);
+            flattenJson(parsed, "", targetMap);
+            Logger.info('Loaded localization table: $resolved (${Lambda.count(targetMap)} keys)', "i18n");
+            return true;
+        } catch (e:Dynamic) {
+            Logger.error('Failed parsing localization file "$resolved": $e', "i18n");
+            return false;
+        }
+    }
+
+    private function flattenJson(value:Dynamic, prefix:String, targetMap:Map<String, String>):Void {
         if (value == null) return;
 
         for (field in Reflect.fields(value)) {
@@ -133,9 +195,9 @@ class LanguageManager {
             var child:Dynamic = Reflect.field(value, field);
 
             if (Reflect.isObject(child) && !Std.isOfType(child, String)) {
-                flattenJson(child, keyPath);
+                flattenJson(child, keyPath, targetMap);
             } else {
-                strings.set(keyPath, Std.string(child));
+                targetMap.set(keyPath, Std.string(child));
             }
         }
     }

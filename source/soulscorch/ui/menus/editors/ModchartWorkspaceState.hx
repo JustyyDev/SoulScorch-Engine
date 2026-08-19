@@ -15,8 +15,10 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.utils.Logger;
-import soulscorch.gameplay.modchart.ModchartWorkspaceMath;
 import soulscorch.gameplay.notes.Strumline;
+import soulscorch.ui.menus.editors.editorui.EditorButton;
+import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
+import soulscorch.ui.menus.editors.editorui.EditorWindow;
 import soulscorch.ui.menus.states.MainMenuState;
 
 using StringTools;
@@ -25,13 +27,11 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var camWorkspace:FlxCamera;
     private var camHUD:FlxCamera;
 
-    // --- Mock Strums & Test Notes ---
     private var playerStrums:Array<FlxSprite> = [];
     private var opponentStrums:Array<FlxSprite> = [];
     private var defaultPositions:Array<Array<Float>> = [];
     private var fallingNotesGroup:FlxSpriteGroup;
 
-    // --- Modchart Parameters ---
     private var drunkIntensity:Float = 0.0;
     private var tipsyIntensity:Float = 0.0;
     private var beatIntensity:Float = 0.0;
@@ -39,21 +39,18 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var stealthIntensity:Float = 0.0;
     private var strumSpeed:Float = 2.0;
 
-    // --- UI State ---
     private var selectedModIndex:Int = 0;
     private var modNames:Array<String> = ["Drunk", "Tipsy", "Beat Pulse", "Confusion (Spin)", "Stealth", "Scroll Speed"];
-    
-    // --- HUD Displays ---
+
+    private var toolWindow:EditorWindow;
     private var infoBox:FlxSprite;
     private var modifierListTxt:FlxText;
-    private var generatedCodeTxt:FlxText;
     private var toastTxt:FlxText;
     private var simSongTime:Float = 0.0;
 
     override public function create():Void {
         super.create();
 
-        // 1. Setup Camera Layers
         camWorkspace = new FlxCamera();
         camHUD = new FlxCamera();
         camHUD.bgColor.alpha = 0;
@@ -62,7 +59,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         FlxG.cameras.add(camHUD, false);
         FlxG.cameras.setDefaultDrawTarget(camWorkspace, true);
 
-        // Dark Canvas Background
         var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF14101E);
         bg.scrollFactor.set();
         add(bg);
@@ -73,11 +69,9 @@ class ModchartWorkspaceState extends MusicBeatState {
         fallingNotesGroup = new FlxSpriteGroup();
         add(fallingNotesGroup);
 
-        // 2. Build Mock Receptors
         createMockStrumlines();
-
-        // 3. Setup Workspace HUD
         setupHUD();
+        setupToolbox();
 
         updateModifierDisplay();
         FlxG.mouse.visible = true;
@@ -87,7 +81,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         var noteColors:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
         defaultPositions = [];
 
-        // Opponent Strums (Left)
         for (i in 0...4) {
             var xPos:Float = 120 + (i * 110);
             var yPos:Float = 80;
@@ -99,7 +92,6 @@ class ModchartWorkspaceState extends MusicBeatState {
             add(strum);
         }
 
-        // Player Strums (Right)
         for (i in 0...4) {
             var xPos:Float = (FlxG.width * 0.5) + 80 + (i * 110);
             var yPos:Float = 80;
@@ -112,7 +104,6 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function setupHUD():Void {
-        // Controls Sidebar (Left)
         infoBox = new FlxSprite(15, 15).makeGraphic(340, 360, 0xDD0D0A14);
         infoBox.scrollFactor.set();
         infoBox.cameras = [camHUD];
@@ -130,7 +121,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         modifierListTxt.cameras = [camHUD];
         add(modifierListTxt);
 
-        // Help Instructions (Right)
         var helpBox = new FlxSprite(FlxG.width - 355, 15).makeGraphic(340, 360, 0xDD0D0A14);
         helpBox.scrollFactor.set();
         helpBox.cameras = [camHUD];
@@ -145,8 +135,8 @@ class ModchartWorkspaceState extends MusicBeatState {
             "[1] - Preset: S-Curve Wave\n" +
             "[2] - Preset: Side Shuffle\n" +
             "[3] - Preset: Chaos Pulse\n" +
-            "[C] - Copy SoulScript Code\n" +
-            "[ESCAPE] - Exit to Menu",
+            "[C] - Copy SoulScript Event\n" +
+            "[ESCAPE] - Return to Menu",
             13
         );
         helpTxt.setFormat(Paths.font("vcr"), 13, 0xFFCCCCCC, LEFT);
@@ -154,12 +144,45 @@ class ModchartWorkspaceState extends MusicBeatState {
         helpTxt.cameras = [camHUD];
         add(helpTxt);
 
-        // Toast Feedback Alert
         toastTxt = new FlxText(0, FlxG.height - 50, FlxG.width, "", 16);
         toastTxt.setFormat(Paths.font("vcr"), 16, 0xFF00FF44, CENTER, OUTLINE, FlxColor.BLACK);
         toastTxt.scrollFactor.set();
         toastTxt.cameras = [camHUD];
         add(toastTxt);
+    }
+
+    private function setupToolbox():Void {
+        toolWindow = new EditorWindow(15, FlxG.height - 230, 340, 210, "Presets & Actions");
+        toolWindow.cameras = [camHUD];
+        add(toolWindow);
+
+        var btnPreset1 = new EditorButton(10, 10, 150, 30, "S-Curve Wave", function() {
+            applyPreset(1.0, 0.4, 0.0, 0.0, 0.0, "Preset 1: S-Curve Wave Loaded!");
+        });
+        toolWindow.addElement(btnPreset1);
+
+        var btnPreset2 = new EditorButton(170, 10, 150, 30, "Side Shuffle", function() {
+            applyPreset(0.0, 1.2, 0.8, 0.5, 0.0, "Preset 2: Side Shuffle Loaded!");
+        });
+        toolWindow.addElement(btnPreset2);
+
+        var btnPreset3 = new EditorButton(10, 50, 150, 30, "Chaos Pulse", function() {
+            applyPreset(1.5, 1.5, 1.2, 2.0, 0.3, "Preset 3: Chaos Pulse Loaded!");
+        });
+        toolWindow.addElement(btnPreset3);
+
+        var btnReset = new EditorButton(170, 50, 150, 30, "Reset All", function() {
+            drunkIntensity = tipsyIntensity = beatIntensity = confusionIntensity = stealthIntensity = 0.0;
+            strumSpeed = 2.0;
+            updateModifierDisplay();
+            showToast("Modifiers Reset to Default!");
+        });
+        toolWindow.addElement(btnReset);
+
+        var btnCopy = new EditorButton(10, 90, 310, 32, "Copy SoulScript Event (C)", function() {
+            copySoulScriptToClipboard();
+        });
+        toolWindow.addElement(btnCopy);
     }
 
     override public function update(elapsed:Float):Void {
@@ -173,7 +196,6 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function handleInput():Void {
-        // Selection Navigation
         if (FlxG.keys.justPressed.W) {
             selectedModIndex = FlxMath.wrap(selectedModIndex - 1, 0, modNames.length - 1);
             updateModifierDisplay();
@@ -185,16 +207,14 @@ class ModchartWorkspaceState extends MusicBeatState {
             AssetHelper.playSoundSafely("scrollMenu", 0.6);
         }
 
-        // Value Tuning
         var step:Float = FlxG.keys.pressed.SHIFT ? 0.25 : 0.05;
-        if (FlxG.keys.justPressed.LEFT || FlxG.keys.pressed.LEFT && FlxG.keys.pressed.CONTROL) {
+        if (FlxG.keys.justPressed.LEFT || (FlxG.keys.pressed.LEFT && FlxG.keys.pressed.CONTROL)) {
             adjustModifier(selectedModIndex, -step);
         }
-        if (FlxG.keys.justPressed.RIGHT || FlxG.keys.pressed.RIGHT && FlxG.keys.pressed.CONTROL) {
+        if (FlxG.keys.justPressed.RIGHT || (FlxG.keys.pressed.RIGHT && FlxG.keys.pressed.CONTROL)) {
             adjustModifier(selectedModIndex, step);
         }
 
-        // Reset
         if (FlxG.keys.justPressed.R) {
             drunkIntensity = tipsyIntensity = beatIntensity = confusionIntensity = stealthIntensity = 0.0;
             strumSpeed = 2.0;
@@ -202,17 +222,14 @@ class ModchartWorkspaceState extends MusicBeatState {
             showToast("Modifiers Reset to Default!");
         }
 
-        // Presets
         if (FlxG.keys.justPressed.ONE) applyPreset(1.0, 0.4, 0.0, 0.0, 0.0, "Preset 1: S-Curve Wave Loaded!");
         if (FlxG.keys.justPressed.TWO) applyPreset(0.0, 1.2, 0.8, 0.5, 0.0, "Preset 2: Side Shuffle Loaded!");
         if (FlxG.keys.justPressed.THREE) applyPreset(1.5, 1.5, 1.2, 2.0, 0.3, "Preset 3: Chaos Pulse Loaded!");
 
-        // Export Code to Clipboard
         if (FlxG.keys.justPressed.C) {
             copySoulScriptToClipboard();
         }
 
-        // Exit
         if (FlxG.keys.justPressed.ESCAPE) {
             MusicBeatState.switchState(new MainMenuState());
         }
@@ -241,13 +258,9 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function applyLiveModcharts():Void {
-        // Update Player Strum positions
         for (i in 0...4) {
             var def = defaultPositions[i + 4];
-            var transformed = ModchartWorkspaceMath.applyModifiers(
-                def[0], def[1], i, simSongTime, 
-                drunkIntensity, tipsyIntensity, beatIntensity, confusionIntensity, stealthIntensity
-            );
+            var transformed = calculateModifiers(def[0], def[1], i, simSongTime, drunkIntensity, tipsyIntensity, beatIntensity, confusionIntensity, stealthIntensity);
 
             var spr = playerStrums[i];
             spr.x = transformed.x;
@@ -256,13 +269,9 @@ class ModchartWorkspaceState extends MusicBeatState {
             spr.alpha = transformed.alpha;
         }
 
-        // Update Opponent Strum positions (mild counter-balance)
         for (i in 0...4) {
             var def = defaultPositions[i];
-            var transformed = ModchartWorkspaceMath.applyModifiers(
-                def[0], def[1], i, simSongTime + 500, 
-                drunkIntensity * 0.5, tipsyIntensity * 0.5, beatIntensity * 0.5, confusionIntensity * 0.2, 0.0
-            );
+            var transformed = calculateModifiers(def[0], def[1], i, simSongTime + 500, drunkIntensity * 0.5, tipsyIntensity * 0.5, beatIntensity * 0.5, confusionIntensity * 0.2, 0.0);
 
             var spr = opponentStrums[i];
             spr.x = transformed.x;
@@ -271,8 +280,33 @@ class ModchartWorkspaceState extends MusicBeatState {
         }
     }
 
+    private function calculateModifiers(baseX:Float, baseY:Float, lane:Int, time:Float, drunk:Float, tipsy:Float, beat:Float, confusion:Float, stealth:Float):{x:Float, y:Float, angle:Float, alpha:Float} {
+        var resX:Float = baseX;
+        var resY:Float = baseY;
+        var resAngle:Float = 0.0;
+        var resAlpha:Float = 1.0 - stealth;
+
+        if (drunk != 0) {
+            resX += Math.cos((time * 0.004) + (lane * 0.5)) * (drunk * 35.0);
+        }
+
+        if (tipsy != 0) {
+            resY += Math.sin((time * 0.005) + (lane * 1.2)) * (tipsy * 30.0);
+        }
+
+        if (beat != 0) {
+            var beatWave = Math.sin((time * 0.006) + (lane * 0.25));
+            if (beatWave > 0) resX += beatWave * (beat * 20.0);
+        }
+
+        if (confusion != 0) {
+            resAngle = ((time * 0.15 * confusion) + (lane * 45.0)) % 360.0;
+        }
+
+        return {x: resX, y: resY, angle: resAngle, alpha: resAlpha};
+    }
+
     private function spawnContinuousTestNotes(elapsed:Float):Void {
-        // Clean up notes off-screen
         fallingNotesGroup.forEachAlive(function(note:FlxSprite) {
             note.y -= elapsed * 400.0 * strumSpeed;
             if (note.y < -100) {
@@ -300,7 +334,6 @@ class ModchartWorkspaceState extends MusicBeatState {
     private function copySoulScriptToClipboard():Void {
         var code = '# Generated by SoulScorch Modchart Workspace\n' +
                    'on event("Modchart Pulse"):\n' +
-                   '    # Apply live workspace values\n' +
                    '    modchart.drunk -> $drunkIntensity in 0.5s (cubeOut)\n' +
                    '    modchart.tipsy -> $tipsyIntensity in 0.5s (cubeOut)\n' +
                    '    modchart.confusion -> $confusionIntensity in 0.5s (elasticOut)\n' +

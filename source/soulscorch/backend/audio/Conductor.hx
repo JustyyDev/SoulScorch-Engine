@@ -23,6 +23,9 @@ class Conductor {
     public static var curStep:Int = 0;
     public static var curMeasure:Int = 0;
 
+    public static var curDecBeat:Float = 0.0;
+    public static var curDecStep:Float = 0.0;
+
     public static var bpmChangeMap:Array<BPMChangeEvent> = [];
 
     public static function changeBPM(newBpm:Float):Void {
@@ -36,8 +39,6 @@ class Conductor {
         bpmChangeMap = [];
 
         var curBPM:Float = (chart != null && chart.bpm > 0) ? chart.bpm : bpm;
-        var totalSteps:Int = 0;
-        var totalPos:Float = 0.0;
 
         bpmChangeMap.push({
             stepTime: 0,
@@ -53,7 +54,7 @@ class Conductor {
                     if (!Math.isNaN(newBpmVal) && newBpmVal > 0) {
                         var eventCrochet = ((60.0 / newBpmVal) * 1000.0) / 4.0;
                         bpmChangeMap.push({
-                            stepTime: Math.floor(e.time / eventCrochet),
+                            stepTime: 0,
                             songTime: e.time,
                             bpm: newBpmVal,
                             stepCrochet: eventCrochet
@@ -61,6 +62,19 @@ class Conductor {
                     }
                 }
             }
+        }
+
+        // Sort chronologically
+        bpmChangeMap.sort(function(a, b) return (a.songTime < b.songTime) ? -1 : 1);
+
+        // Calculate step intervals based on preceding BPMs
+        var totalSteps:Int = 0;
+        for (i in 1...bpmChangeMap.length) {
+            var prev = bpmChangeMap[i - 1];
+            var cur = bpmChangeMap[i];
+            var diff = cur.songTime - prev.songTime;
+            totalSteps += Math.round(diff / prev.stepCrochet);
+            cur.stepTime = totalSteps;
         }
 
         safeZoneOffset = (safeFrames / 60.0) * 1000.0;
@@ -84,12 +98,16 @@ class Conductor {
     }
 
     public static function update(elapsed:Float):Void {
-        var lastChange = getBPMAtTime(songPosition);
+        var adjustedPos:Float = songPosition - offset;
+        var lastChange = getBPMAtTime(adjustedPos);
         var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) ? lastChange.stepCrochet : stepCrochet;
 
-        curStep = lastChange.stepTime + Math.floor((songPosition - lastChange.songTime) / currentStepCrochet);
-        curBeat = Math.floor(curStep / 4);
-        curMeasure = Math.floor(curBeat / 4);
+        curDecStep = lastChange.stepTime + ((adjustedPos - lastChange.songTime) / currentStepCrochet);
+        curDecBeat = curDecStep / 4.0;
+
+        curStep = Math.floor(curDecStep);
+        curBeat = Math.floor(curDecBeat);
+        curMeasure = Math.floor(curBeat / 4.0);
     }
 
     public static function reset():Void {
@@ -97,9 +115,12 @@ class Conductor {
         crochet = ((60.0 / bpm) * 1000.0);
         stepCrochet = (crochet / 4.0);
         songPosition = 0.0;
+        offset = 0.0;
         curBeat = 0;
         curStep = 0;
         curMeasure = 0;
+        curDecBeat = 0.0;
+        curDecStep = 0.0;
         bpmChangeMap = [];
     }
 }

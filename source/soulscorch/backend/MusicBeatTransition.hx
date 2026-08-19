@@ -9,6 +9,8 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxGradient;
 import soulscorch.backend.TransitionData;
+import soulscorch.backend.TransitionData.TransitionDirection;
+import soulscorch.backend.TransitionData.TransitionType;
 
 class MusicBeatTransition extends FlxSpriteGroup {
     public static var isTransitioning:Bool = false;
@@ -25,7 +27,7 @@ class MusicBeatTransition extends FlxSpriteGroup {
         this.onFinish = onFinish;
 
         subCamera = new FlxCamera();
-        subCamera.bgColor.alpha = 0;
+        subCamera.bgColor = FlxColor.TRANSPARENT;
         FlxG.cameras.add(subCamera, false);
         cameras = [subCamera];
 
@@ -67,13 +69,13 @@ class MusicBeatTransition extends FlxSpriteGroup {
                 });
             } else {
                 gradient.flipY = true;
-                gradient.y = 0;
-                solidBg.y = -solidBg.height;
+                solidBg.y = 0;
+                gradient.y = solidBg.height;
                 add(solidBg);
                 add(gradient);
 
-                FlxTween.tween(gradient, {y: height}, data.duration, {ease: data.ease});
-                FlxTween.tween(solidBg, {y: gradient.height}, data.duration, {
+                FlxTween.tween(gradient, {y: height + gradient.height}, data.duration, {ease: data.ease});
+                FlxTween.tween(solidBg, {y: height + gradient.height}, data.duration, {
                     ease: data.ease,
                     onComplete: function(_) complete()
                 });

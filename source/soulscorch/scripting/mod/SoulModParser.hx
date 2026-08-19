@@ -41,6 +41,24 @@ class SoulModParser {
     }
 
     #if sys
+    public static function parseFolder(modPath:String, folderName:String = ""):SoulModData {
+        if (folderName == "" && modPath != null) {
+            var parts = modPath.replace("\\", "/").split("/");
+            while (parts.length > 0 && parts[parts.length - 1] == "") parts.pop();
+            if (parts.length > 0) folderName = parts[parts.length - 1];
+        }
+
+        var possibleFiles = ["soulmod.json", "mod.json", "_polymod_meta.json", "config.json"];
+        for (file in possibleFiles) {
+            var fullFilePath = '$modPath/$file';
+            if (FileSystem.exists(fullFilePath)) {
+                return parseFile(fullFilePath, folderName);
+            }
+        }
+
+        return fallback(folderName);
+    }
+
     public static function parseFile(filePath:String, folderName:String = ""):SoulModData {
         if (folderName == "" && filePath != null) {
             var parts = filePath.replace("\\", "/").split("/");

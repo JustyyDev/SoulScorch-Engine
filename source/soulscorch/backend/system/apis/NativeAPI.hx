@@ -29,7 +29,10 @@ class NativeAPI {
         if (hwnd == NULL) return;
 
         BOOL darkMode = enable ? TRUE : FALSE;
-        DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode));
+        // Attribute 20 (Windows 11 / modern Windows 10) & Attribute 19 (older builds)
+        if (FAILED(DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode)))) {
+            DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
+        }
         UpdateWindow(hwnd);
     ')
     public static function setDarkMode(enable:Bool):Void {}
@@ -155,24 +158,25 @@ class NativeAPI {
     public static function restoreWindow():Void {}
     #else
     public static function setDarkMode(enable:Bool):Void {}
+
     public static function showMessageError(title:String, message:String):Void {
         Logger.error('[$title] $message', "native");
         #if linux
-        Sys.command("notify-send", [title, message, "-u", "critical"]);
+        try { Sys.command("notify-send", [title, message, "-u", "critical"]); } catch (e:Dynamic) {}
         #end
     }
 
     public static function showMessageInfo(title:String, message:String):Void {
         Logger.info('[$title] $message', "native");
         #if linux
-        Sys.command("notify-send", [title, message]);
+        try { Sys.command("notify-send", [title, message]); } catch (e:Dynamic) {}
         #end
     }
 
     public static function showMessageWarning(title:String, message:String):Void {
         Logger.warn('[$title] $message', "native");
         #if linux
-        Sys.command("notify-send", [title, message, "-u", "normal"]);
+        try { Sys.command("notify-send", [title, message, "-u", "normal"]); } catch (e:Dynamic) {}
         #end
     }
 

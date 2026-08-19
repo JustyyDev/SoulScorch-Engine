@@ -49,18 +49,18 @@ class Paths {
     }
 
     public static function sound(key:String):Null<Sound> {
+        if (key == null) return null;
         var clean = key.trim();
 
-        // Check common FNF names and redirect to the nested menu/ directory if needed
         var variants = switch (clean) {
             case "scrollMenu", "scroll":
-                ['sounds/menu/scroll', 'sounds/scrollMenu', 'sounds/scroll'];
+                ['sounds/menu/scroll', 'sounds/scrollMenu', 'sounds/scroll', 'sounds/menu/scrollMenu'];
             case "confirmMenu", "confirm":
-                ['sounds/menu/confirm', 'sounds/confirmMenu', 'sounds/confirm'];
+                ['sounds/menu/confirm', 'sounds/confirmMenu', 'sounds/confirm', 'sounds/menu/confirmMenu'];
             case "cancelMenu", "cancel":
-                ['sounds/menu/cancel', 'sounds/cancelMenu', 'sounds/cancel'];
+                ['sounds/menu/cancel', 'sounds/cancelMenu', 'sounds/cancel', 'sounds/menu/cancelMenu'];
             default:
-                ['sounds/$clean', 'sounds/menu/$clean'];
+                ['sounds/$clean', 'sounds/menu/$clean', '$clean'];
         };
 
         for (v in variants) {
@@ -79,8 +79,9 @@ class Paths {
     }
 
     public static function music(key:String):Null<Sound> {
+        if (key == null) return null;
         var clean = key.trim();
-        var tries = ['music/$clean', 'songs/$clean', 'music/menu/$clean'];
+        var tries = ['music/$clean', 'songs/$clean', 'music/menu/$clean', '$clean'];
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
@@ -94,6 +95,7 @@ class Paths {
     }
 
     public static function inst(song:String):Null<Sound> {
+        if (song == null) return null;
         var clean = song.toLowerCase().trim();
         var dashes = clean.replace(" ", "-");
         var stripped = clean.replace(" ", "").replace("-", "");
@@ -104,7 +106,8 @@ class Paths {
             'songs/$stripped/Inst',
             'music/$dashes/Inst',
             'music/$clean/Inst',
-            'assets/songs/$dashes/Inst'
+            '$dashes/Inst',
+            '$clean/Inst'
         ];
 
         for (t in tries) {
@@ -119,6 +122,7 @@ class Paths {
     }
 
     public static function voices(song:String):Null<Sound> {
+        if (song == null) return null;
         var clean = song.toLowerCase().trim();
         var dashes = clean.replace(" ", "-");
         var stripped = clean.replace(" ", "").replace("-", "");
@@ -129,7 +133,8 @@ class Paths {
             'songs/$stripped/Voices',
             'music/$dashes/Voices',
             'music/$clean/Voices',
-            'assets/songs/$dashes/Voices'
+            '$dashes/Voices',
+            '$clean/Voices'
         ];
 
         for (t in tries) {
@@ -149,6 +154,8 @@ class Paths {
 
     public static inline function graphic(key:String):Null<FlxGraphic> {
         var graph = AssetResolver.getGraphic('images/$key');
+        if (graph == null) graph = AssetResolver.getGraphic(key);
+
         if (graph != null) {
             currentTrackedAssets.set(key, graph);
         }
@@ -156,24 +163,28 @@ class Paths {
     }
 
     public static inline function font(key:String):String {
-        var resolved = AssetResolver.resolveFile('fonts/$key', [".ttf", ".otf", ""]);
-        return (resolved != null) ? resolved : 'assets/fonts/$key.ttf';
+        var clean = (key != null && key.trim().length > 0) ? key.trim() : "vcr";
+        var resolved = AssetResolver.resolveFile('fonts/$clean', [".ttf", ".otf", ""]);
+        if (resolved == null) resolved = AssetResolver.resolveFile('$clean', [".ttf", ".otf", ""]);
+        return (resolved != null) ? resolved : 'assets/fonts/$clean.ttf';
     }
 
     public static function getSparrowAtlas(key:String):Null<FlxAtlasFrames> {
-        var graph = graphic(key);
-        var xmlContent = AssetResolver.getText('images/$key.xml');
+        if (key == null || key.trim().length == 0) return null;
+        var clean = key.trim().replace("\\", "/");
+        if (clean.startsWith("/")) clean = clean.substr(1);
+
+        var graph = graphic(clean);
+        var xmlContent = AssetResolver.getText('images/$clean.xml');
+        if (xmlContent.length == 0) xmlContent = AssetResolver.getText('$clean.xml');
+
         if (graph != null && xmlContent.length > 0) {
             return FlxAtlasFrames.fromSparrow(graph, xmlContent);
         }
         return null;
     }
 
-    /**
-     * Clears all cached OpenFL/Flixel stored bitmaps and audio from memory.
-     */
     public static function clearStoredMemory():Void {
-        // Clear OpenFL cache safely
         @:privateAccess {
             if (Assets.cache != null) {
                 Assets.cache.clear("IMAGE");
@@ -181,19 +192,16 @@ class Paths {
             }
         }
 
-        // Clear FlxG bitmap cache
         FlxG.bitmap.dumpCache();
         FlxG.bitmap.clearCache();
 
         currentTrackedAssets.clear();
         currentTrackedSounds.clear();
+        AssetHelper.clearAtlasCache();
 
         runGarbageCollector();
     }
 
-    /**
-     * Iterates over FlxG bitmap cache and removes any graphic not marked as persist or currently in active use.
-     */
     @:access(flixel.system.frontEnds.BitmapFrontEnd)
     public static function clearUnusedMemory():Void {
         for (key in FlxG.bitmap._cache.keys()) {

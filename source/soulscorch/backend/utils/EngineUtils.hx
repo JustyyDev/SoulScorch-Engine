@@ -1,6 +1,7 @@
 package soulscorch.backend.utils;
 
 import flixel.FlxG;
+import flixel.math.FlxMath;
 import openfl.system.System;
 
 #if cpp
@@ -9,9 +10,7 @@ import cpp.vm.Gc;
 
 class EngineUtils {
     public static inline function clamp(value:Float, min:Float, max:Float):Float {
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
+        return FlxMath.bound(value, min, max);
     }
 
     public static inline function lerp(a:Float, b:Float, t:Float):Float {
@@ -30,12 +29,14 @@ class EngineUtils {
     public static function safeFileDirectory(path:String):Void {
         #if sys
         if (path != null && path.length > 0 && !sys.FileSystem.exists(path)) {
-            sys.FileSystem.createDirectory(path);
+            try {
+                sys.FileSystem.createDirectory(path);
+            } catch (e:Dynamic) {}
         }
         #end
     }
 
-    public static inline function getSystemMemoryMB():Float {
+    public static function getSystemMemoryMB():Float {
         #if cpp
         return Math.round((Gc.memInfo64(Gc.MEM_INFO_USAGE) / (1024 * 1024)) * 100) / 100;
         #else
@@ -44,7 +45,8 @@ class EngineUtils {
     }
 
     public static inline function setFramerate(target:Int):Void {
-        FlxG.updateFramerate = target;
-        FlxG.drawFramerate = target;
+        var validFps = Std.int(Math.max(30, target));
+        FlxG.updateFramerate = validFps;
+        FlxG.drawFramerate = validFps;
     }
 }

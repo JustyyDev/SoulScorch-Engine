@@ -1,37 +1,52 @@
 package soulscorch.gameplay;
 
 import flixel.FlxG;
-import flixel.group.FlxGroup;
+import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.math.FlxMath;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.EventBus;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
 
-class JudgementManager extends FlxGroup {
-    public static inline var MARVELOUS_WINDOW:Float = 22.5;
-    public static inline var SICK_WINDOW:Float = 45.0;
-    public static inline var GOOD_WINDOW:Float = 90.0;
-    public static inline var BAD_WINDOW:Float = 135.0;
-    public static inline var SHIT_WINDOW:Float = 160.0;
+class JudgementManager extends FlxTypedGroup<FlxText> {
+    public static var MARVELOUS_WINDOW:Float = 22.5;
+    public static var SICK_WINDOW:Float = 45.0;
+    public static var GOOD_WINDOW:Float = 90.0;
+    public static var BAD_WINDOW:Float = 135.0;
+    public static var SHIT_WINDOW:Float = 160.0;
 
     public var combo:Int = 0;
     public var misses:Int = 0;
     public var totalNotesHit:Int = 0;
     public var totalNotesJudged:Int = 0;
+    public var totalWeight:Float = 0.0;
     public var accuracy:Float = 0.0;
     public var health:Float = 1.0;
+    public var maxHealth:Float = 2.0;
 
     public var onJudgement:Judgment->Float->Void;
     public var onHealthChange:Float->Void;
     public var onMiss:Note->Void;
 
-    private var popupAges:Map<FlxText, Float> = new Map();
-    private var judgementHistory:Array<Float> = [];
+    private var activeTweens:Map<FlxText, FlxTween> = new Map<FlxText, FlxTween>();
 
     public function new() {
         super();
+        maxHealth = GameplayFlags.getFloat("maxHealth", 2.0);
+        updateWindows();
+    }
+
+    public function updateWindows():Void {
+        var scale:Float = GameplayFlags.getFloat("judgeWindow", 166.0) / 166.0;
+        MARVELOUS_WINDOW = 22.5 * scale;
+        SICK_WINDOW = 45.0 * scale;
+        GOOD_WINDOW = 90.0 * scale;
+        BAD_WINDOW = 135.0 * scale;
+        SHIT_WINDOW = 160.0 * scale;
     }
 
     public function judge(note:Note, songPosition:Float):Judgment {
@@ -63,14 +78,14 @@ class JudgementManager extends FlxGroup {
         totalNotesJudged++;
 
         var weight:Float = Judgment.accuracyWeight(result);
-        judgementHistory.push(weight);
-        accuracy = calculateAccuracy();
+        totalWeight += weight;
+        accuracy = (totalWeight / totalNotesJudged) * 100.0;
 
-        health = Math.min(2.0, health + Judgment.healthModifier(result));
+        health = Math.min(maxHealth, health + Judgment.healthModifier(result));
         if (onHealthChange != null) onHealthChange(health);
 
         showPopup(result, combo);
-        EventBus.emit("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+        dispatchHit(result, difference);
 
         if (onJudgement != null) onJudgement(result, weight);
     }
@@ -84,77 +99,108 @@ class JudgementManager extends FlxGroup {
         combo = 0;
         misses++;
         totalNotesJudged++;
-        judgementHistory.push(0.0);
-        accuracy = calculateAccuracy();
+        accuracy = totalNotesJudged > 0 ? (totalWeight / totalNotesJudged) * 100.0 : 0.0;
 
-        health = Math.max(0.0, health - 0.085);
+        var penalty:Float = GameplayFlags.getFloat("missPenalty", 0.085);
+        health = Math.max(0.0, health - penalty);
         if (onHealthChange != null) onHealthChange(health);
 
         showPopup(MISS, 0);
-        EventBus.emit("judgement/miss", {misses: misses, accuracy: accuracy});
+        dispatchMiss();
 
         if (onMiss != null) onMiss(note);
     }
 
-    public function calculateAccuracy():Float {
-        if (judgementHistory.length == 0) return 0.0;
-        var total:Float = 0.0;
-        for (w in judgementHistory) total += w;
-        return (total / judgementHistory.length) * 100.0;
-    }
-
     private function showPopup(result:Judgment, currentCombo:Int):Void {
-        var text:FlxText = new FlxText(0, FlxG.height * 0.42, 0, (result == MISS ? "MISS" : Std.string(result)).toUpperCase(), 24);
+        var text:FlxText = recycle(FlxText);
+        var judgeName:String = (result == MISS ? "MISS" : Std.string(result)).toUpperCase();
+        
+        text.text = judgeName;
         text.setFormat(Paths.font("vcr"), 24, colorFor(result), CENTER, OUTLINE, FlxColor.BLACK);
         text.borderSize = 1.5;
         text.screenCenter(X);
+        text.y = FlxG.height * 0.42;
         text.scrollFactor.set(0, 0);
         text.scale.set(0.85, 0.85);
-        add(text);
-        popupAges.set(text, 0.0);
+        text.alpha = 1.0;
+        text.visible = true;
+
+        if (activeTweens.exists(text)) {
+            activeTweens.get(text).cancel();
+            activeTweens.remove(text);
+        }
+
+        var twn = FlxTween.tween(text, {y: text.y - 20, alpha: 0, "scale.x": 1.05, "scale.y": 1.05}, 0.5, {
+            ease: FlxEase.cubeOut,
+            onComplete: function(_) {
+                text.kill();
+                activeTweens.remove(text);
+            }
+        });
+        activeTweens.set(text, twn);
 
         if (currentCombo > 1 && result != MISS) {
-            var comboText:FlxText = new FlxText(0, text.y + 28, 0, 'x$currentCombo', 18);
+            var comboText:FlxText = recycle(FlxText);
+            comboText.text = 'x$currentCombo';
             comboText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
             comboText.borderSize = 1.25;
             comboText.screenCenter(X);
+            comboText.y = (FlxG.height * 0.42) + 28;
             comboText.scrollFactor.set(0, 0);
-            add(comboText);
-            popupAges.set(comboText, 0.0);
+            comboText.scale.set(0.85, 0.85);
+            comboText.alpha = 1.0;
+            comboText.visible = true;
+
+            if (activeTweens.exists(comboText)) {
+                activeTweens.get(comboText).cancel();
+                activeTweens.remove(comboText);
+            }
+
+            var comboTwn = FlxTween.tween(comboText, {y: comboText.y - 20, alpha: 0, "scale.x": 1.05, "scale.y": 1.05}, 0.5, {
+                ease: FlxEase.cubeOut,
+                onComplete: function(_) {
+                    comboText.kill();
+                    activeTweens.remove(comboText);
+                }
+            });
+            activeTweens.set(comboText, comboTwn);
         }
     }
 
-    override public function update(elapsed:Float):Void {
-        super.update(elapsed);
-        var expired:Array<FlxText> = [];
-
-        for (text in popupAges.keys()) {
-            var age:Float = popupAges.get(text) + elapsed;
-            popupAges.set(text, age);
-            text.y -= elapsed * 24.0;
-            text.alpha = Math.max(0.0, 1.0 - (age / 0.55));
-            text.scale.set(0.85 + Math.min(0.2, age * 1.2), 0.85 + Math.min(0.2, age * 1.2));
-
-            if (age >= 0.55) {
-                expired.push(text);
+    private function dispatchHit(result:Judgment, difference:Float):Void {
+        try {
+            var bus:Dynamic = EventBus;
+            if (Reflect.hasField(bus, "publish")) {
+                bus.publish("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
+            } else if (Reflect.hasField(bus, "emit")) {
+                bus.emit("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
             }
-        }
+        } catch (e:Dynamic) {}
+    }
 
-        for (text in expired) {
-            popupAges.remove(text);
-            remove(text, true);
-            text.destroy();
-        }
+    private function dispatchMiss():Void {
+        try {
+            var bus:Dynamic = EventBus;
+            if (Reflect.hasField(bus, "publish")) {
+                bus.publish("judgement/miss", {misses: misses, accuracy: accuracy});
+            } else if (Reflect.hasField(bus, "emit")) {
+                bus.emit("judgement/miss", {misses: misses, accuracy: accuracy});
+            }
+        } catch (e:Dynamic) {}
     }
 
     public function reset():Void {
+        for (twn in activeTweens) twn.cancel();
+        activeTweens.clear();
+        forEach(function(txt:FlxText) txt.kill());
+
         combo = 0;
         misses = 0;
         totalNotesHit = 0;
         totalNotesJudged = 0;
+        totalWeight = 0.0;
         accuracy = 0.0;
         health = 1.0;
-        judgementHistory = [];
     }
 
     private static function colorFor(result:Judgment):FlxColor {
@@ -165,5 +211,11 @@ class JudgementManager extends FlxGroup {
             case SHIT, MISS: 0xFFE03333;
             default: FlxColor.WHITE;
         };
+    }
+
+    override public function destroy():Void {
+        for (twn in activeTweens) twn.cancel();
+        activeTweens.clear();
+        super.destroy();
     }
 }

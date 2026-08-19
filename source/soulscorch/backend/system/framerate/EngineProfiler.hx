@@ -7,10 +7,10 @@ class EngineProfiler {
     public static var instance(get, null):EngineProfiler;
     private static var _instance:EngineProfiler;
 
-    private var frameAccum:Float = 0;
+    private var frameAccum:Float = 0.0;
     private var frameCount:Int = 0;
     public var fps(default, null):Int = 0;
-    public var memPeak(default, null):Float = 0;
+    public var memPeak(default, null):Float = 0.0;
     public var memAverage(default, null):Float = 0.0;
 
     public var maxFrameTime:Float = 0.0;
@@ -25,6 +25,7 @@ class EngineProfiler {
     public function new(logToConsole:Bool = false) {
         _instance = this;
         this.logToConsole = logToConsole;
+        memPeak = SystemInfo.memoryMegabytes;
     }
 
     public static inline function get_instance():EngineProfiler {
@@ -50,14 +51,14 @@ class EngineProfiler {
         }
 
         if (elapsed * 1000.0 >= stutterThresholdMs && logToConsole) {
-            Logger.warn('[PROFILER] Stutter spike detected! Delta: ${Math.round(elapsed * 1000.0)}ms', "profiler");
+            Logger.warn('Stutter spike detected! Delta: ${Math.round(elapsed * 1000.0)}ms', "profiler");
         }
 
         if (frameAccum >= 1.0) {
-            fps = Math.round(frameCount / frameAccum);
-            averageFrameTime = totalFrameTimeAccum / totalFramesSampled;
+            fps = Math.round(frameCount / (frameAccum > 0 ? frameAccum : 1.0));
+            averageFrameTime = totalFramesSampled > 0 ? (totalFrameTimeAccum / totalFramesSampled) : 0.0;
 
-            frameAccum = 0;
+            frameAccum = 0.0;
             frameCount = 0;
 
             var memMB = SystemInfo.memoryMegabytes;
@@ -67,7 +68,7 @@ class EngineProfiler {
             memAverage = memMB;
 
             if (logToConsole) {
-                Logger.info('FPS: $fps | MEM: ${Math.round(memMB)}MB | PEAK: ${Math.round(memPeak)}MB | AVG FRAME: ${Math.round(averageFrameTime * 1000.0)}ms | MAX DELTA: ${Math.round(maxFrameTime * 1000.0)}ms', "profiler");
+                Logger.info('FPS: $fps | MEM: ${Math.round(memMB)}MB | PEAK: ${Math.round(memPeak)}MB | AVG: ${Math.round(averageFrameTime * 1000.0)}ms | MAX: ${Math.round(maxFrameTime * 1000.0)}ms', "profiler");
             }
 
             maxFrameTime = 0.0;

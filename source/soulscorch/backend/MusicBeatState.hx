@@ -4,6 +4,8 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxState;
 import soulscorch.backend.TransitionData;
+import soulscorch.backend.TransitionData.TransitionDirection;
+import soulscorch.backend.TransitionData.TransitionType;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
@@ -17,7 +19,7 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         super.create();
 
         if (!skipNextTransIn) {
-            openSubState(new CustomSubstate(function() {}, new TransitionData(defaultTransition.type, IN, defaultTransition.duration, defaultTransition.color)));
+            openSubState(new CustomSubstate(function() {}, new TransitionData(defaultTransition.type, TransitionDirection.IN, defaultTransition.duration, defaultTransition.color)));
         }
         skipNextTransIn = false;
     }
@@ -59,6 +61,7 @@ class MusicBeatState extends Scene implements IBeatReceiver {
     override public function measureHit(measure:Int):Void {}
 
     public static function switchState(nextState:FlxState, ?transData:TransitionData):Void {
+        if (nextState == null) return;
         var transition = transData != null ? transData : defaultTransition;
 
         if (MusicBeatTransition.isTransitioning) return;
@@ -71,7 +74,7 @@ class MusicBeatState extends Scene implements IBeatReceiver {
             ? new soulscorch.scripting.mod.ModCustomState(redirectTarget) 
             : nextState;
 
-        if (skipNextTransOut) {
+        if (skipNextTransOut || FlxG.state == null) {
             skipNextTransOut = false;
             MusicBeatTransition.isTransitioning = false;
             FlxG.switchState(finalTarget);

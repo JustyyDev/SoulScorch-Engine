@@ -42,7 +42,8 @@ class PauseSubState extends MusicBeatSubstate {
         panel.scrollFactor.set();
         add(panel);
 
-        songTitleTxt = new FlxText(panel.x, panel.y + 25, panel.width, PlayState.curSong.toUpperCase(), 20);
+        var title = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.title : PlayState.curSong;
+        songTitleTxt = new FlxText(panel.x, panel.y + 25, panel.width, title.toUpperCase(), 20);
         songTitleTxt.setFormat(Paths.font("vcr"), 20, 0xFF00FFCC, CENTER, OUTLINE, FlxColor.BLACK);
         songTitleTxt.scrollFactor.set();
         add(songTitleTxt);

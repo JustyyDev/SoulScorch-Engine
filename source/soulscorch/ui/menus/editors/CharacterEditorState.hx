@@ -16,12 +16,15 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
-import soulscorch.backend.system.StorageUtil;
-import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
-import soulscorch.gameplay.actors.CharacterData;
+import soulscorch.gameplay.actors.CharacterJson;
 import soulscorch.gameplay.stage.Stage;
+import soulscorch.scripting.mod.ModManager;
+import soulscorch.ui.menus.editors.editorui.EditorButton;
+import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
+import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
+import soulscorch.ui.menus.editors.editorui.EditorWindow;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -35,38 +38,39 @@ class CharacterEditorState extends MusicBeatState {
     public var curCharacter:String = "dad";
     public var isPlayer:Bool = false;
 
-    // --- Viewports & Cameras ---
     private var camEditor:FlxCamera;
     private var camHUD:FlxCamera;
 
-    // --- Visual Elements ---
-    private var stageBackdrop:Stage;
     private var charLayer:Character;
     private var ghostChar:Character;
     private var crosshair:FlxSprite;
+    private var camFollowMarker:FlxSprite;
     private var camFollow:FlxPoint;
 
-    // --- UI Info ---
+    private var toolWindow:EditorWindow;
+    private var stepperSingDuration:EditorNumericStepper;
+    private var stepperScale:EditorNumericStepper;
+    private var checkFlipX:EditorCheckbox;
+    private var checkGhost:EditorCheckbox;
+
     private var animListTxt:FlxText;
     private var curAnimTxt:FlxText;
     private var offsetTxt:FlxText;
     private var helpTxt:FlxText;
 
-    // --- Animation State ---
     private var animList:Array<String> = [];
     private var curAnimIndex:Int = 0;
     private var showGhost:Bool = true;
 
     public function new(?char:String = "dad", ?isPlayer:Bool = false) {
         super();
-        this.curCharacter = char;
+        this.curCharacter = (char != null && char.trim().length > 0) ? char.trim() : "dad";
         this.isPlayer = isPlayer;
     }
 
     override public function create():Void {
         super.create();
 
-        // 1. Setup Camera Layers
         camEditor = new FlxCamera();
         camHUD = new FlxCamera();
         camHUD.bgColor.alpha = 0;
@@ -79,22 +83,18 @@ class CharacterEditorState extends MusicBeatState {
         camEditor.target = null;
         camEditor.zoom = 0.9;
 
-        // 2. Add Background Grid / Stage
         var bg = new FlxSprite().makeGraphic(FlxG.width * 3, FlxG.height * 3, 0xFF2A2634);
         bg.screenCenter();
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Ground Guide Line
         var groundLine = new FlxSprite(0, FlxG.height * 0.75).makeGraphic(FlxG.width * 4, 4, 0xFF555066);
         groundLine.screenCenter(X);
         groundLine.scrollFactor.set(1, 1);
         add(groundLine);
 
-        // 3. Load Characters
         reloadCharacters();
 
-        // 4. Center Crosshair (Memory Safe Drawing)
         crosshair = new FlxSprite().makeGraphic(20, 20, FlxColor.TRANSPARENT);
         crosshair.pixels.lock();
         for (i in 0...20) {
@@ -106,8 +106,12 @@ class CharacterEditorState extends MusicBeatState {
         crosshair.scrollFactor.set(1, 1);
         add(crosshair);
 
-        // 5. Setup Editor HUD
+        camFollowMarker = new FlxSprite().makeGraphic(16, 16, 0xFF00FFCC);
+        camFollowMarker.scrollFactor.set(1, 1);
+        add(camFollowMarker);
+
         setupHUD();
+        setupToolbox();
 
         updateCrosshair();
         updateHUDText();
@@ -184,7 +188,7 @@ class CharacterEditorState extends MusicBeatState {
             "[ARROWS] - Move Offsets (1px)\n" +
             "[SHIFT + ARROWS] - Move Offsets (10px)\n" +
             "[SPACE] - Replay Animation\n" +
-            "[Q / E] - Zoom Cam In/Out\n" +
+            "[Q / E] - Zoom Camera In/Out\n" +
             "[I / J / K / L] - Pan Camera\n" +
             "[G] - Toggle Ghost Overlay\n" +
             "[F] - Flip Character (FlipX)\n" +
@@ -198,6 +202,44 @@ class CharacterEditorState extends MusicBeatState {
         add(helpTxt);
     }
 
+    private function setupToolbox():Void {
+        toolWindow = new EditorWindow(FlxG.width - 340, FlxG.height - 240, 330, 230, "Character Properties");
+        toolWindow.cameras = [camHUD];
+        add(toolWindow);
+
+        stepperSingDuration = new EditorNumericStepper(10, 10, 300, "Sing Duration", charLayer.singDuration, 1.0, 12.0, 0.5, 1, function(v) {
+            charLayer.singDuration = v;
+        });
+        toolWindow.addElement(stepperSingDuration);
+
+        stepperScale = new EditorNumericStepper(10, 45, 300, "Scale", charLayer.scale.x, 0.1, 5.0, 0.05, 2, function(v) {
+            charLayer.scale.set(v, v);
+            charLayer.updateHitbox();
+            if (ghostChar != null) {
+                ghostChar.scale.set(v, v);
+                ghostChar.updateHitbox();
+            }
+        });
+        toolWindow.addElement(stepperScale);
+
+        checkFlipX = new EditorCheckbox(10, 85, "Flip X", charLayer.flipX, function(checked) {
+            charLayer.flipX = checked;
+            if (ghostChar != null) ghostChar.flipX = checked;
+        });
+        toolWindow.addElement(checkFlipX);
+
+        checkGhost = new EditorCheckbox(160, 85, "Ghost View", showGhost, function(checked) {
+            showGhost = checked;
+            if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
+        });
+        toolWindow.addElement(checkGhost);
+
+        var btnSave = new EditorButton(10, 120, 300, 32, "Save Character (Ctrl+S)", function() {
+            saveOffsetsJson();
+        });
+        toolWindow.addElement(btnSave);
+    }
+
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
@@ -208,11 +250,13 @@ class CharacterEditorState extends MusicBeatState {
         if (FlxG.keys.justPressed.G) {
             showGhost = !showGhost;
             if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
+            checkGhost.checked = showGhost;
         }
 
         if (FlxG.keys.justPressed.F && charLayer != null) {
             charLayer.flipX = !charLayer.flipX;
             if (ghostChar != null) ghostChar.flipX = charLayer.flipX;
+            checkFlipX.checked = charLayer.flipX;
         }
 
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) {
@@ -307,6 +351,10 @@ class CharacterEditorState extends MusicBeatState {
     private function updateCrosshair():Void {
         if (charLayer != null) {
             crosshair.setPosition(charLayer.x, charLayer.y);
+            camFollowMarker.setPosition(
+                charLayer.getMidpoint().x + charLayer.cameraOffset[0] - 8,
+                charLayer.getMidpoint().y + charLayer.cameraOffset[1] - 8
+            );
         }
     }
 
@@ -334,11 +382,17 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function saveOffsetsJson():Void {
-        var charJson:Dynamic = {
+        var charJson:CharacterJson = {
             animations: [],
-            healthIcon: charLayer.healthIcon,
-            flipX: charLayer.flipX,
-            scale: charLayer.scale.x
+            image: 'characters/$curCharacter',
+            scale: charLayer.scale.x,
+            sing_duration: charLayer.singDuration,
+            healthicon: charLayer.healthIcon,
+            position: charLayer.positionOffset,
+            camera_position: charLayer.cameraOffset,
+            flip_x: charLayer.flipX,
+            no_antialiasing: !charLayer.antialiasing,
+            healthbar_colors: [Std.int(charLayer.healthColor.red), Std.int(charLayer.healthColor.green), Std.int(charLayer.healthColor.blue)]
         };
 
         for (anim in animList) {
@@ -348,23 +402,28 @@ class CharacterEditorState extends MusicBeatState {
                 anim: anim,
                 name: anim,
                 fps: 24,
-                loop: false,
+                loop: (anim == "idle"),
                 offsets: offArray
             });
         }
 
         var formattedJson = Json.stringify(charJson, "\t");
-        var savePath = 'characters/$curCharacter.json';
+        var savePath = '$curCharacter.json';
 
         #if sys
-        var targetFile = 'assets/$savePath';
+        var targetDir = 'assets/data/characters';
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            targetDir = 'mods/${ModManager.activeMods[0]}/data/characters';
+        }
+        var targetFile = '$targetDir/$savePath';
+
         try {
+            if (!FileSystem.exists(targetDir)) {
+                FileSystem.createDirectory(targetDir);
+            }
             File.saveContent(targetFile, formattedJson);
             Logger.info('Saved character JSON to $targetFile', "editor");
-            if (DevConsole.instance != null) {
-                DevConsole.instance.log('[EDITOR] Successfully saved $curCharacter offsets to $targetFile');
-            }
-            FlxG.sound.play(Paths.sound("confirmMenu"));
+            AssetHelper.playSoundSafely("confirmMenu", 0.7);
         } catch (e:Dynamic) {
             Logger.error('Failed to save character file: $e', "editor");
         }

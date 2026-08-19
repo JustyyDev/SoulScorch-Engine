@@ -86,7 +86,6 @@ class SoulShader extends FlxShader {
 
         super();
 
-        // Preset resolution and time if the uniforms exist in GLSL
         setFloatArray("iResolution", [FlxG.width, FlxG.height]);
         setFloat("iTime", 0.0);
     }
@@ -94,6 +93,11 @@ class SoulShader extends FlxShader {
     public function update(elapsed:Float):Void {
         var cur = getFloat("iTime");
         setFloat("iTime", cur + elapsed);
+        setFloat("u_time", cur + elapsed);
+
+        if (FlxG.mouse != null) {
+            setFloatArray("iMouse", [FlxG.mouse.x, FlxG.mouse.y, FlxG.mouse.justPressed ? 1.0 : 0.0, 0.0]);
+        }
     }
 
     public function setSampler2D(name:String, bitmap:BitmapData):Void {
@@ -141,7 +145,7 @@ class SoulShader extends FlxShader {
         }
     }
 
-    private static function expandPragmas(src:String, isFragment:Bool):String {
+    public static function expandPragmas(src:String, isFragment:Bool):String {
         var header = "
             #ifdef GL_ES
             precision mediump float;

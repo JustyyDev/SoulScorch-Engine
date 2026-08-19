@@ -27,8 +27,13 @@ class StrumArrow extends FlxSprite {
         playAnim("static");
     }
 
-    public function loadSkin():Void {
-        AssetHelper.loadSparrowSafely(this, "gameplay/notes/NOTE_assets");
+    public function loadSkin(?skinPath:String):Void {
+        var path = (skinPath != null) ? skinPath : "gameplay/notes/NOTE_assets";
+        if (!AssetHelper.loadSparrowSafely(this, path)) {
+            if (!AssetHelper.loadSparrowSafely(this, "notes/NOTE_assets")) {
+                AssetHelper.loadSparrowSafely(this, "NOTE_assets");
+            }
+        }
 
         var col = colArray[noteData % 4];
         animation.addByPrefix("static", 'arrow' + col.toUpperCase(), 24, false);
@@ -46,7 +51,6 @@ class StrumArrow extends FlxSprite {
         centerOrigin();
 
         if (animName == "confirm") {
-            centerOffsets();
             offset.x -= 13;
             offset.y -= 13;
         }

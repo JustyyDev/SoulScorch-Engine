@@ -2,6 +2,7 @@ package soulscorch.backend.system.engine;
 
 import flixel.util.FlxSignal.FlxTypedSignal;
 import openfl.system.System;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.Achievements;
 import soulscorch.backend.system.EventBus;
@@ -15,8 +16,9 @@ import soulscorch.backend.system.modules.Module;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
 import soulscorch.scripting.ScriptManager;
-import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
+import soulscorch.scripting.mod.SoulGlobalScript;
 
 class Engine {
     public static var instance(default, null):Engine;
@@ -63,10 +65,9 @@ class Engine {
             register("config", config);
         }
 
-        register("mods", new ModRegistry());
-        ModLoader.scan();
-        soulscorch.scripting.mod.SoulGlobalScript.init();
-        register("modLoader", ModLoader);
+        register("mods", ModRegistry.instance);
+        ModManager.reloadMods();
+        SoulGlobalScript.init();
 
         register("save", SaveData.instance);
         register("achievements", Achievements.instance);
@@ -106,7 +107,7 @@ class Engine {
     public function updateModules(elapsed:Float):Void {
         HotReloader.update();
         for (module in modules) {
-            if (module.active) module.update(elapsed);
+            if (module != null && module.active) module.update(elapsed);
         }
     }
 
@@ -117,9 +118,9 @@ class Engine {
 
     public function notifyStateSwitch():Void {
         for (module in modules) {
-            module.onStateSwitch();
+            if (module != null) module.onStateSwitch();
         }
-        System.gc();
+        Paths.clearUnusedMemory();
     }
 
     public function notifySceneSwitch(scene:Scene):Void {

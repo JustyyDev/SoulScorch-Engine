@@ -1,7 +1,6 @@
 package soulscorch.backend.system.framerate;
 
 import haxe.Timer;
-import openfl.Lib;
 import openfl.events.Event;
 import openfl.text.TextField;
 import openfl.text.TextFormat;
@@ -22,7 +21,7 @@ class Framerate extends TextField {
 
     private var times:Array<Float> = [];
     private var lastTime:Float = 0.0;
-    private var updateInterval:Float = 0.15;
+    private var updateInterval:Float = 0.12;
 
     public function new(x:Float = 10, y:Float = 10, color:Int = 0xFFFFFF) {
         super();
@@ -34,7 +33,7 @@ class Framerate extends TextField {
         this.autoSize = LEFT;
         this.multiline = true;
 
-        defaultTextFormat = new TextFormat("_sans", 14, color, true);
+        defaultTextFormat = new TextFormat("_sans", 13, color, true);
         text = "FPS: 0\nRAM: 0 MB";
 
         addEventListener(Event.ENTER_FRAME, onEnterFrame);
@@ -60,7 +59,7 @@ class Framerate extends TextField {
 
     private function set_customTextColor(value:Int):Int {
         customTextColor = value;
-        defaultTextFormat = new TextFormat("_sans", 14, customTextColor, true);
+        defaultTextFormat = new TextFormat("_sans", 13, customTextColor, true);
         setTextFormat(defaultTextFormat);
         return value;
     }
@@ -108,10 +107,15 @@ class Framerate extends TextField {
         }
 
         if (showEngineVersion) {
-            displayText += '\nSoulScorch v' + Version.fullVersion();
+            displayText += '\nSoulScorch ' + Version.shortVersion();
         }
 
         text = displayText;
+
+        if (customTextColor == 0xFFFFFF) {
+            var targetColor:Int = (currentFPS >= 60) ? 0xFFFFFF : ((currentFPS >= 30) ? 0xFFFFCC00 : 0xFFFF4444);
+            textColor = targetColor;
+        }
     }
 
     public function resetStats():Void {

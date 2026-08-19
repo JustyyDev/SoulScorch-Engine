@@ -24,6 +24,7 @@ class ResultsState extends MusicBeatState {
     private var rankAlphabet:Alphabet;
     private var scoreText:FlxText;
     private var hitStatsText:FlxText;
+    private var clearTypeText:FlxText;
     private var mobileControls:MobilePad;
 
     public function new(stats:SongStats) {
@@ -52,6 +53,12 @@ class ResultsState extends MusicBeatState {
         rankAlphabet = new Alphabet(FlxG.width - 290, 100, rankStr, true);
         rankAlphabet.scale.set(0.001, 0.001);
         add(rankAlphabet);
+
+        var clearType = stats != null && stats.clearType != null ? stats.clearType : "Clear";
+        clearTypeText = new FlxText(FlxG.width - 320, 240, 300, clearType, 28);
+        clearTypeText.setFormat(Paths.font("vcr"), 28, (clearType == "MFC" || clearType == "GFC" || clearType == "FC") ? 0xFF00FFCC : FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+        clearTypeText.borderSize = 1.5;
+        add(clearTypeText);
 
         var scoreVal = stats != null ? stats.score : 0;
         var accVal = stats != null ? Math.round(stats.accuracy * 100) / 100 : 0;

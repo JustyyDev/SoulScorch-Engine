@@ -5,6 +5,7 @@ import flixel.FlxSprite;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
@@ -17,6 +18,7 @@ class GameOverSubState extends MusicBeatSubstate {
     private var bfDead:FlxSprite;
     private var bg:FlxSprite;
     private var isEnding:Bool = false;
+    private var isStartedLoop:Bool = false;
 
     public function new(x:Float, y:Float) {
         super();
@@ -26,30 +28,42 @@ class GameOverSubState extends MusicBeatSubstate {
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
+        bg.scrollFactor.set();
         add(bg);
         FlxTween.tween(bg, {alpha: 0.85}, 0.7, {ease: FlxEase.quadOut});
 
         bfDead = new FlxSprite(x, y);
-        AssetHelper.loadSparrowSafely(bfDead, "characters/BOYFRIEND_DEAD");
-        if (bfDead.frames != null) {
+        var loaded = AssetHelper.loadSparrowSafely(bfDead, "characters/BOYFRIEND_DEAD");
+        if (!loaded) {
+            loaded = AssetHelper.loadSparrowSafely(bfDead, "BOYFRIEND_DEAD");
+        }
+
+        if (loaded && bfDead.frames != null) {
             bfDead.animation.addByPrefix("firstDeath", "BF dies", 24, false);
             bfDead.animation.addByPrefix("deathLoop", "BF Dead Loop", 24, true);
             bfDead.animation.addByPrefix("deathConfirm", "BF Dead Confirm", 24, false);
             bfDead.animation.play("firstDeath");
+        } else {
+            bfDead.makeGraphic(120, 140, FlxColor.RED);
         }
+
         bfDead.antialiasing = true;
         add(bfDead);
 
         AssetHelper.playSoundSafely("fnf_loss_sfx", 0.8);
-        FlxG.camera.follow(bfDead, LOCKON, 0.06);
+        FlxG.camera.target = null;
+        FlxG.camera.follow(bfDead, LOCKON, 0.04);
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (bfDead.animation != null && bfDead.animation.curAnim != null && bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
-            bfDead.animation.play("deathLoop");
-            FlxG.sound.playMusic(Paths.music("gameOver"), 0.7);
+        if (!isStartedLoop && bfDead.animation != null && bfDead.animation.curAnim != null) {
+            if (bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
+                bfDead.animation.play("deathLoop");
+                isStartedLoop = true;
+                FlxG.sound.playMusic(Paths.music("gameOver"), 0.7);
+            }
         }
 
         if (Controls.instance.ACCEPT && !isEnding) {
@@ -60,7 +74,7 @@ class GameOverSubState extends MusicBeatSubstate {
             if (FlxG.sound.music != null) FlxG.sound.music.stop();
             AssetHelper.playSoundSafely("gameOverEnd", 0.8);
 
-            new flixel.util.FlxTimer().start(2.0, function(_) {
+            new FlxTimer().start(2.0, function(_) {
                 if (PlayState.instance != null) PlayState.instance.paused = false;
                 FlxG.resetState();
             });

@@ -1,14 +1,18 @@
 package soulscorch.ui.hud;
 
+import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.tweens.FlxTween;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.Paths;
 
 class ComboNumber extends FlxSprite {
     public function new(x:Float, y:Float, digit:Int) {
         super(x, y);
 
-        var loaded = AssetHelper.loadGraphicSafely(this, 'ui/num$digit');
+        var loaded = AssetHelper.loadGraphicSafely(this, 'ui/ratings/num$digit');
+        if (!loaded) {
+            loaded = AssetHelper.loadGraphicSafely(this, 'ui/num$digit');
+        }
         if (!loaded) {
             makeGraphic(24, 30, 0xFFFFFFFF);
         }
@@ -16,16 +20,14 @@ class ComboNumber extends FlxSprite {
         antialiasing = true;
         acceleration.y = 600;
         velocity.y = -FlxG.random.int(140, 180);
-        velocity.x = FlxG.random.float(-20, 20);
-    }
+        velocity.x = FlxG.random.float(-10, 10);
 
-    override public function update(elapsed:Float):Void {
-        super.update(elapsed);
-
-        alpha -= elapsed * 1.5;
-        if (alpha <= 0) {
-            kill();
-            destroy();
-        }
+        FlxTween.tween(this, {alpha: 0}, 0.25, {
+            startDelay: 0.4,
+            onComplete: function(_) {
+                kill();
+                destroy();
+            }
+        });
     }
 }

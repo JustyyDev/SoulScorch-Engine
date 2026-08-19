@@ -7,6 +7,10 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-binaries:
     strategy:
@@ -15,16 +19,19 @@ jobs:
         include:
           - os: windows-latest
             target: windows
-            artifact_name: SoulScorch-Windows-Binaries
-            output_path: export/release/windows/bin
+            artifact_name: SoulScorch-Windows
+            output_dir: export/release/windows/bin
+            archive_name: SoulScorch-Windows.zip
           - os: ubuntu-latest
             target: linux
-            artifact_name: SoulScorch-Linux-Binaries
-            output_path: export/release/linux/bin
+            artifact_name: SoulScorch-Linux
+            output_dir: export/release/linux/bin
+            archive_name: SoulScorch-Linux.zip
           - os: macos-14
             target: mac
-            artifact_name: SoulScorch-Mac-Binaries
-            output_path: export/release/macos/bin
+            artifact_name: SoulScorch-macOS
+            output_dir: export/release/macos/bin
+            archive_name: SoulScorch-macOS.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -37,21 +44,47 @@ jobs:
         with:
           haxe-version: 4.3.6
 
-      - name: Install Native Linux Dependencies
+      - name: Install Native Linux Libraries
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib libgl1-mesa-dev libglu1-mesa-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libasound2-dev libpulse-dev
+          sudo apt-get install -y \
+            gcc-multilib g++-multilib \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
+            libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
 
-      - name: Setup Haxelib (Windows)
+      - name: Cache Haxelibs (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/haxelib
+            C:/Users/runneradmin/.hxcpp
+          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          restore-keys: |
+            ${{ runner.os }}-haxelib-
+
+      - name: Cache Haxelibs (Unix)
+        if: matrix.os != 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/haxelib
+            ~/.cache/hxcpp
+          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          restore-keys: |
+            ${{ runner.os }}-haxelib-
+
+      - name: Install Haxelib Dependencies (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           haxelib setup C:/haxelib
-          haxelib install lime 8.1.3 --quiet --always
-          haxelib install openfl 9.3.3 --quiet --always
-          haxelib install flixel 5.6.2 --quiet --always
-          haxelib install flixel-addons 3.2.3 --quiet --always
-          haxelib install flixel-ui 2.6.1 --quiet --always
+          haxelib install lime 8.1.3 --quiet --always --skip-dependencies
+          haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
+          haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
+          haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
+          haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
@@ -60,15 +93,15 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Setup Haxelib (Unix / Linux / macOS)
+      - name: Install Haxelib Dependencies (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           haxelib setup ~/haxelib
-          haxelib install lime 8.1.3 --quiet --always
-          haxelib install openfl 9.3.3 --quiet --always
-          haxelib install flixel 5.6.2 --quiet --always
-          haxelib install flixel-addons 3.2.3 --quiet --always
-          haxelib install flixel-ui 2.6.1 --quiet --always
+          haxelib install lime 8.1.3 --quiet --always --skip-dependencies
+          haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
+          haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
+          haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
+          haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
@@ -77,21 +110,28 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Build Engine (macOS Universal / ARM64)
-        if: matrix.target == 'mac'
-        run: haxelib run lime build mac -release
-        env:
-          HXCPP_COMPILE_THREADS: 8
-
-      - name: Build Engine (Standard Targets)
-        if: matrix.target != 'mac'
+      - name: Compile SoulScorch Engine
         run: haxelib run lime build ${{ matrix.target }} -release
         env:
           HXCPP_COMPILE_THREADS: 8
+          HXCPP_SILENT: 1
 
-      - name: Upload Raw Executable Build
+      - name: Package Executable Archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ matrix.output_dir }}/*" -DestinationPath "${{ matrix.archive_name }}" -Force
+
+      - name: Package Executable Archive (Unix / macOS)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd ${{ matrix.output_dir }}
+          chmod +x * || true
+          zip -qry ../../../../${{ matrix.archive_name }} .
+
+      - name: Upload Packaged Release Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.output_path }}
+          path: ${{ matrix.archive_name }}
           if-no-files-found: error

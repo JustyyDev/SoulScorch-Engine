@@ -5,12 +5,14 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
@@ -41,6 +43,8 @@ class FreeplayState extends MusicBeatState {
     private var intendedAccuracy:Float = 0.0;
     private var intendedRating:String = "N/A";
 
+    private var instPreview:FlxSound;
+
     override public function create():Void {
         super.create();
 
@@ -63,6 +67,8 @@ class FreeplayState extends MusicBeatState {
         add(grpSongs);
 
         if (songs.length > 0) {
+            curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
+
             for (i in 0...songs.length) {
                 var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
                 songText.isMenuItem = true;
@@ -71,23 +77,23 @@ class FreeplayState extends MusicBeatState {
                 grpSongs.add(songText);
 
                 var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
+                icon.sprTracker = songText;
                 iconArray.push(icon);
                 add(icon);
             }
 
-            var scoreBG = new FlxSprite(FlxG.width - 400, 0).makeGraphic(400, 96, 0xAA000000);
+            var scoreBG = new FlxSprite(FlxG.width - 420, 0).makeGraphic(420, 96, 0xAA000000);
             add(scoreBG);
 
-            scoreText = new FlxText(FlxG.width - 390, 10, 380, "PERSONAL BEST: 0", 18);
+            scoreText = new FlxText(FlxG.width - 410, 10, 400, "PERSONAL BEST: 0", 18);
             scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
             add(scoreText);
 
-            diffText = new FlxText(FlxG.width - 390, 48, 380, "< NORMAL >", 22);
+            diffText = new FlxText(FlxG.width - 410, 48, 400, "< NORMAL >", 22);
             diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
             add(diffText);
 
             changeSelection();
-            changeDiff();
         } else {
             var emptyText = new FlxText(0, 0, FlxG.width, "NO SONGS FOUND IN ASSETS OR MODS", 22);
             emptyText.setFormat(Paths.font("vcr"), 22, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
@@ -124,11 +130,13 @@ class FreeplayState extends MusicBeatState {
         if (Controls.instance.UI_RIGHT_P) changeDiff(1);
 
         if (Controls.instance.BACK) {
+            stopPreview();
             AssetHelper.playSoundSafely("cancelMenu", 0.7);
             MusicBeatState.switchState(new MainMenuState());
         }
 
         if (Controls.instance.ACCEPT && songs.length > 0) {
+            stopPreview();
             var selected = songs[curSelected];
             var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
             PlayState.curSong = selected.id;
@@ -141,8 +149,6 @@ class FreeplayState extends MusicBeatState {
             item.alpha = (i == curSelected ? 1.0 : 0.45);
 
             if (iconArray.length > i && iconArray[i] != null) {
-                iconArray[i].x = item.x + item.width + 15;
-                iconArray[i].y = item.y - 25;
                 iconArray[i].alpha = item.alpha;
                 iconArray[i].visible = item.visible;
             }
@@ -168,6 +174,7 @@ class FreeplayState extends MusicBeatState {
 
         curDifficulty = 0;
         changeDiff();
+        playSongPreview();
     }
 
     private function changeDiff(change:Int = 0):Void {
@@ -193,7 +200,29 @@ class FreeplayState extends MusicBeatState {
         }
     }
 
+    private function playSongPreview():Void {
+        stopPreview();
+        var selected = songs[curSelected];
+        var instSound = Paths.inst(selected.id);
+        if (instSound != null) {
+            instPreview = new FlxSound().loadEmbedded(instSound, true);
+            instPreview.volume = 0.7;
+            instPreview.play();
+            FlxG.sound.list.add(instPreview);
+        }
+    }
+
+    private function stopPreview():Void {
+        if (instPreview != null) {
+            instPreview.stop();
+            FlxG.sound.list.remove(instPreview, true);
+            instPreview.destroy();
+            instPreview = null;
+        }
+    }
+
     override public function destroy():Void {
+        stopPreview();
         Controls.instance.unbindMobilePad();
         super.destroy();
     }

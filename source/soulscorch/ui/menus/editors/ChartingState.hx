@@ -7,11 +7,10 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
-import flixel.system.FlxSound;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import haxe.Json;
-import openfl.events.Event;
 import openfl.net.FileReference;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
@@ -23,6 +22,11 @@ import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.Song;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongLoader;
+import soulscorch.scripting.mod.ModManager;
+import soulscorch.ui.menus.editors.editorui.EditorButton;
+import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
+import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
+import soulscorch.ui.menus.editors.editorui.EditorWindow;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -38,41 +42,37 @@ class ChartingState extends MusicBeatState {
 
     private var _song:SwagSong;
 
-    // --- Cameras ---
     private var camGrid:FlxCamera;
     private var camHUD:FlxCamera;
 
-    // --- Grid Constants ---
     public static inline var GRID_SIZE:Int = 40;
     public static inline var STRUM_COLS:Int = 8;
     public static inline var ROWS_PER_SECTION:Int = 16;
 
-    // --- Grid Visuals ---
     private var gridBG:FlxSprite;
     private var gridSectionLine:FlxSprite;
     private var curSectionMarker:FlxSprite;
     private var cursorSprite:FlxSprite;
 
-    // --- Note Rendering ---
     private var grpNotes:FlxSpriteGroup;
     private var grpSustains:FlxSpriteGroup;
 
-    // --- Audio ---
     private var vocals:FlxSound;
 
-    // --- State Variables ---
     private var curSection:Int = 0;
     private var curStepSelected:Int = 0;
     private var isPlaying:Bool = false;
     private var playbackSpeed:Float = 1.0;
-    private var snapDivider:Int = 16; // 16th note snap default
+    private var snapDivider:Int = 16;
 
-    // --- HUD Overlay ---
+    private var toolWindow:EditorWindow;
+    private var stepperBPM:EditorNumericStepper;
+    private var stepperSpeed:EditorNumericStepper;
+    private var checkMustHit:EditorCheckbox;
+
     private var infoTxt:FlxText;
     private var helpTxt:FlxText;
     private var sectionTxt:FlxText;
-    private var timelineBar:FlxSprite;
-    private var timelineMarker:FlxSprite;
 
     public function new(?song:String = "tutorial", ?difficulty:String = "normal") {
         super();
@@ -83,7 +83,6 @@ class ChartingState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        // 1. Setup Cameras
         camGrid = new FlxCamera();
         camHUD = new FlxCamera();
         camHUD.bgColor.alpha = 0;
@@ -92,31 +91,23 @@ class ChartingState extends MusicBeatState {
         FlxG.cameras.add(camHUD, false);
         FlxG.cameras.setDefaultDrawTarget(camGrid, true);
 
-        // 2. Load Chart Data Safely
         loadChart();
-
-        // 3. Setup Grid Canvas
         createGridCanvas();
 
-        // 4. Note Layers
         grpSustains = new FlxSpriteGroup();
         add(grpSustains);
 
         grpNotes = new FlxSpriteGroup();
         add(grpNotes);
 
-        // 5. Cursor Indicator
         cursorSprite = new FlxSprite().makeGraphic(GRID_SIZE, GRID_SIZE, 0x55FFFFFF);
         cursorSprite.visible = false;
         add(cursorSprite);
 
-        // 6. Setup Audio Track
         loadAudio();
-
-        // 7. Setup Editor HUD Overlays
         setupHUD();
+        setupToolbox();
 
-        // 8. Render Initial Section Notes
         refreshSectionNotes();
         updateInfoText();
 
@@ -144,7 +135,6 @@ class ChartingState extends MusicBeatState {
             createSection();
         }
 
-        // Safe BPM initialization
         var validBpm = (_song.bpm > 0) ? _song.bpm : 100.0;
         Conductor.changeBPM(validBpm);
     }
@@ -173,7 +163,7 @@ class ChartingState extends MusicBeatState {
             for (col in 0...STRUM_COLS) {
                 var isEven = (row + col) % 2 == 0;
                 var color:FlxColor = isEven ? 0xFF231F2E : 0xFF2A2538;
-                if (col == 4) color = 0xFF352F46; // Strumline divider (Opponent vs Player)
+                if (col == 4) color = 0xFF352F46;
 
                 var cell = new FlxSprite(gridBG.x + (col * GRID_SIZE), gridBG.y + (row * GRID_SIZE)).makeGraphic(GRID_SIZE - 1, GRID_SIZE - 1, color);
                 add(cell);
@@ -244,15 +234,48 @@ class ChartingState extends MusicBeatState {
             "[Q / E] - Prev / Next Section\n" +
             "[TAB] - Toggle Section Must-Hit\n" +
             "[A / D] - Adjust Playback Speed\n" +
-            "[1 / 2] - Quick Snap Division\n" +
+            "[1 / 2 / 3] - Snap Division (4/8/16)\n" +
             "[CTRL + S] - Export Chart JSON\n" +
-            "[ESCAPE] - Return to Menu",
+            "[ESCAPE] - Return to Main Menu",
             12
         );
         helpTxt.setFormat(Paths.font("vcr"), 12, 0xFFDDDDDD, LEFT);
         helpTxt.scrollFactor.set();
         helpTxt.cameras = [camHUD];
         add(helpTxt);
+    }
+
+    private function setupToolbox():Void {
+        toolWindow = new EditorWindow(10, FlxG.height - 230, 300, 220, "Song Properties");
+        toolWindow.cameras = [camHUD];
+        add(toolWindow);
+
+        stepperBPM = new EditorNumericStepper(10, 10, 270, "BPM", _song.bpm, 1.0, 500.0, 1.0, 1, function(v) {
+            _song.bpm = v;
+            Conductor.changeBPM(v);
+            updateInfoText();
+        });
+        toolWindow.addElement(stepperBPM);
+
+        stepperSpeed = new EditorNumericStepper(10, 45, 270, "Speed", _song.speed, 0.5, 6.0, 0.1, 2, function(v) {
+            _song.speed = v;
+            updateInfoText();
+        });
+        toolWindow.addElement(stepperSpeed);
+
+        checkMustHit = new EditorCheckbox(10, 85, "Must Hit Section", _song.notes[curSection] != null && _song.notes[curSection].mustHitSection, function(checked) {
+            if (_song.notes[curSection] != null) {
+                _song.notes[curSection].mustHitSection = checked;
+                refreshSectionNotes();
+                updateInfoText();
+            }
+        });
+        toolWindow.addElement(checkMustHit);
+
+        var btnSave = new EditorButton(10, 125, 270, 32, "Save Chart (Ctrl+S)", function() {
+            saveChartJson();
+        });
+        toolWindow.addElement(btnSave);
     }
 
     override public function update(elapsed:Float):Void {
@@ -307,6 +330,7 @@ class ChartingState extends MusicBeatState {
         if (FlxG.keys.justPressed.TAB) {
             if (_song.notes[curSection] != null) {
                 _song.notes[curSection].mustHitSection = !_song.notes[curSection].mustHitSection;
+                checkMustHit.checked = _song.notes[curSection].mustHitSection;
                 refreshSectionNotes();
             }
         }
@@ -368,6 +392,9 @@ class ChartingState extends MusicBeatState {
         if (vocals != null) vocals.time = Conductor.songPosition;
 
         curSectionMarker.y = gridBG.y;
+        if (checkMustHit != null && _song.notes[curSection] != null) {
+            checkMustHit.checked = _song.notes[curSection].mustHitSection;
+        }
         refreshSectionNotes();
     }
 
@@ -501,6 +528,9 @@ class ChartingState extends MusicBeatState {
 
         #if sys
         var targetDir = 'assets/data/${curSong.toLowerCase().trim()}';
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            targetDir = 'mods/${ModManager.activeMods[0]}/data/${curSong.toLowerCase().trim()}';
+        }
         var fullPath = '$targetDir/$fileName';
 
         try {

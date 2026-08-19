@@ -1,12 +1,14 @@
 package soulscorch.backend.system;
 
+import soulscorch.backend.utils.Logger;
+
 typedef EventHandler = Dynamic->Void;
 
 class EventBus {
     public static var instance(get, null):EventBus;
     private static var _instance:EventBus;
 
-    private var handlers:Map<String, Array<EventHandler>> = new Map();
+    private var handlers:Map<String, Array<EventHandler>> = new Map<String, Array<EventHandler>>();
 
     public function new() {
         _instance = this;
@@ -20,44 +22,64 @@ class EventBus {
     }
 
     public function on(event:String, handler:EventHandler):Void {
-        if (handler == null) return;
-        if (!handlers.exists(event)) {
-            handlers.set(event, []);
+        if (event == null || handler == null) return;
+        var norm = event.toLowerCase().trim();
+
+        if (!handlers.exists(norm)) {
+            handlers.set(norm, []);
         }
-        handlers.get(event).push(handler);
+        var list = handlers.get(norm);
+        if (!list.contains(handler)) {
+            list.push(handler);
+        }
     }
 
     public function off(event:String, handler:EventHandler):Void {
-        if (!handlers.exists(event) || handler == null) return;
-        handlers.get(event).remove(handler);
-        if (handlers.get(event).length == 0) {
-            handlers.remove(event);
+        if (event == null || handler == null) return;
+        var norm = event.toLowerCase().trim();
+
+        if (!handlers.exists(norm)) return;
+        var list = handlers.get(norm);
+        list.remove(handler);
+
+        if (list.length == 0) {
+            handlers.remove(norm);
         }
     }
 
     public function once(event:String, handler:EventHandler):Void {
-        if (handler == null) return;
+        if (event == null || handler == null) return;
+        var norm = event.toLowerCase().trim();
+
         var wrapper:EventHandler = null;
         wrapper = function(data:Dynamic) {
-            off(event, wrapper);
+            off(norm, wrapper);
             handler(data);
         };
-        on(event, wrapper);
+        on(norm, wrapper);
     }
 
     public function emit(event:String, ?data:Dynamic):Void {
-        if (!handlers.exists(event)) return;
+        if (event == null) return;
+        var norm = event.toLowerCase().trim();
 
-        var list = handlers.get(event).copy();
+        if (!handlers.exists(norm)) return;
+
+        var list = handlers.get(norm).copy();
         for (handler in list) {
             if (handler != null) {
-                handler(data);
+                try {
+                    handler(data);
+                } catch (e:Dynamic) {
+                    Logger.error('Error executing event handler for "$norm": $e', "events");
+                }
             }
         }
     }
 
     public function clear(event:String):Void {
-        handlers.remove(event);
+        if (event == null) return;
+        handlers.remove(event.toLowerCase().trim());
     }
 
     public function clearAll():Void {
@@ -79,11 +101,6 @@ class EventBus {
     }
 
     public static inline function emitEvent(event:String, ?data:Dynamic):Void {
-        instance.emit(event, data);
-    }
-
-    @:overload(function(event:String, ?data:Dynamic):Void {})
-    public static function emitStatic(event:String, ?data:Dynamic):Void {
         instance.emit(event, data);
     }
 }

@@ -5,43 +5,48 @@ import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.utils.Logger;
 
 using StringTools;
 
 class InputMap {
-    public static var keyBinds:Map<String, Array<FlxKey>> = new Map();
-    public static var padBinds:Map<String, Array<FlxGamepadInputID>> = new Map();
+    public static var keyBinds:Map<String, Array<FlxKey>> = new Map<String, Array<FlxKey>>();
+    public static var padBinds:Map<String, Array<FlxGamepadInputID>> = new Map<String, Array<FlxGamepadInputID>>();
     public static var mobilePad:MobilePad = null;
 
     public static var defaultKeyBinds:Map<String, Array<FlxKey>> = [
-        "note_left" => [A, LEFT],
-        "note_down" => [S, DOWN],
-        "note_up" => [W, UP],
-        "note_right" => [D, RIGHT],
-        "ui_left" => [A, LEFT],
-        "ui_down" => [S, DOWN],
-        "ui_up" => [W, UP],
-        "ui_right" => [D, RIGHT],
-        "accept" => [ENTER, SPACE, Z],
-        "back" => [ESCAPE, BACKSPACE, X],
-        "pause" => [ENTER, ESCAPE],
-        "reset" => [R],
-        "debug" => [SEVEN, EIGHT]
+        "note_left"   => [D, LEFT],
+        "note_down"   => [F, DOWN],
+        "note_up"     => [J, UP],
+        "note_right"  => [K, RIGHT],
+        "ui_left"     => [A, LEFT],
+        "ui_down"     => [S, DOWN],
+        "ui_up"       => [W, UP],
+        "ui_right"    => [D, RIGHT],
+        "accept"      => [ENTER, SPACE, Z],
+        "back"        => [ESCAPE, BACKSPACE, X],
+        "pause"       => [ENTER, ESCAPE],
+        "reset"       => [R],
+        "debug"       => [SEVEN, EIGHT],
+        "volume_mute" => [ZERO, NUMPADZERO],
+        "volume_down" => [MINUS, NUMPADMINUS],
+        "volume_up"   => [PLUS, NUMPADPLUS],
+        "fullscreen"  => [F11]
     ];
 
     public static var defaultPadBinds:Map<String, Array<FlxGamepadInputID>> = [
-        "note_left" => [DPAD_LEFT, X],
-        "note_down" => [DPAD_DOWN, A],
-        "note_up" => [DPAD_UP, Y],
-        "note_right" => [DPAD_RIGHT, B],
-        "ui_left" => [DPAD_LEFT, LEFT_STICK_DIGITAL_LEFT],
-        "ui_down" => [DPAD_DOWN, LEFT_STICK_DIGITAL_DOWN],
-        "ui_up" => [DPAD_UP, LEFT_STICK_DIGITAL_UP],
-        "ui_right" => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT],
-        "accept" => [A, START],
-        "back" => [B],
-        "pause" => [START],
-        "reset" => []
+        "note_left"  => [DPAD_LEFT, X, LEFT_TRIGGER],
+        "note_down"  => [DPAD_DOWN, A, LEFT_SHOULDER],
+        "note_up"    => [DPAD_UP, Y, RIGHT_SHOULDER],
+        "note_right" => [DPAD_RIGHT, B, RIGHT_TRIGGER],
+        "ui_left"    => [DPAD_LEFT, LEFT_STICK_DIGITAL_LEFT],
+        "ui_down"    => [DPAD_DOWN, LEFT_STICK_DIGITAL_DOWN],
+        "ui_up"      => [DPAD_UP, LEFT_STICK_DIGITAL_UP],
+        "ui_right"   => [DPAD_RIGHT, LEFT_STICK_DIGITAL_RIGHT],
+        "accept"     => [A, START],
+        "back"       => [B],
+        "pause"      => [START],
+        "reset"      => [BACK]
     ];
 
     public static function init():Void {
@@ -68,24 +73,70 @@ class InputMap {
         }
 
         if (FlxG.save.data != null && FlxG.save.data.customKeyBinds != null) {
-            var savedKeys:Map<String, Array<FlxKey>> = FlxG.save.data.customKeyBinds;
-            for (action => keys in savedKeys) {
-                if (keyBinds.exists(action)) keyBinds.set(action, keys);
+            try {
+                var rawKeys:Dynamic = FlxG.save.data.customKeyBinds;
+                for (action in Reflect.fields(rawKeys)) {
+                    var arr:Array<Dynamic> = Reflect.field(rawKeys, action);
+                    if (arr != null && keyBinds.exists(action)) {
+                        var parsedKeys:Array<FlxKey> = [];
+                        for (item in arr) {
+                            if (Std.isOfType(item, Int)) {
+                                parsedKeys.push(cast item);
+                            } else if (Std.isOfType(item, String)) {
+                                var k = FlxKey.fromString(item);
+                                if (k != NONE) parsedKeys.push(k);
+                            }
+                        }
+                        if (parsedKeys.length > 0) keyBinds.set(action, parsedKeys);
+                    }
+                }
+            } catch (e:Dynamic) {
+                Logger.warn('Failed restoring custom keybinds: $e', "input");
             }
         }
 
         if (FlxG.save.data != null && FlxG.save.data.customPadBinds != null) {
-            var savedPads:Map<String, Array<FlxGamepadInputID>> = FlxG.save.data.customPadBinds;
-            for (action => buttons in savedPads) {
-                if (padBinds.exists(action)) padBinds.set(action, buttons);
+            try {
+                var rawPads:Dynamic = FlxG.save.data.customPadBinds;
+                for (action in Reflect.fields(rawPads)) {
+                    var arr:Array<Dynamic> = Reflect.field(rawPads, action);
+                    if (arr != null && padBinds.exists(action)) {
+                        var parsedPads:Array<FlxGamepadInputID> = [];
+                        for (item in arr) {
+                            if (Std.isOfType(item, Int)) {
+                                parsedPads.push(cast item);
+                            } else if (Std.isOfType(item, String)) {
+                                var b = FlxGamepadInputID.fromString(item);
+                                if (b != NONE) parsedPads.push(b);
+                            }
+                        }
+                        if (parsedPads.length > 0) padBinds.set(action, parsedPads);
+                    }
+                }
+            } catch (e:Dynamic) {
+                Logger.warn('Failed restoring custom pad binds: $e', "input");
             }
         }
     }
 
     public static function saveBindings():Void {
         if (FlxG.save.data != null) {
-            FlxG.save.data.customKeyBinds = keyBinds;
-            FlxG.save.data.customPadBinds = padBinds;
+            var serializedKeys:Dynamic = {};
+            for (action => keys in keyBinds) {
+                var intArr:Array<Int> = [];
+                for (k in keys) intArr.push(cast k);
+                Reflect.setField(serializedKeys, action, intArr);
+            }
+
+            var serializedPads:Dynamic = {};
+            for (action => pads in padBinds) {
+                var intArr:Array<Int> = [];
+                for (p in pads) intArr.push(cast p);
+                Reflect.setField(serializedPads, action, intArr);
+            }
+
+            FlxG.save.data.customKeyBinds = serializedKeys;
+            FlxG.save.data.customPadBinds = serializedPads;
             FlxG.save.flush();
         }
     }
@@ -100,26 +151,17 @@ class InputMap {
 
     public static function pressed(action:String):Bool {
         var norm = normalizeAction(action);
-        if (checkKeys(norm, 0)) return true;
-        if (checkGamepad(norm, 0)) return true;
-        if (checkMobile(norm, 0)) return true;
-        return false;
+        return checkKeys(norm, 0) || checkGamepad(norm, 0) || checkMobile(norm, 0);
     }
 
     public static function justPressed(action:String):Bool {
         var norm = normalizeAction(action);
-        if (checkKeys(norm, 1)) return true;
-        if (checkGamepad(norm, 1)) return true;
-        if (checkMobile(norm, 1)) return true;
-        return false;
+        return checkKeys(norm, 1) || checkGamepad(norm, 1) || checkMobile(norm, 1);
     }
 
     public static function justReleased(action:String):Bool {
         var norm = normalizeAction(action);
-        if (checkKeys(norm, 2)) return true;
-        if (checkGamepad(norm, 2)) return true;
-        if (checkMobile(norm, 2)) return true;
-        return false;
+        return checkKeys(norm, 2) || checkGamepad(norm, 2) || checkMobile(norm, 2);
     }
 
     private static function checkKeys(action:String, state:Int):Bool {
@@ -135,18 +177,32 @@ class InputMap {
     }
 
     private static function checkGamepad(action:String, state:Int):Bool {
-        var gamepad:FlxGamepad = FlxG.gamepads.lastActive;
-        if (gamepad == null) return false;
-
         var buttons = padBinds.get(action);
         if (buttons == null || buttons.length == 0) return false;
 
-        return switch (state) {
-            case 0: gamepad.anyPressed(buttons);
-            case 1: gamepad.anyJustPressed(buttons);
-            case 2: gamepad.anyJustReleased(buttons);
-            default: false;
-        };
+        var gamepad:FlxGamepad = FlxG.gamepads.lastActive;
+        if (gamepad != null) {
+            return switch (state) {
+                case 0: gamepad.anyPressed(buttons);
+                case 1: gamepad.anyJustPressed(buttons);
+                case 2: gamepad.anyJustReleased(buttons);
+                default: false;
+            };
+        }
+
+        for (pad in FlxG.gamepads.getActiveGamepads()) {
+            if (pad != null) {
+                var triggered = switch (state) {
+                    case 0: pad.anyPressed(buttons);
+                    case 1: pad.anyJustPressed(buttons);
+                    case 2: pad.anyJustReleased(buttons);
+                    default: false;
+                };
+                if (triggered) return true;
+            }
+        }
+
+        return false;
     }
 
     private static function checkMobile(action:String, state:Int):Bool {
@@ -159,6 +215,7 @@ class InputMap {
             case "note_right", "ui_right": mobilePad.buttonRight;
             case "accept": mobilePad.buttonA;
             case "back": mobilePad.buttonB;
+            case "pause": mobilePad.buttonPause;
             default: null;
         };
 
@@ -202,9 +259,57 @@ class InputMap {
         var norm = normalizeAction(action);
         var keys = keyBinds.get(norm);
         if (keys != null && slot < keys.length && keys[slot] != NONE) {
-            return keys[slot].toString();
+            return formatKeyName(keys[slot].toString());
         }
         return "---";
+    }
+
+    public static function getPadLabel(action:String, slot:Int = 0):String {
+        var norm = normalizeAction(action);
+        var pads = padBinds.get(norm);
+        if (pads != null && slot < pads.length && pads[slot] != NONE) {
+            return pads[slot].toString().replace("DPAD_", "").replace("LEFT_STICK_DIGITAL_", "L_STICK_");
+        }
+        return "---";
+    }
+
+    public static function formatKeyName(name:String):String {
+        if (name == null) return "---";
+        var clean = name.toUpperCase().trim();
+        return switch (clean) {
+            case "CONTROL": "CTRL";
+            case "ESCAPE": "ESC";
+            case "BACKSPACE": "BKSP";
+            case "DELETE": "DEL";
+            case "PAGEUP": "PGUP";
+            case "PAGEDOWN": "PGDN";
+            case "CAPSLOCK": "CAPS";
+            case "NUMPADZERO": "NUM_0";
+            case "NUMPADONE": "NUM_1";
+            case "NUMPADTWO": "NUM_2";
+            case "NUMPADTHREE": "NUM_3";
+            case "NUMPADFOUR": "NUM_4";
+            case "NUMPADFIVE": "NUM_5";
+            case "NUMPADSIX": "NUM_6";
+            case "NUMPADSEVEN": "NUM_7";
+            case "NUMPADEIGHT": "NUM_8";
+            case "NUMPADNINE": "NUM_9";
+            case "NUMPADMINUS": "NUM_-";
+            case "NUMPADPLUS": "NUM_+";
+            case "NUMPADPERIOD": "NUM_.";
+            case "NUMPADMULTIPLY": "NUM_*";
+            case "ZERO": "0";
+            case "ONE": "1";
+            case "TWO": "2";
+            case "THREE": "3";
+            case "FOUR": "4";
+            case "FIVE": "5";
+            case "SIX": "6";
+            case "SEVEN": "7";
+            case "EIGHT": "8";
+            case "NINE": "9";
+            default: clean;
+        };
     }
 
     private static function normalizeAction(action:String):String {
