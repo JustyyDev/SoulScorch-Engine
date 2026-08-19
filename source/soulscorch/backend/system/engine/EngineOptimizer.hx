@@ -16,7 +16,23 @@ import hl.Gc;
 import java.lang.System;
 #end
 
-@:headerInclude("windows.h")
+#if (cpp && windows)
+@:cppFileCode('
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <psapi.h>
+
+#undef ERROR
+#undef DELETE
+#undef TRANSPARENT
+#undef OPAQUE
+#undef IN
+#undef OUT
+#undef NO_ERROR
+#undef min
+#undef max
+')
+#end
 class EngineOptimizer {
     public static var enabled(default, set):Bool = true;
     public static var targetFPS:Int = 120;
@@ -43,12 +59,18 @@ class EngineOptimizer {
         FlxG.mouse.useSystemCursor = false;
 
         #if (cpp && windows)
-        // Optimize working memory block allocation size for C++ target
-        untyped __cpp__("SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1)");
+        trimProcessWorkingSet();
         #end
 
         Logger.info("[OPTIMIZER] SoulScorch High-Performance Engine Optimizer initialized.", "optimizer");
     }
+
+    #if (cpp && windows)
+    @:functionCode('
+        SetProcessWorkingSetSize(GetCurrentProcess(), (SIZE_T)-1, (SIZE_T)-1);
+    ')
+    private static function trimProcessWorkingSet():Void {}
+    #end
 
     public static function update(elapsed:Float):Void {
         if (!enabled) return;

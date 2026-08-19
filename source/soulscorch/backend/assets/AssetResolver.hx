@@ -4,12 +4,14 @@ import flixel.FlxG;
 import flixel.graphics.FlxGraphic;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
+import openfl.utils.ByteArray;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
+import haxe.io.Bytes;
 #end
 
 using StringTools;
@@ -43,7 +45,12 @@ class AssetResolver {
             ".frag",
             ".vert",
             ".ttf",
-            ".otf"
+            ".otf",
+            ".obj",
+            ".awd",
+            ".3ds",
+            ".md5mesh",
+            ".md5anim"
         ];
 
         var folderPrefixes = [
@@ -73,11 +80,11 @@ class AssetResolver {
             "assets/music/",
             "assets/songs/",
             "assets/fonts/",
-            "assets/shaders/"
+            "assets/shaders/",
+            "assets/models/"
         ];
 
         #if sys
-        // 1. Search in active enabled mods (highest priority first)
         if (ModManager.activeMods != null) {
             for (mod in ModManager.activeMods) {
                 for (ext in exts) {
@@ -93,7 +100,6 @@ class AssetResolver {
             }
         }
 
-        // 2. Search in base assets
         for (ext in exts) {
             var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
             for (prefix in folderPrefixes) {
@@ -108,6 +114,37 @@ class AssetResolver {
             }
         }
         #end
+
+        if (openfl.utils.Assets.exists(clean)) {
+            return clean;
+        }
+
+        return null;
+    }
+
+    public static function getBytes(path:String):Null<ByteArray> {
+        var resolved = resolveFile(path, [".obj", ".awd", ".3ds", ".md5mesh", ".md5anim", ".png", ".json", ".txt", ""]);
+        if (resolved == null) return null;
+
+        #if sys
+        if (FileSystem.exists(resolved)) {
+            try {
+                var rawBytes = File.getBytes(resolved);
+                return ByteArray.fromBytes(rawBytes);
+            } catch (e:Dynamic) {
+                Logger.error('Failed reading binary bytes from $resolved: $e', "assets");
+                return null;
+            }
+        }
+        #end
+
+        if (openfl.utils.Assets.exists(resolved)) {
+            try {
+                return openfl.utils.Assets.getBytes(resolved);
+            } catch (e:Dynamic) {
+                return null;
+            }
+        }
 
         return null;
     }
@@ -125,6 +162,14 @@ class AssetResolver {
             }
         }
         #end
+
+        if (openfl.utils.Assets.exists(resolved)) {
+            try {
+                return openfl.utils.Assets.getText(resolved);
+            } catch (e:Dynamic) {
+                return "";
+            }
+        }
 
         return "";
     }
@@ -154,6 +199,12 @@ class AssetResolver {
             }
         }
         #end
+
+        if (snd == null && openfl.utils.Assets.exists(resolved)) {
+            try {
+                snd = openfl.utils.Assets.getSound(resolved);
+            } catch (e:Dynamic) {}
+        }
 
         if (snd != null) {
             trackedSounds.set(resolved, snd);
@@ -190,6 +241,12 @@ class AssetResolver {
             }
         }
         #end
+
+        if (bmp == null && openfl.utils.Assets.exists(resolved)) {
+            try {
+                bmp = openfl.utils.Assets.getBitmapData(resolved);
+            } catch (e:Dynamic) {}
+        }
 
         if (bmp != null) {
             var graph = FlxGraphic.fromBitmapData(bmp, false, resolved);

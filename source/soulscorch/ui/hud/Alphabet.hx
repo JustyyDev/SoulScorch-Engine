@@ -68,6 +68,7 @@ class AlphaCharacter extends FlxSprite {
                 cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
                 if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet-bold");
                 if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("ui/alphabet");
+                if (cachedBoldFrames == null) cachedBoldFrames = Paths.getSparrowAtlas("alphabet");
             }
             this.frames = cachedBoldFrames;
         } else {
@@ -75,54 +76,49 @@ class AlphaCharacter extends FlxSprite {
                 cachedFrames = Paths.getSparrowAtlas("ui/alphabet");
                 if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet");
                 if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("ui/alphabet-bold");
+                if (cachedFrames == null) cachedFrames = Paths.getSparrowAtlas("alphabet-bold");
             }
             this.frames = cachedFrames;
         }
     }
 
     private function setupBold(char:String):Void {
+        var upper = char.toUpperCase();
         var lower = char.toLowerCase();
+
         var candidates:Array<String> = switch (char) {
-            case "&": ["character-ampersand"];
-            case "<": ["character-anglebracket-left"];
-            case ">": ["character-anglebracket-right"];
-            case "@": ["character-at"];
-            case "\\": ["character-backslash"];
-            case "/": ["character-slash"];
-            case "`": ["character-backtick"];
-            case "^": ["character-caret"];
-            case ":": ["character-colon"];
-            case ",": ["character-comma"];
-            case "{": ["character-curlybracket-left"];
-            case "}": ["character-curlybracket-right"];
-            case "$": ["character-dollar"];
-            case "\"", "“", "”": ["character-doublequote", "character-doublequote-alt"];
-            case "=": ["character-equal"];
-            case "!": ["character-exclamationmark", "character-exclamationmark-alt"];
-            case "-": ["character-hyphen", "character-minus"];
-            case "_": ["character-underscore"];
-            case "%": ["character-percent"];
-            case ".": ["character-period"];
-            case "+": ["character-plus"];
-            case "#": ["character-pound"];
-            case "?": ["character-questionmark", "character-questionmark-alt"];
-            case "(": ["character-roundbracket-left"];
-            case ")": ["character-roundbracket-right"];
-            case ";": ["character-semicolon"];
-            case "'", "’": ["character-singlequote", "character-apostophe"];
-            case "[": ["character-squarebracket-left"];
-            case "]": ["character-squarebracket-right"];
-            case "~": ["character-tilde"];
-            case "|": ["character-verticalbar"];
-            case "*": ["character-asterisk", "character-multiply"];
+            case "&": ["& bold", "&", "character-ampersand", "ampersand bold"];
+            case "<": ["< bold", "<", "character-anglebracket-left"];
+            case ">": ["> bold", ">", "character-anglebracket-right"];
+            case "@": ["@ bold", "@", "character-at"];
+            case "\\": ["\\ bold", "\\", "character-backslash"];
+            case "/": ["/ bold", "/", "character-slash"];
+            case ":": [": bold", ":", "character-colon"];
+            case ",": [", bold", ",", "character-comma"];
+            case "$": ["$ bold", "$", "character-dollar"];
+            case "\"", "“", "”": ["\" bold", "\"", "character-doublequote"];
+            case "=": ["= bold", "=", "character-equal"];
+            case "!": ["! bold", "!", "exclamation bold", "character-exclamationmark"];
+            case "-": ["- bold", "-", "dash bold", "character-hyphen", "character-minus"];
+            case "_": ["_ bold", "_", "character-underscore"];
+            case "%": ["% bold", "%", "character-percent"];
+            case ".": [". bold", ".", "period bold", "character-period"];
+            case "+": ["+ bold", "+", "character-plus"];
+            case "#": ["# bold", "#", "hashtag bold", "character-pound"];
+            case "?": ["? bold", "?", "question bold", "character-questionmark"];
+            case "(": ["( bold", "(", "character-roundbracket-left"];
+            case ")": [") bold", ")", "character-roundbracket-right"];
+            case ";": ["; bold", ";", "character-semicolon"];
+            case "'", "’": ["' bold", "'", "apostrophe bold", "character-singlequote"];
+            case "[": ["[ bold", "[", "character-squarebracket-left"];
+            case "]": ["] bold", "]", "character-squarebracket-right"];
+            case "*": ["* bold", "*", "character-asterisk"];
             default:
                 if (isNumber(char)) {
                     var idx = Std.parseInt(char);
-                    ["character-" + numberWords[idx]];
-                } else if (isAlpha(char)) {
-                    ["character-" + lower];
+                    ['$char bold', char, '$upper bold', "character-" + numberWords[idx], numberWords[idx] + " bold"];
                 } else {
-                    ["character-" + lower];
+                    ['$upper bold', '$char bold', '$lower bold', upper, "character-" + lower];
                 }
         };
 
@@ -130,50 +126,56 @@ class AlphaCharacter extends FlxSprite {
     }
 
     private function setupNormal(char:String):Void {
-        var isLower = (char == char.toLowerCase());
+        var isLower = (char == char.toLowerCase() && isAlpha(char));
+        var upper = char.toUpperCase();
         var lower = char.toLowerCase();
+
         var candidates:Array<String> = switch (char) {
-            case "&": ["character-ampersand"];
-            case "<": ["character-anglebracket-left"];
-            case ">": ["character-anglebracket-right"];
-            case "@": ["character-at"];
-            case "\\": ["character-backslash"];
-            case "/": ["character-slash"];
-            case "`": ["character-backtick"];
-            case "^": ["character-caret"];
-            case ":": ["character-colon"];
-            case ",": ["character-comma"];
-            case "{": ["character-curlybracket-left"];
-            case "}": ["character-curlybracket-right"];
-            case "$": ["character-dollar"];
-            case "\"": ["character-doublequote-start", "character-doublequote-end"];
-            case "=": ["character-equal"];
-            case "!": ["character-exclamationmark"];
-            case "-": ["character-minus", "character-hyphen"];
-            case "_": ["character-underscore"];
-            case "%": ["character-percent"];
-            case ".": ["character-period"];
-            case "+": ["character-plus"];
-            case "#": ["character-pound"];
-            case "?": ["character-questionmark"];
-            case "(": ["character-roundbracket-left"];
-            case ")": ["character-roundbracket-right"];
-            case ";": ["character-semicolon"];
-            case "'", "’": ["character-singlequote"];
-            case "[": ["character-squarebracket-left"];
-            case "]": ["character-squarebracket-right"];
-            case "~": ["character-tilde"];
-            case "|": ["character-verticalbar"];
-            case "*": ["character-asterisk", "character-multiply"];
+            case "&": ["&", "ampersand", "character-ampersand"];
+            case "<": ["<", "character-anglebracket-left"];
+            case ">": [">", "character-anglebracket-right"];
+            case "@": ["@", "character-at"];
+            case "\\": ["\\", "character-backslash"];
+            case "/": ["/", "character-slash"];
+            case ":": [":", "character-colon"];
+            case ",": [",", "comma", "character-comma"];
+            case "$": ["$", "character-dollar"];
+            case "\"": ["\"", "character-doublequote-start", "character-doublequote"];
+            case "=": ["=", "character-equal"];
+            case "!": ["!", "exclamation point", "character-exclamationmark"];
+            case "-": ["-", "dash", "character-minus", "character-hyphen"];
+            case "_": ["_", "character-underscore"];
+            case "%": ["%", "character-percent"];
+            case ".": [".", "period", "character-period"];
+            case "+": ["+", "character-plus"];
+            case "#": ["#", "hashtag", "character-pound"];
+            case "?": ["?", "question mark", "character-questionmark"];
+            case "(": ["(", "character-roundbracket-left"];
+            case ")": [")", "character-roundbracket-right"];
+            case ";": [";", "character-semicolon"];
+            case "'", "’": ["'", "apostrophe", "character-singlequote"];
+            case "[": ["[", "character-squarebracket-left"];
+            case "]": ["]", "character-squarebracket-right"];
+            case "*": ["*", "character-asterisk"];
             default:
                 if (isAlpha(char)) {
                     var casing = isLower ? "lowercase" : "capital";
-                    ["character-" + lower + "-" + casing, "character-" + lower];
+                    [
+                        '$char $casing',
+                        '$char lowercase',
+                        '$char capital',
+                        '$casing $char',
+                        'character-$lower-$casing',
+                        'character-$lower',
+                        char,
+                        upper,
+                        lower
+                    ];
                 } else if (isNumber(char)) {
                     var idx = Std.parseInt(char);
-                    ["character-" + numberWords[idx]];
+                    [char, "character-" + numberWords[idx], numberWords[idx]];
                 } else {
-                    ["character-" + lower];
+                    [char, 'character-$lower'];
                 }
         };
 
@@ -183,17 +185,20 @@ class AlphaCharacter extends FlxSprite {
     private function tryAddAnimation(targetPrefixes:Array<String>):Bool {
         if (frames == null || frames.frames == null) return false;
 
-        var reg = ~/[0-9]+$/;
-
         for (target in targetPrefixes) {
-            var targetLower = target.toLowerCase();
+            var targetTrimmed = target.trim().toLowerCase();
 
             for (f in frames.frames) {
                 if (f.name == null) continue;
 
-                var basePrefix = reg.replace(f.name, "");
-                if (basePrefix.toLowerCase() == targetLower) {
-                    animation.addByPrefix("idle", basePrefix, 24, true);
+                var frameClean = f.name.trim();
+                // Strip trailing frame numbers (e.g. "A bold 0000" -> "A bold")
+                var prefixMatch = ~/[0-9]+$/;
+                var baseName = prefixMatch.replace(frameClean, "").trim().toLowerCase();
+
+                if (baseName == targetTrimmed) {
+                    // Fix: Set animated to FALSE so it displays as a single static character glyph
+                    animation.addByPrefix("idle", prefixMatch.replace(frameClean, "").trim(), 24, false);
                     if (animation.getByName("idle") != null && animation.getByName("idle").numFrames > 0) {
                         animation.play("idle");
                         return true;
@@ -269,9 +274,9 @@ class Alphabet extends FlxSpriteGroup {
     private var fullTextBuffer:String = "";
     private var visibleCharCount:Int = 0;
 
-    public static inline var X_SPACING:Float = 4.0;
+    public static inline var X_SPACING:Float = 2.0;
     public static inline var Y_SPACING:Float = 75.0;
-    public static inline var SPACE_WIDTH:Float = 36.0;
+    public static inline var SPACE_WIDTH:Float = 28.0;
 
     public function new(x:Float, y:Float, text:String = "", bold:Bool = false) {
         super(x, y);
@@ -347,55 +352,6 @@ class Alphabet extends FlxSpriteGroup {
             for (letter in row) {
                 letter.x += offset;
             }
-        }
-    }
-
-    public function startTyping(dialogue:String, speed:Float = 0.04, ?sound:String = "scrollMenu", ?onComplete:Void->Void):Void {
-        isTyping = true;
-        fullTextBuffer = dialogue;
-        typingSpeed = speed;
-        typingSound = sound;
-        onTypingComplete = onComplete;
-        visibleCharCount = 0;
-
-        clearLetters();
-
-        if (typingTimer != null) {
-            typingTimer.cancel();
-            typingTimer.destroy();
-        }
-
-        typingTimer = new FlxTimer().start(typingSpeed, onTypeTick, 0);
-    }
-
-    private function onTypeTick(timer:FlxTimer):Void {
-        if (visibleCharCount < fullTextBuffer.length) {
-            visibleCharCount++;
-            var currentStr = fullTextBuffer.substr(0, visibleCharCount);
-            clearLetters();
-            createAlphabet(currentStr);
-
-            if (typingSound != null && typingSound.length > 0 && visibleCharCount % 2 == 0) {
-                AssetHelper.playSoundSafely(typingSound, 0.4);
-            }
-        } else {
-            finishTyping();
-        }
-    }
-
-    public function finishTyping():Void {
-        if (typingTimer != null) {
-            typingTimer.cancel();
-            typingTimer.destroy();
-            typingTimer = null;
-        }
-        isTyping = false;
-        clearLetters();
-        createAlphabet(fullTextBuffer);
-
-        if (onTypingComplete != null) {
-            onTypingComplete();
-            onTypingComplete = null;
         }
     }
 

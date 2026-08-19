@@ -1,7 +1,7 @@
 package soulscorch.backend.system.modules.discord;
 
-import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.system.engine.Version;
+import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.utils.Logger;
 
 #if (cpp && !mobile && !neko)
@@ -10,6 +10,8 @@ import hxdiscord_rpc.Types;
 import sys.thread.Mutex;
 import sys.thread.Thread;
 #end
+
+using StringTools;
 
 class DiscordRPC extends ModuleBase {
     public static var instance:DiscordRPC;
@@ -20,6 +22,16 @@ class DiscordRPC extends ModuleBase {
     public static var currentDetails:String = "";
     public static var currentState:String = "";
     public static var currentElapsedSeconds:Float = 0.0;
+    public static var currentEndTime:Float = 0.0;
+    public static var currentLargeKey:String = "icon";
+    public static var currentLargeText:String = "";
+    public static var currentSmallKey:String = "";
+    public static var currentSmallText:String = "";
+
+    // Discord API Rate-Limiting Protection (Max 1 push per 1.5s unless forced)
+    private static var lastUpdateTime:Float = 0.0;
+    private static inline var MIN_UPDATE_INTERVAL:Float = 1.5;
+    private static var isDirty:Bool = false;
 
     #if (cpp && !mobile && !neko)
     private static var handlers:DiscordEventHandlers;
@@ -32,7 +44,7 @@ class DiscordRPC extends ModuleBase {
         super("discord_rpc");
         instance = this;
         #if (cpp && !mobile && !neko)
-        mutex = new Mutex();
+        if (mutex == null) mutex = new Mutex();
         #end
         if (autoInit) {
             initialize();
@@ -46,20 +58,19 @@ class DiscordRPC extends ModuleBase {
         try {
             mutex.acquire();
 
-            // Zero-initialize handlers struct in C++ memory
-            handlers = untyped __cpp__("DiscordEventHandlers()");
+            handlers = DiscordEventHandlers.create();
             handlers.ready = cpp.Function.fromStaticFunction(onReady);
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
             handlers.errored = cpp.Function.fromStaticFunction(onError);
 
-            Discord.Initialize(clientID, cpp.RawPointer.addressOf(handlers), cast 1, null);
+            Discord.Initialize(clientID, cpp.RawPointer.addressOf(handlers), 1, null);
             isInitialized = true;
             isRunning = true;
             mutex.release();
 
             startWorkerThread();
 
-            Logger.info('Discord RPC initialized successfully (App ID: $clientID).', "discord");
+            Logger.info('Discord RPC initialized (App ID: $clientID).', "discord");
             setMenuPresence("Main Menu");
         } catch (e:Dynamic) {
             if (mutex != null) {
@@ -86,11 +97,11 @@ class DiscordRPC extends ModuleBase {
                 }
                 Sys.sleep(1.0);
             }
+            workerThread = null;
         });
     }
     #end
 
-    // Renamed from update() to poll() to avoid conflicts with ModuleBase instance fields
     public static function poll():Void {
         #if (cpp && !mobile && !neko)
         if (!isInitialized || !isRunning) return;
@@ -105,14 +116,14 @@ class DiscordRPC extends ModuleBase {
 
     public static function setClientID(newID:String):Void {
         #if (cpp && !mobile && !neko)
-        if (newID == null || newID.length == 0 || newID == clientID) return;
+        if (newID == null || newID.trim().length == 0 || newID == clientID) return;
 
         var wasRunning:Bool = isInitialized;
         if (wasRunning) {
             shutdown();
         }
 
-        clientID = newID;
+        clientID = newID.trim();
 
         if (wasRunning) {
             if (instance != null) {
@@ -128,6 +139,10 @@ class DiscordRPC extends ModuleBase {
         setClientID(DEFAULT_CLIENT_ID);
     }
 
+    // =========================================================================
+    // MASTER PRESENCE UPDATER
+    // =========================================================================
+
     public static function changePresence(
         details:String,
         ?state:String,
@@ -138,7 +153,8 @@ class DiscordRPC extends ModuleBase {
         ?largeImageText:String = null,
         ?partySize:Int = 0,
         ?partyMax:Int = 0,
-        ?partyId:String = null
+        ?partyId:String = null,
+        forced:Bool = false
     ):Void {
         #if (cpp && !mobile && !neko)
         if (!isInitialized) {
@@ -146,23 +162,30 @@ class DiscordRPC extends ModuleBase {
             else new DiscordRPC(true);
         }
 
+        var currentTime = Sys.time();
+        if (!forced && (currentTime - lastUpdateTime < MIN_UPDATE_INTERVAL)) {
+            isDirty = true;
+        }
+
         try {
             mutex.acquire();
+
             currentDetails = (details != null && details.length > 0) ? details : "SoulScorch Engine";
             currentState = (state != null) ? state : "";
+            currentLargeKey = (largeImageKey != null && largeImageKey.length > 0) ? largeImageKey : "icon";
+            currentLargeText = (largeImageText != null && largeImageText.length > 0) ? largeImageText : Version.fullVersion();
+            currentSmallKey = (smallImageKey != null) ? smallImageKey : "";
+            currentSmallText = (smallImageKey != null) ? smallImageKey : "";
 
-            // Zero-initialize presence struct in native C++ memory
-            var presence:DiscordRichPresence = untyped __cpp__("DiscordRichPresence()");
+            var presence:DiscordRichPresence = DiscordRichPresence.create();
             presence.details = currentDetails;
             presence.state = currentState;
+            presence.largeImageKey = currentLargeKey;
+            presence.largeImageText = currentLargeText;
 
-            var lKey = (largeImageKey != null && largeImageKey.length > 0) ? largeImageKey : "icon";
-            presence.largeImageKey = lKey;
-            presence.largeImageText = (largeImageText != null && largeImageText.length > 0) ? largeImageText : Version.fullVersion();
-
-            if (smallImageKey != null && smallImageKey.length > 0) {
-                presence.smallImageKey = smallImageKey;
-                presence.smallImageText = smallImageKey;
+            if (currentSmallKey.length > 0) {
+                presence.smallImageKey = currentSmallKey;
+                presence.smallImageText = currentSmallText;
             }
 
             if (hasStartTimestamp) {
@@ -177,6 +200,8 @@ class DiscordRPC extends ModuleBase {
 
             if (endTimestamp > 0) {
                 presence.endTimestamp = Std.int(endTimestamp);
+            } else {
+                presence.endTimestamp = 0;
             }
 
             if (partyId != null && partyId.length > 0 && partyMax > 0) {
@@ -187,13 +212,21 @@ class DiscordRPC extends ModuleBase {
 
             Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence));
             Discord.RunCallbacks();
+            lastUpdateTime = currentTime;
+            isDirty = false;
             mutex.release();
         } catch (e:Dynamic) {
-            try { mutex.release(); } catch (err:Dynamic) {}
+            if (mutex != null) {
+                try { mutex.release(); } catch (err:Dynamic) {}
+            }
             Logger.warn('Failed to update Discord presence: $e', "discord");
         }
         #end
     }
+
+    // =========================================================================
+    // GAMEPLAY, MENUS, EDITORS & RESULTS PRESETS
+    // =========================================================================
 
     public static function updateSongPresence(
         songName:String,
@@ -202,6 +235,7 @@ class DiscordRPC extends ModuleBase {
         songPosition:Float = 0.0,
         accuracy:Float = 0.0,
         score:Int = 0,
+        misses:Int = 0,
         isPaused:Bool = false,
         ?iconKey:String = "icon",
         ?iconText:String = null
@@ -213,38 +247,47 @@ class DiscordRPC extends ModuleBase {
         var lText:String = (iconText != null) ? iconText : Version.versionString();
 
         if (isPaused) {
-            var stateText = 'Paused | Score: $score | Acc: $roundedAcc%';
-            changePresence(detailsText, stateText, "pause", false, 0, lKey, lText);
+            var stateText = 'Paused | Score: $score | Misses: $misses | Acc: $roundedAcc%';
+            changePresence(detailsText, stateText, "pause", false, 0, lKey, lText, false);
         } else {
-            var stateText = 'Score: $score | Acc: $roundedAcc%';
+            var stateText = 'Score: $score | Misses: $misses | Acc: $roundedAcc%';
             var remainingSecs:Float = Math.max(0, (duration - songPosition) / 1000.0);
             var endTime:Float = Sys.time() + remainingSecs;
-            changePresence(detailsText, stateText, "playing", false, endTime, lKey, lText);
+            changePresence(detailsText, stateText, "playing", false, endTime, lKey, lText, false);
         }
         #end
     }
 
     public static function setMenuPresence(menuName:String, ?modIcon:String = "icon"):Void {
         currentElapsedSeconds = 0;
-        changePresence("In the Menus", menuName, null, true, 0, modIcon);
+        changePresence("Main Menus", menuName, null, true, 0, modIcon);
     }
 
     public static function setEditorPresence(editorName:String, ?targetName:String):Void {
-        var state:String = (targetName != null) ? 'Editing: $targetName' : "In Development";
-        changePresence(editorName, state, "editor", true, 0, "icon");
+        var state:String = (targetName != null && targetName.length > 0) ? 'Editing: $targetName' : "In Editor";
+        changePresence('Editor: $editorName', state, "editor", true, 0, "icon");
     }
 
-    public static function setStoryModePresence(weekName:String, difficulty:String):Void {
-        changePresence('Story Mode: $weekName', 'Difficulty: ${difficulty.toUpperCase()}', "storymode", true, 0, "icon");
+    public static function setStoryModePresence(weekName:String, difficulty:String, currentTrack:Int = 1, totalTracks:Int = 3):Void {
+        var state = 'Track $currentTrack of $totalTracks (${difficulty.toUpperCase()})';
+        changePresence('Story Mode: $weekName', state, "storymode", true, 0, "icon");
     }
 
-    public static function setFreeplayPresence(songCount:Int):Void {
-        changePresence("Freeplay Selection", 'Browsing $songCount tracks', "freeplay", true, 0, "icon");
+    public static function setFreeplayPresence(category:String = "Original", songCount:Int = 0):Void {
+        var state = (songCount > 0) ? 'Browsing $songCount tracks ($category)' : 'Browsing tracks ($category)';
+        changePresence("Freeplay Menu", state, "freeplay", true, 0, "icon");
     }
 
-    public static function setResultsPresence(songName:String, score:Int, accuracy:Float, rank:String):Void {
+    public static function setResultsPresence(songName:String, difficulty:String, score:Int, misses:Int, accuracy:Float, rank:String):Void {
         var roundedAcc:Float = Math.round(accuracy * 100) / 100;
-        changePresence('Results: $songName', 'Rank: $rank | Score: $score | Acc: $roundedAcc%', "results", false, 0, "icon");
+        var detailsText = '$songName [${difficulty.toUpperCase()}]';
+        var stateText = 'Rank: $rank | Score: $score | Misses: $misses | Acc: $roundedAcc%';
+        changePresence(detailsText, stateText, "results", false, 0, "icon", 'SoulScorch ${Version.versionString()}');
+    }
+
+    public static function setModPresence(modName:String, modVersion:String = "1.0", ?subStateName:String):Void {
+        var stateText = (subStateName != null) ? '$modName ($modVersion) - $subStateName' : '$modName ($modVersion)';
+        changePresence("Playing Custom Mod", stateText, "mod", true, 0, "icon");
     }
 
     public static function shutdown():Void {
@@ -252,9 +295,15 @@ class DiscordRPC extends ModuleBase {
         if (!isInitialized) return;
         isRunning = false;
         try {
+            if (mutex != null) mutex.acquire();
             Discord.ClearPresence();
             Discord.Shutdown();
-        } catch (e:Dynamic) {}
+            if (mutex != null) mutex.release();
+        } catch (e:Dynamic) {
+            if (mutex != null) {
+                try { mutex.release(); } catch (err:Dynamic) {}
+            }
+        }
         isInitialized = false;
         Logger.info("Discord RPC shut down cleanly.", "discord");
         #end
@@ -269,7 +318,9 @@ class DiscordRPC extends ModuleBase {
     private static function onReady(request:cpp.RawConstPointer<DiscordUser>):Void {
         var user = request[0];
         var username = cast(user.username, String);
-        Logger.info('Discord Rich Presence connected as $username', "discord");
+        var discriminator = cast(user.discriminator, String);
+        var userTag = (discriminator != "0" && discriminator != null) ? '$username#$discriminator' : username;
+        Logger.info('Discord Rich Presence connected as $userTag', "discord");
     }
 
     private static function onDisconnected(errorCode:Int, message:cpp.ConstCharStar):Void {
