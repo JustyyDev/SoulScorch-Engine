@@ -59,9 +59,9 @@ echo.
 echo Select Build Target:
 echo [1] Fast Test (Neko VM - Instant launch)
 echo [2] Fast CPPIA Test (Direct C++ host runner)
-echo [3] Windows C++ Test (Multithreaded Release)
+echo [3] Windows C++ Test (Multithreaded Release - Clean PCH)
 echo [4] Windows C++ Debug (With Crash Tracing)
-echo [5] Clean and Rebuild C++
+echo [5] Deep Clean and Rebuild C++ (Wipes all hidden caches)
 echo [6] Install / Setup Required Haxelibs
 echo.
 set /p target="Choice (default 1): "
@@ -76,32 +76,35 @@ if "%target%"=="1" (
 ) else if "%target%"=="3" (
     echo [*] Compiling Multithreaded Windows C++ build...
     if exist "%MINGW_DIR%" (
-        "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_MINGW -DHXCPP_PCH
+        "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_MINGW -D HXCPP_NO_PCH
     ) else (
-        "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_PCH
+        "%HAXE_DIR%\haxelib.exe" run lime test windows -D HXCPP_NO_PCH
     )
 ) else if "%target%"=="4" (
     echo [*] Compiling Windows C++ with Debug Tracing...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -debug -DHXCPP_STACK_LINE
+    "%HAXE_DIR%\haxelib.exe" run lime test windows -debug -DHXCPP_STACK_LINE -D HXCPP_NO_PCH
 ) else if "%target%"=="5" (
     echo [*] Terminating lingering game processes...
     taskkill /F /IM SoulScorch.exe /T 2>nul
     taskkill /F /IM SoulScorch-debug.exe /T 2>nul
     timeout /t 1 /nobreak >nul
 
-    echo [*] Cleaning export and bin directories...
-    if exist "export\release" rd /s /q "export\release" 2>nul
+    echo [*] Purging local export and bin directories...
     if exist "export" rd /s /q "export" 2>nul
     if exist "bin" rd /s /q "bin" 2>nul
 
-    echo [*] Rebuilding C++...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_PCH
+    echo [*] Purging global Hxcpp and MSVC build caches to fix header collisions...
+    if exist "C:\hxcpp_cache" rd /s /q "C:\hxcpp_cache" 2>nul
+    if exist "%USERPROFILE%\.hxcpp" rd /s /q "%USERPROFILE%\.hxcpp" 2>nul
+
+    echo [*] Rebuilding C++ from scratch...
+    "%HAXE_DIR%\haxelib.exe" run lime test windows -D HXCPP_NO_PCH
 ) else if "%target%"=="6" (
     if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
     "%HAXE_DIR%\haxelib.exe" setup "%HAXELIB_DIR%"
     "%HAXE_DIR%\haxelib.exe" install lime 8.1.3 --always
     "%HAXE_DIR%\haxelib.exe" install openfl 9.3.3 --always
-    "%HAXE_DIR%\haxelib.exe" install flixel 5.6.2 --always
+    "%HAXE_DIR%\haxelib.exe` install flixel 5.6.2 --always
     "%HAXE_DIR%\haxelib.exe" install flixel-addons 3.2.3 --always
     "%HAXE_DIR%\haxelib.exe" install flixel-ui 2.6.1 --always
     "%HAXE_DIR%\haxelib.exe" install hscript 2.5.0 --always

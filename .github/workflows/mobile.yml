@@ -64,6 +64,7 @@ jobs:
           haxelib set hscript 2.5.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
@@ -122,6 +123,7 @@ jobs:
           haxelib set hscript 2.5.0
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
