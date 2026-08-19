@@ -312,8 +312,10 @@ class ModelAPI {
     }
 
     public static function pauseAnimation(mesh:Mesh):Void {
-        if (mesh != null && mesh.animator != null) {
-            mesh.animator.playbackSpeed = 0.0;
+        if (mesh == null || mesh.animator == null) return;
+        var animator:SkeletonAnimator = cast(mesh.animator, SkeletonAnimator);
+        if (animator != null) {
+            animator.playbackSpeed = 0.0;
         }
     }
 
