@@ -117,8 +117,8 @@ class TitleState extends MusicBeatState {
         blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 
         ngSpr = new FlxSprite(0, FlxG.height * 0.52);
-        var loadedNG = AssetHelper.loadImageSafely(ngSpr, "ui/titlescreen/newgrounds_logo");
-        if (!loadedNG) loadedNG = AssetHelper.loadImageSafely(ngSpr, "newgrounds_logo");
+        var loadedNG = AssetHelper.loadGraphicSafely(ngSpr, "ui/titlescreen/newgrounds_logo");
+        if (!loadedNG) loadedNG = AssetHelper.loadGraphicSafely(ngSpr, "newgrounds_logo");
 
         if (!loadedNG) {
             ngSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);

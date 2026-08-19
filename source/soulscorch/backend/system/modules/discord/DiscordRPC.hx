@@ -23,12 +23,9 @@ class DiscordRPC extends ModuleBase {
 
     #if (cpp && !mobile && !neko)
     private static var handlers:DiscordEventHandlers;
-    private static var presence:DiscordRichPresence;
     private static var isRunning:Bool = false;
     private static var mutex:Mutex;
     private static var workerThread:Thread;
-    private static var reconnectAttempts:Int = 0;
-    private static inline var MAX_RECONNECT_ATTEMPTS:Int = 5;
     #end
 
     public function new(autoInit:Bool = true) {
@@ -48,6 +45,8 @@ class DiscordRPC extends ModuleBase {
 
         try {
             mutex.acquire();
+
+            // Zero-initialize handlers struct in C++ memory
             handlers = untyped __cpp__("DiscordEventHandlers()");
             handlers.ready = cpp.Function.fromStaticFunction(onReady);
             handlers.disconnected = cpp.Function.fromStaticFunction(onDisconnected);
@@ -56,7 +55,6 @@ class DiscordRPC extends ModuleBase {
             Discord.Initialize(clientID, cpp.RawPointer.addressOf(handlers), cast 1, null);
             isInitialized = true;
             isRunning = true;
-            reconnectAttempts = 0;
             mutex.release();
 
             startWorkerThread();
@@ -85,13 +83,25 @@ class DiscordRPC extends ModuleBase {
                     mutex.release();
                 } catch (e:Dynamic) {
                     try { mutex.release(); } catch (err:Dynamic) {}
-                    Logger.warn('Error in Discord callback loop: $e', "discord");
                 }
                 Sys.sleep(1.0);
             }
         });
     }
     #end
+
+    // Renamed from update() to poll() to avoid conflicts with ModuleBase instance fields
+    public static function poll():Void {
+        #if (cpp && !mobile && !neko)
+        if (!isInitialized || !isRunning) return;
+        try {
+            if (mutex.tryAcquire()) {
+                Discord.RunCallbacks();
+                mutex.release();
+            }
+        } catch (e:Dynamic) {}
+        #end
+    }
 
     public static function setClientID(newID:String):Void {
         #if (cpp && !mobile && !neko)
@@ -131,18 +141,24 @@ class DiscordRPC extends ModuleBase {
         ?partyId:String = null
     ):Void {
         #if (cpp && !mobile && !neko)
-        if (!isInitialized) return;
+        if (!isInitialized) {
+            if (instance != null) instance.initialize();
+            else new DiscordRPC(true);
+        }
 
         try {
             mutex.acquire();
-            currentDetails = details;
+            currentDetails = (details != null && details.length > 0) ? details : "SoulScorch Engine";
             currentState = (state != null) ? state : "";
 
-            presence = untyped __cpp__("DiscordRichPresence()");
-            presence.details = details;
+            // Zero-initialize presence struct in native C++ memory
+            var presence:DiscordRichPresence = untyped __cpp__("DiscordRichPresence()");
+            presence.details = currentDetails;
             presence.state = currentState;
-            presence.largeImageKey = (largeImageKey != null && largeImageKey.length > 0) ? largeImageKey : "icon";
-            presence.largeImageText = (largeImageText != null) ? largeImageText : Version.versionString();
+
+            var lKey = (largeImageKey != null && largeImageKey.length > 0) ? largeImageKey : "icon";
+            presence.largeImageKey = lKey;
+            presence.largeImageText = (largeImageText != null && largeImageText.length > 0) ? largeImageText : Version.fullVersion();
 
             if (smallImageKey != null && smallImageKey.length > 0) {
                 presence.smallImageKey = smallImageKey;
@@ -163,13 +179,14 @@ class DiscordRPC extends ModuleBase {
                 presence.endTimestamp = Std.int(endTimestamp);
             }
 
-            if (partyId != null && partyId.length > 0) {
+            if (partyId != null && partyId.length > 0 && partyMax > 0) {
                 presence.partyId = partyId;
                 presence.partySize = partySize;
                 presence.partyMax = partyMax;
             }
 
             Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence));
+            Discord.RunCallbacks();
             mutex.release();
         } catch (e:Dynamic) {
             try { mutex.release(); } catch (err:Dynamic) {}
@@ -190,19 +207,16 @@ class DiscordRPC extends ModuleBase {
         ?iconText:String = null
     ):Void {
         #if (cpp && !mobile && !neko)
-        if (!isInitialized) return;
-
         var detailsText:String = '$songName [${difficulty.toUpperCase()}]';
-        var stateText:String = "";
+        var roundedAcc:Float = Math.round(accuracy * 100) / 100;
         var lKey:String = (iconKey != null && iconKey.length > 0) ? iconKey : "icon";
         var lText:String = (iconText != null) ? iconText : Version.versionString();
-        var roundedAcc:Float = Math.round(accuracy * 100) / 100;
 
         if (isPaused) {
-            stateText = 'Paused | Score: $score | Acc: $roundedAcc%';
+            var stateText = 'Paused | Score: $score | Acc: $roundedAcc%';
             changePresence(detailsText, stateText, "pause", false, 0, lKey, lText);
         } else {
-            stateText = 'Score: $score | Acc: $roundedAcc%';
+            var stateText = 'Score: $score | Acc: $roundedAcc%';
             var remainingSecs:Float = Math.max(0, (duration - songPosition) / 1000.0);
             var endTime:Float = Sys.time() + remainingSecs;
             changePresence(detailsText, stateText, "playing", false, endTime, lKey, lText);
@@ -238,6 +252,7 @@ class DiscordRPC extends ModuleBase {
         if (!isInitialized) return;
         isRunning = false;
         try {
+            Discord.ClearPresence();
             Discord.Shutdown();
         } catch (e:Dynamic) {}
         isInitialized = false;
@@ -254,18 +269,12 @@ class DiscordRPC extends ModuleBase {
     private static function onReady(request:cpp.RawConstPointer<DiscordUser>):Void {
         var user = request[0];
         var username = cast(user.username, String);
-        var discrim = cast(user.discriminator, String);
-        Logger.info('Discord Rich Presence connected as $username#$discrim', "discord");
+        Logger.info('Discord Rich Presence connected as $username', "discord");
     }
 
     private static function onDisconnected(errorCode:Int, message:cpp.ConstCharStar):Void {
         var msg = cast(message, String);
         Logger.warn('Discord RPC disconnected ($errorCode): $msg', "discord");
-        
-        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && isInitialized) {
-            reconnectAttempts++;
-            Logger.info('Attempting Discord RPC reconnection (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...', "discord");
-        }
     }
 
     private static function onError(errorCode:Int, message:cpp.ConstCharStar):Void {

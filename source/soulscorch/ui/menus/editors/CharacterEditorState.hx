@@ -3,6 +3,7 @@ package soulscorch.ui.menus.editors;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
@@ -19,6 +20,7 @@ import soulscorch.gameplay.actors.CharacterJson;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.editors.editorui.EditorButton;
 import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
+import soulscorch.ui.menus.editors.editorui.EditorInputText;
 import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.editors.editorui.EditorToast;
@@ -46,17 +48,27 @@ class CharacterEditorState extends MusicBeatState {
     private var camFollowMarker:FlxSprite;
     private var camFollow:FlxPoint;
 
+    // --- Windows & UI Components ---
     private var topBar:EditorTopBar;
+    private var animMatrixWindow:EditorWindow;
     private var propertiesWindow:EditorWindow;
     private var offsetsWindow:EditorWindow;
+    private var newAnimWindow:EditorWindow;
 
     private var curAnimTxt:FlxText;
     private var offsetTxt:FlxText;
     private var animListTxt:FlxText;
+    private var frameInfoTxt:FlxText;
+
+    private var inputAnimName:EditorInputText;
+    private var inputAnimPrefix:EditorInputText;
+    private var stepperAnimFPS:EditorNumericStepper;
+    private var checkAnimLoop:EditorCheckbox;
 
     private var animList:Array<String> = [];
     private var curAnimIndex:Int = 0;
     private var showGhost:Bool = true;
+    private var isDraggingCamAnchor:Bool = false;
 
     public function new(?char:String = "dad", ?isPlayer:Bool = false) {
         super();
@@ -78,26 +90,27 @@ class CharacterEditorState extends MusicBeatState {
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
         camEditor.zoom = 0.9;
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width * 3, FlxG.height * 3, EditorTheme.BG_DARK);
+        var bg = new FlxSprite().makeGraphic(FlxG.width * 4, FlxG.height * 4, EditorTheme.BG_DARK);
         bg.screenCenter();
         bg.scrollFactor.set(0, 0);
         add(bg);
 
+        // Stage baseline indicators
         var ground = new FlxSprite(0, FlxG.height * 0.75).makeGraphic(FlxG.width * 4, 2, EditorTheme.ACCENT_PURPLE);
         ground.screenCenter(X);
         ground.scrollFactor.set(1, 1);
         add(ground);
 
-        crosshair = new FlxSprite().makeGraphic(18, 18, FlxColor.TRANSPARENT);
-        for (i in 0...18) {
-            crosshair.pixels.setPixel32(i, 9, EditorTheme.ACCENT_MAGENTA);
-            crosshair.pixels.setPixel32(9, i, EditorTheme.ACCENT_MAGENTA);
+        crosshair = new FlxSprite().makeGraphic(22, 22, FlxColor.TRANSPARENT);
+        for (i in 0...22) {
+            crosshair.pixels.setPixel32(i, 11, EditorTheme.ACCENT_MAGENTA);
+            crosshair.pixels.setPixel32(11, i, EditorTheme.ACCENT_MAGENTA);
         }
         crosshair.dirty = true;
         crosshair.scrollFactor.set(1, 1);
         add(crosshair);
 
-        camFollowMarker = new FlxSprite().makeGraphic(14, 14, EditorTheme.ACCENT_CYAN);
+        camFollowMarker = new FlxSprite().makeGraphic(18, 18, EditorTheme.ACCENT_CYAN);
         camFollowMarker.scrollFactor.set(1, 1);
         add(camFollowMarker);
 
@@ -132,66 +145,124 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function setupWindows():Void {
-        topBar = new EditorTopBar('ACTOR STUDIO [${curCharacter.toUpperCase()}]');
+        topBar = new EditorTopBar('ACTOR STUDIO // [${curCharacter.toUpperCase()}]');
         topBar.cameras = [camHUD];
         topBar.addAction("Save (Ctrl+S)", saveOffsetsJson);
+        topBar.addAction("Load Character", promptLoadCharacter);
+        topBar.addAction("Reset View", function() {
+            camFollow.set(charLayer.getMidpoint().x, charLayer.getMidpoint().y);
+            camEditor.zoom = 0.9;
+        });
         topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        var infoWindow = new EditorWindow(15, 45, 300, 360, "Animation Matrix");
-        infoWindow.cameras = [camHUD];
-        add(infoWindow);
+        // --- 1. Animation Matrix Window ---
+        animMatrixWindow = new EditorWindow(15, 45, 300, 420, "Animation Matrix");
+        animMatrixWindow.cameras = [camHUD];
+        add(animMatrixWindow);
 
         curAnimTxt = new FlxText(10, 4, 280, "Anim: idle", 16);
         curAnimTxt.setFormat(Paths.font("vcr"), 16, EditorTheme.ACCENT_CYAN, LEFT);
-        infoWindow.addElement(curAnimTxt);
+        animMatrixWindow.addElement(curAnimTxt);
 
         offsetTxt = new FlxText(10, 26, 280, "Offset: [0, 0]", 14);
         offsetTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_MUTED, LEFT);
-        infoWindow.addElement(offsetTxt);
+        animMatrixWindow.addElement(offsetTxt);
 
-        animListTxt = new FlxText(10, 50, 280, "", 12);
+        frameInfoTxt = new FlxText(10, 48, 280, "Frame: 0/0", 12);
+        frameInfoTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, LEFT);
+        animMatrixWindow.addElement(frameInfoTxt);
+
+        animListTxt = new FlxText(10, 72, 280, "", 12);
         animListTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
-        infoWindow.addElement(animListTxt);
+        animMatrixWindow.addElement(animListTxt);
 
-        propertiesWindow = new EditorWindow(FlxG.width - 325, 45, 310, 250, "Actor Settings");
+        var btnAddAnim = new EditorButton(10, 345, 135, 26, "+ Add Anim", function() {
+            newAnimWindow.visible = !newAnimWindow.visible;
+        });
+        animMatrixWindow.addElement(btnAddAnim);
+
+        var btnDelAnim = new EditorButton(155, 345, 135, 26, "- Remove", removeCurrentAnimation);
+        animMatrixWindow.addElement(btnDelAnim);
+
+        // --- 2. Actor Settings Window ---
+        propertiesWindow = new EditorWindow(FlxG.width - 325, 45, 310, 270, "Actor Settings");
         propertiesWindow.cameras = [camHUD];
         add(propertiesWindow);
 
-        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale", charLayer.scale.x, 0.1, 5.0, 0.05, 2, function(v) {
+        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale Multiplier", charLayer.scale.x, 0.1, 8.0, 0.05, 2, function(v) {
             charLayer.scale.set(v, v);
             charLayer.updateHitbox();
             if (ghostChar != null) { ghostChar.scale.set(v, v); ghostChar.updateHitbox(); }
+            updateCrosshair();
         });
         propertiesWindow.addElement(stepperScale);
 
-        var checkGhost = new EditorCheckbox(10, 44, "Ghost Overlay", showGhost, function(c) {
+        var stepperSing = new EditorNumericStepper(10, 44, 290, "Sing Hold Duration", charLayer.singDuration, 0.5, 16.0, 0.5, 1, function(v) {
+            charLayer.singDuration = v;
+        });
+        propertiesWindow.addElement(stepperSing);
+
+        var checkGhost = new EditorCheckbox(10, 84, "Ghost Overlay", showGhost, function(c) {
             showGhost = c;
             if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
         });
         propertiesWindow.addElement(checkGhost);
 
-        var checkFlip = new EditorCheckbox(160, 44, "Flip X Axis", charLayer.flipX, function(c) {
+        var checkFlip = new EditorCheckbox(160, 84, "Flip X Axis", charLayer.flipX, function(c) {
             charLayer.flipX = c;
             if (ghostChar != null) ghostChar.flipX = c;
         });
         propertiesWindow.addElement(checkFlip);
 
-        offsetsWindow = new EditorWindow(FlxG.width - 325, 305, 310, 180, "Camera Focus Anchor");
+        // --- 3. Camera Anchor Window ---
+        offsetsWindow = new EditorWindow(FlxG.width - 325, 325, 310, 160, "Camera Focus Anchor");
         offsetsWindow.cameras = [camHUD];
         add(offsetsWindow);
 
-        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", charLayer.cameraOffset[0], -600, 600, 5.0, 1, function(v) {
+        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", charLayer.cameraOffset[0], -900, 900, 5.0, 1, function(v) {
             charLayer.cameraOffset[0] = v;
             updateCrosshair();
         });
         offsetsWindow.addElement(stepperCamX);
 
-        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", charLayer.cameraOffset[1], -600, 600, 5.0, 1, function(v) {
+        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", charLayer.cameraOffset[1], -900, 900, 5.0, 1, function(v) {
             charLayer.cameraOffset[1] = v;
             updateCrosshair();
         });
         offsetsWindow.addElement(stepperCamY);
+
+        // --- 4. New Animation Creator Window ---
+        newAnimWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Create Animation Node");
+        newAnimWindow.cameras = [camHUD];
+        newAnimWindow.visible = false;
+        add(newAnimWindow);
+
+        inputAnimName = new EditorInputText(10, 4, 300, "Animation Key (e.g. singUP)", "singUP");
+        newAnimWindow.addElement(inputAnimName);
+
+        inputAnimPrefix = new EditorInputText(10, 48, 300, "Sparrow Prefix (XML)", "Dad Sing Note UP");
+        newAnimWindow.addElement(inputAnimPrefix);
+
+        stepperAnimFPS = new EditorNumericStepper(10, 92, 140, "Frame Rate", 24, 1, 60, 1, 0);
+        newAnimWindow.addElement(stepperAnimFPS);
+
+        checkAnimLoop = new EditorCheckbox(170, 110, "Looping", false);
+        newAnimWindow.addElement(checkAnimLoop);
+
+        var btnSubmitAnim = new EditorButton(10, 155, 300, 28, "Inject Animation", function() {
+            if (inputAnimName.text.trim().length > 0 && inputAnimPrefix.text.trim().length > 0) {
+                var animKey = inputAnimName.text.trim();
+                charLayer.animation.addByPrefix(animKey, inputAnimPrefix.text.trim(), Std.int(stepperAnimFPS.value), checkAnimLoop.checked);
+                charLayer.addOffset(animKey, 0, 0);
+                if (!animList.contains(animKey)) animList.push(animKey);
+                curAnimIndex = animList.indexOf(animKey);
+                playCurrentAnim();
+                newAnimWindow.visible = false;
+                EditorToast.show('Injected animation: $animKey');
+            }
+        });
+        newAnimWindow.addElement(btnSubmitAnim);
 
         updateHUDText();
         updateCrosshair();
@@ -203,9 +274,10 @@ class CharacterEditorState extends MusicBeatState {
         handleCameraControls(elapsed);
         handleAnimationControls();
         handleOffsetControls();
+        handleMouseDragAnchor();
 
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveOffsetsJson();
-        if (FlxG.keys.justPressed.ESCAPE) MusicBeatState.switchState(new MainMenuState());
+        if (FlxG.keys.justPressed.ESCAPE && !newAnimWindow.visible) MusicBeatState.switchState(new MainMenuState());
     }
 
     private function handleCameraControls(elapsed:Float):Void {
@@ -222,7 +294,7 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function handleAnimationControls():Void {
-        if (animList.length == 0) return;
+        if (animList.length == 0 || newAnimWindow.visible) return;
 
         if (FlxG.keys.justPressed.W) {
             curAnimIndex = FlxMath.wrap(curAnimIndex - 1, 0, animList.length - 1);
@@ -233,10 +305,14 @@ class CharacterEditorState extends MusicBeatState {
             playCurrentAnim();
         }
         if (FlxG.keys.justPressed.SPACE) playCurrentAnim();
+
+        // Frame by frame stepping
+        if (FlxG.keys.justPressed.LBRACKET) stepAnimationFrame(-1);
+        if (FlxG.keys.justPressed.RBRACKET) stepAnimationFrame(1);
     }
 
     private function handleOffsetControls():Void {
-        if (charLayer == null || animList.length == 0) return;
+        if (charLayer == null || animList.length == 0 || newAnimWindow.visible) return;
 
         var anim = animList[curAnimIndex];
         var mult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
@@ -257,6 +333,36 @@ class CharacterEditorState extends MusicBeatState {
         }
     }
 
+    private function handleMouseDragAnchor():Void {
+        var worldMouse = FlxG.mouse.getWorldPosition(camEditor);
+
+        if (FlxG.mouse.justPressed) {
+            if (worldMouse.x >= camFollowMarker.x - 8 && worldMouse.x <= camFollowMarker.x + 26 &&
+                worldMouse.y >= camFollowMarker.y - 8 && worldMouse.y <= camFollowMarker.y + 26) {
+                isDraggingCamAnchor = true;
+            }
+        }
+
+        if (isDraggingCamAnchor) {
+            if (FlxG.mouse.pressed) {
+                charLayer.cameraOffset[0] = Math.round(worldMouse.x - charLayer.getMidpoint().x);
+                charLayer.cameraOffset[1] = Math.round(worldMouse.y - charLayer.getMidpoint().y);
+                updateCrosshair();
+            } else {
+                isDraggingCamAnchor = false;
+            }
+        }
+    }
+
+    private function stepAnimationFrame(delta:Int):Void {
+        if (charLayer != null && charLayer.animation.curAnim != null) {
+            charLayer.animation.curAnim.pause();
+            var total = charLayer.animation.curAnim.numFrames;
+            charLayer.animation.curAnim.curFrame = FlxMath.wrap(charLayer.animation.curAnim.curFrame + delta, 0, total - 1);
+            frameInfoTxt.text = 'Frame: ${charLayer.animation.curAnim.curFrame + 1} / $total';
+        }
+    }
+
     private function playCurrentAnim():Void {
         if (charLayer == null || animList.length == 0) return;
         var anim = animList[curAnimIndex];
@@ -271,16 +377,62 @@ class CharacterEditorState extends MusicBeatState {
             ghostChar.offset.set(gOffset != null ? gOffset[0] : 0, gOffset != null ? gOffset[1] : 0);
         }
 
+        if (charLayer.animation.curAnim != null) {
+            frameInfoTxt.text = 'Frame: ${charLayer.animation.curAnim.curFrame + 1} / ${charLayer.animation.curAnim.numFrames}';
+        }
+
         updateCrosshair();
         updateHUDText();
+    }
+
+    private function removeCurrentAnimation():Void {
+        if (animList.length <= 1) {
+            EditorToast.show("Cannot remove the only remaining animation!", true);
+            return;
+        }
+        var anim = animList[curAnimIndex];
+        animList.remove(anim);
+        charLayer.animOffsets.remove(anim);
+        curAnimIndex = FlxMath.wrap(curAnimIndex, 0, animList.length - 1);
+        playCurrentAnim();
+        EditorToast.show('Removed animation: $anim');
+    }
+
+    private function promptLoadCharacter():Void {
+        #if sys
+        var charactersFound:Array<String> = [];
+        var charDirs = ["assets/data/characters", "assets/preload/data/characters", "data/characters"];
+        if (ModManager.activeMods != null) {
+            for (m in ModManager.activeMods) charDirs.unshift('mods/$m/data/characters');
+        }
+
+        for (dir in charDirs) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".json")) {
+                        var id = file.substr(0, file.length - 5);
+                        if (!charactersFound.contains(id)) charactersFound.push(id);
+                    }
+                }
+            }
+        }
+
+        if (charactersFound.length > 0) {
+            var nextIdx = (charactersFound.indexOf(curCharacter) + 1) % charactersFound.length;
+            curCharacter = charactersFound[nextIdx];
+            reloadCharacters();
+            setupWindows();
+            EditorToast.show('Loaded character: $curCharacter');
+        }
+        #end
     }
 
     private function updateCrosshair():Void {
         if (charLayer != null) {
             crosshair.setPosition(charLayer.x, charLayer.y);
             camFollowMarker.setPosition(
-                charLayer.getMidpoint().x + charLayer.cameraOffset[0] - 7,
-                charLayer.getMidpoint().y + charLayer.cameraOffset[1] - 7
+                charLayer.getMidpoint().x + charLayer.cameraOffset[0] - 9,
+                charLayer.getMidpoint().y + charLayer.cameraOffset[1] - 9
             );
         }
     }
@@ -294,7 +446,10 @@ class CharacterEditorState extends MusicBeatState {
         offsetTxt.text = off != null ? 'Offset: [${off[0]}, ${off[1]}]' : 'Offset: [0, 0]';
 
         var list = "";
-        for (i in 0...animList.length) {
+        var start = Std.int(Math.max(0, curAnimIndex - 5));
+        var end = Std.int(Math.min(animList.length, start + 11));
+
+        for (i in start...end) {
             var name = animList[i];
             var aOff = charLayer.animOffsets.get(name);
             var str = aOff != null ? '[${aOff[0]}, ${aOff[1]}]' : '[0, 0]';

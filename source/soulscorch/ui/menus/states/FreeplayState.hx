@@ -4,9 +4,11 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.sound.FlxSound;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
@@ -23,7 +25,10 @@ import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongRegistry;
 import soulscorch.gameplay.song.SongRegistry.RegisteredSong;
 import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
+
+using StringTools;
 
 class FreeplayState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -34,8 +39,10 @@ class FreeplayState extends MusicBeatState {
     private var iconArray:Array<HealthIcon> = [];
 
     private var bg:FlxSprite;
+    private var scorePanel:FlxSpriteGroup;
     private var scoreText:FlxText;
     private var diffText:FlxText;
+    private var bpmText:FlxText;
     private var mobileControls:MobilePad;
 
     private var lerpScore:Int = 0;
@@ -49,7 +56,7 @@ class FreeplayState extends MusicBeatState {
         super.create();
 
         #if desktop
-        DiscordRPC.changePresence("Freeplay Menu", "Browsing Songs");
+        DiscordRPC.changePresence("Freeplay Library", "Selecting Track");
         #end
 
         SongRegistry.scanAll();
@@ -58,12 +65,23 @@ class FreeplayState extends MusicBeatState {
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
             if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
-                bg.makeGraphic(FlxG.width, FlxG.height, 0xFF444444);
+                bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282035);
             }
         }
         bg.screenCenter();
         bg.antialiasing = true;
         add(bg);
+
+        // Cyber Grid Lines
+        var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
+        for (i in 0...Std.int(FlxG.width / 40)) {
+            grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
+        }
+        for (i in 0...Std.int(FlxG.height / 40)) {
+            grid.pixels.fillRect(new openfl.geom.Rectangle(0, i * 40, FlxG.width, 1), 0x08FFFFFF);
+        }
+        grid.dirty = true;
+        add(grid);
 
         grpSongs = new FlxTypedGroup<Alphabet>();
         add(grpSongs);
@@ -72,7 +90,7 @@ class FreeplayState extends MusicBeatState {
             curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
 
             for (i in 0...songs.length) {
-                var songText:Alphabet = new Alphabet(0, (70 * i) + 30, songs[i].title, true);
+                var songText:Alphabet = new Alphabet(0, (75 * i) + 30, songs[i].title, true);
                 songText.isMenuItem = true;
                 songText.targetY = i;
                 songText.snapToPosition();
@@ -84,21 +102,11 @@ class FreeplayState extends MusicBeatState {
                 add(icon);
             }
 
-            var scoreBG = new FlxSprite(FlxG.width - 420, 0).makeGraphic(420, 96, 0xAA000000);
-            add(scoreBG);
-
-            scoreText = new FlxText(FlxG.width - 410, 10, 400, "PERSONAL BEST: 0", 18);
-            scoreText.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
-            add(scoreText);
-
-            diffText = new FlxText(FlxG.width - 410, 48, 400, "< NORMAL >", 22);
-            diffText.setFormat(Paths.font("vcr"), 22, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
-            add(diffText);
-
-            changeSelection();
+            setupScorePanel();
+            changeSelection(0);
         } else {
-            var emptyText = new FlxText(0, 0, FlxG.width, "NO SONGS FOUND IN ASSETS OR MODS", 22);
-            emptyText.setFormat(Paths.font("vcr"), 22, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+            var emptyText = new FlxText(0, 0, FlxG.width, "NO SONGS FOUND IN ASSETS OR MODS", 20);
+            emptyText.setFormat(Paths.font("vcr"), 20, EditorTheme.ACCENT_MAGENTA, CENTER, OUTLINE, FlxColor.BLACK);
             emptyText.screenCenter();
             add(emptyText);
         }
@@ -108,6 +116,33 @@ class FreeplayState extends MusicBeatState {
         add(mobileControls);
         Controls.instance.bindMobilePad(mobileControls);
         #end
+    }
+
+    private function setupScorePanel():Void {
+        scorePanel = new FlxSpriteGroup(FlxG.width - 430, 20);
+        add(scorePanel);
+
+        var pBg = new FlxSprite(0, 0).makeGraphic(400, 110, EditorTheme.PANEL_BG);
+        pBg.alpha = 0.85;
+        scorePanel.add(pBg);
+
+        var pBorder = new FlxSprite(-1, -1).makeGraphic(402, 112, EditorTheme.PANEL_BORDER);
+        scorePanel.add(pBorder);
+
+        var accent = new FlxSprite(0, 0).makeGraphic(4, 110, EditorTheme.ACCENT_CYAN);
+        scorePanel.add(accent);
+
+        scoreText = new FlxText(16, 12, 370, "PERSONAL BEST: 0", 16);
+        scoreText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, RIGHT);
+        scorePanel.add(scoreText);
+
+        diffText = new FlxText(16, 44, 370, "< NORMAL >", 22);
+        diffText.setFormat(Paths.font("vcr"), 22, EditorTheme.ACCENT_CYAN, RIGHT);
+        scorePanel.add(diffText);
+
+        bpmText = new FlxText(16, 80, 370, "BPM: 100", 13);
+        bpmText.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_MUTED, RIGHT);
+        scorePanel.add(bpmText);
     }
 
     override public function update(elapsed:Float):Void {
@@ -123,7 +158,7 @@ class FreeplayState extends MusicBeatState {
 
         lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24.0)));
         if (scoreText != null) {
-            scoreText.text = 'PERSONAL BEST: $lerpScore\nACC: ${Math.round(intendedAccuracy * 100) / 100}% [$intendedRating]';
+            scoreText.text = 'PERSONAL BEST: $lerpScore  •  ${Math.round(intendedAccuracy * 10) / 10}% [$intendedRating]';
         }
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
@@ -148,7 +183,7 @@ class FreeplayState extends MusicBeatState {
 
         for (i in 0...grpSongs.members.length) {
             var item = grpSongs.members[i];
-            item.alpha = (i == curSelected ? 1.0 : 0.45);
+            item.alpha = (i == curSelected ? 1.0 : 0.4);
 
             if (iconArray.length > i && iconArray[i] != null) {
                 iconArray[i].alpha = item.alpha;
@@ -160,7 +195,7 @@ class FreeplayState extends MusicBeatState {
     private function changeSelection(change:Int = 0):Void {
         if (songs.length == 0) return;
         curSelected = FlxMath.wrap(curSelected + change, 0, songs.length - 1);
-        AssetHelper.playSoundSafely("scrollMenu", 0.7);
+        if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         if (bg != null) {
             var targetColor:FlxColor = songs[curSelected].color;
@@ -174,8 +209,10 @@ class FreeplayState extends MusicBeatState {
             bullShit++;
         }
 
+        if (bpmText != null) bpmText.text = 'TEMPO: ${Math.round(songs[curSelected].bpm)} BPM';
+
         curDifficulty = 0;
-        changeDiff();
+        changeDiff(0);
         playSongPreview();
     }
 

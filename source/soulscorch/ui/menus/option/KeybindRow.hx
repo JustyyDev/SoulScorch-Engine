@@ -10,6 +10,7 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.InputMap;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 
 class KeybindRow extends FlxSpriteGroup {
     public var label:FlxText;
@@ -25,21 +26,25 @@ class KeybindRow extends FlxSpriteGroup {
         super(x, y);
         this.actionName = actionName;
 
-        rowBg = new FlxSprite(0, 0).makeGraphic(Std.int(width), 50, 0xFF171321);
-        rowBg.alpha = 0.35;
+        rowBg = new FlxSprite(0, 0).makeGraphic(Std.int(width), 54, EditorTheme.PANEL_BG);
+        rowBg.alpha = 0.45;
         add(rowBg);
 
-        activeIndicator = new FlxSprite(0, 0).makeGraphic(6, 50, 0xFF00FFCC);
+        var border = new FlxSprite(0, 53).makeGraphic(Std.int(width), 1, EditorTheme.PANEL_BORDER);
+        border.alpha = 0.6;
+        add(border);
+
+        activeIndicator = new FlxSprite(0, 0).makeGraphic(5, 54, EditorTheme.ACCENT_CYAN);
         activeIndicator.alpha = 0.0;
         add(activeIndicator);
 
-        label = new FlxText(24, 14, width * 0.5, displayName, 18);
-        label.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+        label = new FlxText(22, 16, width * 0.48, displayName, 18);
+        label.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
         label.borderSize = 1.0;
         add(label);
 
-        keyText = new FlxText(width * 0.45, 14, width * 0.50, "", 18);
-        keyText.setFormat(Paths.font("vcr"), 18, 0xFF00FFCC, RIGHT, OUTLINE, FlxColor.BLACK);
+        keyText = new FlxText(width * 0.45, 16, (width * 0.55) - 20, "", 18);
+        keyText.setFormat(Paths.font("vcr"), 18, EditorTheme.ACCENT_CYAN, RIGHT, OUTLINE, FlxColor.BLACK);
         keyText.borderSize = 1.0;
         add(keyText);
 
@@ -48,19 +53,19 @@ class KeybindRow extends FlxSpriteGroup {
 
     public function setActive(active:Bool):Void {
         isSelected = active;
-        label.color = active ? 0xFF00FFCC : FlxColor.WHITE;
-        
+        label.color = active ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_PRIMARY;
+
         FlxTween.cancelTweensOf(rowBg);
-        FlxTween.tween(rowBg, {alpha: active ? 0.85 : 0.25}, 0.2, {ease: FlxEase.quadOut});
+        FlxTween.tween(rowBg, {alpha: active ? 0.95 : 0.45}, 0.2, {ease: FlxEase.quartOut});
 
         FlxTween.cancelTweensOf(activeIndicator);
-        FlxTween.tween(activeIndicator, {alpha: active ? 1.0 : 0.0}, 0.2, {ease: FlxEase.quadOut});
+        FlxTween.tween(activeIndicator, {alpha: active ? 1.0 : 0.0}, 0.2, {ease: FlxEase.quartOut});
     }
 
     public function setListening(listening:Bool):Void {
         if (listening) {
             keyText.text = "> PRESS ANY KEY <";
-            keyText.color = 0xFFFF5555;
+            keyText.color = EditorTheme.ACCENT_MAGENTA;
         } else {
             refreshKeyLabel();
         }
@@ -68,8 +73,15 @@ class KeybindRow extends FlxSpriteGroup {
 
     public function refreshKeyLabel():Void {
         var primaryKey = InputMap.getKeyLabel(actionName, 0);
-        keyText.text = '[ $primaryKey ]';
-        keyText.color = isSelected ? 0xFF00FFCC : 0xFF88EEEE;
+        var secondaryKey = InputMap.getKeyLabel(actionName, 1);
+
+        if (secondaryKey != "NONE" && secondaryKey != primaryKey) {
+            keyText.text = '[ $primaryKey ]  |  [ $secondaryKey ]';
+        } else {
+            keyText.text = '[ $primaryKey ]';
+        }
+
+        keyText.color = isSelected ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_MUTED;
     }
 
     override public function update(elapsed:Float):Void {

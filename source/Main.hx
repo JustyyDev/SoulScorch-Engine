@@ -66,6 +66,10 @@ class Main extends Sprite {
             var stageWidth:Int = Lib.current.stage.stageWidth;
             var stageHeight:Int = Lib.current.stage.stageHeight;
 
+            // Prevent divide-by-zero crashes on headless/minimized launches
+            if (stageWidth <= 0) stageWidth = gameWidth;
+            if (stageHeight <= 0) stageHeight = gameHeight;
+
             if (zoom == -1.0) {
                 var ratioX:Float = stageWidth / gameWidth;
                 var ratioY:Float = stageHeight / gameHeight;
@@ -79,6 +83,11 @@ class Main extends Sprite {
 
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
+
+            // Optimize Flixel timing & input responsiveness
+            FlxG.fixedTimestep = false;
+            FlxG.autoPause = false;
+            FlxG.mouse.useSystemCursor = false;
 
             var devConsole = DevConsole.instance;
             if (devConsole != null && devConsole.parent == null) {
@@ -94,6 +103,7 @@ class Main extends Sprite {
             Runtime.bootstrap(config);
             Runtime.setupFlixel();
 
+            // Initialize optimization subsystems and adaptive GC scheduling
             EngineOptimizer.init(framerate);
 
             ModManager.reloadMods();
@@ -146,10 +156,18 @@ class Main extends Sprite {
     }
 
     private function onEnterFrame(event:Event):Void {
+        // Clamp delta time to prevent physics/math explosions after window dragging/stalls
+        var safeElapsed:Float = Math.min(FlxG.elapsed, 0.1);
+
         if (fileWatcher != null) {
-            fileWatcher.update(FlxG.elapsed);
+            fileWatcher.update(safeElapsed);
         }
+
         HotReloader.update();
-        EngineOptimizer.update(FlxG.elapsed);
+        EngineOptimizer.update(safeElapsed);
+
+        #if (cpp && !mobile && !neko)
+        DiscordRPC.update();
+        #end
     }
 }

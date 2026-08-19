@@ -21,6 +21,7 @@ import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.FreeplayState;
 import soulscorch.ui.menus.states.HomeSoulState;
@@ -55,8 +56,10 @@ class MainMenuState extends MusicBeatState {
         loadMenuItems();
 
         bg = new FlxSprite(-80);
-        if (!AssetHelper.loadGraphicSafely(bg, "menuBG")) {
-            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282828);
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuBG")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "menuBG")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, 0xFF282828);
+            }
         }
         bg.scrollFactor.set(0, 0.15);
         bg.setGraphicSize(Std.int(bg.width * 1.175));
@@ -66,8 +69,12 @@ class MainMenuState extends MusicBeatState {
         add(bg);
 
         magenta = new FlxSprite(-80);
-        if (!AssetHelper.loadGraphicSafely(magenta, "menuDesat")) {
-            magenta.makeGraphic(FlxG.width, FlxG.height, 0xFFFD719B);
+        if (!AssetHelper.loadGraphicSafely(magenta, "ui/menubgs/menuBGMagenta")) {
+            if (!AssetHelper.loadGraphicSafely(magenta, "ui/menubgs/menuDesat")) {
+                if (!AssetHelper.loadGraphicSafely(magenta, "menuDesat")) {
+                    magenta.makeGraphic(FlxG.width, FlxG.height, 0xFFFD719B);
+                }
+            }
         }
         magenta.scrollFactor.set(0, 0.15);
         magenta.setGraphicSize(Std.int(magenta.width * 1.175));
@@ -87,21 +94,36 @@ class MainMenuState extends MusicBeatState {
         add(grpMenuItems);
 
         for (i in 0...menuItems.length) {
-            var itemKey = menuItems[i].trim().toLowerCase();
+            var rawKey = menuItems[i].trim().toLowerCase();
+            var keyNormalized = rawKey.replace("_", " ");
+            var keyUnderscore = rawKey.replace(" ", "_");
+
             var offset:Float = 108 - (Math.max(menuItems.length, 4) - 4) * 80;
             var menuItem:FlxSprite = new FlxSprite(0, (i * 140) + offset);
 
-            var loaded = AssetHelper.loadSparrowSafely(menuItem, "menus/mainmenu/menu_" + itemKey);
+            var loaded = AssetHelper.loadSparrowSafely(menuItem, "ui/mainmenu/menu_" + rawKey);
+            if (!loaded) loaded = AssetHelper.loadSparrowSafely(menuItem, "ui/mainmenu/menu_" + keyNormalized);
+            if (!loaded) loaded = AssetHelper.loadSparrowSafely(menuItem, "ui/mainmenu/menu_" + keyUnderscore);
+            if (!loaded) loaded = AssetHelper.loadSparrowSafely(menuItem, "menus/mainmenu/menu_" + rawKey);
+
             if (loaded && menuItem.frames != null) {
-                menuItem.animation.addByPrefix("idle", itemKey + " basic", 24);
-                menuItem.animation.addByPrefix("selected", itemKey + " white", 24);
+                menuItem.animation.addByPrefix("idle", keyNormalized + " basic", 24);
+                if (menuItem.animation.getByName("idle") == null) menuItem.animation.addByPrefix("idle", keyUnderscore + " basic", 24);
+                if (menuItem.animation.getByName("idle") == null) menuItem.animation.addByPrefix("idle", rawKey + " basic", 24);
+                if (menuItem.animation.getByName("idle") == null) menuItem.animation.addByPrefix("idle", "basic", 24);
+
+                menuItem.animation.addByPrefix("selected", keyNormalized + " white", 24);
+                if (menuItem.animation.getByName("selected") == null) menuItem.animation.addByPrefix("selected", keyUnderscore + " white", 24);
+                if (menuItem.animation.getByName("selected") == null) menuItem.animation.addByPrefix("selected", rawKey + " white", 24);
+                if (menuItem.animation.getByName("selected") == null) menuItem.animation.addByPrefix("selected", "white", 24);
+
                 menuItem.animation.play("idle");
                 menuItem.ID = i;
                 menuItem.screenCenter(X);
                 menuItem.antialiasing = true;
                 grpMenuItems.add(menuItem);
             } else {
-                var alphaLabel = new Alphabet(0, (i * 140) + offset, itemKey.replace("_", " ").toUpperCase(), true);
+                var alphaLabel = new Alphabet(0, (i * 140) + offset, keyNormalized.toUpperCase(), true);
                 alphaLabel.screenCenter(X);
                 alphaLabel.ID = i;
                 grpMenuItems.add(cast alphaLabel);

@@ -19,10 +19,13 @@ import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.gameplay.GameplayFlags;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.option.KeybindRow;
 import soulscorch.ui.menus.option.OptionCategory;
 import soulscorch.ui.menus.option.OptionRow;
 import soulscorch.ui.menus.states.MainMenuState;
+
+using StringTools;
 
 class OptionsMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
@@ -49,31 +52,45 @@ class OptionsMenuState extends MusicBeatState {
         super.create();
 
         #if desktop
-        DiscordRPC.changePresence("Options Menu", "Adjusting Preferences");
+        DiscordRPC.changePresence("Options Menu", "Configuring Preferences");
         #end
 
         initCategories();
 
-        bg = new FlxSprite();
-        if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
-            bg.makeGraphic(FlxG.width, FlxG.height, 0xFF1A1424);
-        }
-        bg.color = categories[curCategory].color;
-        bg.screenCenter();
-        bg.antialiasing = true;
+        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg.scrollFactor.set(0, 0);
         add(bg);
 
-        categoryHeader = new FlxSprite(0, 0).makeGraphic(FlxG.width, 70, 0xEE0B0910);
+        // Grid Background lines
+        var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
+        for (i in 0...Std.int(FlxG.width / 40)) {
+            grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
+        }
+        for (i in 0...Std.int(FlxG.height / 40)) {
+            grid.pixels.fillRect(new openfl.geom.Rectangle(0, i * 40, FlxG.width, 1), 0x08FFFFFF);
+        }
+        grid.dirty = true;
+        grid.scrollFactor.set(0, 0);
+        add(grid);
+
+        categoryHeader = new FlxSprite(0, 0).makeGraphic(FlxG.width, 68, EditorTheme.PANEL_HEADER);
+        categoryHeader.scrollFactor.set(0, 0);
         add(categoryHeader);
 
-        tabSelectorHighlight = new FlxSprite(0, 62).makeGraphic(140, 6, 0xFF00FFCC);
+        var topBorder = new FlxSprite(0, 67).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
+        topBorder.scrollFactor.set(0, 0);
+        add(topBorder);
+
+        tabSelectorHighlight = new FlxSprite(0, 64).makeGraphic(140, 4, EditorTheme.ACCENT_CYAN);
+        tabSelectorHighlight.scrollFactor.set(0, 0);
         add(tabSelectorHighlight);
 
         var tabWidth = FlxG.width / categories.length;
         for (i in 0...categories.length) {
-            var tabText = new FlxText(i * tabWidth, 22, tabWidth, categories[i].name.toUpperCase(), 16);
-            tabText.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+            var tabText = new FlxText(i * tabWidth, 20, tabWidth, categories[i].name.toUpperCase(), 16);
+            tabText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, CENTER, OUTLINE, FlxColor.BLACK);
             tabText.borderSize = 1.0;
+            tabText.scrollFactor.set(0, 0);
             tabText.ID = i;
             categoryTabs.push(tabText);
             add(tabText);
@@ -82,12 +99,18 @@ class OptionsMenuState extends MusicBeatState {
         grpRows = new FlxTypedGroup<FlxSprite>();
         add(grpRows);
 
-        descBox = new FlxSprite(0, FlxG.height - 75).makeGraphic(FlxG.width, 75, 0xEE0B0910);
+        descBox = new FlxSprite(0, FlxG.height - 70).makeGraphic(FlxG.width, 70, EditorTheme.PANEL_HEADER);
+        descBox.scrollFactor.set(0, 0);
         add(descBox);
 
-        descText = new FlxText(20, FlxG.height - 52, FlxG.width - 40, "", 16);
-        descText.setFormat(Paths.font("vcr"), 16, 0xFFCCCCCC, CENTER, OUTLINE, FlxColor.BLACK);
+        var descBorder = new FlxSprite(0, FlxG.height - 70).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
+        descBorder.scrollFactor.set(0, 0);
+        add(descBorder);
+
+        descText = new FlxText(30, FlxG.height - 48, FlxG.width - 60, "", 15);
+        descText.setFormat(Paths.font("vcr"), 15, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
         descText.borderSize = 1.0;
+        descText.scrollFactor.set(0, 0);
         add(descText);
 
         #if (mobile || debug)
@@ -105,7 +128,7 @@ class OptionsMenuState extends MusicBeatState {
             new OptionCategory("Gameplay", "options", 0xFF221A30, [
                 {
                     name: "Downscroll",
-                    description: "Receptors and incoming notes scroll downwards toward the bottom of the screen.",
+                    description: "Notes scroll downwards toward the strumline receptors at the bottom.",
                     type: "bool",
                     getValue: function() return Runtime.config != null ? Runtime.config.downscroll : false,
                     setValue: function(v) {
@@ -115,14 +138,14 @@ class OptionsMenuState extends MusicBeatState {
                 },
                 {
                     name: "Middlescroll",
-                    description: "Centers your strumline receptor lane in the middle of the screen.",
+                    description: "Centers your player strumline receptor lane in the middle of the display.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("middlescroll", false),
                     setValue: function(v) GameplayFlags.set("middlescroll", v)
                 },
                 {
                     name: "Ghost Tapping",
-                    description: "Allows pressing directional inputs freely without incurring miss penalties.",
+                    description: "Allows tapping inputs freely without penalizing misses when no notes exist.",
                     type: "bool",
                     getValue: function() return Runtime.config != null ? Runtime.config.ghostTapping : true,
                     setValue: function(v) {
@@ -131,35 +154,37 @@ class OptionsMenuState extends MusicBeatState {
                     }
                 },
                 {
-                    name: "Scroll Speed",
-                    description: "Global multiplier applied to the default scroll velocity of charts.",
+                    name: "Scroll Speed Multiplier",
+                    description: "Scales the default chart scrolling velocity across all songs.",
                     type: "float",
                     min: 0.5,
                     max: 4.0,
                     step: 0.1,
+                    formatValue: function(v) return Math.round(v * 10) / 10 + "x",
                     getValue: function() return GameplayFlags.getFloat("songSpeedMultiplier", 1.0),
                     setValue: function(v) GameplayFlags.set("songSpeedMultiplier", v)
                 },
                 {
-                    name: "Note Offset (MS)",
-                    description: "Calibrates audio-to-visual latency compensation in milliseconds.",
+                    name: "Audio Latency Offset",
+                    description: "Calibrates audio hardware-to-visual latency in milliseconds.",
                     type: "int",
-                    min: -150,
-                    max: 150,
+                    min: -250,
+                    max: 250,
                     step: 1,
+                    formatValue: function(v) return v + " ms",
                     getValue: function() return GameplayFlags.getInt("noteOffset", 0),
                     setValue: function(v) GameplayFlags.set("noteOffset", Std.int(v))
                 },
                 {
-                    name: "Botplay",
-                    description: "Enables automated perfect inputs for demonstration and charting review.",
+                    name: "Botplay Demonstration",
+                    description: "Automates perfect inputs for demonstration, charting, and testing.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("botplay", false),
                     setValue: function(v) GameplayFlags.set("botplay", v)
                 },
                 {
-                    name: "Note Splashes",
-                    description: "Displays dynamic particle splash bursts on 'Sick!' and 'Marvelous!' hits.",
+                    name: "Hit Particle Splashes",
+                    description: "Emits dynamic particle splashes on 'Sick!' and 'Marvelous!' note hits.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("noteSplash", true),
                     setValue: function(v) GameplayFlags.set("noteSplash", v)
@@ -168,11 +193,12 @@ class OptionsMenuState extends MusicBeatState {
             new OptionCategory("Visuals", "options", 0xFF1A2A30, [
                 {
                     name: "Framerate Cap",
-                    description: "Sets the maximum rendering refresh frequency cap.",
+                    description: "Configures the maximum rendering refresh frequency cap.",
                     type: "int",
                     min: 60,
                     max: 360,
                     step: 10,
+                    formatValue: function(v) return v + " FPS",
                     getValue: function() return Runtime.config != null ? Runtime.config.framerate : 120,
                     setValue: function(v) {
                         var val = Std.int(v);
@@ -181,8 +207,8 @@ class OptionsMenuState extends MusicBeatState {
                     }
                 },
                 {
-                    name: "FPS Counter",
-                    description: "Toggles the performance and memory usage monitor in the corner.",
+                    name: "FPS & Memory Overlay",
+                    description: "Displays real-time FPS, frame duration, and memory utilization monitors.",
                     type: "bool",
                     getValue: function() return Main.fpsCounter != null ? Main.fpsCounter.visible : true,
                     setValue: function(v) {
@@ -190,8 +216,8 @@ class OptionsMenuState extends MusicBeatState {
                     }
                 },
                 {
-                    name: "Antialiasing",
-                    description: "Enables texture smoothing across 2D characters, assets, and UI components.",
+                    name: "Hardware Antialiasing",
+                    description: "Enables smoothing filters across 2D sprites, stage textures, and character atlases.",
                     type: "bool",
                     getValue: function() return Runtime.config != null ? Runtime.config.antialiasing : true,
                     setValue: function(v) {
@@ -200,8 +226,8 @@ class OptionsMenuState extends MusicBeatState {
                     }
                 },
                 {
-                    name: "Flashing Lights",
-                    description: "Toggles screen flashes and strobe effects during events.",
+                    name: "Flashing Light Effects",
+                    description: "Controls screen flashes, strobe pulses, and lightning shader effects.",
                     type: "bool",
                     getValue: function() return Runtime.config != null ? Runtime.config.flashingLights : true,
                     setValue: function(v) {
@@ -210,8 +236,8 @@ class OptionsMenuState extends MusicBeatState {
                     }
                 },
                 {
-                    name: "Camera Zooms",
-                    description: "Enables rhythmic camera zooming bops on quarter beat hits.",
+                    name: "Camera Beat Bops",
+                    description: "Triggers rhythmic camera zoom pulses on quarter beat marks.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("cameraZoomOnBeat", true),
                     setValue: function(v) GameplayFlags.set("cameraZoomOnBeat", v)
@@ -220,29 +246,31 @@ class OptionsMenuState extends MusicBeatState {
             new OptionCategory("Audio", "options", 0xFF301A1A, [
                 {
                     name: "Master Volume",
-                    description: "Sets the global audio volume multiplier across all sounds and music.",
+                    description: "Sets the master sound mixer volume level across all channels.",
                     type: "float",
                     min: 0.0,
                     max: 1.0,
                     step: 0.05,
+                    formatValue: function(v) return Math.round(v * 100) + "%",
                     getValue: function() return FlxG.sound.volume,
                     setValue: function(v) FlxG.sound.volume = v
                 },
                 {
-                    name: "Music Volume",
-                    description: "Adjusts background music and instrumental playback volume.",
+                    name: "Music Channel Volume",
+                    description: "Adjusts instrumental tracks and background music volume levels.",
                     type: "float",
                     min: 0.0,
                     max: 1.0,
                     step: 0.05,
+                    formatValue: function(v) return Math.round(v * 100) + "%",
                     getValue: function() return FlxG.sound.music != null ? FlxG.sound.music.volume : 1.0,
                     setValue: function(v) {
                         if (FlxG.sound.music != null) FlxG.sound.music.volume = v;
                     }
                 },
                 {
-                    name: "Mute on Focus Loss",
-                    description: "Automatically mutes all audio when the application window loses focus.",
+                    name: "Mute On Focus Loss",
+                    description: "Mutes all active audio playback when the engine window loses focus.",
                     type: "bool",
                     getValue: function() return FlxG.autoPause,
                     setValue: function(v) FlxG.autoPause = v
@@ -250,36 +278,36 @@ class OptionsMenuState extends MusicBeatState {
             ]),
             new OptionCategory("Controls", "options", 0xFF1A3022, [
                 {
-                    name: "Note Left",
-                    description: "Rebind key assigned to the Left lane note.",
+                    name: "Left Lane Note",
+                    description: "Rebind key assigned to the Left direction lane.",
                     type: "keybind",
                     getValue: function() return "note_left",
                     setValue: function(v) {}
                 },
                 {
-                    name: "Note Down",
-                    description: "Rebind key assigned to the Down lane note.",
+                    name: "Down Lane Note",
+                    description: "Rebind key assigned to the Down direction lane.",
                     type: "keybind",
                     getValue: function() return "note_down",
                     setValue: function(v) {}
                 },
                 {
-                    name: "Note Up",
-                    description: "Rebind key assigned to the Up lane note.",
+                    name: "Up Lane Note",
+                    description: "Rebind key assigned to the Up direction lane.",
                     type: "keybind",
                     getValue: function() return "note_up",
                     setValue: function(v) {}
                 },
                 {
-                    name: "Note Right",
-                    description: "Rebind key assigned to the Right lane note.",
+                    name: "Right Lane Note",
+                    description: "Rebind key assigned to the Right direction lane.",
                     type: "keybind",
                     getValue: function() return "note_right",
                     setValue: function(v) {}
                 },
                 {
-                    name: "Reset Keybinds",
-                    description: "Restores directional inputs and gameplay keys back to engine defaults (D-F-J-K).",
+                    name: "Reset Controls To Default",
+                    description: "Restores directional inputs and key mappings back to defaults (D-F-J-K).",
                     type: "button",
                     getValue: function() return "EXECUTE",
                     setValue: function(_) {
@@ -295,19 +323,19 @@ class OptionsMenuState extends MusicBeatState {
         grpRows.clear();
 
         var currentOptions = categories[curCategory].options;
-        var rowWidth = FlxG.width * 0.82;
+        var rowWidth = FlxG.width * 0.84;
         var rowX = (FlxG.width - rowWidth) * 0.5;
 
         for (i in 0...currentOptions.length) {
             var opt = currentOptions[i];
             if (opt.type == "keybind") {
                 var row = new KeybindRow(rowX, 0, rowWidth, opt.getValue(), opt.name);
-                row.y = (i * 60) + 100;
+                row.y = (i * 64) + 96;
                 row.targetY = row.y;
                 grpRows.add(row);
             } else {
                 var row = new OptionRow(rowX, 0, rowWidth, opt.name);
-                row.y = (i * 60) + 100;
+                row.y = (i * 64) + 96;
                 row.targetY = row.y;
                 grpRows.add(row);
             }
@@ -317,13 +345,8 @@ class OptionsMenuState extends MusicBeatState {
         FlxTween.cancelTweensOf(tabSelectorHighlight);
         FlxTween.tween(tabSelectorHighlight, {x: (curCategory * tabWidth) + (tabWidth - 140) * 0.5}, 0.25, {ease: FlxEase.quartOut});
 
-        if (bg != null) {
-            FlxTween.cancelTweensOf(bg);
-            FlxTween.color(bg, 0.3, bg.color, categories[curCategory].color);
-        }
-
         for (i in 0...categoryTabs.length) {
-            categoryTabs[i].color = (i == curCategory ? 0xFF00FFCC : FlxColor.WHITE);
+            categoryTabs[i].color = (i == curCategory ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_PRIMARY);
             categoryTabs[i].alpha = (i == curCategory ? 1.0 : 0.45);
         }
 
@@ -343,7 +366,7 @@ class OptionsMenuState extends MusicBeatState {
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        // Switch category tabs using Q/E, Tab, or Gamepad Shoulder Buttons
+        // Switch category tabs using Q/E, Tab, or PageUp/Down
         if (FlxG.keys.justPressed.Q || FlxG.keys.justPressed.PAGEUP) {
             changeCategory(-1);
             return;
@@ -376,9 +399,9 @@ class OptionsMenuState extends MusicBeatState {
                         modifyNumericOption(currentOpt, step);
                     } else if (holdingLeft || holdingRight) {
                         holdTimer += elapsed;
-                        if (holdTimer > 0.4) {
+                        if (holdTimer > 0.35) {
                             repeatTimer += elapsed;
-                            if (repeatTimer > 0.05) {
+                            if (repeatTimer > 0.04) {
                                 modifyNumericOption(currentOpt, (holdingLeft ? -step : step));
                                 repeatTimer = 0.0;
                             }
@@ -393,7 +416,7 @@ class OptionsMenuState extends MusicBeatState {
                         if (Controls.instance.UI_LEFT_P || Controls.instance.UI_RIGHT_P || Controls.instance.ACCEPT) {
                             var curVal = Std.string(currentOpt.getValue());
                             var idx = currentOpt.options.indexOf(curVal);
-                            var nextIdx = (Controls.instance.UI_LEFT_P) 
+                            var nextIdx = (Controls.instance.UI_LEFT_P)
                                 ? FlxMath.wrap(idx - 1, 0, currentOpt.options.length - 1)
                                 : FlxMath.wrap(idx + 1, 0, currentOpt.options.length - 1);
                             currentOpt.setValue(currentOpt.options[nextIdx]);
@@ -435,7 +458,7 @@ class OptionsMenuState extends MusicBeatState {
         if (opt.max != null) nextVal = Math.min(opt.max, nextVal);
 
         opt.setValue(opt.type == "int" ? Math.round(nextVal) : nextVal);
-        AssetHelper.playSoundSafely("scrollMenu", 0.6);
+        AssetHelper.playSoundSafely("scrollMenu", 0.5);
         updateRowValues();
     }
 
@@ -482,11 +505,11 @@ class OptionsMenuState extends MusicBeatState {
             if (Std.isOfType(member, OptionRow)) {
                 var row:OptionRow = cast member;
                 row.setActive(isCur);
-                row.targetY = ((i - curSelected) * 60) + (FlxG.height * 0.44);
+                row.targetY = ((i - curSelected) * 64) + (FlxG.height * 0.44);
             } else if (Std.isOfType(member, KeybindRow)) {
                 var row:KeybindRow = cast member;
                 row.setActive(isCur);
-                row.targetY = ((i - curSelected) * 60) + (FlxG.height * 0.44);
+                row.targetY = ((i - curSelected) * 64) + (FlxG.height * 0.44);
             }
         }
 

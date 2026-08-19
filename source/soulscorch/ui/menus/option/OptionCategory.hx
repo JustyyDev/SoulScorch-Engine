@@ -1,5 +1,7 @@
 package soulscorch.ui.menus.option;
 
+import flixel.util.FlxColor;
+
 typedef OptionData = {
     var name:String;
     var description:String;
@@ -16,10 +18,10 @@ typedef OptionData = {
 class OptionCategory {
     public var name:String;
     public var icon:String;
-    public var color:Int;
+    public var color:FlxColor;
     public var options:Array<OptionData> = [];
 
-    public function new(name:String, ?icon:String = "options", ?color:Int = 0xFF221A30, options:Array<OptionData>) {
+    public function new(name:String, ?icon:String = "options", ?color:FlxColor = 0xFF221A30, options:Array<OptionData>) {
         this.name = name;
         this.icon = icon;
         this.color = color;

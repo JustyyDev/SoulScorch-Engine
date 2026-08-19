@@ -3,8 +3,11 @@ package soulscorch.ui.menus.states;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.MusicBeatState;
@@ -19,6 +22,8 @@ import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.scripting.mod.ModManager;
+import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -42,45 +47,64 @@ class StoryMenuState extends MusicBeatState {
     public static var curDifficulty:Int = 1;
 
     private var weeks:Array<WeekData> = [];
-    private var grpWeekTitles:FlxTypedGroup<FlxText>;
+    private var grpWeekTitles:FlxTypedGroup<Alphabet>;
     private var grpWeekCharacters:FlxTypedGroup<Character>;
     private var diffText:FlxText;
     private var tracklistText:FlxText;
-    private var yellowBg:FlxSprite;
+    private var stageBanner:FlxSprite;
     private var mobileControls:MobilePad;
 
     override public function create():Void {
         super.create();
 
         #if desktop
-        DiscordRPC.changePresence("Story Menu", "Selecting Campaign Week");
+        DiscordRPC.changePresence("Story Campaign", "Selecting Week");
         #end
 
         loadWeeks();
 
-        yellowBg = new FlxSprite(0, 56).makeGraphic(FlxG.width, 380, 0xFFF9CF51);
-        add(yellowBg);
+        var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg.scrollFactor.set(0, 0);
+        add(bg);
+
+        stageBanner = new FlxSprite(0, 60).makeGraphic(FlxG.width, 360, 0xFFF9CF51);
+        add(stageBanner);
 
         grpWeekCharacters = new FlxTypedGroup<Character>();
         add(grpWeekCharacters);
 
-        grpWeekTitles = new FlxTypedGroup<FlxText>();
+        // Top Banner Header
+        var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
+        add(topBar);
+
+        var topBorder = new FlxSprite(0, 59).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
+        add(topBorder);
+
+        var accentTag = new FlxSprite(25, 16).makeGraphic(4, 28, EditorTheme.ACCENT_CYAN);
+        add(accentTag);
+
+        var headerTitle = new FlxText(38, 17, 450, "SOULSCORCH // STORY CAMPAIGN", 18);
+        headerTitle.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
+        add(headerTitle);
+
+        grpWeekTitles = new FlxTypedGroup<Alphabet>();
         add(grpWeekTitles);
 
         for (i in 0...weeks.length) {
-            var weekText = new FlxText(0, (i * 45) + 470, FlxG.width, weeks[i].name, 28);
-            weekText.setFormat(Paths.font("vcr"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-            weekText.borderSize = 1.5;
+            var weekText = new Alphabet(0, (i * 48) + 450, weeks[i].name, true);
+            weekText.scale.set(0.7, 0.7);
+            weekText.alignment = CENTER;
+            weekText.screenCenter(X);
             weekText.ID = i;
             grpWeekTitles.add(weekText);
         }
 
-        diffText = new FlxText(FlxG.width - 320, 480, 300, "< NORMAL >", 24);
-        diffText.setFormat(Paths.font("vcr"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        diffText = new FlxText(FlxG.width - 340, 460, 300, "< NORMAL >", 22);
+        diffText.setFormat(Paths.font("vcr"), 22, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
         add(diffText);
 
-        tracklistText = new FlxText(30, 480, 300, "TRACKS\n\n", 18);
-        tracklistText.setFormat(Paths.font("vcr"), 18, 0xFFE55777, CENTER, OUTLINE, FlxColor.BLACK);
+        tracklistText = new FlxText(40, 460, 320, "TRACKLIST:\n\n", 16);
+        tracklistText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT);
         add(tracklistText);
 
         #if (mobile || debug)
@@ -89,15 +113,15 @@ class StoryMenuState extends MusicBeatState {
         Controls.instance.bindMobilePad(mobileControls);
         #end
 
-        changeWeek();
-        changeDifficulty();
+        changeWeek(0);
+        changeDifficulty(0);
     }
 
     private function loadWeeks():Void {
         weeks = [];
 
         #if sys
-        var weekDirs = ["data/weeks", "assets/data/weeks"];
+        var weekDirs = ["data/weeks", "assets/data/weeks", "assets/preload/data/weeks"];
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
                 weekDirs.unshift('mods/$m/data/weeks');
@@ -168,29 +192,29 @@ class StoryMenuState extends MusicBeatState {
     private function changeWeek(change:Int = 0):Void {
         if (weeks.length == 0) return;
         curWeek = FlxMath.wrap(curWeek + change, 0, weeks.length - 1);
-        AssetHelper.playSoundSafely("scrollMenu", 0.7);
+        if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         for (item in grpWeekTitles.members) {
             item.alpha = (item.ID == curWeek ? 1.0 : 0.4);
         }
 
-        var trackStr = "TRACKS\n\n";
+        var trackStr = "TRACKLIST:\n\n";
         var currentSongs = weeks[curWeek].songs;
         if (currentSongs != null) {
             for (song in currentSongs) {
-                trackStr += song.toUpperCase() + "\n";
+                trackStr += '• ' + song.toUpperCase() + "\n";
             }
         }
         tracklistText.text = trackStr;
 
         if (weeks[curWeek].color != null) {
-            yellowBg.color = FlxColor.fromString(weeks[curWeek].color);
+            stageBanner.color = FlxColor.fromString(weeks[curWeek].color);
         } else {
-            yellowBg.color = 0xFFF9CF51;
+            stageBanner.color = 0xFFF9CF51;
         }
 
         curDifficulty = 0;
-        changeDifficulty();
+        changeDifficulty(0);
     }
 
     private function changeDifficulty(change:Int = 0):Void {

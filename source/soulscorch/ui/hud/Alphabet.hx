@@ -30,6 +30,10 @@ class AlphaCharacter extends FlxSprite {
     public var isBold:Bool = false;
     public var letterOffset:FlxPoint;
 
+    private static var numberWords:Array<String> = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"
+    ];
+
     public function new(x:Float, y:Float, char:String, bold:Bool = false) {
         super(x, y);
         this.character = char;
@@ -79,34 +83,46 @@ class AlphaCharacter extends FlxSprite {
     private function setupBold(char:String):Void {
         var lower = char.toLowerCase();
         var candidates:Array<String> = switch (char) {
-            case "&": ["character-ampersand", "ampersand"];
-            case ".": ["character-period", "period"];
-            case "'": ["character-singlequote", "singlequote", "character-apostophe"];
-            case "?": ["character-questionmark", "questionmark", "character-questionmark-alt"];
-            case "!": ["character-exclamationmark", "exclamationmark", "character-exclamationmark-alt"];
-            case "-": ["character-hyphen", "character-minus", "hyphen"];
-            case "/": ["character-slash", "slash"];
-            case "\\": ["character-backslash", "backslash"];
-            case ":": ["character-colon", "colon"];
-            case ";": ["character-semicolon", "semicolon"];
-            case "\"", "“", "”": ["character-doublequote", "doublequote", "character-doublequote-alt"];
-            case "(": ["character-roundbracket-left", "roundbracket-left"];
-            case ")": ["character-roundbracket-right", "roundbracket-right"];
-            case "<": ["character-anglebracket-left", "character-arrow-left"];
-            case ">": ["character-anglebracket-right", "character-arrow-right"];
-            case "=": ["character-equal", "equal"];
-            case "+": ["character-plus", "plus"];
-            case "%": ["character-percent", "percent"];
-            case "#": ["character-pound", "pound"];
-            case "$": ["character-dollar", "dollar"];
+            case "&": ["character-ampersand"];
+            case "<": ["character-anglebracket-left"];
+            case ">": ["character-anglebracket-right"];
+            case "@": ["character-at"];
+            case "\\": ["character-backslash"];
+            case "/": ["character-slash"];
+            case "`": ["character-backtick"];
+            case "^": ["character-caret"];
+            case ":": ["character-colon"];
+            case ",": ["character-comma"];
+            case "{": ["character-curlybracket-left"];
+            case "}": ["character-curlybracket-right"];
+            case "$": ["character-dollar"];
+            case "\"", "“", "”": ["character-doublequote", "character-doublequote-alt"];
+            case "=": ["character-equal"];
+            case "!": ["character-exclamationmark", "character-exclamationmark-alt"];
+            case "-": ["character-hyphen", "character-minus"];
+            case "_": ["character-underscore"];
+            case "%": ["character-percent"];
+            case ".": ["character-period"];
+            case "+": ["character-plus"];
+            case "#": ["character-pound"];
+            case "?": ["character-questionmark", "character-questionmark-alt"];
+            case "(": ["character-roundbracket-left"];
+            case ")": ["character-roundbracket-right"];
+            case ";": ["character-semicolon"];
+            case "'", "’": ["character-singlequote", "character-apostophe"];
+            case "[": ["character-squarebracket-left"];
+            case "]": ["character-squarebracket-right"];
+            case "~": ["character-tilde"];
+            case "|": ["character-verticalbar"];
             case "*": ["character-asterisk", "character-multiply"];
             default:
                 if (isNumber(char)) {
-                    var numNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
                     var idx = Std.parseInt(char);
-                    ["character-" + numNames[idx], "character-" + char, char];
+                    ["character-" + numberWords[idx]];
+                } else if (isAlpha(char)) {
+                    ["character-" + lower];
                 } else {
-                    ["character-" + lower, lower];
+                    ["character-" + lower];
                 }
         };
 
@@ -117,57 +133,67 @@ class AlphaCharacter extends FlxSprite {
         var isLower = (char == char.toLowerCase());
         var lower = char.toLowerCase();
         var candidates:Array<String> = switch (char) {
-            case "&": ["character-ampersand", "ampersand"];
-            case ".": ["character-period", "period"];
-            case "'": ["character-singlequote", "singlequote"];
-            case "?": ["character-questionmark", "questionmark"];
-            case "!": ["character-exclamationmark", "exclamationmark"];
-            case ",": ["character-comma", "comma"];
-            case "-": ["character-minus", "minus"];
-            case "/": ["character-slash", "slash"];
-            case "\\": ["character-backslash", "backslash"];
-            case ":": ["character-colon", "colon"];
-            case ";": ["character-semicolon", "semicolon"];
-            case "\"": ["character-doublequote-start", "character-doublequote-end"];
-            case "(": ["character-roundbracket-left", "roundbracket-left"];
-            case ")": ["character-roundbracket-right", "roundbracket-right"];
+            case "&": ["character-ampersand"];
             case "<": ["character-anglebracket-left"];
             case ">": ["character-anglebracket-right"];
-            case "=": ["character-equal"];
-            case "+": ["character-plus"];
-            case "%": ["character-percent"];
-            case "#": ["character-pound"];
+            case "@": ["character-at"];
+            case "\\": ["character-backslash"];
+            case "/": ["character-slash"];
+            case "`": ["character-backtick"];
+            case "^": ["character-caret"];
+            case ":": ["character-colon"];
+            case ",": ["character-comma"];
+            case "{": ["character-curlybracket-left"];
+            case "}": ["character-curlybracket-right"];
             case "$": ["character-dollar"];
+            case "\"": ["character-doublequote-start", "character-doublequote-end"];
+            case "=": ["character-equal"];
+            case "!": ["character-exclamationmark"];
+            case "-": ["character-minus", "character-hyphen"];
+            case "_": ["character-underscore"];
+            case "%": ["character-percent"];
+            case ".": ["character-period"];
+            case "+": ["character-plus"];
+            case "#": ["character-pound"];
+            case "?": ["character-questionmark"];
+            case "(": ["character-roundbracket-left"];
+            case ")": ["character-roundbracket-right"];
+            case ";": ["character-semicolon"];
+            case "'", "’": ["character-singlequote"];
+            case "[": ["character-squarebracket-left"];
+            case "]": ["character-squarebracket-right"];
+            case "~": ["character-tilde"];
+            case "|": ["character-verticalbar"];
             case "*": ["character-asterisk", "character-multiply"];
             default:
                 if (isAlpha(char)) {
-                    var type = isLower ? "lowercase" : "capital";
-                    ["character-" + lower + "-" + type, "character-" + lower];
+                    var casing = isLower ? "lowercase" : "capital";
+                    ["character-" + lower + "-" + casing, "character-" + lower];
                 } else if (isNumber(char)) {
-                    var numNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
                     var idx = Std.parseInt(char);
-                    ["character-" + numNames[idx], "character-" + char];
+                    ["character-" + numberWords[idx]];
                 } else {
-                    ["character-" + lower, lower];
+                    ["character-" + lower];
                 }
         };
 
         isValid = tryAddAnimation(candidates);
     }
 
-    private function tryAddAnimation(prefixes:Array<String>):Bool {
+    private function tryAddAnimation(targetPrefixes:Array<String>):Bool {
         if (frames == null || frames.frames == null) return false;
 
-        for (p in prefixes) {
-            var pLower = p.toLowerCase();
+        var reg = ~/[0-9]+$/;
+
+        for (target in targetPrefixes) {
+            var targetLower = target.toLowerCase();
+
             for (f in frames.frames) {
                 if (f.name == null) continue;
-                var fLower = f.name.toLowerCase();
-                if (fLower.startsWith(pLower)) {
-                    var reg = ~/[0-9]+$/;
-                    var prefixToUse = reg.replace(f.name, "");
 
-                    animation.addByPrefix("idle", prefixToUse, 24, true);
+                var basePrefix = reg.replace(f.name, "");
+                if (basePrefix.toLowerCase() == targetLower) {
+                    animation.addByPrefix("idle", basePrefix, 24, true);
                     if (animation.getByName("idle") != null && animation.getByName("idle").numFrames > 0) {
                         animation.play("idle");
                         return true;

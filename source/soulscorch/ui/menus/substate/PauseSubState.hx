@@ -3,7 +3,9 @@ package soulscorch.ui.menus.substate;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
@@ -12,19 +14,38 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.PlayState;
+import soulscorch.gameplay.song.Difficulty;
 import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.editors.editorui.EditorTheme;
+import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.MainMenuState;
+
+using StringTools;
 
 class PauseSubState extends MusicBeatSubstate {
     public static var curSelected:Int = 0;
 
-    private var menuItems:Array<String> = ["Resume", "Restart Song", "Exit to Menu"];
-    private var grpMenu:FlxTypedGroup<Alphabet>;
+    private var menuItems:Array<String> = [
+        "Resume",
+        "Restart Song",
+        "Toggle Practice Mode",
+        "Toggle Botplay",
+        "Options",
+        "Exit to Main Menu"
+    ];
+
+    private var grpMenu:FlxTypedGroup<FlxSpriteGroup>;
+    private var itemBgs:Array<FlxSprite> = [];
     private var bg:FlxSprite;
-    private var panel:FlxSprite;
-    private var songTitleTxt:FlxText;
+    private var pauseMusic:FlxSound;
+
+    private var headerCard:FlxSpriteGroup;
+    private var statsCard:FlxSpriteGroup;
 
     public function new() {
         super();
@@ -32,36 +53,113 @@ class PauseSubState extends MusicBeatSubstate {
         this.persistentUpdate = false;
         this.persistentDraw = true;
 
+        #if desktop
+        DiscordRPC.changePresence(
+            'Paused: ${PlayState.curSong.toUpperCase()}',
+            'Score: ${(PlayState.instance != null ? PlayState.instance.songScore : 0)} | Difficulty: ${PlayState.curDifficulty.toUpperCase()}'
+        );
+        #end
+
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
+        bg.scrollFactor.set(0, 0);
         add(bg);
-        FlxTween.tween(bg, {alpha: 0.65}, 0.4, {ease: FlxEase.quadOut});
+        FlxTween.tween(bg, {alpha: 0.72}, 0.35, {ease: FlxEase.quadOut});
 
-        panel = new FlxSprite(0, 0).makeGraphic(450, 320, 0xEE110E1A);
-        panel.screenCenter();
-        panel.scrollFactor.set();
-        add(panel);
+        setupHeaderCard();
+        setupStatsCard();
 
-        var title = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.title : PlayState.curSong;
-        songTitleTxt = new FlxText(panel.x, panel.y + 25, panel.width, title.toUpperCase(), 20);
-        songTitleTxt.setFormat(Paths.font("vcr"), 20, 0xFF00FFCC, CENTER, OUTLINE, FlxColor.BLACK);
-        songTitleTxt.scrollFactor.set();
-        add(songTitleTxt);
-
-        grpMenu = new FlxTypedGroup<Alphabet>();
+        grpMenu = new FlxTypedGroup<FlxSpriteGroup>();
         add(grpMenu);
 
-        for (i in 0...menuItems.length) {
-            var item = new Alphabet(0, panel.y + 80 + (i * 65), menuItems[i], true);
-            item.scale.set(0.75, 0.75);
-            item.changeX = false;
-            item.changeY = false;
-            item.screenCenter(X);
-            item.ID = i;
-            grpMenu.add(item);
+        rebuildMenu();
+
+        // Audio Ambience
+        var pMusic = Paths.music("breakfast");
+        if (pMusic == null) pMusic = Paths.music("pause");
+        if (pMusic != null) {
+            pauseMusic = new FlxSound().loadEmbedded(pMusic, true, true);
+            pauseMusic.volume = 0;
+            pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
+            FlxG.sound.list.add(pauseMusic);
+            pauseMusic.fadeIn(2.0, 0, 0.65);
         }
 
-        changeSelection();
+        changeSelection(0);
+    }
+
+    private function setupHeaderCard():Void {
+        headerCard = new FlxSpriteGroup(60, 40);
+        add(headerCard);
+
+        var title = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.title : PlayState.curSong;
+        var artist = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.artist : "Unknown Artist";
+        var diff = PlayState.curDifficulty.toUpperCase();
+
+        var titleTxt = new FlxText(0, 0, 500, title.toUpperCase(), 26);
+        titleTxt.setFormat(Paths.font("vcr"), 26, EditorTheme.ACCENT_CYAN, LEFT, OUTLINE, FlxColor.BLACK);
+        headerCard.add(titleTxt);
+
+        var subTxt = new FlxText(0, 32, 500, 'By $artist  •  BPM: ${Math.round(Conductor.bpm)}', 14);
+        subTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_MUTED, LEFT);
+        headerCard.add(subTxt);
+
+        var diffTag = new FlxText(0, 54, 200, '[ $diff ]', 14);
+        diffTag.setFormat(Paths.font("vcr"), 14, Difficulty.getColor(PlayState.curDifficulty), LEFT);
+        headerCard.add(diffTag);
+    }
+
+    private function setupStatsCard():Void {
+        statsCard = new FlxSpriteGroup(FlxG.width - 360, 40);
+        add(statsCard);
+
+        var statsBox = new FlxSprite(0, 0).makeGraphic(300, 85, EditorTheme.PANEL_BG);
+        statsBox.alpha = 0.85;
+        statsCard.add(statsBox);
+
+        var border = new FlxSprite(-1, -1).makeGraphic(302, 87, EditorTheme.PANEL_BORDER);
+        statsCard.add(border);
+
+        var accent = new FlxSprite(0, 0).makeGraphic(3, 85, EditorTheme.ACCENT_CYAN);
+        statsCard.add(accent);
+
+        var score = (PlayState.instance != null) ? PlayState.instance.songScore : 0;
+        var misses = (PlayState.instance != null) ? PlayState.instance.songMisses : 0;
+        var acc = (PlayState.instance != null) ? Math.round(PlayState.instance.accuracy * 10) / 10 : 0.0;
+
+        var statsTxt = new FlxText(14, 12, 280, 'Score: $score\nAccuracy: $acc%\nMisses: $misses', 14);
+        statsTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_PRIMARY, LEFT);
+        statsCard.add(statsTxt);
+    }
+
+    private function rebuildMenu():Void {
+        grpMenu.clear();
+        itemBgs = [];
+
+        var itemWidth = 420;
+
+        for (i in 0...menuItems.length) {
+            var itemGroup = new FlxSpriteGroup(60, 160 + (i * 64));
+            itemGroup.ID = i;
+
+            var bgSpr = new FlxSprite(0, 0).makeGraphic(itemWidth, 52, EditorTheme.PANEL_BG);
+            bgSpr.alpha = 0.6;
+            itemGroup.add(bgSpr);
+            itemBgs.push(bgSpr);
+
+            var borderSpr = new FlxSprite(0, 51).makeGraphic(itemWidth, 1, EditorTheme.PANEL_BORDER);
+            itemGroup.add(borderSpr);
+
+            var indicator = new FlxSprite(0, 0).makeGraphic(4, 52, EditorTheme.ACCENT_CYAN);
+            indicator.alpha = 0.0;
+            itemGroup.add(indicator);
+
+            var label = new FlxText(22, 14, itemWidth - 44, menuItems[i], 18);
+            label.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
+            itemGroup.add(label);
+
+            grpMenu.add(itemGroup);
+        }
     }
 
     override public function update(elapsed:Float):Void {
@@ -74,30 +172,80 @@ class PauseSubState extends MusicBeatSubstate {
             selectOption(menuItems[curSelected]);
         }
 
+        if (Controls.instance.BACK) {
+            resumeGame();
+        }
+
         for (i in 0...grpMenu.members.length) {
             var item = grpMenu.members[i];
-            item.alpha = (i == curSelected ? 1.0 : 0.4);
+            var isCur = (i == curSelected);
+            itemBgs[i].color = isCur ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
+            item.x = isCur ? 75 : 60;
+            item.alpha = isCur ? 1.0 : 0.6;
         }
     }
 
     private function changeSelection(change:Int = 0):Void {
         curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
-        AssetHelper.playSoundSafely("scrollMenu", 0.7);
+        if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.6);
+    }
+
+    private function resumeGame():Void {
+        stopPauseMusic();
+        if (PlayState.instance != null) PlayState.instance.resumeSong();
+        close();
     }
 
     private function selectOption(option:String):Void {
         switch (option) {
             case "Resume":
-                if (PlayState.instance != null) PlayState.instance.resumeSong();
-                close();
+                resumeGame();
+
             case "Restart Song":
+                stopPauseMusic();
                 if (PlayState.instance != null) {
                     PlayState.instance.paused = false;
                     FlxG.resetState();
                 }
-            case "Exit to Menu":
+
+            case "Toggle Practice Mode":
+                var current = GameplayFlags.getBool("practiceMode", false);
+                GameplayFlags.set("practiceMode", !current);
+                AssetHelper.playSoundSafely("confirmMenu", 0.7);
+                resumeGame();
+
+            case "Toggle Botplay":
+                if (PlayState.instance != null) {
+                    PlayState.instance.botplay = !PlayState.instance.botplay;
+                    if (PlayState.instance.botplayTxt != null) {
+                        PlayState.instance.botplayTxt.visible = PlayState.instance.botplay;
+                    }
+                }
+                AssetHelper.playSoundSafely("confirmMenu", 0.7);
+                resumeGame();
+
+            case "Options":
+                stopPauseMusic();
+                MusicBeatState.switchState(new OptionsMenuState());
+
+            case "Exit to Main Menu":
+                stopPauseMusic();
                 if (PlayState.instance != null) PlayState.instance.paused = false;
                 MusicBeatState.switchState(new MainMenuState());
         }
+    }
+
+    private function stopPauseMusic():Void {
+        if (pauseMusic != null) {
+            pauseMusic.stop();
+            FlxG.sound.list.remove(pauseMusic, true);
+            pauseMusic.destroy();
+            pauseMusic = null;
+        }
+    }
+
+    override public function destroy():Void {
+        stopPauseMusic();
+        super.destroy();
     }
 }
