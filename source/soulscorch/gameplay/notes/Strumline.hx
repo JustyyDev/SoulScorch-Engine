@@ -18,16 +18,14 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public var isPlayer:Bool = false;
     public var downscroll:Bool = false;
     public var keyCount:Int = 4;
-    public var currentSkin:String = "NOTE_assets";
+    public var currentSkin:String = "default";
 
-    // --- Spatial Transforms & Coordinates ---
     @:isVar public var x(get, set):Float = 0.0;
     @:isVar public var y(get, set):Float = 0.0;
     @:isVar public var alpha(get, set):Float = 1.0;
     @:isVar public var angle(get, set):Float = 0.0;
     @:isVar public var spacing(get, set):Float = 112.0;
 
-    // --- Modchart Offsets & Modifiers ---
     public var modX:Float = 0.0;
     public var modY:Float = 0.0;
     public var modAngle:Float = 0.0;
@@ -35,11 +33,9 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public var modScaleX:Float = 1.0;
     public var modScaleY:Float = 1.0;
 
-    // --- Active Tween Tracker ---
     private var activeTweens:Array<FlxTween> = [];
 
     public static inline var STRUM_SPACING:Float = 112.0;
-    public static inline var DEFAULT_SPACING:Float = 112.0;
 
     public function new(
         x:Float,
@@ -47,14 +43,14 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         isPlayer:Bool = false,
         downscroll:Bool = false,
         keyCount:Int = 4,
-        ?skin:String = "NOTE_assets",
+        ?skin:String = "default",
         ?spacing:Float = 112.0
     ) {
         super();
         this.keyCount = (keyCount > 0) ? keyCount : 4;
         this.isPlayer = isPlayer;
         this.downscroll = downscroll;
-        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
+        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "default";
         this.spacing = (spacing != null && spacing > 0) ? spacing : STRUM_SPACING;
 
         this.x = x;
@@ -62,8 +58,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
 
         createReceptors(this.currentSkin);
     }
-
-    // --- Receptor Generation & Management ---
 
     public function createReceptors(?skin:String):Void {
         clearReceptors();
@@ -113,8 +107,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         this.alpha = val;
     }
 
-    // --- Layout & Alignment Helpers ---
-
     public function screenCenter(?axes:String = "X"):Void {
         var totalWidth:Float = (keyCount - 1) * spacing + (receptors.length > 0 ? receptors[0].width : spacing);
 
@@ -142,27 +134,19 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         }
     }
 
-    // --- Animation & Input Triggers ---
-
     public function playStrumAnim(direction:Int, animName:String, force:Bool = true):Void {
         var r = getReceptor(direction);
-        if (r != null) {
-            r.playAnim(animName, force);
-        }
+        if (r != null) r.playAnim(animName, force);
     }
 
     public function press(direction:Int):Void {
         var r = getReceptor(direction);
-        if (r != null) {
-            r.playAnim("pressed", true);
-        }
+        if (r != null) r.playAnim("pressed", true);
     }
 
     public function release(direction:Int):Void {
         var r = getReceptor(direction);
-        if (r != null) {
-            r.playAnim("static", true);
-        }
+        if (r != null) r.playAnim("static", true);
     }
 
     public function confirm(direction:Int, ?resetDuration:Float = 0.15):Void {
@@ -180,67 +164,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         return null;
     }
 
-    public function forEachReceptor(fn:StrumArrow->Void):Void {
-        for (r in receptors) {
-            if (r != null) fn(r);
-        }
-    }
-
-    // --- Tweening Utilities ---
-
-    public function fadeTo(targetAlpha:Float, duration:Float = 0.5, ?ease:Float->Float, ?onComplete:Void->Void):FlxTween {
-        var tw:FlxTween = null;
-        tw = FlxTween.num(this.alpha, targetAlpha, duration, {
-            ease: (ease != null) ? ease : FlxEase.quartOut,
-            onComplete: function(_) {
-                if (tw != null) activeTweens.remove(tw);
-                if (onComplete != null) onComplete();
-            }
-        }, function(val:Float) {
-            this.alpha = val;
-        });
-
-        activeTweens.push(tw);
-        return tw;
-    }
-
-    public function moveTo(targetX:Float, targetY:Float, duration:Float = 0.5, ?ease:Float->Float, ?onComplete:Void->Void):Void {
-        var twX:FlxTween = null;
-        var twY:FlxTween = null;
-
-        twX = FlxTween.tween(this, {x: targetX}, duration, {
-            ease: (ease != null) ? ease : FlxEase.quartOut,
-            onComplete: function(_) {
-                if (twX != null) activeTweens.remove(twX);
-            }
-        });
-        twY = FlxTween.tween(this, {y: targetY}, duration, {
-            ease: (ease != null) ? ease : FlxEase.quartOut,
-            onComplete: function(_) {
-                if (twY != null) activeTweens.remove(twY);
-                if (onComplete != null) onComplete();
-            }
-        });
-
-        activeTweens.push(twX);
-        activeTweens.push(twY);
-    }
-
-    public function bounce(direction:Int, scaleMult:Float = 1.15, duration:Float = 0.15):Void {
-        var r = getReceptor(direction);
-        if (r != null) {
-            r.scale.set(r.baseScale * scaleMult, r.baseScale * scaleMult);
-            var tw:FlxTween = null;
-            tw = FlxTween.tween(r.scale, {x: r.baseScale, y: r.baseScale}, duration, {
-                ease: FlxEase.backOut,
-                onComplete: function(_) {
-                    if (tw != null) activeTweens.remove(tw);
-                }
-            });
-            activeTweens.push(tw);
-        }
-    }
-
     public function cancelTweens():Void {
         for (tw in activeTweens) {
             if (tw != null && !tw.finished) {
@@ -250,8 +173,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         }
         activeTweens = [];
     }
-
-    // --- Property Getters & Setters ---
 
     inline function get_x():Float return x;
     function set_x(val:Float):Float {

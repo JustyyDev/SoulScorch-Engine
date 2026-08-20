@@ -15,8 +15,6 @@ import soulscorch.gameplay.PlayState;
 
 class XMSoulPauseSubState extends PauseSubState {
     private var pauseConfig:Access;
-    private var menuItems:Array<String> = ["Resume", "Restart Song", "Toggle Botplay", "Exit to Menu"];
-    private var menuActions:Array<String> = ["resume", "restart", "toggleBotplay", "exit"];
     private var grpMenuTexts:FlxTypedGroup<FlxText>;
     private var customBG:FlxSprite;
 
@@ -32,19 +30,35 @@ class XMSoulPauseSubState extends PauseSubState {
     }
 
     private function applyCustomPauseStyling():Void {
+        if (pauseConfig == null) return;
+
         var bgAlpha = XMSoul.getFloatAttr(pauseConfig, "bgAlpha", 0.7);
         var fontName = XMSoul.getAttr(pauseConfig, "font", "vcr");
         var itemSpacing = XMSoul.getFloatAttr(pauseConfig, "itemSpacing", 45);
         var startX = XMSoul.getFloatAttr(pauseConfig, "menuX", 80);
         var startY = XMSoul.getFloatAttr(pauseConfig, "menuY", 220);
 
-        if (pauseConfig.hasNode.resolve("items")) {
-            menuItems = [];
-            menuActions = [];
-            for (item in pauseConfig.hasNode.resolve("items").nodes.resolve("item")) {
-                menuItems.push(XMSoul.getAttr(item, "label", "Option"));
-                menuActions.push(XMSoul.getAttr(item, "action", "resume"));
+        try {
+            if (pauseConfig.hasNode != null && pauseConfig.hasNode.resolve("items")) {
+                var itemsNode = pauseConfig.node.resolve("items");
+                if (itemsNode != null && itemsNode.nodes != null) {
+                    var parsedItems:Array<String> = [];
+                    
+                    for (item in itemsNode.nodes.resolve("item")) {
+                        if (item != null) {
+                            parsedItems.push(XMSoul.getAttr(item, "label", "Option"));
+                        }
+                    }
+
+                    if (parsedItems.length > 0) {
+                        // Modify parent class menuItems array safely
+                        menuItems = parsedItems;
+                        rebuildMenu();
+                    }
+                }
             }
+        } catch (e:Dynamic) {
+            // Fallback safely to parent defaults if xml structure mismatches
         }
     }
 }

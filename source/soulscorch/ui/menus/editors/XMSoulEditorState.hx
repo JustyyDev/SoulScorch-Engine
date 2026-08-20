@@ -7,6 +7,9 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.Paths;
@@ -46,24 +49,57 @@ class XMSoulEditorState extends MusicBeatState {
         FlxG.cameras.add(camUI, false);
         FlxG.cameras.setDefaultDrawTarget(camWorld, true);
 
-        var xml = XMSoul.parse(layoutFile);
-        if (xml == null) {
-            Logger.error('Failed parsing editor layout: $layoutFile', "editor");
+        // Resilient Path Resolver for Editor Layouts
+        var resolvedXml:Access = null;
+        var cleanPath = layoutFile;
+        
+        var trialPaths = [
+            cleanPath,
+            'data/$cleanPath',
+            'config/$cleanPath',
+            'data/config/$cleanPath',
+            'config/ui/menus/$cleanPath',
+            'data/ui/menus/$cleanPath'
+        ];
+
+        for (p in trialPaths) {
+            resolvedXml = XMSoul.parse(p);
+            if (resolvedXml != null) {
+                Logger.info('Successfully resolved editor layout at: $p', "editor");
+                break;
+            }
+        }
+
+        if (resolvedXml == null) {
+            Logger.error('Failed parsing editor layout across all probe paths: $layoutFile', "editor");
+            showToast("Error: Layout file not found!", true);
             return;
         }
 
-        buildLayout(xml);
+        buildLayout(resolvedXml);
 
-        var scriptPath = XMSoul.getAttr(xml, "script", "");
+        var scriptPath = XMSoul.getAttr(resolvedXml, "script", "");
         if (scriptPath != "") {
             script = new ScriptManager();
             script.loadScript(scriptPath);
+            
+            // Inject complete scope variables for HScript interpreters (prevents EUnknownVariable)
             script.setAll("editor", this);
             script.setAll("game", this);
             script.setAll("camWorld", camWorld);
             script.setAll("camUI", camUI);
+            script.setAll("FlxG", FlxG);
+            script.setAll("FlxSprite", FlxSprite);
+            script.setAll("FlxText", FlxText);
+            script.setAll("FlxMath", FlxMath);
+            script.setAll("FlxTween", FlxTween);
+            script.setAll("FlxEase", FlxEase);
+            script.setAll("FlxTimer", FlxTimer);
+            script.setAll("Paths", Paths);
             script.setAll("showToast", showToast);
-            script.callAll("onCreate");
+            script.setAll("widgets", widgets);
+            
+            script.callAll("onCreate", []);
         }
 
         toast = new EditorToast();

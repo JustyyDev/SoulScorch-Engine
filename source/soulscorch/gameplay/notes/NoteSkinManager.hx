@@ -9,6 +9,17 @@ import soulscorch.backend.system.XMSoul;
 
 using StringTools;
 
+typedef StrumAnimConfig = {
+    var staticAnim:String;
+    var pressedAnim:String;
+    var confirmAnim:String;
+}
+
+typedef HoldAnimConfig = {
+    var bodyAnim:String;
+    var endAnim:String;
+}
+
 typedef NoteSkinConfig = {
     var name:String;
     var type:String; // "sparrow" or "grid"
@@ -16,8 +27,12 @@ typedef NoteSkinConfig = {
     var sustainPath:String;
     var scale:Float;
     var antialiasing:Bool;
+    var sustainAlpha:Float;
     var colors:Array<String>;
     var directions:Array<String>;
+    var tapAnims:Map<Int, String>;
+    var strumAnims:Map<Int, StrumAnimConfig>;
+    var holdAnims:Map<Int, HoldAnimConfig>;
     var gridNoteWidth:Int;
     var gridNoteHeight:Int;
     var gridHoldWidth:Int;
@@ -38,12 +53,18 @@ class NoteSkinManager {
     public static var defaultSkin:String = "default";
     private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
     private static var _splashCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
+    private static var _configCache:Map<String, NoteSkinConfig> = new Map<String, NoteSkinConfig>();
 
     public static var noteColors:Array<String> = ["purple", "blue", "green", "red"];
     public static var noteDirections:Array<String> = ["left", "down", "up", "right"];
 
     public static function getSkinConfig(?skinName:String):NoteSkinConfig {
         var cleanSkin = (skinName != null && skinName.trim().length > 0) ? skinName.trim() : getNoteSkinName();
+
+        if (_configCache.exists(cleanSkin)) {
+            return _configCache.get(cleanSkin);
+        }
+
         var config:NoteSkinConfig = {
             name: cleanSkin,
             type: "sparrow",
@@ -51,35 +72,86 @@ class NoteSkinManager {
             sustainPath: cleanSkin,
             scale: 0.7,
             antialiasing: true,
+            sustainAlpha: 0.6,
             colors: ["purple", "blue", "green", "red"],
             directions: ["left", "down", "up", "right"],
+            tapAnims: new Map<Int, String>(),
+            strumAnims: new Map<Int, StrumAnimConfig>(),
+            holdAnims: new Map<Int, HoldAnimConfig>(),
             gridNoteWidth: 17,
             gridNoteHeight: 17,
             gridHoldWidth: 7,
             gridHoldHeight: 6
         };
 
+        // Standard Fallback Mappings
+        for (i in 0...4) {
+            config.tapAnims.set(i, noteColors[i]);
+            config.strumAnims.set(i, {
+                staticAnim: 'arrow' + noteDirections[i].toUpperCase(),
+                pressedAnim: noteDirections[i] + ' press',
+                confirmAnim: noteDirections[i] + ' confirm'
+            });
+            config.holdAnims.set(i, {
+                bodyAnim: noteColors[i] + ' hold piece',
+                endAnim: (i == 0 ? "pruple end hold" : noteColors[i] + ' hold end')
+            });
+        }
+
         var access:Access = XMSoul.parse('noteskins/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('data/noteskins/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('ui/game/notes/$cleanSkin');
+        if (access == null) access = XMSoul.parse('data/ui/game/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('notes/$cleanSkin');
 
-        if (access != null && access.name.toLowerCase() == "noteskin") {
+        if (access != null) {
             config.type = XMSoul.getAttr(access, "type", "sparrow");
             config.atlasPath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", cleanSkin));
             config.sustainPath = XMSoul.getAttr(access, "sustainSprite", config.atlasPath);
             config.scale = XMSoul.getFloatAttr(access, "scale", config.type == "grid" ? 6.0 : 0.7);
             config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", config.type != "grid");
 
-            if (access.hasNode.gridDimensions) {
-                var gd = access.node.gridDimensions;
-                config.gridNoteWidth = XMSoul.getIntAttr(gd, "noteWidth", 17);
-                config.gridNoteHeight = XMSoul.getIntAttr(gd, "noteHeight", 17);
-                config.gridHoldWidth = XMSoul.getIntAttr(gd, "holdWidth", 7);
-                config.gridHoldHeight = XMSoul.getIntAttr(gd, "holdHeight", 6);
+            // Parse <receptors>
+            if (access.hasNode.resolve("receptors")) {
+                for (strumNode in access.node.resolve("receptors").nodes.resolve("strum")) {
+                    var lane = XMSoul.getIntAttr(strumNode, "lane", 0);
+                    config.strumAnims.set(lane, {
+                        staticAnim: XMSoul.getAttr(strumNode, "static", 'arrow' + noteDirections[lane % 4].toUpperCase()),
+                        pressedAnim: XMSoul.getAttr(strumNode, "pressed", noteDirections[lane % 4] + ' press'),
+                        confirmAnim: XMSoul.getAttr(strumNode, "confirm", noteDirections[lane % 4] + ' confirm')
+                    });
+                }
+            }
+
+            // Parse <tapNotes>
+            if (access.hasNode.resolve("tapNotes")) {
+                for (noteNode in access.node.resolve("tapNotes").nodes.resolve("note")) {
+                    var lane = XMSoul.getIntAttr(noteNode, "lane", 0);
+                    config.tapAnims.set(lane, XMSoul.getAttr(noteNode, "anim", noteColors[lane % 4]));
+                }
+            }
+
+            // Parse <sustains>
+            if (access.hasNode.resolve("sustains")) {
+                var susNode = access.node.resolve("sustains");
+                config.sustainAlpha = XMSoul.getFloatAttr(susNode, "alpha", 0.6);
+
+                for (holdNode in susNode.nodes.resolve("hold")) {
+                    var lane = XMSoul.getIntAttr(holdNode, "lane", 0);
+                    var endAnim = XMSoul.getAttr(holdNode, "end", (lane == 0 ? "pruple end hold" : noteColors[lane % 4] + " hold end"));
+                    
+                    // Safety normalize any leftover XML typos
+                    if (endAnim == "purlpe end hold") endAnim = "pruple end hold";
+
+                    config.holdAnims.set(lane, {
+                        bodyAnim: XMSoul.getAttr(holdNode, "body", noteColors[lane % 4] + " hold piece"),
+                        endAnim: endAnim
+                    });
+                }
             }
         }
 
+        _configCache.set(cleanSkin, config);
         return config;
     }
 
@@ -182,5 +254,6 @@ class NoteSkinManager {
     public static function clearCache():Void {
         _skinCache.clear();
         _splashCache.clear();
+        _configCache.clear();
     }
 }

@@ -18,7 +18,7 @@
 
     <!-- Hold Notes (Sustains & Endings) -->
     <sustains alpha="0.6" width="50">
-        <hold lane="0" body="purple hold piece" end="purlpe end hold" />
+        <hold lane="0" body="purple hold piece" end="pruple end hold" />
         <hold lane="1" body="blue hold piece" end="blue hold end" />
         <hold lane="2" body="green hold piece" end="green hold end" />
         <hold lane="3" body="red hold piece" end="red hold end" />

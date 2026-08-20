@@ -15,7 +15,6 @@ class StrumArrow extends FlxSprite {
 
     public var baseX:Float = 0.0;
     public var baseY:Float = 0.0;
-    public var animOffsets:Map<String, FlxPoint> = new Map<String, FlxPoint>();
     public var baseScale:Float = 0.7;
 
     public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "NOTE_assets") {
@@ -26,10 +25,13 @@ class StrumArrow extends FlxSprite {
         this.baseX = x;
         this.baseY = y;
 
+        var conf = NoteSkinManager.getSkinConfig(skin);
+        this.baseScale = conf.scale;
+
         loadReceptorSkin(skin);
         setupAnimations();
 
-        antialiasing = true;
+        antialiasing = conf.antialiasing;
         scrollFactor.set(0, 0);
 
         scale.set(baseScale, baseScale);
@@ -40,6 +42,7 @@ class StrumArrow extends FlxSprite {
 
     public function loadReceptorSkin(skin:String = "NOTE_assets"):Void {
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
+        var conf = NoteSkinManager.getSkinConfig(skin);
 
         if (atlas != null) {
             frames = atlas;
@@ -58,27 +61,16 @@ class StrumArrow extends FlxSprite {
     private function setupAnimations():Void {
         if (frames == null || frames.frames == null || frames.frames.length == 0) return;
 
-        var dirName = NoteSkinManager.noteDirections[direction];
-        var dirUpper = dirName.toUpperCase();
+        var conf = NoteSkinManager.getSkinConfig();
+        var strumConf = conf.strumAnims.get(direction % 4);
 
-        var staticPrefixes = [
-            'arrow$dirUpper',
-            'arrow $dirUpper',
-            '$dirName static'
-        ];
-        tryAddAnim("static", staticPrefixes, 24, false);
+        var staticName = (strumConf != null) ? strumConf.staticAnim : 'arrow' + NoteSkinManager.noteDirections[direction].toUpperCase();
+        var pressName  = (strumConf != null) ? strumConf.pressedAnim : NoteSkinManager.noteDirections[direction] + ' press';
+        var confName   = (strumConf != null) ? strumConf.confirmAnim : NoteSkinManager.noteDirections[direction] + ' confirm';
 
-        var pressPrefixes = [
-            '$dirName press',
-            'arrow$dirUpper press'
-        ];
-        tryAddAnim("pressed", pressPrefixes, 24, false);
-
-        var confirmPrefixes = [
-            '$dirName confirm',
-            'arrow$dirUpper confirm'
-        ];
-        tryAddAnim("confirm", confirmPrefixes, 24, false);
+        tryAddAnim("static", [staticName, staticName.replace(" ", ""), staticName + "0000"], 24, false);
+        tryAddAnim("pressed", [pressName, pressName.replace(" ", ""), pressName + "0000"], 24, false);
+        tryAddAnim("confirm", [confName, confName.replace(" ", ""), confName + "0000"], 24, false);
     }
 
     private function tryAddAnim(animName:String, prefixes:Array<String>, fps:Int = 24, loop:Bool = false):Bool {
@@ -103,7 +95,6 @@ class StrumArrow extends FlxSprite {
         centerOffsets();
         centerOrigin();
 
-        // Dynamically center oversized confirm frames based on frame dimensions
         if (animName == "confirm") {
             offset.x += (frameWidth * scale.x - 112 * baseScale) * 0.5;
             offset.y += (frameHeight * scale.y - 112 * baseScale) * 0.5;
@@ -120,13 +111,5 @@ class StrumArrow extends FlxSprite {
                 playAnim("static");
             }
         }
-    }
-
-    override public function destroy():Void {
-        for (pt in animOffsets) {
-            pt.put();
-        }
-        animOffsets.clear();
-        super.destroy();
     }
 }
