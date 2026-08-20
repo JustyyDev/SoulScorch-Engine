@@ -20,17 +20,17 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: SoulScorch-Windows
-            output_dir: export/release/windows/bin
+            output_dir: bin/windows/bin
             archive_name: SoulScorch-Windows.zip
           - os: ubuntu-latest
             target: linux
             artifact_name: SoulScorch-Linux
-            output_dir: export/release/linux/bin
+            output_dir: bin/linux/bin
             archive_name: SoulScorch-Linux.zip
           - os: macos-14
             target: mac
             artifact_name: SoulScorch-macOS
-            output_dir: export/release/macos/bin
+            output_dir: bin/mac/bin
             archive_name: SoulScorch-macOS.zip
 
     runs-on: ${{ matrix.os }}
@@ -110,24 +110,20 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
         run: |
-          $flixelPath = (haxelib libpath flixel).Trim()
-          $consoleUtil = "$flixelPath/flixel/system/debug/console/ConsoleUtil.hx"
-          Write-Host "Patching $consoleUtil"
-          $content = Get-Content $consoleUtil -Raw
-          $content = $content -replace 'return interp\.expr\(', 'return @:privateAccess interp.expr('
-          Set-Content $consoleUtil $content -NoNewline
-
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          FLXEL_PATH=$(haxelib libpath flixel)
-          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
-          echo "Patching $CONSOLE_UTIL"
-          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
+          python3 -c '
+          import subprocess, os
+          res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
+          flixel_path = res.stdout.strip().splitlines()[-1]
+          console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+          print("Patching:", console_util)
+          with open(console_util, "r", encoding="utf-8") as f:
+              content = f.read()
+          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+          with open(console_util, "w", encoding="utf-8") as f:
+              f.write(content)
+          '
 
       - name: Compile SoulScorch Engine
         run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
