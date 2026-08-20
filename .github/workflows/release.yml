@@ -20,26 +20,14 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: SoulScorch-Windows
-<<<<<<< HEAD
-=======
-            output_dir: bin/windows/bin
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-Windows.zip
           - os: ubuntu-latest
             target: linux
             artifact_name: SoulScorch-Linux
-<<<<<<< HEAD
-=======
-            output_dir: bin/linux/bin
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-Linux.zip
           - os: macos-14
             target: mac
             artifact_name: SoulScorch-macOS
-<<<<<<< HEAD
-=======
-            output_dir: bin/mac/bin
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-macOS.zip
 
     runs-on: ${{ matrix.os }}
@@ -97,7 +85,7 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
+          haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
@@ -114,31 +102,24 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
+          haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-<<<<<<< HEAD
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
-=======
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
         run: |
           python3 -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
           console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
-<<<<<<< HEAD
-=======
-          print("Patching:", console_util)
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
-          with open(console_util, "r", encoding="utf-8") as f:
-              content = f.read()
-          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
-          with open(console_util, "w", encoding="utf-8") as f:
-              f.write(content)
+          if os.path.exists(console_util):
+              with open(console_util, "r", encoding="utf-8") as f:
+                  content = f.read()
+              content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+              with open(console_util, "w", encoding="utf-8") as f:
+                  f.write(content)
           '
 
       - name: Compile SoulScorch Engine
@@ -147,23 +128,21 @@ jobs:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_SILENT: 1
 
-      - name: Package Executable Archive (Universal Find & Zip)
+      - name: Package Executable Archive
         shell: bash
         run: |
-          echo "Locating build output directory..."
-          BUILD_DIR=$(find bin -type d -name "bin" | grep "${{ matrix.target }}" | head -n 1)
-          if [ -z "$BUILD_DIR" ] || [ ! -d "$BUILD_DIR" ]; then
-            BUILD_DIR=$(find export -type d -name "bin" | grep "${{ matrix.target }}" | head -n 1)
+          BUILD_DIR=$(find bin export -type d -name "bin" 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
+          if [ -z "$BUILD_DIR" ]; then
+            BUILD_DIR=$(find bin export -maxdepth 3 -type d 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
           fi
-          
+
           if [ -d "$BUILD_DIR" ]; then
-            echo "Found build directory: $BUILD_DIR"
+            echo "Packaging binary from: $BUILD_DIR"
             cd "$BUILD_DIR"
-            chmod +x * || true
-            zip -qry ../../../../${{ matrix.archive_name }} .
-            echo "Successfully created archive: ${{ matrix.archive_name }}"
+            chmod +x * 2>/dev/null || true
+            zip -qry "$GITHUB_WORKSPACE/${{ matrix.archive_name }}" .
           else
-            echo "Error: Could not locate build output directory for ${{ matrix.target }}"
+            echo "Error: Output directory not found."
             exit 1
           fi
 

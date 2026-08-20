@@ -1,4 +1,4 @@
-name: Mobile Builds (Android & iOS)
+name: Release Builds
 
 on:
   push:
@@ -12,103 +12,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
+  build-binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+            artifact_name: SoulScorch-Windows
+            archive_name: SoulScorch-Windows.zip
+          - os: ubuntu-latest
+            target: linux
+            artifact_name: SoulScorch-Linux
+            archive_name: SoulScorch-Linux.zip
+          - os: macos-14
+            target: mac
+            artifact_name: SoulScorch-macOS
+            archive_name: SoulScorch-macOS.zip
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Setup Android SDK Tools
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK & Build-Tools
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager --install "ndk;25.2.9519653" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1"
-
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v2
-        with:
-          haxe-version: 4.3.6
-
-      - name: Cache Haxelibs
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/haxelib
-            ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-android-${{ hashFiles('**/Project.xml', '**/*.hx') }}
-          restore-keys: |
-            ${{ runner.os }}-haxelib-android-
-
-      - name: Install Haxelib Dependencies
-        run: |
-          haxelib setup ~/haxelib
-          haxelib install lime 8.1.3 --quiet --always --skip-dependencies
-          haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
-          haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
-          haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
-          haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
-          haxelib install hscript 2.4.0 --quiet --always
-          haxelib set hscript 2.4.0
-          haxelib install away3d --quiet --always
-          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
-          haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
-          haxelib run lime setup -y
-          haxelib run lime setup flixel -y
-
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
-        run: |
-          python3 -c '
-          import subprocess, os
-          res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
-          flixel_path = res.stdout.strip().splitlines()[-1]
-          console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
-<<<<<<< HEAD
-=======
-          print("Patching:", console_util)
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
-          with open(console_util, "r", encoding="utf-8") as f:
-              content = f.read()
-          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
-          with open(console_util, "w", encoding="utf-8") as f:
-              f.write(content)
-          '
-
-      - name: Configure Android Lime SDK Paths
-        run: |
-          haxelib run lime config ANDROID_SDK $ANDROID_HOME
-          haxelib run lime config ANDROID_NDK_ROOT $ANDROID_HOME/ndk/25.2.9519653
-          haxelib run lime config JAVA_HOME $JAVA_HOME
-          haxelib run lime config ANDROID_SETUP true
-
-      - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
-        env:
-          HXCPP_COMPILE_THREADS: 4
-          HXCPP_SILENT: 1
-
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: SoulScorch-Android-Release-APK
-          path: bin/android/bin/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
-
-  build-ios:
-    name: Build iOS Xcode Project
-    runs-on: macos-14
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout Repository
@@ -119,17 +41,57 @@ jobs:
         with:
           haxe-version: 4.3.6
 
-      - name: Cache Haxelibs
+      - name: Install Native Linux Libraries
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-multilib g++-multilib \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
+            libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
+
+      - name: Cache Haxelibs (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/haxelib
+            C:/Users/runneradmin/.hxcpp
+          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          restore-keys: |
+            ${{ runner.os }}-haxelib-
+
+      - name: Cache Haxelibs (Unix)
+        if: matrix.os != 'windows-latest'
         uses: actions/cache@v4
         with:
           path: |
             ~/haxelib
             ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-ios-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/Project.xml', '**/*.hx') }}
           restore-keys: |
-            ${{ runner.os }}-haxelib-ios-
+            ${{ runner.os }}-haxelib-
 
-      - name: Install Haxelib Dependencies
+      - name: Install Haxelib Dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          haxelib setup C:/haxelib
+          haxelib install lime 8.1.3 --quiet --always --skip-dependencies
+          haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
+          haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
+          haxelib install flixel-addons 3.2.3 --quiet --always --skip-dependencies
+          haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
+          haxelib install hscript 2.4.0 --quiet --always
+          haxelib set hscript 2.4.0
+          haxelib install away3d --quiet --always
+          haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
+          haxelib run lime setup -y
+          haxelib run lime setup flixel -y
+
+      - name: Install Haxelib Dependencies (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
           haxelib setup ~/haxelib
           haxelib install lime 8.1.3 --quiet --always --skip-dependencies
@@ -140,57 +102,53 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
+          haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
           python3 -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
           console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
-<<<<<<< HEAD
-=======
-          print("Patching:", console_util)
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
-          with open(console_util, "r", encoding="utf-8") as f:
-              content = f.read()
-          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
-          with open(console_util, "w", encoding="utf-8") as f:
-              f.write(content)
+          if os.path.exists(console_util):
+              with open(console_util, "r", encoding="utf-8") as f:
+                  content = f.read()
+              content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+              with open(console_util, "w", encoding="utf-8") as f:
+                  f.write(content)
           '
 
-      - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
+      - name: Compile SoulScorch Engine
+        run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_SILENT: 1
 
-      - name: Package Xcode Build Output
+      - name: Package Executable Archive
+        shell: bash
         run: |
-<<<<<<< HEAD
-          find bin -type d -name "ios" -o -name "bin" | head -n 1
-          # Locate and archive export folder safely
-          TARGET_DIR=$(find bin -type d -name "ios" | head -n 1)
-          if [ -d "$TARGET_DIR" ]; then
-            cd "$TARGET_DIR"
-            zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
-          else
-            echo "Searching export/ directory..."
-            cd export/release/ios || cd export/ios || exit 1
-            zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
+          BUILD_DIR=$(find bin export -type d -name "bin" 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
+          if [ -z "$BUILD_DIR" ]; then
+            BUILD_DIR=$(find bin export -maxdepth 3 -type d 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
           fi
-=======
-          cd bin/ios/bin
-          zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
->>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
 
-      - name: Upload iOS Xcode Project Artifact
+          if [ -d "$BUILD_DIR" ]; then
+            echo "Packaging binary from: $BUILD_DIR"
+            cd "$BUILD_DIR"
+            chmod +x * 2>/dev/null || true
+            zip -qry "$GITHUB_WORKSPACE/${{ matrix.archive_name }}" .
+          else
+            echo "Error: Output directory not found."
+            exit 1
+          fi
+
+      - name: Upload Packaged Release Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SoulScorch-iOS-XcodeProject
-          path: SoulScorch-iOS-XcodeProject.zip
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.archive_name }}
           if-no-files-found: error
