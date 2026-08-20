@@ -68,13 +68,17 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
         run: |
           python3 -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
           console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+<<<<<<< HEAD
+=======
+          print("Patching:", console_util)
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
           with open(console_util, "r", encoding="utf-8") as f:
               content = f.read()
           content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
@@ -141,13 +145,17 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
         run: |
           python3 -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
           console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+<<<<<<< HEAD
+=======
+          print("Patching:", console_util)
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
           with open(console_util, "r", encoding="utf-8") as f:
               content = f.read()
           content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
@@ -163,6 +171,7 @@ jobs:
 
       - name: Package Xcode Build Output
         run: |
+<<<<<<< HEAD
           find bin -type d -name "ios" -o -name "bin" | head -n 1
           # Locate and archive export folder safely
           TARGET_DIR=$(find bin -type d -name "ios" | head -n 1)
@@ -174,6 +183,10 @@ jobs:
             cd export/release/ios || cd export/ios || exit 1
             zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
           fi
+=======
+          cd bin/ios/bin
+          zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
 
       - name: Upload iOS Xcode Project Artifact
         uses: actions/upload-artifact@v4

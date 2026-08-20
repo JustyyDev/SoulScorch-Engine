@@ -20,14 +20,26 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: SoulScorch-Windows
+<<<<<<< HEAD
+=======
+            output_dir: bin/windows/bin
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-Windows.zip
           - os: ubuntu-latest
             target: linux
             artifact_name: SoulScorch-Linux
+<<<<<<< HEAD
+=======
+            output_dir: bin/linux/bin
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-Linux.zip
           - os: macos-14
             target: mac
             artifact_name: SoulScorch-macOS
+<<<<<<< HEAD
+=======
+            output_dir: bin/mac/bin
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
             archive_name: SoulScorch-macOS.zip
 
     runs-on: ${{ matrix.os }}
@@ -107,13 +119,21 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
+<<<<<<< HEAD
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
+=======
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Cross-Platform Python)
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
         run: |
           python3 -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
           console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+<<<<<<< HEAD
+=======
+          print("Patching:", console_util)
+>>>>>>> 88dd39bbdf24b16e0730cd16c15729ce1a90077f
           with open(console_util, "r", encoding="utf-8") as f:
               content = f.read()
           content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
