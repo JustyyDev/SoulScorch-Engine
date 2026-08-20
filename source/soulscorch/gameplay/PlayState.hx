@@ -5,12 +5,12 @@ import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.math.FlxEase;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
 import flixel.sound.FlxSound;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
@@ -1073,7 +1073,7 @@ class PlayState extends MusicBeatState {
             if (Reflect.hasField(songData, "notes")) secArray = cast Reflect.field(songData, "notes");
             else if (Reflect.hasField(songData, "sections")) secArray = cast Reflect.field(songData, "sections");
             else if (Reflect.hasField(songData, "rawSong") && Reflect.hasField(Reflect.field(songData, "rawSong"), "notes")) {
-                secArray = cast Reflect.field(Reflect.field(Reflection.field(songData, "rawSong"), "notes"), "notes");
+                secArray = cast Reflect.field(Reflect.field(Reflect.field(songData, "rawSong"), "notes"), "notes");
             }
 
             if (secArray != null && secArray.length > 0) {
