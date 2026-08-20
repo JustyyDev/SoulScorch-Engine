@@ -23,23 +23,11 @@ import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.KeybindRow;
 import soulscorch.ui.menus.option.OptionCategory;
+import soulscorch.ui.menus.option.OptionCategory.OptionData;
 import soulscorch.ui.menus.option.OptionRow;
 import soulscorch.ui.menus.states.MainMenuState;
 
 using StringTools;
-
-typedef OptionData = {
-    var name:String;
-    var description:String;
-    var type:String;
-    @:optional var min:Null<Float>;
-    @:optional var max:Null<Float>;
-    @:optional var step:Null<Float>;
-    @:optional var options:Array<String>;
-    @:optional var formatValue:Float->String;
-    var getValue:Void->Dynamic;
-    var setValue:Dynamic->Void;
-};
 
 class OptionsMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
