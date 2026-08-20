@@ -63,17 +63,24 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
-          FLXEL_PATH=$(haxelib libpath flixel)
-          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
-          echo "Patching $CONSOLE_UTIL"
-          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
+          python3 -c '
+          import subprocess, os
+          res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
+          flixel_path = res.stdout.strip().splitlines()[-1]
+          console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+          with open(console_util, "r", encoding="utf-8") as f:
+              content = f.read()
+          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+          with open(console_util, "w", encoding="utf-8") as f:
+              f.write(content)
+          '
 
       - name: Configure Android Lime SDK Paths
         run: |
@@ -92,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SoulScorch-Android-Release-APK
-          path: export/release/android/bin/app/build/outputs/apk/**/*.apk
+          path: bin/android/bin/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
   build-ios:
@@ -129,17 +136,24 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
-          FLXEL_PATH=$(haxelib libpath flixel)
-          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
-          echo "Patching $CONSOLE_UTIL"
-          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
+          python3 -c '
+          import subprocess, os
+          res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
+          flixel_path = res.stdout.strip().splitlines()[-1]
+          console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+          with open(console_util, "r", encoding="utf-8") as f:
+              content = f.read()
+          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+          with open(console_util, "w", encoding="utf-8") as f:
+              f.write(content)
+          '
 
       - name: Generate iOS C++ & Xcode Project
         run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
@@ -149,8 +163,17 @@ jobs:
 
       - name: Package Xcode Build Output
         run: |
-          cd export/release/ios
-          zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
+          find bin -type d -name "ios" -o -name "bin" | head -n 1
+          # Locate and archive export folder safely
+          TARGET_DIR=$(find bin -type d -name "ios" | head -n 1)
+          if [ -d "$TARGET_DIR" ]; then
+            cd "$TARGET_DIR"
+            zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
+          else
+            echo "Searching export/ directory..."
+            cd export/release/ios || cd export/ios || exit 1
+            zip -qry ../../../SoulScorch-iOS-XcodeProject.zip .
+          fi
 
       - name: Upload iOS Xcode Project Artifact
         uses: actions/upload-artifact@v4

@@ -20,17 +20,14 @@ jobs:
           - os: windows-latest
             target: windows
             artifact_name: SoulScorch-Windows
-            output_dir: export/release/windows/bin
             archive_name: SoulScorch-Windows.zip
           - os: ubuntu-latest
             target: linux
             artifact_name: SoulScorch-Linux
-            output_dir: export/release/linux/bin
             archive_name: SoulScorch-Linux.zip
           - os: macos-14
             target: mac
             artifact_name: SoulScorch-macOS
-            output_dir: export/release/macos/bin
             archive_name: SoulScorch-macOS.zip
 
     runs-on: ${{ matrix.os }}
@@ -88,7 +85,7 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
@@ -105,29 +102,24 @@ jobs:
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
           haxelib install away3d --quiet --always
-          haxelib install hxcpp 4.3.2 --quiet --always
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
-          $flixelPath = (haxelib libpath flixel).Trim()
-          $consoleUtil = "$flixelPath/flixel/system/debug/console/ConsoleUtil.hx"
-          Write-Host "Patching $consoleUtil"
-          $content = Get-Content $consoleUtil -Raw
-          $content = $content -replace 'return interp\.expr\(', 'return @:privateAccess interp.expr('
-          Set-Content $consoleUtil $content -NoNewline
-
-      - name: Patch Flixel ConsoleUtil for Haxe 4.3+ (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          FLXEL_PATH=$(haxelib libpath flixel)
-          CONSOLE_UTIL="$FLXEL_PATH/flixel/system/debug/console/ConsoleUtil.hx"
-          echo "Patching $CONSOLE_UTIL"
-          sed -i 's/return interp.expr(/return @:privateAccess interp.expr(/g' "$CONSOLE_UTIL"
+          python3 -c '
+          import subprocess, os
+          res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
+          flixel_path = res.stdout.strip().splitlines()[-1]
+          console_util = os.path.join(flixel_path, "flixel", "system", "debug", "console", "ConsoleUtil.hx")
+          with open(console_util, "r", encoding="utf-8") as f:
+              content = f.read()
+          content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
+          with open(console_util, "w", encoding="utf-8") as f:
+              f.write(content)
+          '
 
       - name: Compile SoulScorch Engine
         run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
@@ -135,18 +127,25 @@ jobs:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_SILENT: 1
 
-      - name: Package Executable Archive (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      - name: Package Executable Archive (Universal Find & Zip)
+        shell: bash
         run: |
-          Compress-Archive -Path "${{ matrix.output_dir }}/*" -DestinationPath "${{ matrix.archive_name }}" -Force
-
-      - name: Package Executable Archive (Unix / macOS)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cd ${{ matrix.output_dir }}
-          chmod +x * || true
-          zip -qry ../../../../${{ matrix.archive_name }} .
+          echo "Locating build output directory..."
+          BUILD_DIR=$(find bin -type d -name "bin" | grep "${{ matrix.target }}" | head -n 1)
+          if [ -z "$BUILD_DIR" ] || [ ! -d "$BUILD_DIR" ]; then
+            BUILD_DIR=$(find export -type d -name "bin" | grep "${{ matrix.target }}" | head -n 1)
+          fi
+          
+          if [ -d "$BUILD_DIR" ]; then
+            echo "Found build directory: $BUILD_DIR"
+            cd "$BUILD_DIR"
+            chmod +x * || true
+            zip -qry ../../../../${{ matrix.archive_name }} .
+            echo "Successfully created archive: ${{ matrix.archive_name }}"
+          else
+            echo "Error: Could not locate build output directory for ${{ matrix.target }}"
+            exit 1
+          fi
 
       - name: Upload Packaged Release Artifact
         uses: actions/upload-artifact@v4
