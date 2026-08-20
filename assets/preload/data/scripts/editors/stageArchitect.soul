@@ -1,0 +1,23 @@
+var curStageName = "stage";
+
+function onCreate() {
+    Logger.info("Stage Architect .soul script online.", "editor");
+}
+
+function onSaveStage() {
+    XMSoul.clearCache();
+    Logger.info("Exported stage as .xmsoul to assets/data/stages/" + curStageName + ".xmsoul", "editor");
+}
+
+function onScaleX(val) {
+    Logger.info("Scale X modified: " + val, "editor");
+}
+
+function onCycleLayer() {
+    var lyr = editor.widgets.get("layerTxt");
+    if (lyr != null) lyr.text = "Layer: foreground";
+}
+
+function onExit() {
+    MusicBeatState.switchState(new MainMenuState());
+}

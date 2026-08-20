@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor title="ACTOR STUDIO PRO" script="data/scripts/editors/actorStudio.soul">
+    <window id="animMatrix" title="Animation Matrix" x="15" y="45" width="300" height="420">
+        <text id="curAnimTxt" text="Anim: idle" x="10" y="4" size="16" color="0xFF00FFCC" />
+        <text id="offsetTxt" text="Offset: [0, 0]" x="10" y="26" size="14" color="0xFF888899" />
+        <text id="frameInfoTxt" text="Frame: 0/0" x="10" y="48" size="12" color="0xFF888899" />
+        <text id="animListTxt" text="" x="10" y="72" size="12" color="0xFFFFFFFF" />
+        
+        <button id="addAnimBtn" text="+ Add Anim" x="10" y="345" width="135" height="26" action="modal:newAnim" />
+        <button id="delAnimBtn" text="- Remove" x="155" y="345" width="135" height="26" action="removeAnim" />
+    </window>
+
+    <window id="properties" title="Actor Settings" x="955" y="45" width="310" height="270">
+        <stepper id="scaleStepper" label="Scale Multiplier" min="0.1" max="8.0" step="0.05" precision="2" x="10" y="8" width="290" action="updateScale" />
+        <stepper id="singStepper" label="Sing Hold Duration" min="0.5" max="16.0" step="0.5" precision="1" x="10" y="44" width="290" action="updateSing" />
+        <input id="healthIconInput" label="Health Icon Key" text="face" x="10" y="84" width="290" action="updateIcon" />
+        <checkbox id="ghostCheck" label="Ghost Overlay (G)" checked="true" x="10" y="128" action="toggleGhost" />
+        <checkbox id="flipCheck" label="Flip X Axis" checked="false" x="160" y="128" action="toggleFlip" />
+    </window>
+
+    <window id="camOffsets" title="Camera Focus Anchor" x="955" y="325" width="310" height="150">
+        <stepper id="camXStepper" label="Cam Offset X" min="-900" max="900" step="5.0" precision="1" x="10" y="8" width="290" action="updateCamX" />
+        <stepper id="camYStepper" label="Cam Offset Y" min="-900" max="900" step="5.0" precision="1" x="10" y="44" width="290" action="updateCamY" />
+    </window>
+</editor>

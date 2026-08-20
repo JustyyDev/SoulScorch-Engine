@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<week name="SPOOKY MONTH" characters="spooky,bf,gf" sprite="week2" unlockable="true">
+    <songs>
+        <song name="Spookeez" color="0xFF6600" />
+        <song name="South" color="0x33CC33" />
+        <song name="Monster" color="0x990000" hide="true" />
+    </songs>
+</week>

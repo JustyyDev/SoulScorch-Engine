@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteType name="mine" texture="ui/game/notes/MINE_assets" hitDamage="-0.4" causesMiss="true" ignoreHealthDrain="true">
+    <splash name="mineExplode" sound="mineExplode" />
+    <sound hit="mineHit" miss="mineTick" />
+    <script path="data/scripts/notes/mineNote.soul" />
+</noteType>

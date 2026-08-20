@@ -5,13 +5,18 @@ import flixel.FlxG;
 import flixel.FlxState;
 import flixel.FlxSubState;
 import flixel.util.FlxColor;
+import haxe.xml.Access;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Achievements;
+import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.NotificationManager;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
+
+using StringTools;
 
 class Scene extends FlxState implements IBeatReceiver {
     public var curStep:Int = 0;
@@ -27,16 +32,23 @@ class Scene extends FlxState implements IBeatReceiver {
     public var camHUD:FlxCamera;
     public var camOther:FlxCamera;
 
+    // Configurable Scene Parameters from .xmsoul
+    public var defaultCamZoom:Float = 1.0;
+    public var defaultCamAntialiasing:Bool = true;
+    public var defaultBgColor:FlxColor = FlxColor.BLACK;
+    public var enableBeatTracking:Bool = true;
+
     private var _lastBeat:Int = -1;
     private var _lastStep:Int = -1;
     private var _lastMeasure:Int = -1;
 
     public function new() {
         super();
-        sceneName = Type.getClassName(Type.getClass(this));
+        sceneName = Type.getClassName(Type.getClass(this)).split(".").pop();
     }
 
     override public function create():Void {
+        loadSceneConfig();
         setupCameras();
         super.create();
 
@@ -66,13 +78,38 @@ class Scene extends FlxState implements IBeatReceiver {
         Logger.info('[SCENE] Initialized scene: $sceneName', "scene");
     }
 
+    /**
+     * Dynamically reads scene viewport configurations from config/scene.xmsoul if present.
+     */
+    public function loadSceneConfig():Void {
+        var access:Access = XMSoul.parse("config/scene");
+        if (access == null) access = XMSoul.parse("data/config/scene");
+
+        if (access != null) {
+            defaultCamZoom = XMSoul.getFloatAttr(access, "defaultZoom", 1.0);
+            defaultCamAntialiasing = XMSoul.getBoolAttr(access, "antialiasing", true);
+            enableBeatTracking = XMSoul.getBoolAttr(access, "beatTracking", true);
+
+            var bgColStr = XMSoul.getAttr(access, "bgColor", "0xFF000000");
+            var col = FlxColor.fromString(bgColStr);
+            if (col != null) defaultBgColor = col;
+        }
+    }
+
     public function setupCameras():Void {
         camGame = new FlxCamera();
         camHUD = new FlxCamera();
         camOther = new FlxCamera();
 
+        camGame.bgColor = defaultBgColor;
         camHUD.bgColor.alpha = 0;
         camOther.bgColor.alpha = 0;
+
+        camGame.antialiasing = defaultCamAntialiasing;
+        camHUD.antialiasing = defaultCamAntialiasing;
+        camOther.antialiasing = defaultCamAntialiasing;
+
+        camGame.zoom = defaultCamZoom;
 
         FlxG.cameras.reset(camGame);
         FlxG.cameras.add(camHUD, false);
@@ -93,7 +130,9 @@ class Scene extends FlxState implements IBeatReceiver {
         } catch (e:Dynamic) {}
         #end
 
-        updateConductorTrackers();
+        if (enableBeatTracking) {
+            updateConductorTrackers();
+        }
     }
 
     private function updateConductorTrackers():Void {

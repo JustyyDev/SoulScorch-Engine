@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor title="STAGE ARCHITECT PRO // [XMSOUL]" script="data/scripts/editors/stageArchitect.soul">
+    <action label="Save .xmsoul (Ctrl+S)" onTrigger="onSaveStage" />
+    <action label="Reset View" onTrigger="onResetView" />
+    <action label="Exit" onTrigger="onExit" />
+
+    <window id="treeWin" title="Stage Tree &amp; Pieces" x="15" y="45" width="300" height="420">
+        <text id="infoTxt" text="Target: None" x="10" y="4" size="14" color="0xFF00FFCC" />
+        <text id="layerTxt" text="Layer: background" x="10" y="26" size="12" color="0xFFFFD700" />
+        <text id="treeListTxt" text="" x="10" y="50" size="12" color="0xFFFFFFFF" />
+        <button id="addPropBtn" text="+ Add Prop" x="10" y="345" width="135" height="26" action="onAddProp" />
+        <button id="delPropBtn" text="- Remove" x="155" y="345" width="135" height="26" action="onRemoveProp" />
+    </window>
+
+    <window id="transformWin" title="Transform &amp; Parallax" x="955" y="45" width="310" height="230">
+        <stepper id="scaleXStep" label="Scale X" default="1.0" min="0.05" max="10.0" step="0.05" precision="2" x="10" y="8" width="135" action="onScaleX" />
+        <stepper id="scaleYStep" label="Scale Y" default="1.0" min="0.05" max="10.0" step="0.05" precision="2" x="160" y="8" width="135" action="onScaleY" />
+        <stepper id="scrollXStep" label="Scroll X" default="1.0" min="0.0" max="3.0" step="0.05" precision="2" x="10" y="44" width="135" action="onScrollX" />
+        <stepper id="scrollYStep" label="Scroll Y" default="1.0" min="0.0" max="3.0" step="0.05" precision="2" x="160" y="44" width="135" action="onScrollY" />
+        <stepper id="alphaStep" label="Alpha" default="1.0" min="0.0" max="1.0" step="0.05" precision="2" x="10" y="80" width="135" action="onAlpha" />
+        <checkbox id="antialiasCheck" label="Antialiasing" checked="true" x="160" y="95" action="onAntialias" />
+        <button id="cycleLayerBtn" text="Cycle Layer (L Key)" x="10" y="130" width="280" height="26" action="onCycleLayer" />
+    </window>
+</editor>

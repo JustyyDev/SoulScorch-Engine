@@ -4,6 +4,7 @@ import flixel.util.FlxColor;
 import haxe.Json;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 
@@ -37,33 +38,43 @@ class SongRegistry {
         gatherWeeks(rawDiscovered);
         gatherSongFolders(rawDiscovered);
 
-        var listFilePaths = [
-            "data/config/freeplaySonglist",
-            "data/config/freeplaySongList",
-            "data/config/freeplay_songlist",
-            "data/freeplaySonglist",
-            "assets/preload/data/config/freeplaySonglist.txt",
-            "assets/preload/data/config/freeplaySongList.txt"
-        ];
-
         var configOrder:Array<String> = [];
-        for (cfgPath in listFilePaths) {
-            var rawText = AssetResolver.getText(cfgPath);
-            if (rawText != null && rawText.trim().length > 0) {
-                var lines = rawText.split("\n");
-                for (line in lines) {
-                    var clean = line.trim();
-                    if (clean.length > 0 && !clean.startsWith("//") && !clean.startsWith("#")) {
-                        var songKey = clean.toLowerCase().trim();
-                        if (!configOrder.contains(songKey)) {
-                            configOrder.push(songKey);
+
+        // 1. Read freeplay.xmsoul configuration
+        var freeplayXml:Access = XMSoul.parse("config/freeplay");
+        if (freeplayXml == null) freeplayXml = XMSoul.parse("data/config/freeplay");
+
+        if (freeplayXml != null) {
+            for (songNode in freeplayXml.nodes.song) {
+                var songName = XMSoul.getAttr(songNode, "name", "");
+                if (songName.length > 0) {
+                    var cleanKey = songName.toLowerCase().trim();
+                    if (!configOrder.contains(cleanKey)) configOrder.push(cleanKey);
+                }
+            }
+        } else {
+            // Fallback to freeplaySonglist.txt
+            var listFilePaths = [
+                "data/config/freeplaySonglist",
+                "data/config/freeplaySongList",
+                "assets/preload/data/config/freeplaySonglist.txt"
+            ];
+            for (cfgPath in listFilePaths) {
+                var rawText = AssetResolver.getText(cfgPath);
+                if (rawText != null && rawText.trim().length > 0) {
+                    for (line in rawText.split("\n")) {
+                        var clean = line.trim();
+                        if (clean.length > 0 && !clean.startsWith("//") && !clean.startsWith("#")) {
+                            var songKey = clean.toLowerCase().trim();
+                            if (!configOrder.contains(songKey)) configOrder.push(songKey);
                         }
                     }
+                    break;
                 }
-                break;
             }
         }
 
+        // Add configured songs in order
         for (songKey in configOrder) {
             var matchId = findMatchingSongId(songKey, rawDiscovered);
             if (matchId != null) {
@@ -79,6 +90,7 @@ class SongRegistry {
             }
         }
 
+        // Add remaining discovered songs
         for (key in rawDiscovered.keys()) {
             if (!_songMap.exists(key)) {
                 _songMap.set(key, rawDiscovered.get(key));
@@ -103,15 +115,13 @@ class SongRegistry {
     private static function gatherWeeks(map:Map<String, RegisteredSong>):Void {
         #if sys
         var weekDirs = [
-            "data/weeks/weeks",
-            "assets/preload/data/weeks/weeks",
             "data/weeks",
-            "assets/preload/data/weeks"
+            "assets/preload/data/weeks",
+            "assets/data/weeks"
         ];
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
-                weekDirs.unshift('mods/$m/data/weeks/weeks');
                 weekDirs.unshift('mods/$m/data/weeks');
                 weekDirs.unshift('mods/$m/weeks');
             }
@@ -123,17 +133,28 @@ class SongRegistry {
                     var fullPath = '$dir/$file';
                     if (FileSystem.isDirectory(fullPath)) continue;
 
-                    if (file.endsWith(".xml")) {
+                    if (file.endsWith(".xmsoul") || file.endsWith(".xml")) {
                         try {
                             var access = new Access(Xml.parse(File.getContent(fullPath)).firstElement());
-                            var chars = access.has.chars ? access.att.chars.split(",") : ["dad"];
-                            var charIcon = (chars.length > 0 && chars[0] != "none") ? chars[0] : "face";
+                            var chars = access.has.characters ? access.att.characters.split(",") : (access.has.chars ? access.att.chars.split(",") : ["dad"]);
+                            var charIcon = (chars.length > 0 && chars[0] != "none") ? chars[0].trim() : "face";
 
-                            for (s in access.nodes.song) {
-                                var songName = s.innerData.trim();
-                                var cleanId = songName.toLowerCase().trim();
-                                if (songName.length > 0 && !map.exists(cleanId)) {
-                                    map.set(cleanId, buildSongEntryWithMeta(cleanId, songName, charIcon));
+                            // Check for <songs><song name="X" /></songs> or direct <song>X</song>
+                            if (access.hasNode.songs) {
+                                for (s in access.node.songs.nodes.song) {
+                                    var songName = XMSoul.getAttr(s, "name", s.innerData.trim());
+                                    var cleanId = songName.toLowerCase().trim();
+                                    if (cleanId.length > 0 && !map.exists(cleanId)) {
+                                        map.set(cleanId, buildSongEntryWithMeta(cleanId, songName, charIcon));
+                                    }
+                                }
+                            } else {
+                                for (s in access.nodes.song) {
+                                    var songName = XMSoul.getAttr(s, "name", s.innerData.trim());
+                                    var cleanId = songName.toLowerCase().trim();
+                                    if (cleanId.length > 0 && !map.exists(cleanId)) {
+                                        map.set(cleanId, buildSongEntryWithMeta(cleanId, songName, charIcon));
+                                    }
                                 }
                             }
                         } catch (e:Dynamic) {}
@@ -147,7 +168,7 @@ class SongRegistry {
                             for (s in songList) {
                                 var songName = Std.isOfType(s, String) ? Std.string(s) : Std.string(Reflect.field(s, "name"));
                                 var cleanId = songName.toLowerCase().trim();
-                                if (songName.length > 0 && !map.exists(cleanId)) {
+                                if (cleanId.length > 0 && !map.exists(cleanId)) {
                                     map.set(cleanId, buildSongEntryWithMeta(cleanId, songName, charIcon));
                                 }
                             }
@@ -187,45 +208,56 @@ class SongRegistry {
 
     public static function buildSongEntryWithMeta(id:String, ?defaultTitle:String, ?defaultIcon:String):RegisteredSong {
         var clean = id.toLowerCase().trim();
-        var metaPaths = [
-            'songs/$clean/meta.json',
-            'data/$clean/meta.json',
-            'assets/preload/songs/$clean/meta.json',
-            'assets/songs/$clean/meta.json',
-            'songs/$clean/_meta.json'
-        ];
-
         var songTitle = defaultTitle != null ? formatSongTitle(defaultTitle) : formatSongTitle(clean);
         var iconChar = defaultIcon != null ? defaultIcon : getDefaultIcon(clean);
         var bpmVal = 100.0;
         var speedVal = 2.0;
         var songColor = getCharColor(iconChar);
 
-        // 1. Read meta.json if present
-        for (path in metaPaths) {
-            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
-            if (resolved != null) {
-                var content = AssetResolver.getText(resolved);
-                if (content != null && content.length > 0) {
-                    try {
-                        var meta:Dynamic = Json.parse(content);
-                        if (Reflect.hasField(meta, "displayName")) songTitle = Std.string(Reflect.field(meta, "displayName"));
-                        else if (Reflect.hasField(meta, "title")) songTitle = Std.string(Reflect.field(meta, "title"));
+        // 1. Check meta.xmsoul
+        var metaXml:Access = XMSoul.parse('songs/$clean/meta');
+        if (metaXml == null) metaXml = XMSoul.parse('data/$clean/meta');
 
-                        if (Reflect.hasField(meta, "bpm")) bpmVal = Std.parseFloat(Reflect.field(meta, "bpm"));
-                        if (Reflect.hasField(meta, "icon")) iconChar = Std.string(Reflect.field(meta, "icon"));
+        if (metaXml != null) {
+            songTitle = XMSoul.getAttr(metaXml, "displayName", XMSoul.getAttr(metaXml, "title", songTitle));
+            bpmVal = XMSoul.getFloatAttr(metaXml, "bpm", 100.0);
+            iconChar = XMSoul.getAttr(metaXml, "icon", iconChar);
+            if (metaXml.has.color) {
+                var c = FlxColor.fromString(metaXml.att.color);
+                if (c != null) songColor = c;
+            }
+        } else {
+            // Fallback: meta.json
+            var metaPaths = [
+                'songs/$clean/meta.json',
+                'data/$clean/meta.json',
+                'assets/preload/songs/$clean/meta.json'
+            ];
+            for (path in metaPaths) {
+                var resolved = AssetResolver.resolveFile(path, [".json", ""]);
+                if (resolved != null) {
+                    var content = AssetResolver.getText(resolved);
+                    if (content != null && content.length > 0) {
+                        try {
+                            var meta:Dynamic = Json.parse(content);
+                            if (Reflect.hasField(meta, "displayName")) songTitle = Std.string(Reflect.field(meta, "displayName"));
+                            else if (Reflect.hasField(meta, "title")) songTitle = Std.string(Reflect.field(meta, "title"));
 
-                        if (Reflect.hasField(meta, "color")) {
-                            var rawCol = Std.string(Reflect.field(meta, "color"));
-                            songColor = FlxColor.fromString(rawCol);
-                        }
-                        break;
-                    } catch (e:Dynamic) {}
+                            if (Reflect.hasField(meta, "bpm")) bpmVal = Std.parseFloat(Reflect.field(meta, "bpm"));
+                            if (Reflect.hasField(meta, "icon")) iconChar = Std.string(Reflect.field(meta, "icon"));
+
+                            if (Reflect.hasField(meta, "color")) {
+                                var c = FlxColor.fromString(Std.string(Reflect.field(meta, "color")));
+                                if (c != null) songColor = c;
+                            }
+                            break;
+                        } catch (e:Dynamic) {}
+                    }
                 }
             }
         }
 
-        // 2. Read chart metadata for BPM/speed if not provided in meta.json
+        // 2. Read chart metadata for BPM/speed if not provided in meta
         if (bpmVal == 100.0) {
             var chartMeta = readSongChartMeta(clean);
             if (chartMeta.bpm > 0) bpmVal = chartMeta.bpm;
@@ -245,14 +277,22 @@ class SongRegistry {
 
     public static function readSongChartMeta(songId:String):{bpm:Float, speed:Float} {
         var cleanSong = songId.toLowerCase().trim();
+
+        // 1. Try reading .xmsoul chart
+        var chartXml:Access = XMSoul.parse('songs/$cleanSong/charts/normal');
+        if (chartXml == null) chartXml = XMSoul.parse('songs/$cleanSong/charts/hard');
+        if (chartXml != null) {
+            var speedVal = XMSoul.getFloatAttr(chartXml, "speed", 2.0);
+            return {bpm: 100.0, speed: speedVal};
+        }
+
+        // 2. Fallback: JSON chart
         var possibleChartPaths = [
             'songs/$cleanSong/charts/normal.json',
             'songs/$cleanSong/charts/hard.json',
             'songs/$cleanSong/chart.json',
             'songs/$cleanSong/$cleanSong.json',
-            'data/$cleanSong/$cleanSong.json',
-            'assets/preload/songs/$cleanSong/charts/normal.json',
-            'assets/preload/songs/$cleanSong/charts/hard.json'
+            'data/$cleanSong/$cleanSong.json'
         ];
 
         for (path in possibleChartPaths) {

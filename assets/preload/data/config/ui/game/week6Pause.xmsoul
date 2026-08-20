@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pauseMenu theme="pixel" scale="6.0" normalBgColor="0x88FF99CC" thornsBgColor="0x88000000" normalBorderColor="0xFF953E3E">
+    <sounds clickNormal="pixel/clickText" clickThorns="pixel/ANGRY" scrollNormal="pixel/pixelText" scrollThorns="pixel/type" />
+    <music normal="pixel/breakfast" thorns="pixel/LunchboxScary" />
+</pauseMenu>

@@ -2,7 +2,9 @@ package soulscorch.gameplay;
 
 import flixel.FlxG;
 import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.system.SaveData;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
@@ -198,6 +200,32 @@ class GameplayFlags {
 
     public static function loadModFlags(modDirectory:String):Void {
         #if sys
+        // 1. Try .xmsoul mod flags
+        var xmlPaths = [
+            '$modDirectory/config/flags.xmsoul',
+            '$modDirectory/flags.xmsoul',
+            '$modDirectory/mod.xmsoul'
+        ];
+
+        for (xp in xmlPaths) {
+            if (FileSystem.exists(xp)) {
+                try {
+                    var access = new Access(Xml.parse(File.getContent(xp)).firstElement());
+                    for (node in access.elements) {
+                        if (node.name.toLowerCase() == "flag") {
+                            var name = XMSoul.getAttr(node, "name", "");
+                            var val = XMSoul.getAttr(node, "value", "true");
+                            if (name.length > 0) set(name, parseScalar(val));
+                        }
+                    }
+                } catch (e:Dynamic) {
+                    Logger.warn('Failed parsing flags in $xp: $e', "flags");
+                }
+                break;
+            }
+        }
+
+        // 2. Legacy JSON Mod Flags Fallback
         var manifestCandidates = [
             '$modDirectory/soulmod.json',
             '$modDirectory/mod.json',

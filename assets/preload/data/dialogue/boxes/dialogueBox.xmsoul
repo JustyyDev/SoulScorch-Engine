@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dialogueBox image="ui/game/dialogue/speech_bubble_talking" openAnim="speech bubble normal" defaultFont="vcr" textSize="32" typingSpeed="0.04">
+    <sounds click="dialogue" clickPitch="1.0" />
+    <portraits>
+        <portrait char="bf" image="ui/game/dialogue/bf_portrait" x="780" y="200" flipX="true" />
+        <portrait char="dad" image="ui/game/dialogue/dad_portrait" x="120" y="180" flipX="false" />
+        <portrait char="gf" image="ui/game/dialogue/gf_portrait" x="450" y="190" flipX="false" />
+    </portraits>
+</dialogueBox>

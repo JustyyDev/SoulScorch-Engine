@@ -1,9 +1,11 @@
 package soulscorch.backend.system.modules.github;
 
-import haxe.Json;
 import haxe.Http;
+import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.NotificationManager;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.utils.Logger;
@@ -24,9 +26,10 @@ typedef GitHubRelease = {
 class GitHubModule extends ModuleBase {
     public static var instance:GitHubModule;
 
-    public static inline var REPO_OWNER:String = "JustyyDev";
-    public static inline var REPO_NAME:String = "SoulScorch-Engine";
-    public static inline var API_URL:String = 'https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest';
+    public static var repoOwner:String = "JustyyDev";
+    public static var repoName:String = "SoulScorch-Engine";
+    public static var apiUrl(get, never):String;
+    inline static function get_apiUrl():String return 'https://api.github.com/repos/$repoOwner/$repoName/releases/latest';
 
     public var latestRelease:GitHubRelease = null;
     public var hasChecked:Bool = false;
@@ -38,8 +41,24 @@ class GitHubModule extends ModuleBase {
         instance = this;
         this.autoNotifyOnUpdate = notifyOnUpdate;
 
+        loadConfigFromXMSoul();
+
         if (autoCheck) {
             initialize();
+        }
+    }
+
+    public static function loadConfigFromXMSoul():Void {
+        var access:Access = XMSoul.parse("config/github");
+        if (access == null) access = XMSoul.parse("data/config/github");
+
+        if (access != null) {
+            repoOwner = XMSoul.getAttr(access, "owner", repoOwner);
+            repoName = XMSoul.getAttr(access, "repo", repoName);
+            if (instance != null) {
+                instance.autoNotifyOnUpdate = XMSoul.getBoolAttr(access, "autoNotify", instance.autoNotifyOnUpdate);
+            }
+            Logger.info('Loaded GitHub configuration from .xmsoul ($repoOwner/$repoName)', "github");
         }
     }
 
@@ -49,9 +68,6 @@ class GitHubModule extends ModuleBase {
         #end
     }
 
-    /**
-     * Asynchronously queries the GitHub API for the newest repository release tag.
-     */
     public function checkLatestRelease(?callback:GitHubRelease->Void):Void {
         #if sys
         if (isChecking) return;
@@ -59,7 +75,7 @@ class GitHubModule extends ModuleBase {
 
         Thread.create(function() {
             try {
-                var http = new Http(API_URL);
+                var http = new Http(apiUrl);
                 http.setHeader("User-Agent", 'SoulScorch-Engine/${Version.fullVersion()}');
                 http.setHeader("Accept", "application/vnd.github.v3+json");
 
@@ -74,7 +90,7 @@ class GitHubModule extends ModuleBase {
                             tagName: tag,
                             name: parsed.name != null ? parsed.name : tag,
                             body: parsed.body != null ? parsed.body : "",
-                            htmlUrl: parsed.html_url != null ? parsed.html_url : 'https://github.com/$REPO_OWNER/$REPO_NAME',
+                            htmlUrl: parsed.html_url != null ? parsed.html_url : 'https://github.com/$repoOwner/$repoName',
                             publishedAt: parsed.published_at != null ? parsed.published_at : "",
                             isNewer: isNewer
                         };
@@ -124,9 +140,6 @@ class GitHubModule extends ModuleBase {
         #end
     }
 
-    /**
-     * Compares a semantic tag (e.g. "v0.7.0" or "0.7.0") against the local Version constants.
-     */
     public static function isVersionNewer(remoteTag:String):Bool {
         if (remoteTag == null || remoteTag.length == 0) return false;
 
@@ -149,11 +162,8 @@ class GitHubModule extends ModuleBase {
         return false;
     }
 
-    /**
-     * Opens the repository or target release page directly in the default web browser.
-     */
     public static function openReleasePage(?url:String):Void {
-        var targetUrl = url != null ? url : 'https://github.com/$REPO_OWNER/$REPO_NAME/releases';
+        var targetUrl = url != null ? url : 'https://github.com/$repoOwner/$repoName/releases';
         #if linux
         Sys.command("xdg-open", [targetUrl]);
         #else

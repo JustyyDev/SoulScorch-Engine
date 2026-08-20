@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteskin name="Default" sprite="ui/game/notes/NOTE_assets" scale="0.7" antialiasing="true">
+    <!-- 4-Lane Receptors (Strum Arrows) -->
+    <receptors>
+        <strum lane="0" static="arrowLEFT" pressed="left press" confirm="left confirm" />
+        <strum lane="1" static="arrowDOWN" pressed="down press" confirm="down confirm" />
+        <strum lane="2" static="arrowUP" pressed="up press" confirm="up confirm" />
+        <strum lane="3" static="arrowRIGHT" pressed="right press" confirm="right confirm" />
+    </receptors>
+
+    <!-- Tap Notes -->
+    <tapNotes>
+        <note lane="0" anim="purple" />
+        <note lane="1" anim="blue" />
+        <note lane="2" anim="green" />
+        <note lane="3" anim="red" />
+    </tapNotes>
+
+    <!-- Hold Notes (Sustains & Endings) -->
+    <sustains alpha="0.6" width="50">
+        <hold lane="0" body="purple hold piece" end="purlpe end hold" />
+        <hold lane="1" body="blue hold piece" end="blue hold end" />
+        <hold lane="2" body="green hold piece" end="green hold end" />
+        <hold lane="3" body="red hold piece" end="red hold end" />
+    </sustains>
+</noteskin>

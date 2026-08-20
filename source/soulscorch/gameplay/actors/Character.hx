@@ -6,10 +6,12 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
 import flixel.util.FlxColor;
 import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 
 using StringTools;
@@ -43,12 +45,83 @@ class Character extends FlxSprite {
         animOffsets.clear();
         antialiasing = true;
 
-        var charDataLoaded = loadCharacterJSON(curCharacter);
-        if (!charDataLoaded) {
-            loadCharacterFallback(curCharacter);
+        // 1. Try loading custom .xmsoul format first
+        var xmsoulLoaded = loadCharacterXMSoul(curCharacter);
+        if (!xmsoulLoaded) {
+            // 2. Fall back to standard JSON character files
+            var charDataLoaded = loadCharacterJSON(curCharacter);
+            if (!charDataLoaded) {
+                // 3. Ultimate fallback
+                loadCharacterFallback(curCharacter);
+            }
         }
 
         dance();
+    }
+
+    private function loadCharacterXMSoul(char:String):Bool {
+        var paths = [
+            'characters/$char.xmsoul',
+            'data/characters/$char.xmsoul',
+            'assets/preload/characters/$char.xmsoul',
+            'assets/preload/data/characters/$char.xmsoul'
+        ];
+
+        for (path in paths) {
+            var access = XMSoul.parse(path);
+            if (access != null) {
+                try {
+                    var imagePath = XMSoul.getAttr(access, "image", 'characters/$char');
+                    if (!AssetHelper.loadSparrowSafely(this, imagePath)) {
+                        AssetHelper.loadSparrowSafely(this, 'characters/$char');
+                    }
+
+                    healthIcon = XMSoul.getAttr(access, "icon", char);
+                    healthColor = access.has.color ? FlxColor.fromString(access.att.color) : 0xFF66FF33;
+                    singDuration = XMSoul.getFloatAttr(access, "singDuration", 4.0);
+                    flipX = XMSoul.getBoolAttr(access, "flipX", false);
+                    if (isPlayer) flipX = !flipX;
+
+                    if (access.has.scale) {
+                        var sc = Std.parseFloat(access.att.scale);
+                        scale.set(sc, sc);
+                    }
+
+                    if (access.has.camOffsetX && access.has.camOffsetY) {
+                        cameraOffset = [Std.parseFloat(access.att.camOffsetX), Std.parseFloat(access.att.camOffsetY)];
+                    }
+
+                    if (access.hasNode.anim) {
+                        for (animNode in access.nodes.anim) {
+                            var animName = animNode.att.name;
+                            var animPrefix = animNode.att.prefix;
+                            var fps = XMSoul.getIntAttr(animNode, "fps", 24);
+                            var loop = XMSoul.getBoolAttr(animNode, "loop", false);
+
+                            if (animNode.has.indices) {
+                                var indicesStr = animNode.att.indices.split(",");
+                                var indices:Array<Int> = [];
+                                for (idx in indicesStr) {
+                                    indices.push(Std.parseInt(idx.trim()));
+                                }
+                                animation.addByIndices(animName, animPrefix, indices, "", fps, loop);
+                            } else {
+                                animation.addByPrefix(animName, animPrefix, fps, loop);
+                            }
+
+                            var offsets = animNode.has.offsets ? animNode.att.offsets.split(",") : ["0", "0"];
+                            addOffset(animName, Std.parseFloat(offsets[0].trim()), Std.parseFloat(offsets[1].trim()));
+                        }
+                    }
+
+                    updateHitbox();
+                    return true;
+                } catch (e:Dynamic) {
+                    Logger.warn('Failed parsing character .xmsoul for $char: $e', "character");
+                }
+            }
+        }
+        return false;
     }
 
     private function loadCharacterJSON(char:String):Bool {

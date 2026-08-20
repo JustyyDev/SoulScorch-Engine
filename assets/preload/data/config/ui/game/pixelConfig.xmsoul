@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pixelConfig pixelNotesForBF="true" pixelNotesForDad="true" pixelSplashes="true" enablePixelUI="true" enablePixelGameOver="true" pixelZoom="6.0" enableCameraHacks="true">
+    <assets gameOverSong="pixel/gameOver" lossSFX="pixel/gameOverSFX" retrySFX="pixel/gameOverEnd" />
+</pixelConfig>

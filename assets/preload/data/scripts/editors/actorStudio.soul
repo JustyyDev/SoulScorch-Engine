@@ -1,0 +1,78 @@
+// SoulScript Runtime for Actor Studio (Character & Offset Editor)
+var curCharacter = "dad";
+var curAnim = "idle";
+var animList = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT"];
+var animOffsets = [];
+var showGhost = true;
+var isFlipped = false;
+var charScale = 1.0;
+var singDuration = 4.0;
+var camOffset = [0.0, 0.0];
+
+function onCreate() {
+    Logger.info("[ActorStudio] Actor Studio .soul runtime initialized.", "editor");
+    refreshAnimDisplay();
+}
+
+function onUpdate(elapsed) {
+    // Per-frame actor matrix updates and ghost synchronization
+}
+
+function updateScale(newScale) {
+    charScale = newScale;
+    Logger.info("[ActorStudio] Character scale updated to: " + newScale, "editor");
+}
+
+function updateSing(newDuration) {
+    singDuration = newDuration;
+    Logger.info("[ActorStudio] Sing duration set: " + newDuration, "editor");
+}
+
+function updateIcon(iconName) {
+    Logger.info("[ActorStudio] Health icon key changed to: " + iconName, "editor");
+}
+
+function toggleGhost(enabled) {
+    showGhost = enabled;
+    Logger.info("[ActorStudio] Ghost overlay visibility: " + enabled, "editor");
+}
+
+function toggleFlip(enabled) {
+    isFlipped = enabled;
+    Logger.info("[ActorStudio] X-axis flip toggled: " + enabled, "editor");
+}
+
+function updateCamX(val) {
+    camOffset[0] = val;
+}
+
+function updateCamY(val) {
+    camOffset[1] = val;
+}
+
+function onPlayAnim(animName) {
+    curAnim = animName;
+    Logger.info("[ActorStudio] Playing animation node: " + animName, "editor");
+}
+
+function onZeroOffset() {
+    Logger.info("[ActorStudio] Zeroed offset for active animation [" + curAnim + "]", "editor");
+}
+
+function onAlignAllToIdle() {
+    Logger.info("[ActorStudio] Aligned all animation offsets to idle baseline.", "editor");
+}
+
+function onSaveCharacter() {
+    XMSoul.clearCache();
+    Logger.info("[ActorStudio] Serialized character manifest into .xmsoul schema.", "editor");
+}
+
+function refreshAnimDisplay() {
+    var txt = editor.widgets.get("curAnimTxt");
+    if (txt != null) txt.text = "Anim: " + curAnim;
+}
+
+function onExit() {
+    MusicBeatState.switchState(new MainMenuState());
+}

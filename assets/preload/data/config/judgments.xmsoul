@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<judgments safeZoneOffset="166.6">
+    <judgment name="sick" threshold="45.0" score="350" health="0.04" accuracy="1.0" noteSplash="true" graphic="ui/game/score/sick" />
+    <judgment name="good" threshold="90.0" score="200" health="0.02" accuracy="0.75" noteSplash="false" graphic="ui/game/score/good" />
+    <judgment name="bad" threshold="135.0" score="100" health="0.0" accuracy="0.5" noteSplash="false" graphic="ui/game/score/bad" />
+    <judgment name="shit" threshold="166.6" score="50" health="-0.04" accuracy="0.0" noteSplash="false" graphic="ui/game/score/shit" />
+</judgments>

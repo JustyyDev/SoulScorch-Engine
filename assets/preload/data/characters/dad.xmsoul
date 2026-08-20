@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<character image="characters/DADDY_DEAREST" icon="dad" color="0xAF66CE" singDuration="6.1" flipX="false" scale="1.0">
+    <anim name="idle" prefix="Dad idle dance" fps="24" loop="false" offsets="0,0" />
+    <anim name="singLEFT" prefix="Dad Sing Note LEFT" fps="24" loop="false" offsets="-10,10" />
+    <anim name="singDOWN" prefix="Dad Sing Note DOWN" fps="24" loop="false" offsets="0,-30" />
+    <anim name="singUP" prefix="Dad Sing note UP" fps="24" loop="false" offsets="-6,50" />
+    <anim name="singRIGHT" prefix="dad sing note right" fps="24" loop="false" offsets="0,27" />
+</character>

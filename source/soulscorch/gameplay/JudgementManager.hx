@@ -8,9 +8,11 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.EventBus;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
 
@@ -30,6 +32,15 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public var health:Float = 1.0;
     public var maxHealth:Float = 2.0;
 
+    // --- Dynamic .xmsoul Popup Physics Config ---
+    public var popupScale:Float = 0.7;
+    public var numScale:Float = 0.5;
+    public var popupGravity:Float = 550.0;
+    public var popupFadeDuration:Float = 0.2;
+    public var popupHoldTime:Float = 0.35;
+    public var numSpacing:Float = 24.0;
+    public var ratingPath:String = "ui/game/score/";
+
     public var onJudgement:Judgment->Float->Void;
     public var onHealthChange:Float->Void;
     public var onMiss:Note->Void;
@@ -39,7 +50,41 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public function new() {
         super();
         maxHealth = GameplayFlags.getFloat("maxHealth", 2.0);
+        loadConfigFromXMSoul();
         updateWindows();
+    }
+
+    public function loadConfigFromXMSoul():Void {
+        var access:Access = XMSoul.parse("config/judgments");
+        if (access == null) access = XMSoul.parse("data/config/judgments");
+
+        if (access != null) {
+            for (node in access.nodes.judgment) {
+                var name = XMSoul.getAttr(node, "name", "").toLowerCase();
+                var thresh = XMSoul.getFloatAttr(node, "threshold", 45.0);
+                switch (name) {
+                    case "sick": SICK_WINDOW = thresh;
+                    case "good": GOOD_WINDOW = thresh;
+                    case "bad": BAD_WINDOW = thresh;
+                    case "shit": SHIT_WINDOW = thresh;
+                }
+            }
+        }
+
+        var comboAccess:Access = XMSoul.parse("config/combo");
+        if (comboAccess == null) comboAccess = XMSoul.parse("data/config/combo");
+
+        if (comboAccess != null) {
+            popupScale = XMSoul.getFloatAttr(comboAccess, "scale", 0.7);
+            popupFadeDuration = XMSoul.getFloatAttr(comboAccess, "alphaFadeDuration", 0.2);
+
+            if (comboAccess.hasNode.numberVelocity) {
+                var numNode = comboAccess.node.numberVelocity;
+                numSpacing = XMSoul.getFloatAttr(numNode, "spacing", 24.0);
+                numScale = XMSoul.getFloatAttr(numNode, "scale", 0.5);
+                popupGravity = XMSoul.getFloatAttr(numNode, "gravity", 550.0);
+            }
+        }
     }
 
     public function updateWindows():Void {
@@ -117,7 +162,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         var ratingSpr:FlxSprite = recycle(FlxSprite);
         var ratingName:String = (result == MISS ? "bad" : Std.string(result)).toLowerCase();
 
-        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
+        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, '${ratingPath}$ratingName');
         if (!loaded) {
             loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
         }
@@ -125,11 +170,11 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         ratingSpr.screenCenter();
         ratingSpr.x = (FlxG.width * 0.55) - 40;
         ratingSpr.y -= 60;
-        ratingSpr.acceleration.y = 550;
+        ratingSpr.acceleration.y = popupGravity;
         ratingSpr.velocity.y = -FlxG.random.int(140, 175);
         ratingSpr.velocity.x = -FlxG.random.int(0, 10);
         ratingSpr.alpha = 1.0;
-        ratingSpr.scale.set(0.7, 0.7);
+        ratingSpr.scale.set(popupScale, popupScale);
         ratingSpr.visible = true;
         add(ratingSpr);
 
@@ -138,8 +183,8 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
             activeTweens.remove(ratingSpr);
         }
 
-        var twn = FlxTween.tween(ratingSpr, {alpha: 0}, 0.2, {
-            startDelay: 0.35,
+        var twn = FlxTween.tween(ratingSpr, {alpha: 0}, popupFadeDuration, {
+            startDelay: popupHoldTime,
             onComplete: function(_) {
                 ratingSpr.kill();
                 activeTweens.remove(ratingSpr);
@@ -153,17 +198,17 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
 
             for (i in 0...comboDigits.length) {
                 var numSpr:FlxSprite = recycle(FlxSprite);
-                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/score/num' + comboDigits[i]);
+                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, '${ratingPath}num' + comboDigits[i]);
                 if (!numLoaded) {
                     AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num' + comboDigits[i]);
                 }
 
-                numSpr.setPosition(startX + (i * 24), ratingSpr.y + 70);
-                numSpr.acceleration.y = 550;
+                numSpr.setPosition(startX + (i * numSpacing), ratingSpr.y + 70);
+                numSpr.acceleration.y = popupGravity;
                 numSpr.velocity.y = -FlxG.random.int(120, 150);
                 numSpr.velocity.x = FlxG.random.float(-5, 5);
                 numSpr.alpha = 1.0;
-                numSpr.scale.set(0.5, 0.5);
+                numSpr.scale.set(numScale, numScale);
                 numSpr.visible = true;
                 add(numSpr);
 
@@ -172,8 +217,8 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
                     activeTweens.remove(numSpr);
                 }
 
-                var numTwn = FlxTween.tween(numSpr, {alpha: 0}, 0.2, {
-                    startDelay: 0.35,
+                var numTwn = FlxTween.tween(numSpr, {alpha: 0}, popupFadeDuration, {
+                    startDelay: popupHoldTime,
                     onComplete: function(_) {
                         numSpr.kill();
                         activeTweens.remove(numSpr);

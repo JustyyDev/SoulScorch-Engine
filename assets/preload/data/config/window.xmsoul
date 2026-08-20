@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<windowConfig darkMode="true" alpha="1.0" topmost="false" preventSleep="true">
+    <titleBar color="20, 20, 30" borderColor="120, 60, 255" textColor="255, 255, 255" />
+    <performance maxMemoryMB="2048" alertOnLowMemory="true" />
+</windowConfig>

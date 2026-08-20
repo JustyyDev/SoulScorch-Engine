@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteType name="noAnim" texture="default" hitHealth="0.023" missDamage="0.0475" playSingAnim="false" causesMiss="false" noteSplashes="true">
+    <description text="Standard note that suppresses character sing and idle dance interrupts when hit or missed." />
+    <splash name="default" />
+</noteType>

@@ -20,6 +20,7 @@ import soulscorch.ui.menus.editors.CharacterEditorState;
 import soulscorch.ui.menus.editors.ChartingState;
 import soulscorch.ui.menus.editors.ModchartWorkspaceState;
 import soulscorch.ui.menus.editors.StageEditorState;
+import soulscorch.ui.menus.editors.XMSoulEditorState;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -32,6 +33,7 @@ typedef EditorOptionDef = {
     var desc:String;
     var color:FlxColor;
     var details:Array<String>;
+    var layoutPath:String;
 }
 
 class EditorPickerMenu extends MusicBeatState {
@@ -40,7 +42,7 @@ class EditorPickerMenu extends MusicBeatState {
     private var options:Array<EditorOptionDef> = [
         {
             title: "Chart Studio",
-            tag: "MANIA / TIMING",
+            tag: "SOULCHART / TIMING",
             shortcut: "[1]",
             desc: "Interactive audio-synced node mapping with multi-snap quantization and event automators.",
             color: 0xFF00FFCC,
@@ -48,12 +50,13 @@ class EditorPickerMenu extends MusicBeatState {
                 "• 1/4 to 1/64 Beat Quantization Snaps",
                 "• Real-time Audio Hitsound Engine",
                 "• Section Lane Inverter & Rate Scaler",
-                "• Codename / Psych JSON Chart Exporter"
-            ]
+                "• Native .soulchart & JSON Exporter"
+            ],
+            layoutPath: "config/ui/menus/chartStudio.xmsoul"
         },
         {
             title: "Actor Studio",
-            tag: "SPRITES / OFFSETS",
+            tag: "XMSOUL / OFFSETS",
             shortcut: "[2]",
             desc: "Character offset calibrator, animation matrices, frame scrubbers, and ghost overlays.",
             color: 0xFFFF0055,
@@ -61,8 +64,9 @@ class EditorPickerMenu extends MusicBeatState {
                 "• Live Animation Injector & Offset Calibrator",
                 "• Interactive World Camera Focus Anchors",
                 "• Microsecond Frame Scrubbing & Looping",
-                "• Multi-mod Character JSON Exporter"
-            ]
+                "• Native .xmsoul Character Manifest Serializer"
+            ],
+            layoutPath: "config/ui/menus/actorStudio.xmsoul"
         },
         {
             title: "Stage Architect",
@@ -74,12 +78,13 @@ class EditorPickerMenu extends MusicBeatState {
                 "• Direct Mouse Drag-and-Drop Viewport",
                 "• Multi-layer Parallax Scroll Factor Matrix",
                 "• Character Spawn Anchor Configurator",
-                "• Stage Prop Injection & JSON Serialization"
-            ]
+                "• Stage Prop Injection & .xmsoul Serialization"
+            ],
+            layoutPath: "config/ui/menus/stageArchitect.xmsoul"
         },
         {
             title: "Modchart Matrix",
-            tag: "MATH / SHADERS",
+            tag: "SOULSCRIPT / MATH",
             shortcut: "[4]",
             desc: "Visual real-time receptor modifier suite, math matrix curves, and live notes stream tests.",
             color: 0xFFFFD700,
@@ -87,8 +92,9 @@ class EditorPickerMenu extends MusicBeatState {
                 "• Drunk, Tipsy, Beat Pulse, Bumpy & Invert",
                 "• Live Oscillator Math & Curve Formatter",
                 "• Continuous Test Stream Trajectory Matrix",
-                "• One-click SoulScript Event Generator"
-            ]
+                "• One-click SoulScript (.soul) Code Generator"
+            ],
+            layoutPath: "config/ui/menus/modchartMatrix.xmsoul"
         }
     ];
 
@@ -116,7 +122,6 @@ class EditorPickerMenu extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -128,7 +133,6 @@ class EditorPickerMenu extends MusicBeatState {
         grid.scrollFactor.set(0, 0);
         add(grid);
 
-        // Top Navigation Bar
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 64, EditorTheme.PANEL_HEADER);
         topBar.scrollFactor.set(0, 0);
         add(topBar);
@@ -146,7 +150,7 @@ class EditorPickerMenu extends MusicBeatState {
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
 
-        var headerSubtitle = new FlxText(38, 38, 600, "MODULAR ARCHITECTURE & GAMEPLAY TOOLKITS", 11);
+        var headerSubtitle = new FlxText(38, 38, 600, "MODULAR XMSOUL & SOULSCRIPT TOOLKITS", 11);
         headerSubtitle.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         headerSubtitle.scrollFactor.set(0, 0);
         add(headerSubtitle);
@@ -167,23 +171,19 @@ class EditorPickerMenu extends MusicBeatState {
             var cardGroup = new FlxSpriteGroup(50, startY + (i * 125));
             cardGroup.ID = i;
 
-            // Accent Glow Tag
             var glow = new FlxSprite(-2, -2).makeGraphic(Std.int(cardWidth + 4), Std.int(cardHeight + 4), opt.color);
             glow.alpha = 0.0;
             cardGroup.add(glow);
             cardGlows.push(glow);
 
-            // Card Outer Border
             var border = new FlxSprite(-1, -1).makeGraphic(Std.int(cardWidth + 2), Std.int(cardHeight + 2), EditorTheme.PANEL_BORDER);
             cardGroup.add(border);
             cardBorders.push(border);
 
-            // Card Body
             var cardBg = new FlxSprite(0, 0).makeGraphic(Std.int(cardWidth), Std.int(cardHeight), EditorTheme.PANEL_BG);
             cardGroup.add(cardBg);
             cardBgs.push(cardBg);
 
-            // Tag Badge
             var tagBox = new FlxSprite(16, 14).makeGraphic(Std.int((opt.tag.length * 7.5) + 12), 18, EditorTheme.BTN_IDLE);
             cardGroup.add(tagBox);
 
@@ -191,17 +191,14 @@ class EditorPickerMenu extends MusicBeatState {
             tagTxt.setFormat(Paths.font("vcr"), 10, opt.color, LEFT);
             cardGroup.add(tagTxt);
 
-            // Shortcut Badge
             var shortcutTxt = new FlxText(cardWidth - 50, 16, 40, opt.shortcut, 11);
             shortcutTxt.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, RIGHT);
             cardGroup.add(shortcutTxt);
 
-            // Title
             var title = new Alphabet(16, 38, opt.title, true);
             title.scale.set(0.75, 0.75);
             cardGroup.add(title);
 
-            // Short Subtitle Desc
             var subDesc = new FlxText(20, 82, cardWidth - 40, opt.desc, 11);
             subDesc.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
             cardGroup.add(subDesc);
@@ -209,7 +206,6 @@ class EditorPickerMenu extends MusicBeatState {
             grpCards.add(cardGroup);
         }
 
-        // --- Side Inspector / Feature Details Panel ---
         detailsGroup = new FlxSpriteGroup(FlxG.width - 450, 88);
         add(detailsGroup);
 
@@ -233,7 +229,6 @@ class EditorPickerMenu extends MusicBeatState {
         detailsListText.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, LEFT);
         detailsGroup.add(detailsListText);
 
-        // Footer Bar
         var footer = new FlxSprite(0, FlxG.height - 56).makeGraphic(FlxG.width, 56, EditorTheme.PANEL_HEADER);
         footer.scrollFactor.set(0, 0);
         add(footer);
@@ -260,7 +255,6 @@ class EditorPickerMenu extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        // Mouse Hover & Click Detection
         var mx = FlxG.mouse.screenX;
         var my = FlxG.mouse.screenY;
         var cardWidth:Float = (FlxG.width * 0.52);
@@ -280,11 +274,9 @@ class EditorPickerMenu extends MusicBeatState {
             }
         }
 
-        // Keyboard & Controller Navigation
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        // Direct Number Hotkeys
         if (FlxG.keys.justPressed.ONE) launchEditor(0);
         if (FlxG.keys.justPressed.TWO) launchEditor(1);
         if (FlxG.keys.justPressed.THREE) launchEditor(2);
@@ -321,7 +313,6 @@ class EditorPickerMenu extends MusicBeatState {
 
         descText.text = '${curOpt.title.toUpperCase()} — ${curOpt.desc}';
 
-        // Inspector Info
         detailsTitleText.text = '${curOpt.title.toUpperCase()} SPECS';
         detailsTitleText.color = curOpt.color;
 
@@ -334,6 +325,14 @@ class EditorPickerMenu extends MusicBeatState {
 
     private function launchEditor(index:Int):Void {
         AssetHelper.playSoundSafely("confirmMenu", 0.7);
+
+        var targetOpt = options[index];
+        if (targetOpt != null && targetOpt.layoutPath != null && targetOpt.layoutPath.length > 0) {
+            MusicBeatState.switchState(new XMSoulEditorState(targetOpt.layoutPath));
+            return;
+        }
+
+        // Fallback state routing if layout manifests are missing
         switch (index) {
             case 0: MusicBeatState.switchState(new ChartingState("tutorial", "normal"));
             case 1: MusicBeatState.switchState(new CharacterEditorState("dad", false));

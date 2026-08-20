@@ -7,9 +7,9 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 
 class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
-    private var curStep:Int = 0;
-    private var curBeat:Int = 0;
-    private var curMeasure:Int = 0;
+    public var curStep:Int = 0;
+    public var curBeat:Int = 0;
+    public var curMeasure:Int = 0;
 
     public function new() {
         super();

@@ -5,6 +5,7 @@ typedef SongMetadata = {
     var ?artist:String;
     var ?charter:String;
     var ?bpm:Float;
+    var ?speed:Float;
     var ?stage:String;
     var ?player1:String;
     var ?player2:String;
@@ -16,6 +17,8 @@ typedef SongMetadata = {
     var ?cutscene:String;
     var ?endCutscene:String;
     var ?needsVoices:Bool;
+    var ?coopAllowed:Bool;
+    var ?opponentModeAllowed:Bool;
     var ?previewStart:Float;
     var ?previewEnd:Float;
     var ?week:Int;

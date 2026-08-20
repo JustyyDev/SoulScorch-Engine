@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pauseMenu bgColor="0x99000000" music="breakfast" blur="true">
+    <option name="Resume" action="resume" />
+    <option name="Restart Song" action="restart" />
+    <option name="Exit to Menu" action="exit" />
+</pauseMenu>

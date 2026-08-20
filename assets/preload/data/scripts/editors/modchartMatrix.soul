@@ -1,0 +1,88 @@
+// SoulScript Runtime for Modchart Matrix (Receptor Math & Automators)
+var drunk = 0.0;
+var tipsy = 0.0;
+var beat = 0.0;
+var confusion = 0.0;
+var stealth = 0.0;
+var reverse = 0.0;
+var cross = 0.0;
+var alternate = 0.0;
+var bumpy = 0.0;
+var invert = 0.0;
+
+var isPlaying = false;
+var scrollSpeed = 2.2;
+var affectOpponent = true;
+var keyframes = [];
+
+function onCreate() {
+    Logger.info("[ModchartMatrix] Modchart Matrix .soul runtime initialized.", "editor");
+}
+
+function onUpdate(elapsed) {
+    if (isPlaying) {
+        // Continuous timeline oscillator simulation
+    }
+}
+
+function togglePlayback() {
+    isPlaying = !isPlaying;
+    Logger.info("[ModchartMatrix] Simulation sequence playback: " + isPlaying, "editor");
+}
+
+function toggleOpponent(enabled) {
+    affectOpponent = enabled;
+}
+
+function addKeyframe(step, modifier, value, duration, ease) {
+    var kf = {
+        step: step,
+        modifier: modifier,
+        value: value,
+        duration: duration,
+        ease: ease,
+        target: affectOpponent ? "both" : "player"
+    };
+    keyframes.push(kf);
+    Logger.info("[ModchartMatrix] Injected keyframe -> " + modifier + " (" + value + ") at step " + step, "editor");
+}
+
+function removeKeyframe(index) {
+    if (index >= 0 && index < keyframes.length) {
+        keyframes.splice(index, 1);
+        Logger.info("[ModchartMatrix] Removed keyframe at index: " + index, "editor");
+    }
+}
+
+function loadPreset(presetName) {
+    switch (presetName) {
+        case "s_curve":
+            drunk = 1.0; tipsy = 0.4; bumpy = 0.0;
+        case "cross_over":
+            cross = 1.2; invert = 1.0; tipsy = 0.8;
+        case "chaos_vortex":
+            drunk = 1.4; tipsy = 1.2; beat = 1.0; confusion = 1.5;
+        case "digital_glitch":
+            beat = 1.5; alternate = 1.0;
+        case "bumpy_pulse":
+            beat = 1.4; bumpy = 1.6;
+        case "stealth_dive":
+            stealth = 0.75; reverse = 1.0;
+        case "reset":
+            drunk = tipsy = beat = confusion = stealth = reverse = cross = alternate = bumpy = invert = 0.0;
+    }
+    Logger.info("[ModchartMatrix] Applied preset: " + presetName, "editor");
+}
+
+function exportSoulScript() {
+    var code = "# SoulScript Modchart Timeline Matrix\n";
+    for (kf in keyframes) {
+        code += "on step(" + kf.step + "):\n    modchart." + kf.modifier + " -> " + kf.value + " in " + kf.duration + "s (" + kf.ease + ")\nend\n\n";
+    }
+    Logger.info("[ModchartMatrix] Generated SoulScript timeline code.", "editor");
+    return code;
+}
+
+function onExit() {
+    MusicBeatState.switchState(new MainMenuState());
+}

@@ -1,8 +1,10 @@
 package soulscorch.gameplay.notes;
 
 import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.Chart;
 
@@ -26,6 +28,77 @@ typedef ParsedSong = {
 }
 
 class SongParser {
+    public static function load(songId:String, ?difficulty:String = "normal"):Null<ParsedSong> {
+        var cleanSong = (songId != null && songId.trim().length > 0) ? songId.toLowerCase().trim() : "tutorial";
+        var diff = (difficulty != null && difficulty.trim().length > 0) ? difficulty.toLowerCase().trim() : "normal";
+
+        // 1. Try .xmsoul chart
+        var chartXml:Access = XMSoul.parse('songs/$cleanSong/charts/$diff');
+        if (chartXml == null) chartXml = XMSoul.parse('songs/$cleanSong/$diff');
+        if (chartXml == null) chartXml = XMSoul.parse('data/$cleanSong/charts/$diff');
+
+        if (chartXml != null) {
+            var speed:Float = XMSoul.getFloatAttr(chartXml, "speed", 1.0);
+            var bpm:Float = 120.0;
+
+            var metaXml:Access = XMSoul.parse('songs/$cleanSong/meta');
+            if (metaXml != null) bpm = XMSoul.getFloatAttr(metaXml, "bpm", 120.0);
+
+            var chart = new Chart(bpm, speed);
+            var allNotes:Array<Note> = [];
+
+            for (strumNode in chartXml.nodes.strumLine) {
+                var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player"
+                    || XMSoul.getAttr(strumNode, "position", "").toLowerCase() == "boyfriend";
+
+                for (noteNode in strumNode.nodes.note) {
+                    var t = XMSoul.getFloatAttr(noteNode, "time", 0.0);
+                    var lane = XMSoul.getIntAttr(noteNode, "lane", XMSoul.getIntAttr(noteNode, "id", 0));
+                    var len = XMSoul.getFloatAttr(noteNode, "len", XMSoul.getFloatAttr(noteNode, "sLen", 0.0));
+                    var type = XMSoul.getAttr(noteNode, "type", "normal");
+
+                    var n = new Note(t, lane, len, null, false, false, isPlayer, type);
+                    chart.addNote(t, lane, len, isPlayer, type);
+                    allNotes.push(n);
+                }
+            }
+
+            return {
+                songId: cleanSong,
+                songName: cleanSong,
+                bpm: bpm,
+                speed: speed,
+                chart: chart,
+                sections: [{startTime: 0, mustHitSection: true, notes: allNotes, events: []}],
+                events: []
+            };
+        }
+
+        // 2. Legacy JSON fallback[cite: 49]
+        var diffSuffix = (diff == "normal") ? "" : '-$diff';
+        var possiblePaths = [
+            'songs/$cleanSong/charts/$diff.json',
+            'songs/$cleanSong/chart$diffSuffix.json',
+            'songs/$cleanSong/$cleanSong$diffSuffix.json',
+            'songs/$cleanSong/chart.json',
+            'data/$cleanSong/$cleanSong$diffSuffix.json',
+            'assets/preload/songs/$cleanSong/charts/$diff.json'
+        ];
+
+        for (path in possiblePaths) {
+            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
+            if (resolved != null) {
+                var content = AssetResolver.getText(resolved);
+                if (content != null && content.trim().length > 0) {
+                    return parse(content, cleanSong);
+                }
+            }
+        }
+
+        Logger.warn('Failed locating chart for: $cleanSong ($diff)', "parser");
+        return null;
+    }
+
     public static function parse(rawJson:String, ?songId:String = "song"):Null<ParsedSong> {
         if (rawJson == null || rawJson.trim().length == 0) return null;
 
@@ -61,7 +134,7 @@ class SongParser {
                     for (rawNote in (cast noteArray : Array<Dynamic>)) {
                         var parsed:Note = parseNote(rawNote, mustHit);
                         if (parsed != null) {
-                            chart.addNote(parsed.strumTime, parsed.noteData, parsed.sustainLength, parsed.noteType, parsed.mustPress);
+                            chart.addNote(parsed.strumTime, parsed.noteData, parsed.sustainLength, parsed.mustPress, parsed.noteType);
                             sectionNotes.push(parsed);
 
                             if (parsed.sustainLength > 0) {
@@ -89,27 +162,17 @@ class SongParser {
                     }
                 }
 
-                var sectionEvents:Dynamic = field(rawSection, "events");
-                if (sectionEvents != null && Std.isOfType(sectionEvents, Array)) {
-                    for (event in (cast sectionEvents : Array<Dynamic>)) events.push(event);
-                }
-
                 sections.push({
                     startTime: numberField(rawSection, "startTime", index * 2000.0),
                     mustHitSection: mustHit,
                     notes: sectionNotes,
-                    events: sectionEvents == null ? [] : cast sectionEvents
+                    events: []
                 });
                 index++;
             }
         }
 
-        var rootEvents:Dynamic = field(song, "events");
-        if (rootEvents != null && Std.isOfType(rootEvents, Array)) {
-            for (event in (cast rootEvents : Array<Dynamic>)) events.push(event);
-        }
-
-        var result:ParsedSong = {
+        return {
             songId: songId,
             songName: stringField(song, "song", songId),
             bpm: bpm,
@@ -118,38 +181,6 @@ class SongParser {
             sections: sections,
             events: events
         };
-
-        return result;
-    }
-
-    public static function load(songId:String, ?difficulty:String = "normal"):Null<ParsedSong> {
-        var cleanSong = (songId != null && songId.trim().length > 0) ? songId.toLowerCase().trim() : "tutorial";
-        var diff = (difficulty != null && difficulty.trim().length > 0) ? difficulty.toLowerCase().trim() : "normal";
-        var diffSuffix = (diff == "normal") ? "" : '-$diff';
-
-        var possiblePaths = [
-            'songs/$cleanSong/charts/$diff.json',
-            'songs/$cleanSong/chart$diffSuffix.json',
-            'songs/$cleanSong/$cleanSong$diffSuffix.json',
-            'songs/$cleanSong/chart.json',
-            'data/$cleanSong/$cleanSong$diffSuffix.json',
-            'data/$cleanSong/chart$diffSuffix.json',
-            'assets/preload/songs/$cleanSong/charts/$diff.json',
-            'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix.json'
-        ];
-
-        for (path in possiblePaths) {
-            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
-            if (resolved != null) {
-                var content = AssetResolver.getText(resolved);
-                if (content != null && content.trim().length > 0) {
-                    return parse(content, cleanSong);
-                }
-            }
-        }
-
-        Logger.warn('Failed to locate chart file for: $cleanSong ($diff)', "parser");
-        return null;
     }
 
     private static function parseNote(raw:Dynamic, mustHit:Bool):Null<Note> {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stage zoom="1.05" name="spooky" folder="stages/spooky/" startCamPosY="400" startCamPosX="600">
+    <sprite name="bg" x="-200" y="-100" sprite="halloween_bg" scale="1.05">
+        <anim name="idle" prefix="halloweem bg0" type="loop" fps="24" />
+        <anim name="lightning" prefix="halloweem bg lightning strike" loop="false" fps="24" />
+    </sprite>
+</stage>

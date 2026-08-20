@@ -7,22 +7,29 @@ import flixel.graphics.frames.FlxAtlasFrames;
 class NoteSplash extends FlxSprite {
     public function new(x:Float = 0, y:Float = 0, ?noteData:Int = 0) {
         super(x, y);
-        loadSplash("NOTE_assets");
+        loadSplash("default");
         antialiasing = true;
         alpha = 0.75;
     }
 
-    public function loadSplash(?skin:String = "NOTE_assets"):Void {
+    public function loadSplash(?skin:String = "default"):Void {
+        var conf = NoteSkinManager.getSplashConfig(skin);
         var atlas:FlxAtlasFrames = NoteSkinManager.getSplashAtlas(skin);
+
         if (atlas != null && atlas.frames != null) {
             this.frames = atlas;
             for (i in 0...4) {
                 var colorName = NoteSkinManager.noteColors[i];
-                animation.addByPrefix('note1-$i', 'note splash $colorName 1', 24, false);
-                animation.addByPrefix('note2-$i', 'note splash $colorName 2', 24, false);
-                animation.addByPrefix('impact1-$i', 'note impact 1 $colorName', 24, false);
-                animation.addByPrefix('impact2-$i', 'note impact 2 $colorName', 24, false);
+                animation.addByPrefix('note1-$i', 'note splash $colorName 1', conf.fps, false);
+                animation.addByPrefix('note2-$i', 'note splash $colorName 2', conf.fps, false);
+                animation.addByPrefix('impact1-$i', 'note impact 1 $colorName', conf.fps, false);
+                animation.addByPrefix('impact2-$i', 'note impact 2 $colorName', conf.fps, false);
+                animation.addByPrefix('splash1-$i', 'splash $colorName 1', conf.fps, false);
+                animation.addByPrefix('splash2-$i', 'splash $colorName 2', conf.fps, false);
             }
+            scale.set(conf.scale, conf.scale);
+            antialiasing = conf.antialiasing;
+            alpha = conf.alpha;
         } else {
             makeGraphic(100, 100, 0xFFFFCC00);
         }
@@ -32,14 +39,12 @@ class NoteSplash extends FlxSprite {
         loadSplash(skin);
 
         setPosition(receptorX - (width * 0.25), receptorY - (height * 0.25));
-        alpha = 0.75;
 
         var variant = FlxG.random.int(1, 2);
         var animName = 'note$variant-${noteData % 4}';
 
-        if (animation.getByName(animName) == null) {
-            animName = 'impact$variant-${noteData % 4}';
-        }
+        if (animation.getByName(animName) == null) animName = 'impact$variant-${noteData % 4}';
+        if (animation.getByName(animName) == null) animName = 'splash$variant-${noteData % 4}';
 
         if (animation.getByName(animName) != null) {
             animation.play(animName, true);

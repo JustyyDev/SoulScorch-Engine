@@ -17,6 +17,7 @@ import openfl.ui.Keyboard;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
@@ -29,6 +30,7 @@ import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.song.SongRegistry;
 import soulscorch.scripting.FileWatcher;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.SoulGlobalScript;
@@ -39,6 +41,8 @@ import soulscorch.ui.menus.substate.ModSwitchMenu;
 #if cpp
 import cpp.vm.Gc;
 #end
+
+using StringTools;
 
 class Main extends Sprite {
     public static var gameWidth:Int = 1280;
@@ -109,11 +113,15 @@ class Main extends Sprite {
             EngineOptimizer.init(framerate);
 
             ModManager.reloadMods();
+            SongRegistry.scanAll();
             SoulGlobalScript.init();
+
+            // --- .XMSOUL & Native Window Configuration Integration ---
+            applyWindowConfiguration();
 
             #if desktop
             try {
-                DiscordRPC.changePresence("Starting Engine...", "Booting");
+                DiscordRPC.changePresence("Exploring SoulScorch Engine", "Booting Suite");
                 Lib.current.stage.application.onExit.add(function(exitCode:Int) {
                     DiscordRPC.shutdown();
                 });
@@ -127,22 +135,57 @@ class Main extends Sprite {
             Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
             addEventListener(Event.ENTER_FRAME, onEnterFrame);
 
-            #if windows
-            haxe.Timer.delay(function() {
-                NativeAPI.setDarkMode(true);
-            }, 100);
-            #end
-
             Logger.info('Engine boot complete [${Version.fullVersion()}]', "main");
         } catch (e:Dynamic) {
             CrashHandler.handleCrash(Std.string(e), CallStack.exceptionStack(true));
         }
     }
 
+    private function applyWindowConfiguration():Void {
+        #if windows
+        // Resolve window.xmsoul configuration
+        var access = XMSoul.parse("config/window");
+        if (access == null) access = XMSoul.parse("data/config/window");
+
+        if (access != null) {
+            var darkMode = XMSoul.getBoolAttr(access, "darkMode", true);
+            var alpha = XMSoul.getFloatAttr(access, "alpha", 1.0);
+            var topmost = XMSoul.getBoolAttr(access, "topmost", false);
+            var preventSleep = XMSoul.getBoolAttr(access, "preventSleep", true);
+
+            NativeAPI.setDarkMode(darkMode);
+            NativeAPI.setWindowAlpha(alpha);
+            NativeAPI.setWindowTopmost(topmost);
+            NativeAPI.setPreventSleep(preventSleep);
+
+            if (access.hasNode.titlebar) {
+                var tb = access.node.titlebar;
+                if (tb.has.color) {
+                    var col = tb.att.color.split(",").map(function(s) return Std.parseInt(s.trim()));
+                    if (col.length >= 3) NativeAPI.setTitleBarColor(col[0], col[1], col[2]);
+                }
+                if (tb.has.borderColor) {
+                    var bCol = tb.att.borderColor.split(",").map(function(s) return Std.parseInt(s.trim()));
+                    if (bCol.length >= 3) NativeAPI.setBorderColor(bCol[0], bCol[1], bCol[2]);
+                }
+                if (tb.has.textColor) {
+                    var tCol = tb.att.textColor.split(",").map(function(s) return Std.parseInt(s.trim()));
+                    if (tCol.length >= 3) NativeAPI.setTitleTextColor(tCol[0], tCol[1], tCol[2]);
+                }
+            }
+            Logger.info("Applied native window settings from window.xmsoul.", "main");
+        } else {
+            NativeAPI.setDarkMode(true);
+        }
+        #end
+    }
+
     private function setupStateSwitchOptimization():Void {
         FlxG.signals.preStateSwitch.add(function() {
-            // Keep tween managers alive for transition overlays to prevent visual locking
             Paths.clearUnusedMemory();
+            #if cpp
+            Gc.compact();
+            #end
         });
     }
 
@@ -155,10 +198,13 @@ class Main extends Sprite {
 
         if (event.keyCode == Keyboard.F5) {
             HotReloader.reload();
+            XMSoul.clearCache();
+            SongRegistry.scanAll();
+            applyWindowConfiguration();
+            Logger.info("Hot-reloaded engine assets, scanned songs, and cleared XMSoul cache.", "main");
         }
 
         if (event.keyCode == Keyboard.TAB && FlxG.state != null && FlxG.state.subState == null) {
-            // Only trigger quick-switch when not focused on active text input elements
             if (!FlxG.keys.pressed.CONTROL && !FlxG.keys.pressed.ALT) {
                 FlxG.state.openSubState(new ModSwitchMenu());
             }

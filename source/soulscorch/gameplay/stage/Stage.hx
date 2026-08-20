@@ -12,6 +12,7 @@ import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.scripting.ScriptManager;
@@ -57,15 +58,41 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     public function load():Void {
         clearStage();
 
-        var xmlLoaded = loadCodenameXMLStage(stageId);
-        if (!xmlLoaded) {
-            var jsonLoaded = loadJSONStage(stageId);
-            if (!jsonLoaded) {
-                loadDefaultFallbackStage();
+        // 1. Try loading custom .xmsoul format first
+        var xmsoulLoaded = loadXMSoulStage(stageId);
+        if (!xmsoulLoaded) {
+            // 2. Fall back to Codename Engine XMLs
+            var xmlLoaded = loadCodenameXMLStage(stageId);
+            if (!xmlLoaded) {
+                // 3. Fall back to JSON stages
+                var jsonLoaded = loadJSONStage(stageId);
+                if (!jsonLoaded) {
+                    // 4. Default fallback stage
+                    loadDefaultFallbackStage();
+                }
             }
         }
 
         initStageScript();
+    }
+
+    private function loadXMSoulStage(id:String):Bool {
+        var possiblePaths = [
+            'stages/$id/$id.xmsoul',
+            'stages/$id.xmsoul',
+            'data/stages/$id/$id.xmsoul',
+            'data/stages/$id.xmsoul',
+            'assets/preload/data/stages/$id/$id.xmsoul',
+            'assets/preload/stages/$id/$id.xmsoul'
+        ];
+
+        for (p in possiblePaths) {
+            var stageNode = XMSoul.parse(p);
+            if (stageNode != null) {
+                return parseStageNode(stageNode, 'stages/$id/');
+            }
+        }
+        return false;
     }
 
     private function loadCodenameXMLStage(id:String):Bool {
@@ -84,25 +111,27 @@ class Stage extends FlxTypedGroup<FlxBasic> {
             if (resolved != null) {
                 var content = AssetResolver.getText(resolved);
                 if (content != null && content.length > 0) {
-                    return parseCodenameXML(content);
+                    try {
+                        var xml = Xml.parse(content);
+                        var stageNode = new Access(xml.firstElement());
+                        var folder = stageNode.has.folder ? stageNode.att.folder : 'stages/$id/';
+                        return parseStageNode(stageNode, folder);
+                    } catch (e:Dynamic) {
+                        Logger.warn('Failed parsing Codename XML stage: $e', "stage");
+                    }
                 }
             }
         }
         return false;
     }
 
-    private function parseCodenameXML(rawXml:String):Bool {
+    private function parseStageNode(stageNode:Access, baseFolder:String):Bool {
         try {
-            var xml = Xml.parse(rawXml);
-            var stageNode = new Access(xml.firstElement());
-
             if (stageNode.has.zoom) defaultZoom = Std.parseFloat(stageNode.att.zoom);
             if (stageNode.has.startCamPosX) startCamPos.x = Std.parseFloat(stageNode.att.startCamPosX);
             if (stageNode.has.startCamPosY) startCamPos.y = Std.parseFloat(stageNode.att.startCamPosY);
 
-            var baseFolder = stageNode.has.folder ? stageNode.att.folder : 'stages/$stageId/';
             if (!baseFolder.endsWith("/")) baseFolder += "/";
-
             var currentLayerTarget = "bg";
 
             for (node in stageNode.elements) {
@@ -127,6 +156,14 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                     case "sprite":
                         parseSpriteElement(node, baseFolder, currentLayerTarget);
 
+                    case "layer":
+                        var targetLayer = node.has.name ? node.att.name : currentLayerTarget;
+                        for (subNode in node.elements) {
+                            if (subNode.name.toLowerCase() == "sprite") {
+                                parseSpriteElement(subNode, baseFolder, targetLayer);
+                            }
+                        }
+
                     case "high-memory":
                         for (subNode in node.elements) {
                             if (subNode.name.toLowerCase() == "sprite") {
@@ -148,7 +185,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
             }
             return true;
         } catch (e:Dynamic) {
-            Logger.warn('Failed parsing Codename XML stage: $e', "stage");
+            Logger.warn('Failed parsing stage definition node: $e', "stage");
             return false;
         }
     }

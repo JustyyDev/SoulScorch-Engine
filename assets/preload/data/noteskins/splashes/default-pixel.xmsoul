@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<splashskin name="Pixel Splashes" sprite="stages/school/ui/pixel-splashes" scale="3.5" alpha="0.65" antialiasing="false">
+    <lanes fps="24">
+        <lane id="0">
+            <anim name="splash1" prefix="splash purple 1" x="-1" y="-2" />
+            <anim name="splash2" prefix="splash purple 2" x="-1" y="-2" />
+        </lane>
+        <lane id="1">
+            <anim name="splash1" prefix="splash blue 1" x="-1" y="-2" />
+            <anim name="splash2" prefix="splash blue 2" x="-1" y="-2" />
+        </lane>
+        <lane id="2">
+            <anim name="splash1" prefix="splash green 1" x="-1" y="-2" />
+            <anim name="splash2" prefix="splash green 2" x="-1" y="-2" />
+        </lane>
+        <lane id="3">
+            <anim name="splash1" prefix="splash red 1" x="-1" y="-2" />
+            <anim name="splash2" prefix="splash red 2" x="-1" y="-2" />
+        </lane>
+    </lanes>
+</splashskin>

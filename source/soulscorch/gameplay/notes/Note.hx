@@ -6,7 +6,9 @@ import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxMath;
 import flixel.math.FlxRect;
 import flixel.util.FlxColor;
+import haxe.xml.Access;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.XMSoul;
 
 using StringTools;
 
@@ -27,6 +29,10 @@ class Note extends FlxSprite {
     public var wasGoodHit:Bool = false;
     public var hitByOpponent:Bool = false;
     public var ignoreNote:Bool = false;
+    public var causesMiss:Bool = false;
+    public var playSingAnim:Bool = true;
+    public var noteSplashes:Bool = true;
+
     public var hitHealth:Float = 0.023;
     public var missHealth:Float = 0.0475;
 
@@ -47,7 +53,7 @@ class Note extends FlxSprite {
         isSustainEnd:Bool = false,
         mustPress:Bool = true,
         noteType:String = "normal",
-        skin:String = "NOTE_assets"
+        skin:String = "default"
     ) {
         super();
 
@@ -62,7 +68,7 @@ class Note extends FlxSprite {
 
         loadNoteSkin(skin);
         setupAnimation();
-        applyTypeModifiers();
+        applyNoteTypeConfig(this.noteType);
 
         antialiasing = true;
         scrollFactor.set(0, 0);
@@ -75,7 +81,7 @@ class Note extends FlxSprite {
         playAnim();
     }
 
-    public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
+    public function loadNoteSkin(skin:String = "default"):Void {
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
 
         if (atlas != null) {
@@ -89,6 +95,48 @@ class Note extends FlxSprite {
                 default: 0xFFFFFFFF;
             };
             makeGraphic(Std.int(STRUM_SPACING * DEFAULT_SCALE), isSustainNote ? 40 : Std.int(STRUM_SPACING * DEFAULT_SCALE), colorInt);
+        }
+    }
+
+    public function applyNoteTypeConfig(typeId:String):Void {
+        var cleanType = (typeId == null || typeId.trim().length == 0) ? "normal" : typeId.trim();
+
+        // 1. Dynamic .xmsoul lookup
+        var access:Access = XMSoul.parse('data/notes/$cleanType');
+        if (access == null) access = XMSoul.parse('notes/$cleanType');
+
+        if (access != null) {
+            hitHealth = XMSoul.getFloatAttr(access, "hitHealth", 0.023);
+            missHealth = XMSoul.getFloatAttr(access, "missDamage", XMSoul.getFloatAttr(access, "missHealth", 0.0475));
+            playSingAnim = XMSoul.getBoolAttr(access, "playSingAnim", true);
+            causesMiss = XMSoul.getBoolAttr(access, "causesMiss", false);
+            noteSplashes = XMSoul.getBoolAttr(access, "noteSplashes", true);
+
+            var customTexture = XMSoul.getAttr(access, "texture", "default");
+            if (customTexture != "default") {
+                loadNoteSkin(customTexture);
+            }
+            return;
+        }
+
+        // 2. Legacy fallback
+        switch (cleanType.toLowerCase()) {
+            case "hurt note", "hurt":
+                color = 0xFF444444;
+                missHealth = 0.2;
+                hitHealth = -0.15;
+                causesMiss = true;
+            case "mine":
+                color = 0xFFFF0055;
+                ignoreNote = true;
+                missHealth = 0.0;
+                hitHealth = -0.35;
+            case "instakill":
+                color = 0xFFFF0000;
+                missHealth = 2.0;
+            case "noanim":
+                playSingAnim = false;
+            default:
         }
     }
 
@@ -122,24 +170,6 @@ class Note extends FlxSprite {
                 '$color scroll'
             ];
             tryAddAnimation("scroll", scrollPrefixes, 24, true);
-        }
-    }
-
-    private function applyTypeModifiers():Void {
-        switch (noteType) {
-            case "Hurt Note" | "hurt":
-                color = 0xFF444444;
-                missHealth = 0.2;
-                hitHealth = -0.15;
-            case "Mine" | "mine":
-                color = 0xFFFF0055;
-                ignoreNote = true;
-                missHealth = 0.0;
-                hitHealth = -0.35;
-            case "Instakill":
-                color = 0xFFFF0000;
-                missHealth = 2.0;
-            default:
         }
     }
 

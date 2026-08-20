@@ -8,10 +8,12 @@ import flixel.math.FlxMath;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import flixel.util.FlxGradient;
+import haxe.xml.Access;
 import soulscorch.backend.TransitionData;
 import soulscorch.backend.TransitionData.TransitionDirection;
 import soulscorch.backend.TransitionData.TransitionType;
+import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.system.XMSoul;
 
 class MusicBeatTransition extends FlxSpriteGroup {
     public static var isTransitioning:Bool = false;
@@ -19,6 +21,8 @@ class MusicBeatTransition extends FlxSpriteGroup {
 
     private var solidBg:FlxSprite;
     private var gradient:FlxSprite;
+    private var leftCurtain:FlxSprite;
+    private var rightCurtain:FlxSprite;
     private var overlayCam:FlxCamera;
 
     private var activeData:TransitionData;
@@ -46,6 +50,17 @@ class MusicBeatTransition extends FlxSpriteGroup {
         gradient.scrollFactor.set(0, 0);
         add(gradient);
 
+        // Curtains
+        leftCurtain = new FlxSprite().makeGraphic(Std.int(FlxG.width * 0.5), FlxG.height, FlxColor.BLACK);
+        leftCurtain.scrollFactor.set(0, 0);
+        leftCurtain.visible = false;
+        add(leftCurtain);
+
+        rightCurtain = new FlxSprite().makeGraphic(Std.int(FlxG.width * 0.5), FlxG.height, FlxColor.BLACK);
+        rightCurtain.scrollFactor.set(0, 0);
+        rightCurtain.visible = false;
+        add(rightCurtain);
+
         visible = false;
     }
 
@@ -69,18 +84,31 @@ class MusicBeatTransition extends FlxSpriteGroup {
 
         FlxTween.cancelTweensOf(solidBg);
         FlxTween.cancelTweensOf(gradient);
+        FlxTween.cancelTweensOf(leftCurtain);
+        FlxTween.cancelTweensOf(rightCurtain);
 
         solidBg.color = data.color;
         gradient.color = data.color;
+        leftCurtain.color = data.color;
+        rightCurtain.color = data.color;
+
+        leftCurtain.visible = false;
+        rightCurtain.visible = false;
+        gradient.visible = false;
+        solidBg.visible = false;
+
+        if (data.sound != null && data.sound.length > 0) {
+            AssetHelper.playSoundSafely(data.sound, 0.7);
+        }
 
         var w = FlxG.width;
         var h = FlxG.height;
 
         switch (data.type) {
             case FADE:
-                gradient.visible = false;
                 solidBg.visible = true;
                 solidBg.setPosition(0, 0);
+                solidBg.scale.set(1, 1);
                 solidBg.alpha = (data.direction == OUT) ? 0.0 : 1.0;
 
                 var targetAlpha = (data.direction == OUT) ? 1.0 : 0.0;
@@ -94,6 +122,7 @@ class MusicBeatTransition extends FlxSpriteGroup {
                 solidBg.visible = true;
                 solidBg.alpha = 1.0;
                 gradient.alpha = 1.0;
+                solidBg.scale.set(1, 1);
 
                 if (data.direction == OUT) {
                     gradient.flipY = false;
@@ -117,15 +146,42 @@ class MusicBeatTransition extends FlxSpriteGroup {
                     });
                 }
 
-            case DIAMOND:
-                gradient.visible = false;
+            case CURTAIN:
+                leftCurtain.visible = true;
+                rightCurtain.visible = true;
+                leftCurtain.y = 0;
+                rightCurtain.y = 0;
+
+                if (data.direction == OUT) {
+                    leftCurtain.x = -leftCurtain.width;
+                    rightCurtain.x = w;
+
+                    FlxTween.tween(leftCurtain, {x: 0}, data.duration, {ease: data.ease});
+                    FlxTween.tween(rightCurtain, {x: w * 0.5}, data.duration, {
+                        ease: data.ease,
+                        onComplete: function(_) finish()
+                    });
+                } else {
+                    leftCurtain.x = 0;
+                    rightCurtain.x = w * 0.5;
+
+                    FlxTween.tween(leftCurtain, {x: -leftCurtain.width}, data.duration, {ease: data.ease});
+                    FlxTween.tween(rightCurtain, {x: w}, data.duration, {
+                        ease: data.ease,
+                        onComplete: function(_) finish()
+                    });
+                }
+
+            case DIAMOND, CIRCLE:
                 solidBg.visible = true;
                 solidBg.setPosition(0, 0);
-                solidBg.scale.set(data.direction == OUT ? 0.0 : 1.5, data.direction == OUT ? 0.0 : 1.5);
                 solidBg.alpha = 1.0;
 
-                var targetScale = data.direction == OUT ? 1.5 : 0.0;
-                FlxTween.tween(solidBg.scale, {x: targetScale, y: targetScale}, data.duration, {
+                var startScale = (data.direction == OUT) ? 0.0 : 2.0;
+                var endScale = (data.direction == OUT) ? 2.0 : 0.0;
+                solidBg.scale.set(startScale, startScale);
+
+                FlxTween.tween(solidBg.scale, {x: endScale, y: endScale}, data.duration, {
                     ease: data.ease,
                     onComplete: function(_) finish()
                 });

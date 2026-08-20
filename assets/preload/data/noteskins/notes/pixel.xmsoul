@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteskin name="Pixel" type="grid" sprite="stages/school/ui/arrows-pixels" sustainSprite="stages/school/ui/arrowEnds" scale="6.0" antialiasing="false">
+    <gridDimensions noteWidth="17" noteHeight="17" holdWidth="7" holdHeight="6" />
+    <receptors>
+        <strum lane="0" staticFrame="0" pressedFrames="4,8" confirmFrames="12,16" />
+        <strum lane="1" staticFrame="1" pressedFrames="5,9" confirmFrames="13,17" />
+        <strum lane="2" staticFrame="2" pressedFrames="6,10" confirmFrames="14,18" />
+        <strum lane="3" staticFrame="3" pressedFrames="7,11" confirmFrames="15,19" />
+    </receptors>
+    <tapNotes>
+        <note lane="0" frame="4" />
+        <note lane="1" frame="5" />
+        <note lane="2" frame="6" />
+        <note lane="3" frame="7" />
+    </tapNotes>
+    <sustains alpha="0.8">
+        <hold lane="0" bodyFrame="0" endFrame="4" />
+        <hold lane="1" bodyFrame="1" endFrame="5" />
+        <hold lane="2" bodyFrame="2" endFrame="6" />
+        <hold lane="3" bodyFrame="3" endFrame="7" />
+    </sustains>
+</noteskin>

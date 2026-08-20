@@ -28,6 +28,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
@@ -156,9 +157,11 @@ class PlayState extends MusicBeatState {
     public var noteSplashEnabled:Bool = true;
     public var noteOffset:Float = 0.0;
     public var mustHitSection:Bool = false;
+    public var passiveHealthDrain:Float = 0.0;
 
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
+    private var hudConfig:Access = null;
 
     public function new(?songId:String, ?difficulty:String) {
         super();
@@ -187,6 +190,7 @@ class PlayState extends MusicBeatState {
         initializeSystems();
 
         loadSongData(curSong, curDifficulty);
+        loadSongModifiers(curSong);
         loadExternalEvents(curSong);
         spawnStageAndCharacters();
         generateStrumLines();
@@ -229,6 +233,31 @@ class PlayState extends MusicBeatState {
         maxHealth = GameplayFlags.getFloat("maxHealth", 2.0);
         noteOffset = GameplayFlags.getFloat("noteOffset", 0.0);
         health = Math.min(maxHealth, Math.max(0.0, health));
+    }
+
+    private function loadSongModifiers(songId:String):Void {
+        var clean = songId.toLowerCase().trim();
+        var paths = [
+            'songs/$clean/modifiers.xmsoul',
+            'data/$clean/modifiers.xmsoul',
+            'assets/preload/songs/$clean/modifiers.xmsoul'
+        ];
+
+        for (p in paths) {
+            var access = XMSoul.parse(p);
+            if (access != null) {
+                try {
+                    songSpeed *= XMSoul.getFloatAttr(access, "scrollSpeedMultiplier", 1.0);
+                    ghostTapping = XMSoul.getBoolAttr(access, "ghostTapping", ghostTapping);
+                    passiveHealthDrain = XMSoul.getFloatAttr(access, "healthDrain", 0.0);
+                    maxHealth = XMSoul.getFloatAttr(access, "maxHealth", maxHealth);
+                    Logger.info('Successfully loaded .xmsoul modifiers for $clean', "modifiers");
+                    break;
+                } catch (e:Dynamic) {
+                    Logger.warn('Failed parsing modifiers.xmsoul for $clean: $e', "modifiers");
+                }
+            }
+        }
     }
 
     override public function setupCameras():Void {
@@ -293,11 +322,36 @@ class PlayState extends MusicBeatState {
 
     private function loadExternalEvents(songId:String):Void {
         var cleanSong = songId.toLowerCase().trim();
+
+        // 1. Try events.xmsoul
+        var eventsXml:Access = XMSoul.parse('songs/$cleanSong/events');
+        if (eventsXml == null) eventsXml = XMSoul.parse('data/$cleanSong/events');
+
+        if (eventsXml != null) {
+            for (evNode in eventsXml.nodes.event) {
+                var t = XMSoul.getFloatAttr(evNode, "time", 0.0);
+                var name = XMSoul.getAttr(evNode, "name", "");
+                var v1 = XMSoul.getAttr(evNode, "target", XMSoul.getAttr(evNode, "val1", ""));
+                var v2 = XMSoul.getAttr(evNode, "anim", XMSoul.getAttr(evNode, "val2", ""));
+
+                eventNotes.push({
+                    time: t,
+                    name: name,
+                    val1: v1,
+                    val2: v2
+                });
+            }
+            eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
+                return (a.time < b.time) ? -1 : 1;
+            });
+            return;
+        }
+
+        // 2. Legacy JSON events fallback
         var eventPaths = [
             'songs/$cleanSong/events.json',
             'data/$cleanSong/events.json',
-            'assets/preload/songs/$cleanSong/events.json',
-            'songs/$cleanSong/events/events.json'
+            'assets/preload/songs/$cleanSong/events.json'
         ];
 
         for (p in eventPaths) {
@@ -307,29 +361,20 @@ class PlayState extends MusicBeatState {
                 if (content != null && content.length > 0) {
                     try {
                         var parsed:Dynamic = Json.parse(content);
-                        if (Reflect.hasField(parsed, "events")) {
+                        if (parsed != null && Reflect.hasField(parsed, "events")) {
                             var rawEvents:Array<Dynamic> = cast Reflect.field(parsed, "events");
-                            for (ev in rawEvents) {
-                                if (Reflect.hasField(ev, "name") && Reflect.hasField(ev, "time")) {
-                                    var params:Array<Dynamic> = Reflect.hasField(ev, "params") ? cast Reflect.field(ev, "params") : [];
-                                    var v1 = (params.length > 0) ? params[0] : "";
-                                    var v2 = (params.length > 1) ? params[1] : "";
+                            if (rawEvents != null) {
+                                for (ev in rawEvents) {
+                                    if (ev != null && Reflect.hasField(ev, "name") && Reflect.hasField(ev, "time")) {
+                                        var params:Array<Dynamic> = Reflect.hasField(ev, "params") ? cast Reflect.field(ev, "params") : [];
+                                        var v1 = (params != null && params.length > 0) ? params[0] : "";
+                                        var v2 = (params != null && params.length > 1) ? params[1] : "";
 
-                                    eventNotes.push({
-                                        time: Std.parseFloat(Reflect.field(ev, "time")),
-                                        name: Std.string(Reflect.field(ev, "name")),
-                                        val1: v1,
-                                        val2: v2
-                                    });
-                                } else if (Std.isOfType(ev, Array)) {
-                                    var timeVal:Float = Std.parseFloat(ev[0]);
-                                    var eventList:Array<Dynamic> = cast ev[1];
-                                    for (subEv in eventList) {
                                         eventNotes.push({
-                                            time: timeVal,
-                                            name: Std.string(subEv[0]),
-                                            val1: subEv[1],
-                                            val2: subEv[2]
+                                            time: Std.parseFloat(Std.string(Reflect.field(ev, "time"))),
+                                            name: Std.string(Reflect.field(ev, "name")),
+                                            val1: v1,
+                                            val2: v2
                                         });
                                     }
                                 }
@@ -367,13 +412,14 @@ class PlayState extends MusicBeatState {
         }
 
         var dialoguePaths = [
+            'songs/$cleanSong/dialogue.xmsoul',
+            'data/$cleanSong/dialogue.xmsoul',
             'songs/$cleanSong/dialogue.xml',
-            'data/$cleanSong/dialogue.xml',
-            'assets/preload/data/$cleanSong/dialogue.xml'
+            'data/$cleanSong/dialogue.xml'
         ];
 
         for (dp in dialoguePaths) {
-            var resolved = AssetResolver.resolveFile(dp, [".xml", ""]);
+            var resolved = AssetResolver.resolveFile(dp, [".xmsoul", ".xml", ""]);
             if (resolved != null) {
                 var xmlText = AssetResolver.getText(resolved);
                 if (xmlText != null && xmlText.length > 0) {
@@ -437,30 +483,59 @@ class PlayState extends MusicBeatState {
     }
 
     private function setupHUD():Void {
-        var timeBarY:Float = downscroll ? FlxG.height - 40 : 18;
-        timeBarBG = new FlxSprite(0, timeBarY).makeGraphic(400, 16, 0xAA000000);
+        hudConfig = XMSoul.parse("ui/game/hudLayout");
+        if (hudConfig == null) {
+            hudConfig = XMSoul.parse("data/ui/hudLayout");
+        }
+
+        var defaultTimeY:Float = downscroll ? FlxG.height - 40 : 18;
+        var timeBarY:Float = defaultTimeY;
+        var timeBarWidth:Int = 400;
+        var timeBarHeight:Int = 16;
+
+        if (hudConfig != null && hudConfig.hasNode.timebar) {
+            var tbNode = hudConfig.node.timebar;
+            timeBarY = XMSoul.getFloatAttr(tbNode, downscroll ? "yDown" : "yUp", defaultTimeY);
+            timeBarWidth = XMSoul.getIntAttr(tbNode, "width", 400);
+            timeBarHeight = XMSoul.getIntAttr(tbNode, "height", 16);
+        }
+
+        timeBarBG = new FlxSprite(0, timeBarY).makeGraphic(timeBarWidth, timeBarHeight, 0xAA000000);
         timeBarBG.screenCenter(X);
         timeBarBG.scrollFactor.set(0, 0);
         timeBarBG.cameras = [camHUD];
         add(timeBarBG);
 
-        timeBar = new FlxBar(timeBarBG.x + 2, timeBarBG.y + 2, LEFT_TO_RIGHT, 396, 12, this, 'songLengthProgress', 0, 1);
+        timeBar = new FlxBar(timeBarBG.x + 2, timeBarBG.y + 2, LEFT_TO_RIGHT, timeBarWidth - 4, timeBarHeight - 4, this, 'songLengthProgress', 0, 1);
         timeBar.createFilledBar(0xFF222222, 0xFFFFFFFF);
         timeBar.scrollFactor.set(0, 0);
         timeBar.cameras = [camHUD];
         add(timeBar);
 
-        timeTxt = new FlxText(0, timeBarBG.y - 3, FlxG.width, (songData != null ? songData.title : curSong) + " (0:00 / 0:00)", 14);
+        timeTxt = new FlxText(0, timeBarBG.y - 3, FlxG.width, "", 14);
         timeTxt.setFormat(Paths.font("vcr"), 14, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         timeTxt.borderSize = 1.0;
         timeTxt.scrollFactor.set(0, 0);
         timeTxt.cameras = [camHUD];
         add(timeTxt);
 
-        var healthBarY:Float = downscroll ? 60 : FlxG.height * 0.88;
+        var defaultHealthY:Float = downscroll ? 60 : FlxG.height * 0.88;
+        var healthBarY:Float = defaultHealthY;
+        var healthBarW:Int = 604;
+        var healthBarH:Int = 22;
+        var bgGraphicName = "ui/game/healthBar";
+
+        if (hudConfig != null && hudConfig.hasNode.healthbar) {
+            var hbNode = hudConfig.node.healthbar;
+            healthBarY = XMSoul.getFloatAttr(hbNode, downscroll ? "yDown" : "yUp", defaultHealthY);
+            healthBarW = XMSoul.getIntAttr(hbNode, "width", 604);
+            healthBarH = XMSoul.getIntAttr(hbNode, "height", 22);
+            bgGraphicName = XMSoul.getAttr(hbNode, "bgImage", "ui/game/healthBar");
+        }
+
         healthBarBG = new FlxSprite(0, healthBarY);
-        if (!AssetHelper.loadGraphicSafely(healthBarBG, "ui/game/healthBar")) {
-            healthBarBG.makeGraphic(604, 22, 0xFF000000);
+        if (!AssetHelper.loadGraphicSafely(healthBarBG, bgGraphicName)) {
+            healthBarBG.makeGraphic(healthBarW, healthBarH, 0xFF000000);
         }
         healthBarBG.screenCenter(X);
         healthBarBG.scrollFactor.set(0, 0);
@@ -488,15 +563,26 @@ class PlayState extends MusicBeatState {
         iconP2.cameras = [camHUD];
         add(iconP2);
 
-        scoreTxt = new FlxText(0, healthBarBG.y + 32, FlxG.width, "Score: 0 | Misses: 0 | Accuracy: 0% [?]", 18);
-        scoreTxt.setFormat(Paths.font("vcr"), 18, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        var scoreYOffset:Float = 32;
+        var scoreFontSize:Int = 18;
+        var fontName = "vcr";
+
+        if (hudConfig != null && hudConfig.hasNode.scoretext) {
+            var stNode = hudConfig.node.scoretext;
+            scoreYOffset = XMSoul.getFloatAttr(stNode, "yOffset", 32);
+            scoreFontSize = XMSoul.getIntAttr(stNode, "size", 18);
+            fontName = XMSoul.getAttr(stNode, "font", "vcr");
+        }
+
+        scoreTxt = new FlxText(0, healthBarBG.y + scoreYOffset, FlxG.width, "Score: 0 | Misses: 0 | Accuracy: 0% [?]", scoreFontSize);
+        scoreTxt.setFormat(Paths.font(fontName), scoreFontSize, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         scoreTxt.borderSize = 1.5;
         scoreTxt.scrollFactor.set(0, 0);
         scoreTxt.cameras = [camHUD];
         add(scoreTxt);
 
         botplayTxt = new FlxText(0, healthBarBG.y + (downscroll ? 58 : -38), FlxG.width, "BOTPLAY", 24);
-        botplayTxt.setFormat(Paths.font("vcr"), 24, 0xFFFFCC00, CENTER, OUTLINE, FlxColor.BLACK);
+        botplayTxt.setFormat(Paths.font(fontName), 24, 0xFFFFCC00, CENTER, OUTLINE, FlxColor.BLACK);
         botplayTxt.borderSize = 1.5;
         botplayTxt.scrollFactor.set(0, 0);
         botplayTxt.cameras = [camHUD];
@@ -644,9 +730,22 @@ class PlayState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         if (paused || isEnding) return;
 
-        scripts.callAll("onUpdate", [elapsed]);
+        if (scripts != null) {
+            scripts.setAll("curBeatFloat", Conductor.curBeatFloat);
+            scripts.setAll("curStepFloat", Conductor.curStepFloat);
+            scripts.setAll("curBeat", Conductor.curBeat);
+            scripts.setAll("curStep", Conductor.curStep);
+            scripts.setAll("songPosition", Conductor.songPosition);
+            scripts.callAll("onUpdate", [elapsed]);
+        }
+
         audio.update(elapsed);
         ShaderManager.instance.update(elapsed);
+
+        if (passiveHealthDrain > 0 && countdownEnded) {
+            health = Math.max(0.0, health - (passiveHealthDrain * elapsed));
+            if (health <= 0) gameOver();
+        }
 
         if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
             var audioTime:Float = audio.inst.time;
@@ -692,7 +791,9 @@ class PlayState extends MusicBeatState {
             openPauseMenu();
         }
 
-        scripts.callAll("onUpdatePost", [elapsed]);
+        if (scripts != null) {
+            scripts.callAll("onUpdatePost", [elapsed]);
+        }
     }
 
     private function updateEvents():Void {
@@ -749,7 +850,7 @@ class PlayState extends MusicBeatState {
                         targetStrum.playAnim("confirm", true);
                         targetStrum.resetAnim = 0.15;
 
-                        if (dad != null) {
+                        if (dad != null && daNote.playSingAnim) {
                             dad.playSingAnim(daNote.noteData);
                             setCamDisplacement(daNote.noteData);
                             centerCameraOnDad();
@@ -862,6 +963,15 @@ class PlayState extends MusicBeatState {
     private function goodNoteHit(note:Note):Void {
         note.wasGoodHit = true;
 
+        if (note.causesMiss) {
+            health = Math.max(0.0, health + note.hitHealth);
+            noteMiss(note.noteData);
+            note.kill();
+            notes.remove(note, false);
+            note.destroy();
+            return;
+        }
+
         if (!note.isSustainNote) {
             combo++;
             var diff:Float = Math.abs(note.strumTime - (Conductor.songPosition - noteOffset));
@@ -871,11 +981,11 @@ class PlayState extends MusicBeatState {
             totalPlayedNotes++;
             songScore += Judgment.score(judgment);
             totalNotesHit += Judgment.accuracyWeight(judgment);
-            health = Math.min(maxHealth, health + Judgment.healthModifier(judgment));
+            health = Math.min(maxHealth, health + (note.hitHealth > 0 ? note.hitHealth : Judgment.healthModifier(judgment)));
 
             popupRating(judgment);
 
-            if (Judgment.triggersSplash(judgment) && noteSplashEnabled && playerStrumline.receptors[note.noteData] != null) {
+            if (Judgment.triggersSplash(judgment) && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
                 spawnSplash(playerStrumline.receptors[note.noteData].x, playerStrumline.receptors[note.noteData].y, note.noteData);
             }
         } else {
@@ -891,7 +1001,7 @@ class PlayState extends MusicBeatState {
             pStrum.resetAnim = 0.15;
         }
 
-        if (boyfriend != null) {
+        if (boyfriend != null && note.playSingAnim) {
             boyfriend.playSingAnim(note.noteData);
             setCamDisplacement(note.noteData);
             centerCameraOnBF();

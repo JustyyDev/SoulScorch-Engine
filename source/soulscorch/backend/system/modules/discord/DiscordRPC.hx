@@ -1,5 +1,7 @@
 package soulscorch.backend.system.modules.discord;
 
+import haxe.xml.Access;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.utils.Logger;
@@ -19,6 +21,7 @@ class DiscordRPC extends ModuleBase {
 
     public static var clientID:String = DEFAULT_CLIENT_ID;
     public static var isInitialized:Bool = false;
+    public static var isEnabled:Bool = true;
     public static var currentDetails:String = "";
     public static var currentState:String = "";
     public static var currentElapsedSeconds:Float = 0.0;
@@ -45,14 +48,30 @@ class DiscordRPC extends ModuleBase {
         #if (cpp && !mobile && !neko)
         if (mutex == null) mutex = new Mutex();
         #end
-        if (autoInit) {
+        loadConfigFromXMSoul();
+        if (autoInit && isEnabled) {
             initialize();
+        }
+    }
+
+    public static function loadConfigFromXMSoul():Void {
+        var access:Access = XMSoul.parse("config/discord");
+        if (access == null) access = XMSoul.parse("data/config/discord");
+
+        if (access != null) {
+            isEnabled = XMSoul.getBoolAttr(access, "enabled", true);
+            var customID = XMSoul.getAttr(access, "clientID", DEFAULT_CLIENT_ID);
+            if (customID.length > 0) clientID = customID;
+
+            currentLargeKey = XMSoul.getAttr(access, "defaultLargeKey", "icon");
+            currentLargeText = XMSoul.getAttr(access, "defaultLargeText", 'SoulScorch ${Version.versionString()}');
+            Logger.info('Discord RPC manifest loaded from .xmsoul (App ID: $clientID)', "discord");
         }
     }
 
     override public function initialize():Void {
         #if (cpp && !mobile && !neko)
-        if (isInitialized) return;
+        if (isInitialized || !isEnabled) return;
 
         try {
             mutex.acquire();
@@ -103,7 +122,7 @@ class DiscordRPC extends ModuleBase {
 
     public static function poll():Void {
         #if (cpp && !mobile && !neko)
-        if (!isInitialized || !isRunning) return;
+        if (!isInitialized || !isRunning || !isEnabled) return;
         try {
             if (mutex.tryAcquire()) {
                 Discord.RunCallbacks();
@@ -124,7 +143,7 @@ class DiscordRPC extends ModuleBase {
 
         clientID = newID.trim();
 
-        if (wasRunning) {
+        if (wasRunning && isEnabled) {
             if (instance != null) {
                 instance.initialize();
             } else {
@@ -152,6 +171,8 @@ class DiscordRPC extends ModuleBase {
         forced:Bool = false
     ):Void {
         #if (cpp && !mobile && !neko)
+        if (!isEnabled) return;
+
         if (!isInitialized) {
             if (instance != null) instance.initialize();
             else new DiscordRPC(true);
@@ -232,6 +253,7 @@ class DiscordRPC extends ModuleBase {
         ?iconText:String = null
     ):Void {
         #if (cpp && !mobile && !neko)
+        if (!isEnabled) return;
         var detailsText:String = '$songName [${difficulty.toUpperCase()}]';
         var roundedAcc:Float = Math.round(accuracy * 100) / 100;
         var lKey:String = (iconKey != null && iconKey.length > 0) ? iconKey : "icon";

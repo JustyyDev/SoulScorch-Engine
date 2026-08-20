@@ -57,6 +57,8 @@ class CutsceneSubState extends MusicBeatSubstate {
             }
         });
 
+
+        
         script.setAll("timer", function(duration:Float, cb:Void->Void) {
             new FlxTimer().start(duration, function(_) if (cb != null) cb());
         });

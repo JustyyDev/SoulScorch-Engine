@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteType name="hurt" texture="ui/game/notes/HURTNOTE_assets" hitDamage="-0.3" causesMiss="true" playMissAnim="true">
+    <splash name="hurtSplash" sound="hitHurt" />
+    <sound hit="hitHurt" miss="tick" />
+</noteType>

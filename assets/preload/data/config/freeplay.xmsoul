@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<freeplay>
+    <song name="Tutorial" week="1" color="0xAF66CE" difficulties="Easy, Normal, Hard" />
+    <song name="Bopeebo" week="1" color="0xFF3366" difficulties="Easy, Normal, Hard" />
+    <song name="Fresh" week="1" color="0x3366FF" difficulties="Normal, Hard" />
+</freeplay>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<week name="DADDY DEAREST" characters="dad,bf,gf" sprite="week1" unlockable="true">
+    <songs>
+        <song name="Bopeebo" color="0xFF3366" />
+        <song name="Fresh" color="0x3366FF" />
+        <song name="Dadbattle" color="0xAF66CE" />
+    </songs>
+</week>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<editor title="SOULSCORCH CHART STUDIO PRO // [DAW MATRIX SUITE]" script="data/scripts/editors/chartStudio.soul">
+    <!-- Top Bar Global Actions -->
+    <action label="Play/Pause (Space)" onTrigger="onTogglePlayback" />
+    <action label="Practice Mode (Tab)" onTrigger="onTogglePracticeBench" />
+    <action label="Save .soulchart (Ctrl+S)" onTrigger="onSaveSoulChart" />
+    <action label="Undo (Ctrl+Z)" onTrigger="onUndo" />
+    <action label="Redo (Ctrl+Y)" onTrigger="onRedo" />
+    <action label="Metronome (M)" onTrigger="onToggleMetronome" />
+    <action label="Hitsounds (H)" onTrigger="onToggleHitsounds" />
+    <action label="Waveform (W)" onTrigger="onToggleWaveform" />
+    <action label="Test in Game (Enter)" onTrigger="onTestInGame" />
+    <action label="Exit" onTrigger="onExit" />
+
+    <!-- 1. Song Metadata & Manifest Window (Top-Left) -->
+    <window id="songProps" title="Song &amp; Stage Environment" x="15" y="45" width="290" height="340">
+        <stepper id="bpmStep" label="Master BPM" default="120.0" min="30.0" max="500.0" step="1.0" precision="1" x="10" y="8" width="270" action="onChangeBPM" />
+        <stepper id="speedStep" label="Scroll Speed" default="2.0" min="0.5" max="8.0" step="0.05" precision="2" x="10" y="44" width="270" action="onChangeSpeed" />
+        <input id="inputStage" label="Stage Bound ID" text="stage" x="10" y="80" width="270" action="onChangeStage" />
+        <input id="inputPlayer" label="Player 1 (BF)" text="bf" x="10" y="122" width="130" action="onChangePlayer" />
+        <input id="inputOpponent" label="Player 2 (Opponent)" text="dad" x="150" y="122" width="130" action="onChangeOpponent" />
+        <input id="inputGF" label="Girlfriend Model" text="gf" x="10" y="164" width="270" action="onChangeGF" />
+        <checkbox id="checkVoices" label="Separate Vocal Track (Voices.ogg)" checked="true" x="10" y="206" action="onToggleVoices" />
+        <button id="exportSoulChartBtn" text="Export as .soulchart XML" x="10" y="238" width="270" height="26" action="onSaveSoulChart" />
+        <button id="exportJsonBtn" text="Export as Legacy JSON" x="10" y="268" width="270" height="26" action="onExportLegacyJson" />
+        <button id="reloadChartBtn" text="Reload Chart from Disk" x="10" y="298" width="270" height="26" action="onReloadChart" />
+    </window>
+
+    <!-- 2. Master Audio Mixer & Speed Multiplier (Bottom-Left) -->
+    <window id="audioMixer" title="Multi-Track Studio Mixer" x="15" y="395" width="290" height="260">
+        <stepper id="instVolStep" label="Instrumental Volume" default="1.0" min="0.0" max="1.5" step="0.05" precision="2" x="10" y="8" width="130" action="onSetInstVol" />
+        <stepper id="voiceVolStep" label="Vocal Track Volume" default="1.0" min="0.0" max="1.5" step="0.05" precision="2" x="150" y="8" width="130" action="onSetVoiceVol" />
+        <stepper id="rateStep" label="Playback Rate / Pitch" default="1.0" min="0.25" max="3.0" step="0.05" precision="2" x="10" y="44" width="270" action="onChangePlaybackRate" />
+        <stepper id="hitsoundVolStep" label="Hitsound Audio Gain" default="0.7" min="0.0" max="1.0" step="0.05" precision="2" x="10" y="80" width="130" action="onSetHitsoundVol" />
+        <stepper id="metroVolStep" label="Metronome Gain" default="0.6" min="0.0" max="1.0" step="0.05" precision="2" x="150" y="80" width="130" action="onSetMetroVol" />
+        <checkbox id="muteInstCheck" label="Mute Instrumental" checked="false" x="10" y="122" action="onMuteInst" />
+        <checkbox id="muteVoiceCheck" label="Mute Vocals" checked="false" x="150" y="122" action="onMuteVoice" />
+        <checkbox id="waveformVoiceCheck" label="Render Vocal Waveform" checked="true" x="10" y="148" action="onToggleVocalWaveform" />
+        <checkbox id="waveformInstCheck" label="Render Beat Transients" checked="true" x="10" y="174" action="onToggleInstWaveform" />
+        <button id="resyncAudioBtn" text="Force Audio Re-sync (S)" x="10" y="210" width="270" height="26" action="onResyncAudio" />
+    </window>
+
+    <!-- 3. Quantization, Grid Snapping & Polyrhythm Tools (Top-Right) -->
+    <window id="quantizationWin" title="Quantization &amp; Snaps" x="975" y="45" width="290" height="210">
+        <text id="currentSnapTxt" text="Active Snap: 1/16 (Yellow)" x="10" y="6" size="13" color="0xFFFFFF00" />
+        <stepper id="snapDivStep" label="Snap Division (1/X)" default="16" min="1" max="192" step="1" precision="0" x="10" y="28" width="270" action="onChangeSnapDiv" />
+        <button id="snap4Btn" text="1/4 (Red)" x="10" y="68" width="65" height="24" action="onSetSnap4" />
+        <button id="snap8Btn" text="1/8 (Blue)" x="80" y="68" width="65" height="24" action="onSetSnap8" />
+        <button id="snap12Btn" text="1/12 (Purp)" x="150" y="68" width="65" height="24" action="onSetSnap12" />
+        <button id="snap16Btn" text="1/16 (Yel)" x="220" y="68" width="60" height="24" action="onSetSnap16" />
+        <button id="snap24Btn" text="1/24 (Cyn)" x="10" y="98" width="65" height="24" action="onSetSnap24" />
+        <button id="snap32Btn" text="1/32 (Org)" x="80" y="98" width="65" height="24" action="onSetSnap32" />
+        <button id="snap48Btn" text="1/48 (Mag)" x="150" y="98" width="65" height="24" action="onSetSnap48" />
+        <button id="snap64Btn" text="1/64 (Pnk)" x="220" y="98" width="60" height="24" action="onSetSnap64" />
+        <checkbox id="tripletModeCheck" label="Enable Polyrhythm / Triplet Grid" checked="false" x="10" y="132" action="onToggleTriplets" />
+        <button id="quantizeSelectionBtn" text="Snap Notes to Active Grid" x="10" y="164" width="270" height="26" action="onQuantizeSelection" />
+    </window>
+
+    <!-- 4. Section Inspector & Note Properties (Middle-Right) -->
+    <window id="noteInspector" title="Note &amp; Section Inspector" x="975" y="265" width="290" height="225">
+        <text id="secInfoTxt" text="SECTION: 0&#10;BPM: 120.0&#10;STEP: 0 | BEAT: 0" x="10" y="4" size="12" color="0xFF00FFCC" />
+        <stepper id="sustainStep" label="Hold Duration (Steps)" default="0" min="0" max="128" step="0.5" precision="1" x="10" y="48" width="270" action="onChangeSustain" />
+        <input id="noteTypeInput" label="Active Note Type" text="normal" x="10" y="86" width="270" action="onChangeNoteType" />
+        <button id="cycleNoteTypeBtn" text="Cycle Note Type (T)" x="10" y="128" width="270" height="24" action="onCycleNoteType" />
+        <button id="delNoteBtn" text="Delete Note (Del/Backspace)" x="10" y="156" width="270" height="24" action="onDeleteNote" />
+        <button id="clearSectionBtn" text="Clear Section Notes" x="10" y="184" width="270" height="24" action="onClearSection" />
+    </window>
+
+    <!-- 5. Advanced DAW Clipboard & Pattern Transformation (Bottom-Right) -->
+    <window id="patternTools" title="DAW Pattern Transformer" x="975" y="495" width="290" height="160">
+        <button id="copyBtn" text="Copy (Ctrl+C)" x="10" y="6" width="130" height="24" action="onCopyNotes" />
+        <button id="pasteBtn" text="Paste (Ctrl+V)" x="150" y="6" width="130" height="24" action="onPasteNotes" />
+        <button id="swapSidesBtn" text="Swap Player &lt;-&gt; Opponent" x="10" y="34" width="270" height="24" action="onSwapLanes" />
+        <button id="mirrorLanesBtn" text="Mirror Lanes (L &lt;-&gt; R)" x="10" y="62" width="270" height="24" action="onMirrorLanes" />
+        <button id="invertHoldBtn" text="Invert Tap &lt;-&gt; Hold" x="10" y="90" width="130" height="24" action="onInvertHoldState" />
+        <button id="doubleSpeedNotesBtn" text="Compress 2x" x="150" y="90" width="130" height="24" action="onCompressNotes" />
+        <button id="humanizeOffsetBtn" text="Humanize Velocity / Jitter" x="10" y="118" width="270" height="24" action="onHumanizeOffsets" />
+    </window>
+</editor>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<credits>
+    <category name="Engine Developers" color="0xFF00FFCC">
+        <dev name="JustyyDev" role="Main Programmer &amp; Engine Architect" icon="dev_justy" color="0xFF9900FF" link="https://github.com/JustyyDev" />
+    </category>
+    <category name="Special Thanks" color="0xFFFFD700">
+        <dev name="FNF Community" role="Inspiration &amp; Assets" icon="face" color="0xFFFFFFFF" link="" />
+    </category>
+</credits>

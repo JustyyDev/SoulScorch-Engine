@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<noteType name="instakill" texture="ui/game/notes/INSTAKILL_assets" hitDamage="-2.0" causesMiss="true" playMissAnim="true">
+    <splash name="deathSplash" sound="deathSound" />
+    <sound hit="gameOverEnd" />
+</noteType>

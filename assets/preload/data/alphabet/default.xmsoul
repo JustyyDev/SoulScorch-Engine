@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<alphabet sprite="ui/alphabet" type="sparrow" spaceWidth="28" lineSpacing="70" scale="1.0" antialiasing="true">
+    <!-- Letter Glyph Mappings (Sparrow Prefixes) -->
+    <letters boldPrefix="bold " lowercasePrefix="lowercase " uppercasePrefix="capital ">
+        <char letter="A" xOffset="0" yOffset="0" />
+        <char letter="B" xOffset="0" yOffset="0" />
+        <char letter="C" xOffset="0" yOffset="0" />
+        <char letter="D" xOffset="0" yOffset="0" />
+        <char letter="E" xOffset="0" yOffset="0" />
+        <char letter="F" xOffset="0" yOffset="0" />
+        <char letter="G" xOffset="0" yOffset="0" />
+        <char letter="H" xOffset="0" yOffset="0" />
+        <char letter="I" xOffset="0" yOffset="0" />
+        <char letter="J" xOffset="0" yOffset="0" />
+        <char letter="K" xOffset="0" yOffset="0" />
+        <char letter="L" xOffset="0" yOffset="0" />
+        <char letter="M" xOffset="0" yOffset="0" />
+        <char letter="N" xOffset="0" yOffset="0" />
+        <char letter="O" xOffset="0" yOffset="0" />
+        <char letter="P" xOffset="0" yOffset="0" />
+        <char letter="Q" xOffset="0" yOffset="0" />
+        <char letter="R" xOffset="0" yOffset="0" />
+        <char letter="S" xOffset="0" yOffset="0" />
+        <char letter="T" xOffset="0" yOffset="0" />
+        <char letter="U" xOffset="0" yOffset="0" />
+        <char letter="V" xOffset="0" yOffset="0" />
+        <char letter="W" xOffset="0" yOffset="0" />
+        <char letter="X" xOffset="0" yOffset="0" />
+        <char letter="Y" xOffset="0" yOffset="0" />
+        <char letter="Z" xOffset="0" yOffset="0" />
+    </letters>
+
+    <!-- Number Glyphs -->
+    <numbers prefix="">
+        <char value="0" prefix="0" xOffset="0" yOffset="0" />
+        <char value="1" prefix="1" xOffset="0" yOffset="0" />
+        <char value="2" prefix="2" xOffset="0" yOffset="0" />
+        <char value="3" prefix="3" xOffset="0" yOffset="0" />
+        <char value="4" prefix="4" xOffset="0" yOffset="0" />
+        <char value="5" prefix="5" xOffset="0" yOffset="0" />
+        <char value="6" prefix="6" xOffset="0" yOffset="0" />
+        <char value="7" prefix="7" xOffset="0" yOffset="0" />
+        <char value="8" prefix="8" xOffset="0" yOffset="0" />
+        <char value="9" prefix="9" xOffset="0" yOffset="0" />
+    </numbers>
+
+    <!-- Symbol and Punctuation Mappings -->
+    <symbols>
+        <char symbol="!" anim="exclamation" xOffset="0" yOffset="0" />
+        <char symbol="?" anim="question" xOffset="0" yOffset="0" />
+        <char symbol="." anim="period" xOffset="0" yOffset="50" />
+        <char symbol="," anim="comma" xOffset="0" yOffset="50" />
+        <char symbol="'" anim="apostrophe" xOffset="0" yOffset="-20" />
+        <char symbol="-" anim="dash" xOffset="0" yOffset="25" />
+        <char symbol="/" anim="forward slash" xOffset="0" yOffset="0" />
+        <char symbol="\" anim="back slash" xOffset="0" yOffset="0" />
+        <char symbol="#" anim="hashtag" xOffset="0" yOffset="0" />
+    </symbols>
+</alphabet>

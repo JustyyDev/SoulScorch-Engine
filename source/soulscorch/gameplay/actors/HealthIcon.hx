@@ -4,7 +4,10 @@ import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
+import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.Logger;
 
 using StringTools;
 
@@ -27,6 +30,14 @@ class HealthIcon extends FlxSprite {
     public var iconScale:Float = 1.0;
     public var autoUpdatePosition:Bool = true;
 
+    // --- NEW .XMSOUL Custom Animation & Bop Properties ---
+    public var bopIntensity:Float = 1.2;
+    public var bopSpeed:Float = 12.0;
+    public var rotationBop:Float = 4.0;
+    public var customOffsetX:Float = 0.0;
+    public var customOffsetY:Float = 0.0;
+    public var pulseOnLowHealth:Bool = true;
+
     public function new(character:String = "face", isPlayer:Bool = false) {
         super();
         this.isPlayer = isPlayer;
@@ -38,6 +49,16 @@ class HealthIcon extends FlxSprite {
         var cleanChar = (char != null && char.trim().length > 0) ? char.trim().toLowerCase() : "face";
         if (cleanChar == "none") cleanChar = "face";
         this.character = cleanChar;
+
+        // Reset custom configs to defaults before parsing
+        bopIntensity = 1.2;
+        bopSpeed = 12.0;
+        rotationBop = 4.0;
+        customOffsetX = 0.0;
+        customOffsetY = 0.0;
+
+        // 1. Try loading custom icon .xmsoul configuration if present
+        loadIconXMSoul(cleanChar);
 
         var graphic = getIconGraphic(cleanChar);
         if (graphic == null) {
@@ -84,6 +105,33 @@ class HealthIcon extends FlxSprite {
         }
     }
 
+    private function loadIconXMSoul(char:String):Void {
+        var paths = [
+            'icons/$char.xmsoul',
+            'images/icons/$char.xmsoul',
+            'data/icons/$char.xmsoul',
+            'assets/preload/icons/$char.xmsoul'
+        ];
+
+        for (path in paths) {
+            var access = XMSoul.parse(path);
+            if (access != null) {
+                try {
+                    bopIntensity = XMSoul.getFloatAttr(access, "bopIntensity", 1.2);
+                    bopSpeed = XMSoul.getFloatAttr(access, "bopSpeed", 12.0);
+                    rotationBop = XMSoul.getFloatAttr(access, "rotationBop", 4.0);
+                    customOffsetX = XMSoul.getFloatAttr(access, "offsetX", 0.0);
+                    customOffsetY = XMSoul.getFloatAttr(access, "offsetY", 0.0);
+                    pulseOnLowHealth = XMSoul.getBoolAttr(access, "pulseOnLowHealth", true);
+                    iconScale = XMSoul.getFloatAttr(access, "scale", 1.0);
+                    break;
+                } catch (e:Dynamic) {
+                    Logger.warn('Failed parsing icon .xmsoul for $char: $e', "icon");
+                }
+            }
+        }
+    }
+
     private function getIconGraphic(char:String):Null<FlxGraphic> {
         var lookups = [
             'icons/icon-$char',
@@ -123,20 +171,26 @@ class HealthIcon extends FlxSprite {
     }
 
     public function beatHit(beat:Int):Void {
-        scale.set(iconScale * 1.2, iconScale * 1.2);
+        // Apply custom bop scaling and slight dynamic tilt rotation on beats
+        scale.set(iconScale * bopIntensity, iconScale * bopIntensity);
+        angle = (FlxG.random.bool(50) ? 1 : -1) * rotationBop;
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
         if (sprTracker != null && autoUpdatePosition) {
-            setPosition(sprTracker.x + sprTracker.width + 10, sprTracker.y - 30);
+            var sideOffset = isPlayer ? (10 + customOffsetX) : (-10 - customOffsetX);
+            setPosition(sprTracker.x + sprTracker.width + sideOffset, sprTracker.y - 30 + customOffsetY);
         }
 
+        // Smoothly lerp scale and angle back to normal resting state
         scale.set(
-            FlxMath.lerp(scale.x, iconScale, FlxMath.bound(elapsed * 12.0, 0, 1)),
-            FlxMath.lerp(scale.y, iconScale, FlxMath.bound(elapsed * 12.0, 0, 1))
+            FlxMath.lerp(scale.x, iconScale, FlxMath.bound(elapsed * bopSpeed, 0, 1)),
+            FlxMath.lerp(scale.y, iconScale, FlxMath.bound(elapsed * bopSpeed, 0, 1))
         );
+        angle = FlxMath.lerp(angle, 0, FlxMath.bound(elapsed * bopSpeed, 0, 1));
+
         updateHitbox();
     }
 }
