@@ -74,7 +74,7 @@ class XMSoulEditorState extends MusicBeatState {
     }
 
     public function showToast(msg:String, isError:Bool = false):Void {
-            EditorToast.show(msg, isError ? 0xFFFF0055 : 0xFF00FFCC);
+        EditorToast.show(msg, isError);
     }
 
     private function buildLayout(root:Access):Void {
