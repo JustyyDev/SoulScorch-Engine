@@ -6,6 +6,9 @@ import flixel.util.FlxColor;
 enum TransitionType {
     FADE;
     WIPE;
+    DIAMOND;
+    GLITCH;
+    NONE;
 }
 
 enum TransitionDirection {
@@ -21,9 +24,9 @@ class TransitionData {
     public var ease:flixel.tweens.FlxEase.EaseFunction;
 
     public function new(
-        type:TransitionType = FADE,
+        type:TransitionType = WIPE,
         direction:TransitionDirection = OUT,
-        duration:Float = 0.45,
+        duration:Float = 0.35,
         color:FlxColor = FlxColor.BLACK,
         ?ease:flixel.tweens.FlxEase.EaseFunction
     ) {
@@ -31,6 +34,6 @@ class TransitionData {
         this.direction = direction;
         this.duration = duration;
         this.color = color;
-        this.ease = ease != null ? ease : FlxEase.sineInOut;
+        this.ease = ease != null ? ease : FlxEase.quartOut;
     }
 }

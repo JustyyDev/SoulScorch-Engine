@@ -2,170 +2,98 @@ package soulscorch.ui.menus.states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxGroup;
+import flixel.math.FlxMath;
+import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
-import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
-import soulscorch.backend.system.engine.Engine;
-import soulscorch.backend.system.engine.GameConfig;
-import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
-import soulscorch.ui.menus.states.MainMenuState;
 
 using StringTools;
 
 class TitleState extends MusicBeatState {
     public static var initialized:Bool = false;
-    public static var closedIntro:Bool = false;
 
-    private var blackScreen:FlxSprite;
-    private var textGroup:FlxTypedGroup<Alphabet>;
-    private var ngSpr:FlxSprite;
-    private var logoBump:FlxSprite;
     private var gfDance:FlxSprite;
-    private var titleText:FlxSprite;
-
-    private var curWacky:Array<String> = [];
-    private var wackyIntroText:Array<Array<String>> = [];
-    private var transitioning:Bool = false;
     private var danceLeft:Bool = false;
+    private var titleText:FlxSprite;
+    private var logoBl:FlxSprite;
+
+    private var skippedIntro:Bool = false;
+    private var transitioning:Bool = false;
 
     override public function create():Void {
         super.create();
 
-        if (!initialized) {
-            try {
-                ModManager.reloadMods();
-                var config = new GameConfig();
-                var engine = Engine.boot(config);
-                engine.init();
-            } catch (e:Dynamic) {
-                trace('Engine boot notice: $e');
-            }
+        #if desktop
+        DiscordRPC.changePresence("Title Screen", "Starting Up");
+        #end
 
-            #if desktop
-            try {
-                DiscordRPC.changePresence("Title Screen", "In the Menus");
-            } catch (e:Dynamic) {}
-            #end
+        Conductor.changeBPM(102.0);
 
-            Conductor.changeBPM(102.0);
-
-            try {
-                var menuMusic = Paths.music("freakyMenu");
-                if (menuMusic != null) {
-                    FlxG.sound.playMusic(menuMusic, 0.7);
-                }
-            } catch (e:Dynamic) {
-                trace('Could not load menu music: $e');
-            }
-
-            initialized = true;
+        if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
+            FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
         }
 
-        wackyIntroText = getIntroText();
-        curWacky = (wackyIntroText.length > 0) ? wackyIntroText[FlxG.random.int(0, wackyIntroText.length - 1)] : ["SoulScorch", "Engine"];
-        persistentUpdate = true;
+        gfDance = new FlxSprite(FlxG.width * 0.4, FlxG.height * 0.07);
+        var gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/menus/title/gfDanceTitle");
+        if (!gfLoaded) gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/title/gfDanceTitle");
+        if (!gfLoaded) gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "gfDanceTitle");
 
-        logoBump = new FlxSprite(-150, -100);
-        var loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "ui/titlescreen/logo");
-        if (!loadedLogo) loadedLogo = AssetHelper.loadSparrowSafely(logoBump, "logoBumpin");
-
-        if (loadedLogo && logoBump.frames != null) {
-            logoBump.animation.addByPrefix("bump", "logo bumpin", 24, false);
-            logoBump.animation.play("bump");
-        }
-        logoBump.updateHitbox();
-        logoBump.antialiasing = true;
-        add(logoBump);
-
-        gfDance = new FlxSprite(FlxG.width * 0.4, 40);
-        var loadedGf = AssetHelper.loadSparrowSafely(gfDance, "ui/titlescreen/gf");
-        if (!loadedGf) loadedGf = AssetHelper.loadSparrowSafely(gfDance, "gfDanceTitle");
-
-        if (loadedGf && gfDance.frames != null) {
-            gfDance.animation.addByIndices("danceLeft", "gfDance", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
-            gfDance.animation.addByIndices("danceRight", "gfDance", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
-            gfDance.animation.play("danceLeft");
+        if (gfLoaded && gfDance.frames != null) {
+            // Proper 30-frame index split prevents restarting frames on each beat
+            gfDance.animation.addByIndices('danceLeft', 'gfDance', [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
+            gfDance.animation.addByIndices('danceRight', 'gfDance', [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
+        } else {
+            gfDance.makeGraphic(250, 400, 0xFFFF0055);
         }
         gfDance.antialiasing = true;
         add(gfDance);
 
-        titleText = new FlxSprite(100, FlxG.height * 0.8);
-        var loadedTitle = AssetHelper.loadSparrowSafely(titleText, "ui/titlescreen/titleEnter");
-        if (!loadedTitle) loadedTitle = AssetHelper.loadSparrowSafely(titleText, "titleEnter");
+        logoBl = new FlxSprite(-150, -100);
+        var logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "ui/menus/title/logoBumpin");
+        if (!logoLoaded) logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "logoBumpin");
+        if (logoLoaded) {
+            logoBl.animation.addByPrefix("bump", "logo bumpin", 24, false);
+            logoBl.animation.play("bump");
+        }
+        logoBl.antialiasing = true;
+        add(logoBl);
 
-        if (loadedTitle && titleText.frames != null) {
+        titleText = new FlxSprite(100, FlxG.height * 0.8);
+        var enterLoaded = AssetHelper.loadSparrowSafely(titleText, "ui/menus/title/titleEnter");
+        if (!enterLoaded) enterLoaded = AssetHelper.loadSparrowSafely(titleText, "titleEnter");
+        if (enterLoaded) {
             titleText.animation.addByPrefix("idle", "Press Enter to Begin", 24);
             titleText.animation.addByPrefix("press", "ENTER PRESSED", 24);
             titleText.animation.play("idle");
         }
-        titleText.updateHitbox();
         titleText.antialiasing = true;
         add(titleText);
-
-        textGroup = new FlxTypedGroup<Alphabet>();
-        add(textGroup);
-
-        blackScreen = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-
-        ngSpr = new FlxSprite(0, FlxG.height * 0.52);
-        var loadedNG = AssetHelper.loadGraphicSafely(ngSpr, "ui/titlescreen/newgrounds_logo");
-        if (!loadedNG) loadedNG = AssetHelper.loadGraphicSafely(ngSpr, "newgrounds_logo");
-
-        if (!loadedNG) {
-            ngSpr.makeGraphic(1, 1, FlxColor.TRANSPARENT);
-        }
-        ngSpr.setGraphicSize(Std.int(ngSpr.width * 0.8));
-        ngSpr.updateHitbox();
-        ngSpr.screenCenter(X);
-        ngSpr.antialiasing = true;
-        ngSpr.visible = false;
-
-        if (!closedIntro) {
-            add(blackScreen);
-            add(ngSpr);
-        } else {
-            skipIntro();
-        }
     }
 
     override public function update(elapsed:Float):Void {
-        if (FlxG.sound.music != null) {
-            Conductor.songPosition = FlxG.sound.music.time;
-        }
+        if (FlxG.sound.music != null) Conductor.songPosition = FlxG.sound.music.time;
 
-        var pressedEnter:Bool = FlxG.keys.justPressed.ENTER;
-        if (Controls.instance != null && Controls.instance.ACCEPT) {
-            pressedEnter = true;
-        }
-
-        #if mobile
-        for (touch in FlxG.touches.list) {
-            if (touch.justPressed) {
-                pressedEnter = true;
-            }
-        }
-        #end
-
-        if (pressedEnter && !closedIntro) {
-            skipIntro();
-        } else if (pressedEnter && closedIntro && !transitioning) {
+        if (Controls.instance.ACCEPT && !transitioning) {
             transitioning = true;
-            if (titleText != null && titleText.animation != null && titleText.animation.exists("press")) {
-                titleText.animation.play("press");
-            }
-            FlxG.camera.flash(FlxColor.WHITE, 1.0);
             AssetHelper.playSoundSafely("confirmMenu", 0.7);
 
-            new FlxTimer().start(1.5, function(_) {
+            if (titleText != null && titleText.animation.exists("press")) {
+                titleText.animation.play("press");
+            }
+
+            FlxG.camera.flash(FlxColor.WHITE, 1.0);
+
+            new FlxTimer().start(1.2, function(_) {
                 MusicBeatState.switchState(new MainMenuState());
             });
         }
@@ -173,118 +101,20 @@ class TitleState extends MusicBeatState {
         super.update(elapsed);
     }
 
-    private function createIntroText(text:String, yOffset:Float = 0):Void {
-        var seq = textGroup.length;
-        var alph = new Alphabet(0, (FlxG.height * 0.38) + yOffset + (seq * 55), text, false);
-        alph.screenCenter(X);
-        textGroup.add(alph);
-    }
-
-    private function addMoreIntroText(text:String, yOffset:Float = 0):Void {
-        var seq = textGroup.length;
-        var alph = new Alphabet(0, (FlxG.height * 0.38) + yOffset + (seq * 55), text, false);
-        alph.screenCenter(X);
-        textGroup.add(alph);
-    }
-
-    private function deleteIntroText():Void {
-        while (textGroup.members.length > 0) {
-            var item = textGroup.members[0];
-            textGroup.remove(item, true);
-            item.destroy();
-        }
-    }
-
     override public function beatHit(beat:Int):Void {
         super.beatHit(beat);
 
-        if (logoBump != null && logoBump.animation != null && logoBump.animation.exists("bump")) {
-            logoBump.animation.play("bump", true);
+        if (logoBl != null && logoBl.animation.exists("bump")) {
+            logoBl.animation.play("bump", true);
         }
 
-        if (gfDance != null && gfDance.animation != null && gfDance.animation.exists("danceLeft")) {
+        if (gfDance != null && gfDance.animation != null) {
             danceLeft = !danceLeft;
-            gfDance.animation.play(danceLeft ? "danceLeft" : "danceRight", true);
-        }
-
-        if (!closedIntro) {
-            switch (beat) {
-                case 1:
-                    createIntroText("SoulScorch Team", -30);
-                case 3:
-                    addMoreIntroText("Presents", -30);
-                case 4:
-                    deleteIntroText();
-                case 5:
-                    createIntroText("Not affiliated with", -30);
-                case 7:
-                    addMoreIntroText("Newgrounds", -30);
-                    if (ngSpr != null && ngSpr.graphic != null) ngSpr.visible = true;
-                case 8:
-                    deleteIntroText();
-                    if (ngSpr != null) ngSpr.visible = false;
-                case 9:
-                    createIntroText(curWacky[0], -30);
-                case 11:
-                    addMoreIntroText(curWacky[1], -30);
-                case 12:
-                    deleteIntroText();
-                case 13:
-                    createIntroText("SoulScorch Engine", -45);
-                case 14:
-                    addMoreIntroText(Version.CODENAME, -45);
-                case 15:
-                    addMoreIntroText("v" + Version.MAJOR + "." + Version.MINOR + "." + Version.PATCH, -45);
-                case 16:
-                    skipIntro();
+            if (danceLeft) {
+                if (gfDance.animation.exists("danceLeft")) gfDance.animation.play("danceLeft", true);
+            } else {
+                if (gfDance.animation.exists("danceRight")) gfDance.animation.play("danceRight", true);
             }
         }
-    }
-
-    private function skipIntro():Void {
-        if (!closedIntro) {
-            if (ngSpr != null) remove(ngSpr);
-            if (blackScreen != null) remove(blackScreen);
-            deleteIntroText();
-            FlxG.camera.flash(FlxColor.WHITE, 1.5);
-            closedIntro = true;
-        }
-    }
-
-    private function getIntroText():Array<Array<String>> {
-        var fullText:String = AssetResolver.getText("data/config/introText");
-        if (fullText.length == 0) {
-            fullText = AssetResolver.getText("assets/preload/data/config/introText.txt");
-        }
-        if (fullText.length == 0) {
-            fullText = AssetResolver.getText("assets/data/introText.txt");
-        }
-
-        var lines:Array<Array<String>> = [];
-
-        if (fullText != null && fullText.trim().length > 0) {
-            var splitted = fullText.split("\n");
-            for (line in splitted) {
-                var trimmed = line.trim();
-                if (trimmed.length > 0 && trimmed.indexOf("--") != -1) {
-                    var parts = trimmed.split("--");
-                    if (parts.length >= 2) {
-                        lines.push([parts[0].trim(), parts[1].trim()]);
-                    }
-                }
-            }
-        }
-
-        if (lines.length == 0) {
-            lines = [
-                ["Uncapped power", "Ignited rhythms"],
-                ["Modding redefined", "Run anything"],
-                ["Built with Haxe", "Flixel powered"],
-                ["Scorching charts", "Zero input lag"],
-                ["Friday Night Funkin", "SoulScorch Engine"]
-            ];
-        }
-
-        return lines;
     }
 }

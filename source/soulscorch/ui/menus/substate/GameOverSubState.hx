@@ -60,7 +60,6 @@ class GameOverSubState extends MusicBeatSubstate {
         add(bgOverlay);
         FlxTween.tween(bgOverlay, {alpha: 0.75}, 0.8, {ease: FlxEase.quadOut});
 
-        // Cinematic Letterbox Bars
         letterboxTop = new FlxSprite(0, -90).makeGraphic(FlxG.width, 90, FlxColor.BLACK);
         letterboxTop.scrollFactor.set(0, 0);
         add(letterboxTop);
@@ -71,7 +70,6 @@ class GameOverSubState extends MusicBeatSubstate {
         add(letterboxBottom);
         FlxTween.tween(letterboxBottom, {y: FlxG.height - 90}, 0.5, {ease: FlxEase.cubeOut});
 
-        // Character Death Sprite with smart fallbacks
         bfDead = new FlxSprite(x, y);
         var charToLoad = (PlayState.instance != null && PlayState.instance.boyfriend != null) ? PlayState.instance.boyfriend.curCharacter : "bf";
 
@@ -93,7 +91,6 @@ class GameOverSubState extends MusicBeatSubstate {
         add(bfDead);
 
         createRunStatsCard();
-
         AssetHelper.playSoundSafely(deathSoundName, 0.85);
 
         FlxG.camera.target = null;
@@ -152,16 +149,18 @@ class GameOverSubState extends MusicBeatSubstate {
 
             FlxTween.tween(statsCard, {y: -200, alpha: 0}, 0.5, {ease: FlxEase.cubeIn});
 
-            new FlxTimer().start(2.2, function(_) {
+            new FlxTimer().start(2.0, function(_) {
                 if (PlayState.instance != null) PlayState.instance.paused = false;
-                FlxG.resetState();
+                MusicBeatState.resetState();
             });
         }
 
         if (Controls.instance.BACK && !isEnding) {
             isEnding = true;
             if (FlxG.sound.music != null) FlxG.sound.music.stop();
-            if (PlayState.instance != null) PlayState.instance.paused = false;
+            if (PlayState.instance != null && PlayState.instance.audio != null) {
+                PlayState.instance.audio.stop();
+            }
             MusicBeatState.switchState(new MainMenuState());
         }
     }

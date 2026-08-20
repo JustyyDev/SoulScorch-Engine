@@ -26,6 +26,9 @@ class Note extends FlxSprite {
     public var tooLate:Bool = false;
     public var wasGoodHit:Bool = false;
     public var hitByOpponent:Bool = false;
+    public var ignoreNote:Bool = false;
+    public var hitHealth:Float = 0.023;
+    public var missHealth:Float = 0.0475;
 
     public var offsetX:Float = 0.0;
     public var offsetY:Float = 0.0;
@@ -55,10 +58,11 @@ class Note extends FlxSprite {
         this.isSustainNote = isSustainNote;
         this.isSustainEnd = isSustainEnd;
         this.mustPress = mustPress;
-        this.noteType = (noteType != null && noteType.trim().length > 0) ? noteType : "normal";
+        this.noteType = (noteType != null && noteType.trim().length > 0) ? noteType.trim() : "normal";
 
         loadNoteSkin(skin);
         setupAnimation();
+        applyTypeModifiers();
 
         antialiasing = true;
         scrollFactor.set(0, 0);
@@ -121,6 +125,24 @@ class Note extends FlxSprite {
         }
     }
 
+    private function applyTypeModifiers():Void {
+        switch (noteType) {
+            case "Hurt Note" | "hurt":
+                color = 0xFF444444;
+                missHealth = 0.2;
+                hitHealth = -0.15;
+            case "Mine" | "mine":
+                color = 0xFFFF0055;
+                ignoreNote = true;
+                missHealth = 0.0;
+                hitHealth = -0.35;
+            case "Instakill":
+                color = 0xFFFF0000;
+                missHealth = 2.0;
+            default:
+        }
+    }
+
     private function tryAddAnimation(animName:String, prefixes:Array<String>, fps:Int = 24, loop:Bool = true):Bool {
         if (frames == null || frames.frames == null) return false;
 
@@ -143,7 +165,6 @@ class Note extends FlxSprite {
                 scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
             } else {
                 if (animation.getByName("hold") != null) animation.play("hold");
-                // Seamlessly bridge the gap between note steps
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = frameHeight > 0 ? frameHeight : 87.0;
                 scale.set(DEFAULT_SCALE, (stepHeight + 2.0) / baseH);
@@ -157,21 +178,23 @@ class Note extends FlxSprite {
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
+        // Distance > 0 means the note is in the future
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
-        // Dead-center hold and arrow alignment on the receptor axis
         x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
 
         if (isSustainNote) {
             if (downscroll) {
                 flipY = true;
-                y = strumY + distance + (STRUM_SPACING * 0.5) - height + offsetY;
+                // In Downscroll: notes spawn ABOVE the receptor and scroll DOWN
+                y = strumY - distance + (STRUM_SPACING * 0.5) + offsetY;
             } else {
                 flipY = false;
-                y = strumY - distance + (STRUM_SPACING * 0.5) + offsetY;
+                // In Upscroll: notes spawn BELOW the receptor and scroll UP
+                y = strumY + distance + (STRUM_SPACING * 0.5) + offsetY;
             }
 
-            // Clip active hold notes that pass the receptor
+            // Clip active hold notes passing through receptors
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
                 var diff:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
                 if (diff > 0) {
@@ -186,9 +209,11 @@ class Note extends FlxSprite {
             }
         } else {
             if (downscroll) {
-                y = strumY + distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
-            } else {
+                // Downscroll: future notes are above (strumY - distance)
                 y = strumY - distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
+            } else {
+                // Upscroll: future notes are below (strumY + distance)
+                y = strumY + distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
             }
         }
 

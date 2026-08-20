@@ -28,15 +28,24 @@ import soulscorch.ui.menus.states.MainMenuState;
 
 using StringTools;
 
+typedef OptionData = {
+    var name:String;
+    var description:String;
+    var type:String;
+    @:optional var min:Null<Float>;
+    @:optional var max:Null<Float>;
+    @:optional var step:Null<Float>;
+    @:optional var options:Array<String>;
+    @:optional var formatValue:Float->String;
+    var getValue:Void->Dynamic;
+    var setValue:Dynamic->Void;
+};
+
 class OptionsMenuState extends MusicBeatState {
     public static var curSelected:Int = 0;
     public static var curCategory:Int = 0;
 
     private var categories:Array<OptionCategory> = [];
-    private var filteredOptions:Array<OptionData> = [];
-    private var isFiltering:Bool = false;
-    private var filterQuery:String = "";
-
     private var grpRows:FlxTypedGroup<FlxSprite>;
     private var categoryTabs:Array<FlxText> = [];
 
@@ -45,7 +54,6 @@ class OptionsMenuState extends MusicBeatState {
     private var descText:FlxText;
     private var categoryHeader:FlxSprite;
     private var tabSelectorHighlight:FlxSprite;
-    private var searchPromptTxt:FlxText;
     private var mobileControls:MobilePad;
 
     private var isRebinding:Bool = false;
@@ -91,7 +99,7 @@ class OptionsMenuState extends MusicBeatState {
         tabSelectorHighlight.scrollFactor.set(0, 0);
         add(tabSelectorHighlight);
 
-        var tabWidth = FlxG.width / categories.length;
+        var tabWidth = FlxG.width / Math.max(1, categories.length);
         for (i in 0...categories.length) {
             var tabText = new FlxText(i * tabWidth, 20, tabWidth, categories[i].name.toUpperCase(), 16);
             tabText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, CENTER, OUTLINE, FlxColor.BLACK);
@@ -104,11 +112,6 @@ class OptionsMenuState extends MusicBeatState {
 
         grpRows = new FlxTypedGroup<FlxSprite>();
         add(grpRows);
-
-        searchPromptTxt = new FlxText(20, 75, FlxG.width - 40, "[F] Search Preferences", 12);
-        searchPromptTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, RIGHT);
-        searchPromptTxt.scrollFactor.set(0, 0);
-        add(searchPromptTxt);
 
         descBox = new FlxSprite(0, FlxG.height - 70).makeGraphic(FlxG.width, 70, EditorTheme.PANEL_HEADER);
         descBox.scrollFactor.set(0, 0);
@@ -131,7 +134,7 @@ class OptionsMenuState extends MusicBeatState {
         #end
 
         rebuildRows();
-        changeSelection();
+        changeSelection(0);
         add(new EditorToast());
     }
 
@@ -174,7 +177,7 @@ class OptionsMenuState extends MusicBeatState {
                     min: 0.5,
                     max: 4.0,
                     step: 0.1,
-                    formatValue: function(v) return Math.round(v * 10) / 10 + "x",
+                    formatValue: function(v) return (Math.round(v * 10) / 10) + "x",
                     getValue: function() return GameplayFlags.getFloat("songSpeedMultiplier", 1.0),
                     setValue: function(v) { GameplayFlags.set("songSpeedMultiplier", v); savePreferences(); }
                 },
@@ -185,7 +188,7 @@ class OptionsMenuState extends MusicBeatState {
                     min: -250,
                     max: 250,
                     step: 1,
-                    formatValue: function(v) return v + " ms",
+                    formatValue: function(v) return Math.round(v) + " ms",
                     getValue: function() return GameplayFlags.getInt("noteOffset", 0),
                     setValue: function(v) { GameplayFlags.set("noteOffset", Std.int(v)); savePreferences(); }
                 },
@@ -212,7 +215,7 @@ class OptionsMenuState extends MusicBeatState {
                     min: 60,
                     max: 360,
                     step: 10,
-                    formatValue: function(v) return v + " FPS",
+                    formatValue: function(v) return Math.round(v) + " FPS",
                     getValue: function() return Runtime.config != null ? Runtime.config.framerate : 120,
                     setValue: function(v) {
                         var val = Std.int(v);
@@ -359,19 +362,17 @@ class OptionsMenuState extends MusicBeatState {
         for (i in 0...currentOptions.length) {
             var opt = currentOptions[i];
             if (opt.type == "keybind") {
-                var row = new KeybindRow(rowX, 0, rowWidth, opt.getValue(), opt.name);
-                row.y = (i * 64) + 96;
+                var row = new KeybindRow(rowX, (i * 64) + 96, rowWidth, opt.getValue(), opt.name);
                 row.targetY = row.y;
                 grpRows.add(row);
             } else {
-                var row = new OptionRow(rowX, 0, rowWidth, opt.name);
-                row.y = (i * 64) + 96;
+                var row = new OptionRow(rowX, (i * 64) + 96, rowWidth, opt.name);
                 row.targetY = row.y;
                 grpRows.add(row);
             }
         }
 
-        var tabWidth = FlxG.width / categories.length;
+        var tabWidth = FlxG.width / Math.max(1, categories.length);
         FlxTween.cancelTweensOf(tabSelectorHighlight);
         FlxTween.tween(tabSelectorHighlight, {x: (curCategory * tabWidth) + (tabWidth - 140) * 0.5}, 0.25, {ease: FlxEase.quartOut});
 
@@ -380,22 +381,15 @@ class OptionsMenuState extends MusicBeatState {
             categoryTabs[i].alpha = (i == curCategory ? 1.0 : 0.45);
         }
 
+        curSelected = FlxMath.wrap(curSelected, 0, Std.int(Math.max(0, currentOptions.length - 1)));
         updateRowValues();
     }
 
     private function getActiveOptions():Array<OptionData> {
-        if (isFiltering && filterQuery.length > 0) {
-            var results:Array<OptionData> = [];
-            for (cat in categories) {
-                for (opt in cat.options) {
-                    if (opt.name.toLowerCase().contains(filterQuery) || opt.description.toLowerCase().contains(filterQuery)) {
-                        results.push(opt);
-                    }
-                }
-            }
-            return results;
+        if (curCategory >= 0 && curCategory < categories.length && categories[curCategory] != null) {
+            return cast categories[curCategory].options;
         }
-        return categories[curCategory].options;
+        return [];
     }
 
     override public function update(elapsed:Float):Void {
@@ -406,34 +400,27 @@ class OptionsMenuState extends MusicBeatState {
 
         super.update(elapsed);
 
-        if (FlxG.keys.justPressed.F) {
-            promptSearchQuery();
-            return;
-        }
-
         var currentOptions = getActiveOptions();
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        if (!isFiltering) {
-            if (FlxG.keys.justPressed.Q || FlxG.keys.justPressed.PAGEUP) {
-                changeCategory(-1);
-                return;
-            }
-            if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN || FlxG.keys.justPressed.TAB) {
-                changeCategory(1);
-                return;
-            }
+        if (FlxG.keys.justPressed.Q || FlxG.keys.justPressed.PAGEUP) {
+            changeCategory(-1);
+            return;
+        }
+        if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN || FlxG.keys.justPressed.TAB) {
+            changeCategory(1);
+            return;
         }
 
-        if (currentOptions.length > 0) {
+        if (currentOptions.length > 0 && curSelected < currentOptions.length) {
             var currentOpt = currentOptions[curSelected];
 
             switch (currentOpt.type) {
                 case "bool":
                     if (Controls.instance.ACCEPT || Controls.instance.UI_LEFT_P || Controls.instance.UI_RIGHT_P) {
-                        var cur:Bool = currentOpt.getValue();
+                        var cur:Bool = currentOpt.getValue() == true;
                         currentOpt.setValue(!cur);
                         AssetHelper.playSoundSafely("scrollMenu", 0.7);
                         updateRowValues();
@@ -484,34 +471,28 @@ class OptionsMenuState extends MusicBeatState {
                     }
 
                 case "keybind":
-                    if (Controls.instance.ACCEPT) {
-                        isRebinding = true;
-                        activeKeybindRow = cast grpRows.members[curSelected];
-                        if (activeKeybindRow != null) {
+                    if (Controls.instance.ACCEPT && curSelected < grpRows.members.length) {
+                        var targetRow = grpRows.members[curSelected];
+                        if (Std.isOfType(targetRow, KeybindRow)) {
+                            isRebinding = true;
+                            activeKeybindRow = cast targetRow;
                             activeKeybindRow.setListening(true);
+                            AssetHelper.playSoundSafely("confirmMenu", 0.7);
                         }
-                        AssetHelper.playSoundSafely("confirmMenu", 0.7);
                     }
             }
         }
 
         if (Controls.instance.BACK) {
-            if (isFiltering) {
-                isFiltering = false;
-                filterQuery = "";
-                searchPromptTxt.text = "[F] Search Preferences";
-                rebuildRows();
-                changeSelection();
-            } else {
-                savePreferences();
-                AssetHelper.playSoundSafely("cancelMenu", 0.7);
-                MusicBeatState.switchState(new MainMenuState());
-            }
+            savePreferences();
+            AssetHelper.playSoundSafely("cancelMenu", 0.7);
+            MusicBeatState.switchState(new MainMenuState());
         }
     }
 
     private function modifyNumericOption(opt:OptionData, delta:Float):Void {
-        var curVal:Float = opt.getValue();
+        var rawVal:Dynamic = opt.getValue();
+        var curVal:Float = (rawVal != null) ? Std.parseFloat(Std.string(rawVal)) : 0.0;
         var nextVal:Float = curVal + delta;
         if (opt.min != null) nextVal = Math.max(opt.min, nextVal);
         if (opt.max != null) nextVal = Math.min(opt.max, nextVal);
@@ -526,41 +507,22 @@ class OptionsMenuState extends MusicBeatState {
         curSelected = 0;
         AssetHelper.playSoundSafely("scrollMenu", 0.7);
         rebuildRows();
-        changeSelection();
-    }
-
-    private function promptSearchQuery():Void {
-        #if sys
-        // Desktop console query prompt fallback
-        Sys.print("Enter search filter: ");
-        var query = Sys.stdin().readLine();
-        if (query != null && query.trim().length > 0) {
-            filterQuery = query.toLowerCase().trim();
-            isFiltering = true;
-            searchPromptTxt.text = 'FILTER: "$filterQuery" [ESC to Clear]';
-            curSelected = 0;
-            rebuildRows();
-            changeSelection();
-            EditorToast.show('Filtered preferences by "$filterQuery"');
-        }
-        #else
-        EditorToast.show("Search prompt requires desktop console environment.");
-        #end
+        changeSelection(0);
     }
 
     private function handleKeybindInput():Void {
         var pressedKey = FlxG.keys.firstJustPressed();
-        if (pressedKey != FlxKey.NONE) {
+        if (pressedKey != FlxKey.NONE && activeKeybindRow != null) {
             if (pressedKey == FlxKey.ESCAPE) {
-                if (activeKeybindRow != null) activeKeybindRow.setListening(false);
+                activeKeybindRow.setListening(false);
                 AssetHelper.playSoundSafely("cancelMenu", 0.7);
             } else if (pressedKey == FlxKey.BACKSPACE || pressedKey == FlxKey.DELETE) {
                 InputMap.bindKey(activeKeybindRow.actionName, FlxKey.NONE, 0);
-                if (activeKeybindRow != null) activeKeybindRow.setListening(false);
+                activeKeybindRow.setListening(false);
                 AssetHelper.playSoundSafely("cancelMenu", 0.7);
             } else {
                 InputMap.bindKey(activeKeybindRow.actionName, pressedKey, 0);
-                if (activeKeybindRow != null) activeKeybindRow.setListening(false);
+                activeKeybindRow.setListening(false);
                 AssetHelper.playSoundSafely("confirmMenu", 0.7);
             }
             isRebinding = false;
@@ -572,10 +534,13 @@ class OptionsMenuState extends MusicBeatState {
 
     private function changeSelection(change:Int = 0):Void {
         var currentOptions = getActiveOptions();
-        if (currentOptions.length == 0) return;
+        if (currentOptions.length == 0) {
+            descText.text = "";
+            return;
+        }
 
         curSelected = FlxMath.wrap(curSelected + change, 0, currentOptions.length - 1);
-        AssetHelper.playSoundSafely("scrollMenu", 0.7);
+        if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         for (i in 0...grpRows.members.length) {
             var member = grpRows.members[i];
@@ -603,30 +568,29 @@ class OptionsMenuState extends MusicBeatState {
             var opt = currentOptions[i];
             var member = grpRows.members[i];
 
-            switch (opt.type) {
-                case "bool":
-                    var val = opt.getValue();
-                    cast(member, OptionRow).setValue(val ? "ENABLED" : "DISABLED", val);
+            if (Std.isOfType(member, OptionRow)) {
+                var row:OptionRow = cast member;
+                switch (opt.type) {
+                    case "bool":
+                        var val:Bool = opt.getValue() == true;
+                        row.setValue(val ? "ENABLED" : "DISABLED", val);
 
-                case "float":
-                    var val:Float = opt.getValue();
-                    var formatted = opt.formatValue != null ? opt.formatValue(val) : Std.string(Math.round(val * 100) / 100);
-                    cast(member, OptionRow).setValue(formatted, null);
+                    case "float", "int":
+                        var raw = opt.getValue();
+                        var val:Float = (raw != null) ? Std.parseFloat(Std.string(raw)) : 0.0;
+                        var formatted = opt.formatValue != null ? opt.formatValue(val) : Std.string(Math.round(val * 100) / 100);
+                        row.setValue(formatted, null);
 
-                case "int":
-                    var val:Int = opt.getValue();
-                    var formatted = opt.formatValue != null ? opt.formatValue(val) : Std.string(val);
-                    cast(member, OptionRow).setValue(formatted, null);
+                    case "enum":
+                        var val = Std.string(opt.getValue());
+                        row.setValue('< $val >', null);
 
-                case "enum":
-                    var val = Std.string(opt.getValue());
-                    cast(member, OptionRow).setValue('< $val >', null);
-
-                case "button":
-                    cast(member, OptionRow).setValue("[ PRESS ENTER ]", null);
-
-                case "keybind":
-                    cast(member, KeybindRow).refreshKeyLabel();
+                    case "button":
+                        row.setValue("[ PRESS ENTER ]", null);
+                }
+            } else if (Std.isOfType(member, KeybindRow)) {
+                var row:KeybindRow = cast member;
+                row.refreshKeyLabel();
             }
         }
     }

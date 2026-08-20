@@ -8,7 +8,7 @@ import soulscorch.backend.assets.Paths;
 using StringTools;
 
 class NoteSkinManager {
-    public static var defaultSkin:String = "default";
+    public static var defaultSkin:String = "NOTE_assets";
     private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
     private static var _splashCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
 

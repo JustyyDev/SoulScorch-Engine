@@ -80,14 +80,6 @@ class Main extends Sprite {
             if (stageWidth <= 0) stageWidth = gameWidth;
             if (stageHeight <= 0) stageHeight = gameHeight;
 
-            if (zoom == -1.0) {
-                var ratioX:Float = stageWidth / gameWidth;
-                var ratioY:Float = stageHeight / gameHeight;
-                zoom = Math.min(ratioX, ratioY);
-                gameWidth = Math.ceil(stageWidth / zoom);
-                gameHeight = Math.ceil(stageHeight / zoom);
-            }
-
             var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
             addChild(game);
 
@@ -149,19 +141,14 @@ class Main extends Sprite {
 
     private function setupStateSwitchOptimization():Void {
         FlxG.signals.preStateSwitch.add(function() {
-            FlxTween.globalManager.clear();
-            FlxTimer.globalManager.clear();
+            // Keep tween managers alive for transition overlays to prevent visual locking
             Paths.clearUnusedMemory();
-        });
-
-        FlxG.signals.postStateSwitch.add(function() {
-            #if cpp
-            Gc.run(false);
-            #end
         });
     }
 
     private function onKeyDown(event:KeyboardEvent):Void {
+        if (FlxG.stage == null || FlxG.state == null) return;
+
         if (event.keyCode == Keyboard.F3 && fpsCounter != null) {
             fpsCounter.visible = !fpsCounter.visible;
         }
@@ -171,7 +158,10 @@ class Main extends Sprite {
         }
 
         if (event.keyCode == Keyboard.TAB && FlxG.state != null && FlxG.state.subState == null) {
-            FlxG.state.openSubState(new ModSwitchMenu());
+            // Only trigger quick-switch when not focused on active text input elements
+            if (!FlxG.keys.pressed.CONTROL && !FlxG.keys.pressed.ALT) {
+                FlxG.state.openSubState(new ModSwitchMenu());
+            }
         }
 
         if (event.keyCode == Keyboard.NUMBER_7 && FlxG.state != null && FlxG.state.subState == null) {
@@ -180,7 +170,7 @@ class Main extends Sprite {
     }
 
     private function onEnterFrame(event:Event):Void {
-        var safeElapsed:Float = Math.min(FlxG.elapsed, 0.1);
+        var safeElapsed:Float = (FlxG.elapsed > 0) ? Math.min(FlxG.elapsed, 0.1) : (1.0 / framerate);
 
         fileWatchTimer += safeElapsed;
         if (fileWatchTimer >= FILE_WATCH_INTERVAL) {

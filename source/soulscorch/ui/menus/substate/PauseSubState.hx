@@ -1,5 +1,6 @@
 package soulscorch.ui.menus.substate;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -22,6 +23,7 @@ import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
+import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -41,11 +43,14 @@ class PauseSubState extends MusicBeatSubstate {
 
     private var grpMenu:FlxTypedGroup<FlxSpriteGroup>;
     private var itemBgs:Array<FlxSprite> = [];
+    private var itemIndicators:Array<FlxSprite> = [];
     private var bg:FlxSprite;
     private var pauseMusic:FlxSound;
 
     private var headerCard:FlxSpriteGroup;
     private var statsCard:FlxSpriteGroup;
+    private var subCamera:FlxCamera;
+    private var isLeaving:Bool = false;
 
     public function new() {
         super();
@@ -59,6 +64,11 @@ class PauseSubState extends MusicBeatSubstate {
             'Score: ${(PlayState.instance != null ? PlayState.instance.songScore : 0)} | Difficulty: ${PlayState.curDifficulty.toUpperCase()}'
         );
         #end
+
+        subCamera = new FlxCamera();
+        subCamera.bgColor = FlxColor.TRANSPARENT;
+        FlxG.cameras.add(subCamera, false);
+        cameras = [subCamera];
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
@@ -74,7 +84,6 @@ class PauseSubState extends MusicBeatSubstate {
 
         rebuildMenu();
 
-        // Audio Ambience
         var pMusic = Paths.music("breakfast");
         if (pMusic == null) pMusic = Paths.music("pause");
         if (pMusic != null) {
@@ -82,7 +91,7 @@ class PauseSubState extends MusicBeatSubstate {
             pauseMusic.volume = 0;
             pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
             FlxG.sound.list.add(pauseMusic);
-            pauseMusic.fadeIn(2.0, 0, 0.65);
+            pauseMusic.fadeIn(1.5, 0, 0.65);
         }
 
         changeSelection(0);
@@ -135,6 +144,7 @@ class PauseSubState extends MusicBeatSubstate {
     private function rebuildMenu():Void {
         grpMenu.clear();
         itemBgs = [];
+        itemIndicators = [];
 
         var itemWidth = 420;
 
@@ -153,8 +163,16 @@ class PauseSubState extends MusicBeatSubstate {
             var indicator = new FlxSprite(0, 0).makeGraphic(4, 52, EditorTheme.ACCENT_CYAN);
             indicator.alpha = 0.0;
             itemGroup.add(indicator);
+            itemIndicators.push(indicator);
 
-            var label = new FlxText(22, 14, itemWidth - 44, menuItems[i], 18);
+            var labelText = menuItems[i];
+            if (labelText == "Toggle Practice Mode") {
+                labelText += GameplayFlags.getBool("practiceMode", false) ? " [ON]" : " [OFF]";
+            } else if (labelText == "Toggle Botplay") {
+                labelText += (PlayState.instance != null && PlayState.instance.botplay) ? " [ON]" : " [OFF]";
+            }
+
+            var label = new FlxText(22, 14, itemWidth - 44, labelText, 18);
             label.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
             itemGroup.add(label);
 
@@ -164,6 +182,7 @@ class PauseSubState extends MusicBeatSubstate {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (isLeaving) return;
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
@@ -180,7 +199,8 @@ class PauseSubState extends MusicBeatSubstate {
             var item = grpMenu.members[i];
             var isCur = (i == curSelected);
             itemBgs[i].color = isCur ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
-            item.x = isCur ? 75 : 60;
+            itemIndicators[i].alpha = isCur ? 1.0 : 0.0;
+            item.x = FlxMath.lerp(item.x, isCur ? 75 : 60, FlxMath.bound(elapsed * 15, 0, 1));
             item.alpha = isCur ? 1.0 : 0.6;
         }
     }
@@ -191,8 +211,10 @@ class PauseSubState extends MusicBeatSubstate {
     }
 
     private function resumeGame():Void {
+        isLeaving = true;
         stopPauseMusic();
         if (PlayState.instance != null) PlayState.instance.resumeSong();
+        cleanupCamera();
         close();
     }
 
@@ -202,17 +224,20 @@ class PauseSubState extends MusicBeatSubstate {
                 resumeGame();
 
             case "Restart Song":
+                isLeaving = true;
                 stopPauseMusic();
+                cleanupCamera();
                 if (PlayState.instance != null) {
                     PlayState.instance.paused = false;
-                    FlxG.resetState();
                 }
+                MusicBeatState.resetState();
 
             case "Toggle Practice Mode":
                 var current = GameplayFlags.getBool("practiceMode", false);
                 GameplayFlags.set("practiceMode", !current);
                 AssetHelper.playSoundSafely("confirmMenu", 0.7);
-                resumeGame();
+                rebuildMenu();
+                changeSelection(0);
 
             case "Toggle Botplay":
                 if (PlayState.instance != null) {
@@ -222,15 +247,25 @@ class PauseSubState extends MusicBeatSubstate {
                     }
                 }
                 AssetHelper.playSoundSafely("confirmMenu", 0.7);
-                resumeGame();
+                rebuildMenu();
+                changeSelection(0);
 
             case "Options":
+                isLeaving = true;
                 stopPauseMusic();
+                cleanupCamera();
+                if (PlayState.instance != null && PlayState.instance.audio != null) {
+                    PlayState.instance.audio.stop();
+                }
                 MusicBeatState.switchState(new OptionsMenuState());
 
             case "Exit to Main Menu":
+                isLeaving = true;
                 stopPauseMusic();
-                if (PlayState.instance != null) PlayState.instance.paused = false;
+                cleanupCamera();
+                if (PlayState.instance != null && PlayState.instance.audio != null) {
+                    PlayState.instance.audio.stop();
+                }
                 MusicBeatState.switchState(new MainMenuState());
         }
     }
@@ -244,8 +279,16 @@ class PauseSubState extends MusicBeatSubstate {
         }
     }
 
+    private function cleanupCamera():Void {
+        if (subCamera != null && FlxG.cameras.list.contains(subCamera)) {
+            FlxG.cameras.remove(subCamera, true);
+        }
+        subCamera = null;
+    }
+
     override public function destroy():Void {
         stopPauseMusic();
+        cleanupCamera();
         super.destroy();
     }
 }

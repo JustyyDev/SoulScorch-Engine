@@ -11,27 +11,8 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
     private var curBeat:Int = 0;
     private var curMeasure:Int = 0;
 
-    private var onTransitionOut:Void->Void;
-    private var transData:TransitionData;
-
-    public function new(?onComplete:Void->Void, ?trans:TransitionData) {
+    public function new() {
         super();
-        this.onTransitionOut = onComplete;
-        this.transData = trans;
-    }
-
-    override public function create():Void {
-        super.create();
-
-        if (transData != null) {
-            var trans = new MusicBeatTransition(transData, function() {
-                if (onTransitionOut != null) {
-                    onTransitionOut();
-                }
-                close();
-            });
-            add(trans);
-        }
     }
 
     override public function update(elapsed:Float):Void {
@@ -49,7 +30,9 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
 
     private function updateCurStep():Void {
         var lastChange = Conductor.getBPMAtTime(Conductor.songPosition);
-        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) ? lastChange.stepCrochet : ((60.0 / lastChange.bpm) * 1000.0) / 4.0;
+        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) 
+            ? lastChange.stepCrochet 
+            : ((60.0 / lastChange.bpm) * 1000.0) / 4.0;
         curStep = lastChange.stepTime + Math.floor((Conductor.songPosition - lastChange.songTime) / currentStepCrochet);
     }
 

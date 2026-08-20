@@ -1,13 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
-title SoulScorch Engine - High-Speed Build Pipeline
+title SoulScorch Engine - Build & Compilation Suite
+color 0b
 
-echo ===================================================
-echo   SoulScorch Engine - High-Speed Build Pipeline
-echo ===================================================
-echo.
-
-:: 1. Explicit Paths to Portable Tools
+:: 1. Force Working Directory & Locate Environment
+cd /d "%~dp0"
 set "ROOT_DIR=%~dp0"
 set "TOOLS_DIR=%ROOT_DIR%.tools"
 
@@ -17,110 +14,163 @@ set "MINGW_DIR=%TOOLS_DIR%\mingw\bin"
 set "HAXELIB_DIR=%ROOT_DIR%.haxelib"
 if not exist "%HAXELIB_DIR%" set "HAXELIB_DIR=%TOOLS_DIR%\haxelib"
 
-:: Fallback if tools are at the root of .tools
+:: Fallback if tools are installed locally in .tools root
 if not exist "%HAXE_DIR%\haxe.exe" if exist "%TOOLS_DIR%\haxe.exe" set "HAXE_DIR=%TOOLS_DIR%"
 if not exist "%NEKO_DIR%\neko.exe" if exist "%TOOLS_DIR%\neko.exe" set "NEKO_DIR=%TOOLS_DIR%"
 
-if not exist "%HAXE_DIR%\haxe.exe" (
-    echo [ERROR] haxe.exe not found in "%HAXE_DIR%".
-    pause
-    exit /b 1
+if exist "%HAXE_DIR%\haxe.exe" (
+    set "PATH=%HAXE_DIR%;%NEKO_DIR%;%PATH%"
+    set "HAXEPATH=%HAXE_DIR%"
+    set "NEKOPATH=%NEKO_DIR%"
+    set "HAXE_STD_PATH=%HAXE_DIR%\std"
+    set "HAXELIB_CMD=%HAXE_DIR%\haxelib.exe"
+) else (
+    set "HAXELIB_CMD=haxelib"
 )
 
-:: 2. Set Session Environment Variables
-set "PATH=%HAXE_DIR%;%NEKO_DIR%;%PATH%"
 if exist "%MINGW_DIR%" set "PATH=%MINGW_DIR%;%PATH%"
-
-set "HAXEPATH=%HAXE_DIR%"
-set "NEKOPATH=%NEKO_DIR%"
-set "HAXE_STD_PATH=%HAXE_DIR%\std"
 if exist "%HAXELIB_DIR%" set "HAXELIB_PATH=%HAXELIB_DIR%"
 
-:: 3. Multithreaded C++ Compilation Optimization
+:: 2. Multithreaded Core Optimization
 if defined NUMBER_OF_PROCESSORS (
     set "HXCPP_COMPILE_THREADS=%NUMBER_OF_PROCESSORS%"
 ) else (
     set "HXCPP_COMPILE_THREADS=8"
 )
-set "HXCPP_VERBOSE=0"
 
-:: 4. Configure Git Safe Directories
-where git >nul 2>&1
-if %ERRORLEVEL% equ 0 git config --global --add safe.directory "*" >nul 2>&1
+:: 3. Clear Broken HXCPP Config Cache
+if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 
-echo [OK] Using Haxe:        "%HAXE_DIR%"
-echo [OK] Using Neko:        "%NEKO_DIR%"
-echo [OK] Compiling Threads: %HXCPP_COMPILE_THREADS%
-if exist "%MINGW_DIR%" echo [OK] Using MinGW:       "%MINGW_DIR%"
-if defined HAXELIB_PATH echo [OK] Using Haxelib:     "%HAXELIB_PATH%"
-echo.
-
-:: 5. Build Menu
-echo Select Build Target:
-echo [1] Fast Test (Neko VM - Instant launch)
-echo [2] Fast CPPIA Test (Direct C++ host runner)
-echo [3] Windows C++ Test (Multithreaded Release - Clean PCH)
-echo [4] Windows C++ Debug (With Crash Tracing)
-echo [5] Deep Clean and Rebuild C++ (Wipes all hidden caches)
-echo [6] Install / Setup Required Haxelibs
-echo.
-set /p target="Choice (default 1): "
-if "%target%"=="" set "target=1"
-
-if "%target%"=="1" (
-    echo [*] Launching Neko Fast VM Test...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -neko
-) else if "%target%"=="2" (
-    echo [*] Running CPPIA Bytecode Test...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -cppia
-) else if "%target%"=="3" (
-    echo [*] Compiling Multithreaded Windows C++ build...
-    if exist "%MINGW_DIR%" (
-        "%HAXE_DIR%\haxelib.exe" run lime test windows -DHXCPP_MINGW -D HXCPP_NO_PCH
-    ) else (
-        "%HAXE_DIR%\haxelib.exe" run lime test windows -D HXCPP_NO_PCH
+:: 4. Auto-Detect 64-Bit MSVC Toolchain
+if not defined VSCMD_VER (
+    set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+    if exist "!VSWHERE!" (
+        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+            set "VS_PATH=%%i"
+        )
+        if exist "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" (
+            call "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        )
     )
-) else if "%target%"=="4" (
-    echo [*] Compiling Windows C++ with Debug Tracing...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -debug -DHXCPP_STACK_LINE -D HXCPP_NO_PCH
-) else if "%target%"=="5" (
-    echo [*] Terminating lingering game processes...
-    taskkill /F /IM SoulScorch.exe /T 2>nul
-    taskkill /F /IM SoulScorch-debug.exe /T 2>nul
-    timeout /t 1 /nobreak >nul
-
-    echo [*] Purging local export and bin directories...
-    if exist "export" rd /s /q "export" 2>nul
-    if exist "bin" rd /s /q "bin" 2>nul
-
-    echo [*] Purging global Hxcpp and MSVC build caches to fix header collisions...
-    if exist "C:\hxcpp_cache" rd /s /q "C:\hxcpp_cache" 2>nul
-    if exist "%USERPROFILE%\.hxcpp" rd /s /q "%USERPROFILE%\.hxcpp" 2>nul
-
-    echo [*] Rebuilding C++ from scratch...
-    "%HAXE_DIR%\haxelib.exe" run lime test windows -D HXCPP_NO_PCH
-) else if "%target%"=="6" (
-    if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
-    "%HAXE_DIR%\haxelib.exe" setup "%HAXELIB_DIR%"
-    "%HAXE_DIR%\haxelib.exe" install lime 8.1.3 --always
-    "%HAXE_DIR%\haxelib.exe" install openfl 9.3.3 --always
-    "%HAXE_DIR%\haxelib.exe` install flixel 5.6.2 --always
-    "%HAXE_DIR%\haxelib.exe" install flixel-addons 3.2.3 --always
-    "%HAXE_DIR%\haxelib.exe" install flixel-ui 2.6.1 --always
-    "%HAXE_DIR%\haxelib.exe" install hscript 2.5.0 --always
-    "%HAXE_DIR%\haxelib.exe" set hscript 2.5.0
-    "%HAXE_DIR%\haxelib.exe" install hscript-iris 1.1.0 --always
-    "%HAXE_DIR%\haxelib.exe" install away3d --always
-    "%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always
-    "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
-    "%HAXE_DIR%\haxelib.exe" run lime setup -y
 )
 
+:MENU
+cls
+echo ==============================================================================
+echo                      SOULSCORCH ENGINE // BUILD MATRIX                         
+echo ==============================================================================
+echo.
+echo   [1] Windows C++ (Release x64 - Standard Optimized Game)
+echo   [2] Windows C++ (Debug Mode - Full Trace & Visual Debugger)
+echo   [3] Windows C++ (MinGW GCC 64-Bit Alternate Toolchain)
+echo   [4] Windows C++ (32-Bit x86 Compatibility Mode)
+echo   [5] Fast Neko VM Test (Instant Logic & UI Sandbox)
+echo   [6] Fast CPPIA Test (Bytecode Script Host)
+echo   [7] Deep Cache Purge & Full Rebuild (Clears locks, bin & caches)
+echo   [8] Install / Repair Engine Haxelib Dependencies
+echo   [9] Exit
+echo.
+echo ==============================================================================
+set /p choice="Enter option number [1-9] (Default: 1): "
+
+if "%choice%"=="" goto BUILD_RELEASE
+if "%choice%"=="1" goto BUILD_RELEASE
+if "%choice%"=="2" goto BUILD_DEBUG
+if "%choice%"=="3" goto BUILD_MINGW
+if "%choice%"=="4" goto BUILD_X86
+if "%choice%"=="5" goto BUILD_NEKO
+if "%choice%"=="6" goto BUILD_CPPIA
+if "%choice%"=="7" goto DEEP_CLEAN
+if "%choice%"=="8" goto SETUP_LIBS
+if "%choice%"=="9" exit /b 0
+
+echo Invalid selection.
+timeout /t 1 >nul
+goto MENU
+
+:BUILD_RELEASE
+cls
+echo [*] Compiling Windows C++ 64-Bit Release Build...
+echo [*] Worker Threads: %HXCPP_COMPILE_THREADS%
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH -64
+goto BUILD_END
+
+:BUILD_DEBUG
+cls
+echo [*] Compiling Windows C++ 64-Bit Debug Build...
+"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DHXCPP_NO_PCH -64
+goto BUILD_END
+
+:BUILD_MINGW
+cls
+echo [*] Compiling Windows 64-Bit with MinGW GCC...
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_NO_PCH -64
+goto BUILD_END
+
+:BUILD_X86
+cls
+echo [*] Compiling Windows 32-Bit (x86 Release)...
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH -32
+goto BUILD_END
+
+:BUILD_NEKO
+cls
+echo [*] Running Neko Bytecode Test...
+"%HAXELIB_CMD%" run lime test windows -neko
+goto BUILD_END
+
+:BUILD_CPPIA
+cls
+echo [*] Running CPPIA Host Test...
+"%HAXELIB_CMD%" run lime test windows -cppia
+goto BUILD_END
+
+:DEEP_CLEAN
+cls
+echo [*] Killing active game processes...
+taskkill /F /IM SoulScorch.exe /T >nul 2>&1
+taskkill /F /IM SoulScorch-debug.exe /T >nul 2>&1
+
+echo [*] Purging build directories and config locks...
+if exist "export" rd /s /q "export" >nul 2>&1
+if exist "bin" rd /s /q "bin" >nul 2>&1
+if exist "C:\hxcpp_cache" rd /s /q "C:\hxcpp_cache" >nul 2>&1
+if exist "%USERPROFILE%\.hxcpp" rd /s /q "%USERPROFILE%\.hxcpp" >nul 2>&1
+if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
+
+echo [*] Starting fresh multithreaded rebuild...
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH -64
+goto BUILD_END
+
+:SETUP_LIBS
+cls
+echo [*] Installing and syncing required libraries...
+if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
+"%HAXELIB_CMD%" setup "%HAXELIB_DIR%"
+"%HAXELIB_CMD%" install lime 8.1.3 --always --skip-dependencies
+"%HAXELIB_CMD%" install openfl 9.3.3 --always --skip-dependencies
+"%HAXELIB_CMD%" install flixel 5.6.2 --always --skip-dependencies
+"%HAXELIB_CMD%" install flixel-addons 3.2.3 --always --skip-dependencies
+"%HAXELIB_CMD%" install flixel-ui 2.6.1 --always --skip-dependencies
+"%HAXELIB_CMD%" install hscript 2.5.0 --always
+"%HAXELIB_CMD%" set hscript 2.5.0
+"%HAXELIB_CMD%" install hscript-iris 1.1.0 --always
+"%HAXELIB_CMD%" install away3d --always
+"%HAXELIB_CMD%" install hxcpp 4.3.2 --always
+"%HAXELIB_CMD%" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always
+"%HAXELIB_CMD%" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
+"%HAXELIB_CMD%" run lime setup -y
+goto BUILD_END
+
+:BUILD_END
 echo.
 if %ERRORLEVEL% neq 0 (
-    echo [x] Process failed with exit code %ERRORLEVEL%.
+    color 0c
+    echo [X] Build process exited with error code %ERRORLEVEL%.
 ) else (
-    echo [OK] Done.
+    color 0a
+    echo [OK] Build pipeline completed successfully.
 )
-
+echo.
 pause
+goto MENU

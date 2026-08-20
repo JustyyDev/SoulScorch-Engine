@@ -11,15 +11,16 @@ import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
 
 class MusicBeatState extends Scene implements IBeatReceiver {
-    public static var defaultTransition:TransitionData = new TransitionData(TransitionType.FADE, TransitionDirection.OUT, 0.45);
+    public static var defaultTransition:TransitionData = new TransitionData(TransitionType.WIPE, TransitionDirection.OUT, 0.35);
     public static var skipNextTransIn:Bool = false;
     public static var skipNextTransOut:Bool = false;
+    public static var nextStateTarget:FlxState = null;
 
     override public function create():Void {
         super.create();
 
         if (!skipNextTransIn) {
-            openSubState(new CustomSubstate(function() {}, new TransitionData(defaultTransition.type, TransitionDirection.IN, defaultTransition.duration, defaultTransition.color)));
+            MusicBeatTransition.play(new TransitionData(defaultTransition.type, TransitionDirection.IN, defaultTransition.duration, defaultTransition.color, defaultTransition.ease));
         }
         skipNextTransIn = false;
     }
@@ -39,7 +40,9 @@ class MusicBeatState extends Scene implements IBeatReceiver {
 
     private function updateCurStep():Void {
         var lastChange = Conductor.getBPMAtTime(Conductor.songPosition);
-        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) ? lastChange.stepCrochet : ((60.0 / lastChange.bpm) * 1000.0) / 4.0;
+        var currentStepCrochet = (lastChange.stepCrochet != null && lastChange.stepCrochet > 0) 
+            ? lastChange.stepCrochet 
+            : ((60.0 / lastChange.bpm) * 1000.0) / 4.0;
         curStep = lastChange.stepTime + Math.floor((Conductor.songPosition - lastChange.songTime) / currentStepCrochet);
     }
 
@@ -62,10 +65,9 @@ class MusicBeatState extends Scene implements IBeatReceiver {
 
     public static function switchState(nextState:FlxState, ?transData:TransitionData):Void {
         if (nextState == null) return;
-        var transition = transData != null ? transData : defaultTransition;
-
         if (MusicBeatTransition.isTransitioning) return;
-        MusicBeatTransition.isTransitioning = true;
+
+        var transition = transData != null ? transData : defaultTransition;
 
         var stateName:String = Type.getClassName(Type.getClass(nextState)).split(".").pop();
         var redirectTarget:Null<String> = soulscorch.scripting.mod.SoulGlobalScript.getRedirect(stateName);
@@ -74,21 +76,23 @@ class MusicBeatState extends Scene implements IBeatReceiver {
             ? new soulscorch.scripting.mod.ModCustomState(redirectTarget) 
             : nextState;
 
-        if (skipNextTransOut || FlxG.state == null) {
+        if (skipNextTransOut || transition.type == NONE || FlxG.state == null) {
             skipNextTransOut = false;
             MusicBeatTransition.isTransitioning = false;
             FlxG.switchState(finalTarget);
             return;
         }
 
-        FlxG.state.openSubState(new CustomSubstate(function() {
-            FlxG.switchState(finalTarget);
-        }, transition));
+        nextStateTarget = finalTarget;
+        MusicBeatTransition.play(transition, function() {
+            FlxG.switchState(nextStateTarget);
+            nextStateTarget = null;
+        });
     }
-}
 
-class CustomSubstate extends MusicBeatSubstate {
-    public function new(onComplete:Void->Void, trans:TransitionData) {
-        super(onComplete, trans);
+    public static function resetState(?transData:TransitionData):Void {
+        if (FlxG.state == null) return;
+        var curClass = Type.getClass(FlxG.state);
+        switchState(Type.createInstance(curClass, []), transData);
     }
 }

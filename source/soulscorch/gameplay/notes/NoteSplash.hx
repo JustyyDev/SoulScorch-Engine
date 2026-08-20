@@ -9,7 +9,7 @@ class NoteSplash extends FlxSprite {
         super(x, y);
         loadSplash("NOTE_assets");
         antialiasing = true;
-        alpha = 0.6;
+        alpha = 0.75;
     }
 
     public function loadSplash(?skin:String = "NOTE_assets"):Void {
@@ -32,7 +32,7 @@ class NoteSplash extends FlxSprite {
         loadSplash(skin);
 
         setPosition(receptorX - (width * 0.25), receptorY - (height * 0.25));
-        alpha = 0.6;
+        alpha = 0.75;
 
         var variant = FlxG.random.int(1, 2);
         var animName = 'note$variant-${noteData % 4}';

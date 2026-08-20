@@ -11,6 +11,7 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
@@ -51,6 +52,8 @@ class FreeplayState extends MusicBeatState {
     private var intendedRating:String = "N/A";
 
     private var instPreview:FlxSound;
+    private var previewTimer:FlxTimer;
+    private var colorTween:FlxTween;
 
     override public function create():Void {
         super.create();
@@ -72,7 +75,6 @@ class FreeplayState extends MusicBeatState {
         bg.antialiasing = true;
         add(bg);
 
-        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -167,12 +169,14 @@ class FreeplayState extends MusicBeatState {
         if (Controls.instance.UI_RIGHT_P) changeDiff(1);
 
         if (Controls.instance.BACK) {
+            cancelPreviewTimer();
             stopPreview();
             AssetHelper.playSoundSafely("cancelMenu", 0.7);
             MusicBeatState.switchState(new MainMenuState());
         }
 
         if (Controls.instance.ACCEPT && songs.length > 0) {
+            cancelPreviewTimer();
             stopPreview();
             var selected = songs[curSelected];
             var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
@@ -199,8 +203,8 @@ class FreeplayState extends MusicBeatState {
 
         if (bg != null) {
             var targetColor:FlxColor = songs[curSelected].color;
-            FlxTween.cancelTweensOf(bg);
-            FlxTween.color(bg, 0.25, bg.color, targetColor);
+            if (colorTween != null) colorTween.cancel();
+            colorTween = FlxTween.color(bg, 0.35, bg.color, targetColor, {ease: FlxEase.quartOut});
         }
 
         var bullShit:Int = 0;
@@ -213,7 +217,7 @@ class FreeplayState extends MusicBeatState {
 
         curDifficulty = 0;
         changeDiff(0);
-        playSongPreview();
+        scheduleSongPreview();
     }
 
     private function changeDiff(change:Int = 0):Void {
@@ -239,15 +243,30 @@ class FreeplayState extends MusicBeatState {
         }
     }
 
-    private function playSongPreview():Void {
-        stopPreview();
-        var selected = songs[curSelected];
-        var instSound = Paths.inst(selected.id);
-        if (instSound != null) {
-            instPreview = new FlxSound().loadEmbedded(instSound, true);
-            instPreview.volume = 0.7;
-            instPreview.play();
-            FlxG.sound.list.add(instPreview);
+    private function scheduleSongPreview():Void {
+        cancelPreviewTimer();
+
+        previewTimer = new FlxTimer().start(0.35, function(_) {
+            if (songs.length == 0 || curSelected >= songs.length) return;
+            var selected = songs[curSelected];
+            var instSound = Paths.inst(selected.id);
+
+            if (instSound != null) {
+                stopPreview();
+                instPreview = new FlxSound().loadEmbedded(instSound, true);
+                instPreview.volume = 0;
+                instPreview.play();
+                instPreview.fadeIn(0.6, 0.0, 0.7);
+                FlxG.sound.list.add(instPreview);
+            }
+        });
+    }
+
+    private function cancelPreviewTimer():Void {
+        if (previewTimer != null) {
+            previewTimer.cancel();
+            previewTimer.destroy();
+            previewTimer = null;
         }
     }
 
@@ -261,7 +280,9 @@ class FreeplayState extends MusicBeatState {
     }
 
     override public function destroy():Void {
+        cancelPreviewTimer();
         stopPreview();
+        if (colorTween != null) colorTween.cancel();
         Controls.instance.unbindMobilePad();
         super.destroy();
     }
