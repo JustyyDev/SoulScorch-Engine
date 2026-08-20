@@ -185,7 +185,7 @@ class CharacterEditorState extends MusicBeatState {
         previewHealthBarBG.scrollFactor.set();
         add(previewHealthBarBG);
 
-        var healthBarCol:FlxColor = (charLayer != null && charLayer.healthColor != null) ? charLayer.healthColor : 0xFF66FF33;
+        var healthBarCol:FlxColor = (charLayer != null) ? charLayer.healthColor : 0xFF66FF33;
         previewHealthBar = new FlxBar(previewHealthBarBG.x + 2, previewHealthBarBG.y + 2, RIGHT_TO_LEFT, 396, 14);
         previewHealthBar.createFilledBar(0xFFFF0000, healthBarCol);
         previewHealthBar.cameras = [camHUD];
@@ -602,7 +602,7 @@ class CharacterEditorState extends MusicBeatState {
             camera_position: (charLayer != null && charLayer.cameraOffset != null) ? charLayer.cameraOffset : [0.0, 0.0],
             flip_x: (charLayer != null) ? charLayer.flipX : false,
             no_antialiasing: (charLayer != null) ? !charLayer.antialiasing : false,
-            healthbar_colors: (charLayer != null && charLayer.healthColor != null) ? [Std.int(charLayer.healthColor.red), Std.int(charLayer.healthColor.green), Std.int(charLayer.healthColor.blue)] : [255, 255, 255]
+            healthbar_colors: (charLayer != null) ? [Std.int(charLayer.healthColor.red), Std.int(charLayer.healthColor.green), Std.int(charLayer.healthColor.blue)] : [255, 255, 255]
         };
 
         for (anim in animList) {

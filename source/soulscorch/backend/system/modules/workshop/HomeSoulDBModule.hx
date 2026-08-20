@@ -2,17 +2,24 @@ package soulscorch.backend.system.modules.workshop;
 
 import haxe.Http;
 import haxe.Json;
+import haxe.io.Bytes;
+import haxe.io.BytesInput;
+import haxe.zip.Reader;
+import haxe.zip.Entry;
 import flixel.FlxG;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModManager;
 
 #if sys
 import sys.FileSystem;
 import sys.io.File;
 import sys.thread.Thread;
 #end
+
+using StringTools;
 
 typedef SoulModEntry = {
     var modId:String;
@@ -130,10 +137,10 @@ class HomeSoulDBModule extends ModuleBase {
         #end
     }
 
-    public function downloadMod(entry:SoulModEntry, ?onComplete:Bool->Void):Void {
+    public function downloadMod(entry:SoulModEntry, ?onProgress:Float->Void, ?onComplete:Bool->Void):Void {
         #if sys
-        if (entry.isWIP || entry.downloadUrl == null || entry.downloadUrl.length == 0) {
-            if (entry.teaserUrl != null && entry.teaserUrl.length > 0) {
+        if (entry.isWIP || entry.downloadUrl == null || entry.downloadUrl.trim().length == 0) {
+            if (entry.teaserUrl != null && entry.teaserUrl.trim().length > 0) {
                 FlxG.openURL(entry.teaserUrl);
             }
             if (onComplete != null) onComplete(false);
@@ -147,18 +154,39 @@ class HomeSoulDBModule extends ModuleBase {
                     FileSystem.createDirectory(folder);
                 }
 
-                var filePath = '$folder/${entry.modId}.zip';
+                var zipPath = '$folder/${entry.modId}.zip';
+                var targetExtractedFolder = '$folder/${entry.modId}';
+
                 var http = new Http(entry.downloadUrl);
+                http.setHeader("User-Agent", "SoulScorch-Engine-Client");
                 Logger.info('[HOMESOUL-DB] Downloading "${entry.title}"...', "workshop");
 
                 http.onBytes = function(bytes:haxe.io.Bytes) {
-                    File.saveBytes(filePath, bytes);
-                    Logger.info('[HOMESOUL-DB] Saved to $filePath', "workshop");
+                    try {
+                        File.saveBytes(zipPath, bytes);
+                        Logger.info('[HOMESOUL-DB] Package downloaded to $zipPath. Unpacking...', "workshop");
 
-                    if (NotificationManager.instance != null) {
-                        NotificationManager.instance.notify("Download Complete", '${entry.title} has been downloaded to /mods!');
+                        // Extract ZIP contents directly into target mod folder
+                        uncompressZip(bytes, targetExtractedFolder);
+
+                        // Clean up temporary downloaded zip archive
+                        if (FileSystem.exists(zipPath)) {
+                            FileSystem.deleteFile(zipPath);
+                        }
+
+                        // Hot-reload active registry
+                        ModManager.reloadMods();
+
+                        Logger.info('[HOMESOUL-DB] Successfully installed package: ${entry.title}', "workshop");
+
+                        if (NotificationManager.instance != null) {
+                            NotificationManager.instance.notify("Installation Complete", '${entry.title} is now active!');
+                        }
+                        if (onComplete != null) onComplete(true);
+                    } catch (e:Dynamic) {
+                        Logger.error('[HOMESOUL-DB] Extraction error: $e', "workshop");
+                        if (onComplete != null) onComplete(false);
                     }
-                    if (onComplete != null) onComplete(true);
                 };
 
                 http.onError = function(err:String) {
@@ -174,4 +202,33 @@ class HomeSoulDBModule extends ModuleBase {
         });
         #end
     }
+
+    #if sys
+    private function uncompressZip(bytes:Bytes, targetDir:String):Void {
+        if (!FileSystem.exists(targetDir)) {
+            FileSystem.createDirectory(targetDir);
+        }
+
+        var input = new BytesInput(bytes);
+        var entries = Reader.readZip(input);
+
+        for (record in entries) {
+            var fileName = record.fileName.replace("\\", "/");
+            if (fileName.endsWith("/")) {
+                var dirPath = '$targetDir/$fileName';
+                if (!FileSystem.exists(dirPath)) FileSystem.createDirectory(dirPath);
+                continue;
+            }
+
+            var filePath = '$targetDir/$fileName';
+            var fileDir = haxe.io.Path.directory(filePath);
+            if (!FileSystem.exists(fileDir)) {
+                FileSystem.createDirectory(fileDir);
+            }
+
+            var data = Reader.unzip(record);
+            File.saveBytes(filePath, data);
+        }
+    }
+    #end
 }

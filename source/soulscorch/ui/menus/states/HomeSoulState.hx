@@ -54,6 +54,9 @@ class HomeSoulState extends MusicBeatState {
     private var isDownloading:Bool = false;
     private var mobileControls:MobilePad;
 
+    private var curScrollY:Float = 0.0;
+    private var targetScrollY:Float = 0.0;
+
     override public function create():Void {
         super.create();
 
@@ -65,7 +68,6 @@ class HomeSoulState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -77,7 +79,6 @@ class HomeSoulState extends MusicBeatState {
         grid.scrollFactor.set(0, 0);
         add(grid);
 
-        // Header Top Bar
         var topBar = new FlxSprite().makeGraphic(FlxG.width, 68, EditorTheme.PANEL_HEADER);
         topBar.scrollFactor.set(0, 0);
         add(topBar);
@@ -106,14 +107,13 @@ class HomeSoulState extends MusicBeatState {
 
         setupSidePanel();
 
-        // Footer Bar
         var footer = new FlxSprite(0, FlxG.height - 48).makeGraphic(FlxG.width, 48, EditorTheme.PANEL_HEADER);
         add(footer);
 
         var footerBorder = new FlxSprite(0, FlxG.height - 48).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
         add(footerBorder);
 
-        var helpText = new FlxText(0, FlxG.height - 32, FlxG.width, "[ENTER] Download / Open  |  [B] Bump Mod  |  [Q / E] Category  |  [SHIFT+S] Submit  |  [ESC] Back", 12);
+        var helpText = new FlxText(0, FlxG.height - 32, FlxG.width, "[ENTER] Install Package  |  [B] Bump Mod  |  [Q / E] Category  |  [SHIFT+S] Submit Mod  |  [ESC] Back", 12);
         helpText.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, CENTER);
         add(helpText);
 
@@ -175,7 +175,6 @@ class HomeSoulState extends MusicBeatState {
         descText.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, LEFT);
         sidePanel.add(descText);
 
-        // Download Progress Bar
         downloadBarBG = new FlxSprite(20, sidePanel.height - 45).makeGraphic(360, 16, EditorTheme.PANEL_BORDER);
         downloadBarBG.visible = false;
         sidePanel.add(downloadBarBG);
@@ -298,6 +297,8 @@ class HomeSoulState extends MusicBeatState {
             statusBadge.color = FlxColor.GREEN;
         }
 
+        targetScrollY = -(curSelected * 72) + (FlxG.height * 0.35) - 85;
+
         for (i in 0...grpCards.members.length) {
             var card = grpCards.members[i];
             var isCur = (i == curSelected);
@@ -309,6 +310,11 @@ class HomeSoulState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+
+        curScrollY = FlxMath.lerp(curScrollY, targetScrollY, FlxMath.bound(elapsed * 12.0, 0, 1));
+        for (i in 0...grpCards.members.length) {
+            grpCards.members[i].y = 85 + (i * 72) + curScrollY;
+        }
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
@@ -337,16 +343,18 @@ class HomeSoulState extends MusicBeatState {
                 isDownloading = true;
                 downloadBarBG.visible = true;
                 downloadBar.visible = true;
-                downloadProgress = 0.15;
+                downloadProgress = 0.25;
                 EditorToast.show('Downloading: ${entry.title}...');
 
-                HomeSoulDBModule.instance.downloadMod(entry, function(success:Bool) {
+                HomeSoulDBModule.instance.downloadMod(entry, function(p) {
+                    downloadProgress = p;
+                }, function(success:Bool) {
                     isDownloading = false;
                     downloadProgress = 1.0;
                     downloadBarBG.visible = false;
                     downloadBar.visible = false;
                     if (success) {
-                        EditorToast.show('Installed ${entry.title} successfully!');
+                        EditorToast.show('Extracted ${entry.title} to /mods!');
                         AssetHelper.playSoundSafely("confirmMenu", 0.7);
                     } else {
                         EditorToast.show('Failed installing package!', true);
