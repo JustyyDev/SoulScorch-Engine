@@ -53,6 +53,10 @@ class MainMenuState extends MusicBeatState {
         #end
         persistentUpdate = persistentDraw = true;
 
+        if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
+            FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
+        }
+
         loadMenuItems();
 
         bg = new FlxSprite(-80);

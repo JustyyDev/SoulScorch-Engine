@@ -1,142 +1,140 @@
 package soulscorch.gameplay.actors;
 
+import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
 import flixel.util.FlxColor;
 import haxe.Json;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
-import soulscorch.gameplay.actors.CharacterJson;
 
 using StringTools;
 
 class Character extends FlxSprite {
     public var curCharacter:String = "bf";
     public var isPlayer:Bool = false;
-    public var debugMode:Bool = false;
-
-    public var animOffsets:Map<String, Array<Float>> = new Map<String, Array<Float>>();
-    public var positionOffset:Array<Float> = [0.0, 0.0];
-    public var cameraOffset:Array<Float> = [0.0, 0.0];
+    public var isDie:Bool = false;
 
     public var holdTimer:Float = 0.0;
     public var singDuration:Float = 4.0;
+    public var idleSuffix:String = "";
+    public var altAnim:Bool = false;
+
+    public var healthColor:FlxColor = 0xFF66FF33;
     public var healthIcon:String = "face";
-    public var healthColor:FlxColor = 0xFFA1A1A1;
-    public var originalFlipX:Bool = false;
+    public var cameraOffset:Array<Float> = [0.0, 0.0];
+    public var positionOffset:Array<Float> = [0.0, 0.0];
 
-    public var danced:Bool = false;
-    public var specialAnim:Bool = false;
-    public var stunned:Bool = false;
+    public var animOffsets:Map<String, Array<Float>> = new Map<String, Array<Float>>();
 
-    public function new(x:Float, y:Float, curCharacter:String = "bf", isPlayer:Bool = false) {
+    public function new(x:Float = 0, y:Float = 0, character:String = "bf", isPlayer:Bool = false) {
         super(x, y);
-
-        this.curCharacter = (curCharacter != null && curCharacter.length > 0) ? curCharacter : "bf";
+        this.curCharacter = (character != null && character.length > 0) ? character : (isPlayer ? "bf" : "dad");
         this.isPlayer = isPlayer;
+
         loadCharacter();
     }
 
     public function loadCharacter():Void {
         animOffsets.clear();
+        antialiasing = true;
 
-        var charJsonCandidates = [
-            'characters/$curCharacter.json',
-            'data/characters/$curCharacter.json',
-            'assets/characters/$curCharacter.json',
-            'assets/data/characters/$curCharacter.json',
-            'assets/preload/data/characters/$curCharacter.json',
-            'assets/preload/characters/$curCharacter.json'
+        var charDataLoaded = loadCharacterJSON(curCharacter);
+        if (!charDataLoaded) {
+            loadCharacterFallback(curCharacter);
+        }
+
+        dance();
+    }
+
+    private function loadCharacterJSON(char:String):Bool {
+        var jsonPaths = [
+            'characters/$char.json',
+            'data/characters/$char.json',
+            'assets/preload/characters/$char.json',
+            'assets/preload/data/characters/$char.json'
         ];
 
-        var resolvedJson:String = null;
-        for (c in charJsonCandidates) {
-            resolvedJson = AssetResolver.resolveFile(c, [".json", ""]);
-            if (resolvedJson != null) break;
-        }
+        for (path in jsonPaths) {
+            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
+            if (resolved != null) {
+                var content = AssetResolver.getText(resolved);
+                if (content != null && content.length > 0) {
+                    try {
+                        var json:Dynamic = Json.parse(content);
+                        var imagePath = json.image != null ? Std.string(json.image) : 'characters/$char';
 
-        var imageToLoad:String = 'characters/$curCharacter';
-        var charScale:Float = 1.0;
-
-        if (resolvedJson != null) {
-            try {
-                var rawJson:String = AssetResolver.getText(resolvedJson);
-                var data:CharacterJson = Json.parse(rawJson);
-
-                if (data.image != null && data.image.length > 0) {
-                    imageToLoad = data.image;
-                }
-
-                healthIcon = (data.healthIcon != null) ? data.healthIcon : ((data.healthicon != null) ? data.healthicon : curCharacter);
-                singDuration = (data.singDuration != null) ? data.singDuration : ((data.sing_duration != null) ? data.sing_duration : 4.0);
-                originalFlipX = (data.flipX != null) ? data.flipX : ((data.flip_x != null) ? data.flip_x : false);
-                
-                var noAnti:Bool = (data.noAntialiasing != null) ? data.noAntialiasing : ((data.no_antialiasing != null) ? data.no_antialiasing : false);
-                antialiasing = !noAnti;
-
-                if (data.scale != null && data.scale > 0) {
-                    charScale = data.scale;
-                }
-
-                if (data.position != null && data.position.length >= 2) {
-                    positionOffset = [data.position[0], data.position[1]];
-                }
-
-                var camPos = (data.cameraPosition != null) ? data.cameraPosition : data.camera_position;
-                if (camPos != null && camPos.length >= 2) {
-                    cameraOffset = [camPos[0], camPos[1]];
-                }
-
-                var colors = (data.healthBarColor != null) ? data.healthBarColor : data.healthbar_colors;
-                if (colors != null && colors.length >= 3) {
-                    healthColor = FlxColor.fromRGB(colors[0], colors[1], colors[2]);
-                } else {
-                    healthColor = isPlayer ? 0xFF66FF33 : 0xFFFF0000;
-                }
-
-                AssetHelper.loadSparrowSafely(this, imageToLoad);
-
-                if (data.animations != null) {
-                    for (anim in data.animations) {
-                        var fps:Int = (anim.fps != null) ? Std.int(anim.fps) : 24;
-                        var loop:Bool = (anim.loop != null) ? anim.loop : false;
-
-                        if (anim.indices != null && anim.indices.length > 0) {
-                            animation.addByIndices(anim.anim, anim.name, anim.indices, "", fps, loop);
-                        } else {
-                            animation.addByPrefix(anim.anim, anim.name, fps, loop);
+                        if (!AssetHelper.loadSparrowSafely(this, imagePath)) {
+                            AssetHelper.loadSparrowSafely(this, 'characters/$char');
                         }
 
-                        if (anim.offsets != null && anim.offsets.length >= 2) {
-                            addOffset(anim.anim, anim.offsets[0], anim.offsets[1]);
-                        } else {
-                            addOffset(anim.anim, 0, 0);
+                        if (json.healthicon != null) healthIcon = Std.string(json.healthicon);
+                        else if (json.icon != null) healthIcon = Std.string(json.icon);
+                        else healthIcon = char;
+
+                        if (json.healthbar_colors != null && json.healthbar_colors.length >= 3) {
+                            healthColor = FlxColor.fromRGB(json.healthbar_colors[0], json.healthbar_colors[1], json.healthbar_colors[2]);
+                        } else if (json.color != null) {
+                            healthColor = FlxColor.fromString(Std.string(json.color));
                         }
+
+                        if (json.camera_position != null) cameraOffset = [json.camera_position[0], json.camera_position[1]];
+                        if (json.position != null) positionOffset = [json.position[0], json.position[1]];
+                        if (json.sing_duration != null) singDuration = json.sing_duration;
+                        if (json.scale != null) scale.set(json.scale, json.scale);
+                        if (json.flip_x != null) flipX = json.flip_x;
+                        if (isPlayer) flipX = !flipX;
+
+                        var animList:Array<Dynamic> = json.animations != null ? cast json.animations : [];
+                        for (a in animList) {
+                            var animName:String = a.anim;
+                            var animPrefix:String = a.name;
+                            var fps:Int = a.fps != null ? a.fps : 24;
+                            var loop:Bool = a.loop != null ? a.loop : false;
+                            var indices:Array<Int> = a.indices != null ? cast a.indices : null;
+
+                            if (indices != null && indices.length > 0) {
+                                animation.addByIndices(animName, animPrefix, indices, "", fps, loop);
+                            } else {
+                                animation.addByPrefix(animName, animPrefix, fps, loop);
+                            }
+
+                            var offX:Float = (a.offsets != null && a.offsets.length > 0) ? a.offsets[0] : 0.0;
+                            var offY:Float = (a.offsets != null && a.offsets.length > 1) ? a.offsets[1] : 0.0;
+                            addOffset(animName, offX, offY);
+                        }
+                        updateHitbox();
+                        return true;
+                    } catch (e:Dynamic) {
+                        Logger.warn('Failed parsing character JSON for $char: $e', "character");
                     }
                 }
-            } catch (e:Dynamic) {
-                Logger.error('Failed parsing character data for $curCharacter: $e', "actor");
             }
-        } else {
-            AssetHelper.loadSparrowSafely(this, imageToLoad);
-            animation.addByPrefix("idle", "BF idle dance", 24, false);
-            animation.addByPrefix("singLEFT", "BF NOTE LEFT0", 24, false);
-            animation.addByPrefix("singDOWN", "BF NOTE DOWN0", 24, false);
-            animation.addByPrefix("singUP", "BF NOTE UP0", 24, false);
-            animation.addByPrefix("singRIGHT", "BF NOTE RIGHT0", 24, false);
-            addOffset("idle", 0, 0);
-            addOffset("singLEFT", 12, -6);
-            addOffset("singDOWN", -10, -50);
-            addOffset("singUP", -29, 27);
-            addOffset("singRIGHT", -41, -7);
+        }
+        return false;
+    }
+
+    private function loadCharacterFallback(char:String):Void {
+        healthIcon = char;
+        healthColor = isPlayer ? 0xFF66FF33 : 0xFFAF66CE;
+
+        if (!AssetHelper.loadSparrowSafely(this, 'characters/$char')) {
+            if (!AssetHelper.loadSparrowSafely(this, char)) {
+                makeGraphic(150, 250, healthColor);
+                return;
+            }
         }
 
-        scale.set(charScale, charScale);
-        updateHitbox();
-
-        flipX = (isPlayer != originalFlipX);
-        dance();
+        animation.addByPrefix("idle", "idle", 24, false);
+        animation.addByPrefix("singLEFT", "singLEFT", 24, false);
+        animation.addByPrefix("singDOWN", "singDOWN", 24, false);
+        animation.addByPrefix("singUP", "singUP", 24, false);
+        animation.addByPrefix("singRIGHT", "singRIGHT", 24, false);
+        addOffset("idle", 0, 0);
     }
 
     public function addOffset(name:String, x:Float = 0, y:Float = 0):Void {
@@ -144,60 +142,54 @@ class Character extends FlxSprite {
     }
 
     public function playAnim(animName:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void {
-        if (!animation.exists(animName)) return;
+        if (animation.getByName(animName) == null) return;
 
         animation.play(animName, force, reversed, frame);
 
-        var off = animOffsets.get(animName);
-        if (off != null) {
-            offset.set(off[0], off[1]);
+        var daOffset = animOffsets.get(animName);
+        if (daOffset != null) {
+            offset.set(daOffset[0], daOffset[1]);
         } else {
             offset.set(0, 0);
         }
+    }
 
-        if (curCharacter == "gf" || curCharacter.startsWith("gf-")) {
-            if (animName == "singLEFT") danced = true;
-            else if (animName == "singRIGHT") danced = false;
-            if (animName == "singUP" || animName == "singDOWN") danced = !danced;
-        }
+    public function playSingAnim(dir:Int, miss:Bool = false):Void {
+        var dirStr = switch (dir) {
+            case 0: "singLEFT";
+            case 1: "singDOWN";
+            case 2: "singUP";
+            case 3: "singRIGHT";
+            default: "singUP";
+        };
+
+        if (miss) dirStr += "miss";
+        else if (altAnim && animation.getByName(dirStr + "-alt") != null) dirStr += "-alt";
+        else if (altAnim && animation.getByName(dirStr + "alt") != null) dirStr += "alt";
+
+        playAnim(dirStr, true);
+        holdTimer = 0;
     }
 
     public function dance(force:Bool = false):Void {
-        if (!debugMode && !specialAnim) {
-            if (animation.exists("danceLeft") && animation.exists("danceRight")) {
-                danced = !danced;
-                playAnim(danced ? "danceRight" : "danceLeft", force);
-            } else if (animation.exists("idle")) {
-                playAnim("idle", force);
-            }
-        }
-    }
-
-    public function playSingAnim(direction:Int, miss:Bool = false):Void {
-        var anims = ["singLEFT", "singDOWN", "singUP", "singRIGHT"];
-        var anim = anims[direction % 4] + (miss ? "miss" : "");
-        
-        if (animation.exists(anim)) {
-            playAnim(anim, true);
-            holdTimer = 0;
+        if (animation.getByName("danceLeft") != null && animation.getByName("danceRight") != null) {
+            playAnim("danceLeft", force);
+        } else if (animation.getByName("idle" + idleSuffix) != null) {
+            playAnim("idle" + idleSuffix, force);
+        } else if (animation.getByName("idle") != null) {
+            playAnim("idle", force);
         }
     }
 
     override public function update(elapsed:Float):Void {
-        if (!debugMode && animation.curAnim != null) {
-            if (animation.curAnim.name.startsWith("sing")) {
-                holdTimer += elapsed;
-                if (holdTimer >= (singDuration * (1 / 24.0))) {
-                    dance();
-                    holdTimer = 0;
-                }
-            }
+        super.update(elapsed);
 
-            if (animation.curAnim.finished && animation.exists(animation.curAnim.name + "-loop")) {
-                playAnim(animation.curAnim.name + "-loop");
+        if (animation.curAnim != null && animation.curAnim.name.startsWith("sing")) {
+            holdTimer += elapsed;
+            if (holdTimer >= Conductor.stepCrochet * 0.0011 * singDuration) {
+                dance();
+                holdTimer = 0;
             }
         }
-
-        super.update(elapsed);
     }
 }

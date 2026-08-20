@@ -3,6 +3,8 @@ package soulscorch.backend.assets;
 import flixel.FlxG;
 import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.math.FlxPoint;
+import flixel.math.FlxRect;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
 import openfl.utils.Assets;
@@ -54,13 +56,13 @@ class Paths {
 
         var variants = switch (clean) {
             case "scrollMenu", "scroll":
-                ['sounds/menu/scroll', 'sounds/scrollMenu', 'sounds/scroll', 'sounds/menu/scrollMenu'];
+                ['sounds/menu/scroll', 'sounds/scrollMenu', 'sounds/scroll', 'sounds/menu/scrollMenu', 'sfx/scroll'];
             case "confirmMenu", "confirm":
-                ['sounds/menu/confirm', 'sounds/confirmMenu', 'sounds/confirm', 'sounds/menu/confirmMenu'];
+                ['sounds/menu/confirm', 'sounds/confirmMenu', 'sounds/confirm', 'sounds/menu/confirmMenu', 'sfx/confirm'];
             case "cancelMenu", "cancel":
-                ['sounds/menu/cancel', 'sounds/cancelMenu', 'sounds/cancel', 'sounds/menu/cancelMenu'];
+                ['sounds/menu/cancel', 'sounds/cancelMenu', 'sounds/cancel', 'sounds/menu/cancelMenu', 'sfx/cancel'];
             default:
-                ['sounds/$clean', 'sounds/menu/$clean', '$clean'];
+                ['sounds/$clean', 'sounds/menu/$clean', 'sfx/$clean', '$clean'];
         };
 
         for (v in variants) {
@@ -81,7 +83,7 @@ class Paths {
     public static function music(key:String):Null<Sound> {
         if (key == null) return null;
         var clean = key.trim();
-        var tries = ['music/$clean', 'songs/$clean', 'music/menu/$clean', '$clean'];
+        var tries = ['music/$clean', 'songs/$clean', 'music/menu/$clean', 'sounds/music/$clean', '$clean'];
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
@@ -101,13 +103,24 @@ class Paths {
         var stripped = clean.replace(" ", "").replace("-", "");
 
         var tries = [
-            'songs/$dashes/Inst',
+            'songs/$clean/song/Inst',
+            'songs/$dashes/song/Inst',
+            'songs/$stripped/song/Inst',
+            'assets/preload/songs/$clean/song/Inst',
+            'assets/preload/songs/$dashes/song/Inst',
+            'assets/songs/$clean/song/Inst',
+            'music/$clean/song/Inst',
             'songs/$clean/Inst',
+            'songs/$dashes/Inst',
             'songs/$stripped/Inst',
-            'music/$dashes/Inst',
+            'assets/preload/songs/$clean/Inst',
+            'assets/preload/songs/$dashes/Inst',
+            'assets/songs/$clean/Inst',
             'music/$clean/Inst',
-            '$dashes/Inst',
-            '$clean/Inst'
+            'music/$dashes/Inst',
+            'data/$clean/Inst',
+            '$clean/Inst',
+            '$dashes/Inst'
         ];
 
         for (t in tries) {
@@ -121,21 +134,35 @@ class Paths {
         return null;
     }
 
-    public static function voices(song:String):Null<Sound> {
+    public static function voices(song:String, ?suffix:String = ""):Null<Sound> {
         if (song == null) return null;
         var clean = song.toLowerCase().trim();
         var dashes = clean.replace(" ", "-");
         var stripped = clean.replace(" ", "").replace("-", "");
 
-        var tries = [
-            'songs/$dashes/Voices',
-            'songs/$clean/Voices',
-            'songs/$stripped/Voices',
-            'music/$dashes/Voices',
-            'music/$clean/Voices',
-            '$dashes/Voices',
-            '$clean/Voices'
-        ];
+        var fileNames = (suffix != null && suffix.length > 0) ? ['Voices-$suffix', 'Voices_$suffix', 'Voices'] : ['Voices'];
+
+        var tries:Array<String> = [];
+        for (fName in fileNames) {
+            tries.push('songs/$clean/song/$fName');
+            tries.push('songs/$dashes/song/$fName');
+            tries.push('songs/$stripped/song/$fName');
+            tries.push('assets/preload/songs/$clean/song/$fName');
+            tries.push('assets/preload/songs/$dashes/song/$fName');
+            tries.push('assets/songs/$clean/song/$fName');
+            tries.push('music/$clean/song/$fName');
+            tries.push('songs/$clean/$fName');
+            tries.push('songs/$dashes/$fName');
+            tries.push('songs/$stripped/$fName');
+            tries.push('assets/preload/songs/$clean/$fName');
+            tries.push('assets/preload/songs/$dashes/$fName');
+            tries.push('assets/songs/$clean/$fName');
+            tries.push('music/$clean/$fName');
+            tries.push('music/$dashes/$fName');
+            tries.push('data/$clean/$fName');
+            tries.push('$clean/$fName');
+            tries.push('$dashes/$fName');
+        }
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
@@ -180,6 +207,80 @@ class Paths {
 
         if (graph != null && xmlContent.length > 0) {
             return FlxAtlasFrames.fromSparrow(graph, xmlContent);
+        }
+        return null;
+    }
+
+    public static function getTextureAtlas(key:String):Null<FlxAtlasFrames> {
+        if (key == null || key.trim().length == 0) return null;
+        var clean = key.trim().replace("\\", "/");
+        if (clean.startsWith("/")) clean = clean.substr(1);
+
+        var graph = graphic(clean);
+        if (graph == null) graph = graphic('ui/game/cutscenes/$clean');
+        if (graph == null) graph = graphic('characters/$clean');
+
+        var jsonStr:String = null;
+        var jsonPaths = [
+            'images/$clean.json',
+            'assets/preload/images/$clean.json',
+            'assets/images/$clean.json',
+            'ui/game/cutscenes/$clean.json',
+            'assets/preload/images/ui/game/cutscenes/$clean.json',
+            '$clean.json'
+        ];
+
+        #if sys
+        for (jp in jsonPaths) {
+            if (sys.FileSystem.exists(jp)) {
+                try {
+                    jsonStr = sys.io.File.getContent(jp);
+                    break;
+                } catch(e:Dynamic) {}
+            }
+        }
+        #end
+
+        if (graph != null && jsonStr != null) {
+            try {
+                var parsed:Dynamic = haxe.Json.parse(jsonStr);
+                var frameCollection = new FlxAtlasFrames(graph);
+
+                if (Reflect.hasField(parsed, "ATLAS") && Reflect.hasField(parsed.ATLAS, "SPRITES")) {
+                    var sprites:Array<Dynamic> = cast parsed.ATLAS.SPRITES;
+                    for (sObj in sprites) {
+                        var sprData = sObj.SPRITE;
+                        var name:String = Std.string(sprData.name);
+                        var x:Float = Std.parseFloat(Std.string(sprData.x));
+                        var y:Float = Std.parseFloat(Std.string(sprData.y));
+                        var w:Float = Std.parseFloat(Std.string(sprData.w));
+                        var h:Float = Std.parseFloat(Std.string(sprData.h));
+                        var rotated:Bool = sprData.rotated == true || Std.string(sprData.rotated) == "true";
+
+                        var rect = FlxRect.get(x, y, w, h);
+                        var size = FlxPoint.get(w, h);
+                        var offset = FlxPoint.get(0, 0);
+
+                        frameCollection.addAtlasFrame(rect, size, offset, name, rotated ? 90 : 0);
+                    }
+                } else if (Reflect.hasField(parsed, "frames")) {
+                    var framesField = parsed.frames;
+                    if (Std.isOfType(framesField, Array)) {
+                        for (f in (cast framesField : Array<Dynamic>)) {
+                            var fName = Std.string(f.filename);
+                            var fRect = f.frame;
+                            var rect = FlxRect.get(fRect.x, fRect.y, fRect.w, fRect.h);
+                            var size = FlxPoint.get(f.sourceSize.w, f.sourceSize.h);
+                            var offset = FlxPoint.get(f.spriteSourceSize.x, f.spriteSourceSize.y);
+                            frameCollection.addAtlasFrame(rect, size, offset, fName, f.rotated ? 90 : 0);
+                        }
+                    }
+                }
+
+                if (frameCollection.frames.length > 0) {
+                    return frameCollection;
+                }
+            } catch(e:Dynamic) {}
         }
         return null;
     }

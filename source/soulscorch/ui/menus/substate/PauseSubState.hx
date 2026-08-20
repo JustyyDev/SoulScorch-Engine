@@ -91,7 +91,8 @@ class PauseSubState extends MusicBeatSubstate {
             pauseMusic.volume = 0;
             pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
             FlxG.sound.list.add(pauseMusic);
-            pauseMusic.fadeIn(1.5, 0, 0.65);
+            FlxTween.cancelTweensOf(pauseMusic);
+            pauseMusic.fadeIn(1.2, 0, 0.65);
         }
 
         changeSelection(0);
@@ -272,8 +273,9 @@ class PauseSubState extends MusicBeatSubstate {
 
     private function stopPauseMusic():Void {
         if (pauseMusic != null) {
+            FlxTween.cancelTweensOf(pauseMusic);
             pauseMusic.stop();
-            FlxG.sound.list.remove(pauseMusic, true);
+            if (FlxG.sound.list != null) FlxG.sound.list.remove(pauseMusic, true);
             pauseMusic.destroy();
             pauseMusic = null;
         }

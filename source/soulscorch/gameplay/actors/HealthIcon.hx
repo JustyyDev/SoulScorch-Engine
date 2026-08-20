@@ -1,130 +1,142 @@
 package soulscorch.gameplay.actors;
 
 import flixel.FlxSprite;
+import flixel.graphics.FlxGraphic;
 import flixel.math.FlxMath;
-import flixel.math.FlxPoint;
-import openfl.display.BitmapData;
+import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.assets.Paths;
 
 using StringTools;
 
 class HealthIcon extends FlxSprite {
-    public var char:String = "face";
+    public var sprTracker:FlxSprite;
     public var isPlayer:Bool = false;
-    public var sprTracker:FlxSprite = null;
-    public var trackerOffset:FlxPoint;
+    public var isOldIcon:Bool = false;
+    public var character:String = "face";
 
-    private var hasLosingIcon:Bool = false;
-    private var hasWinningIcon:Bool = false;
+    // Backward-compatible alias for CharacterEditorState
+    @:isVar public var char(get, set):String;
+    inline function get_char():String return character;
+    inline function set_char(val:String):String {
+        changeIcon(val);
+        return character;
+    }
 
-    public function new(char:String = "face", isPlayer:Bool = false) {
+    public var isSingleFrame:Bool = false;
+    public var hasWinningFrame:Bool = false;
+    public var iconScale:Float = 1.0;
+    public var autoUpdatePosition:Bool = true;
+
+    public function new(character:String = "face", isPlayer:Bool = false) {
         super();
         this.isPlayer = isPlayer;
-        this.trackerOffset = FlxPoint.get(10, -30);
-        changeIcon(char);
+        changeIcon(character);
         scrollFactor.set();
     }
 
-    public function changeIcon(newChar:String):Void {
-        var cleanChar = (newChar != null && newChar.trim().length > 0) ? newChar.trim() : "face";
-        this.char = cleanChar;
+    public function changeIcon(char:String):Void {
+        var cleanChar = (char != null && char.trim().length > 0) ? char.trim().toLowerCase() : "face";
+        if (cleanChar == "none") cleanChar = "face";
+        this.character = cleanChar;
 
-        var iconCandidates = [
-            'ui/game/icons/icon-$cleanChar',
-            'ui/game/icons/$cleanChar',
-            'ui/game/icons/$cleanChar/icon',
-            'images/ui/game/icons/icon-$cleanChar',
-            'images/ui/game/icons/$cleanChar',
-            'images/icons/icon-$cleanChar',
-            'images/icons/$cleanChar',
-            'icons/icon-$cleanChar',
-            'icons/$cleanChar',
-            'ui/game/icons/icon-face',
-            'icons/icon-face',
-            'images/icons/icon-face'
-        ];
-
-        var resolved:String = null;
-        for (c in iconCandidates) {
-            resolved = AssetResolver.resolveFile(c, [".png", ""]);
-            if (resolved != null) break;
+        var graphic = getIconGraphic(cleanChar);
+        if (graphic == null) {
+            graphic = getIconGraphic("face");
         }
 
-        var bitmap:BitmapData = (resolved != null) ? AssetResolver.getBitmapData(resolved) : null;
+        if (graphic != null) {
+            var rawWidth = graphic.width;
+            var rawHeight = graphic.height;
+            var frameRatio = rawWidth / rawHeight;
 
-        if (bitmap != null) {
-            var iconWidth:Int = bitmap.width;
-            var iconHeight:Int = bitmap.height;
-
-            if (iconWidth >= iconHeight * 3) {
-                var frameWidth = Std.int(iconWidth / 3);
-                loadGraphic(bitmap, true, frameWidth, iconHeight);
-                animation.add(cleanChar, [0, 1, 2], 0, false, isPlayer);
-                hasLosingIcon = true;
-                hasWinningIcon = true;
-            } else if (iconWidth >= iconHeight * 2) {
-                var frameWidth = Std.int(iconWidth / 2);
-                loadGraphic(bitmap, true, frameWidth, iconHeight);
-                animation.add(cleanChar, [0, 1], 0, false, isPlayer);
-                hasLosingIcon = true;
-                hasWinningIcon = false;
+            if (frameRatio <= 1.4) {
+                isSingleFrame = true;
+                hasWinningFrame = false;
+                loadGraphic(graphic, false, rawWidth, rawHeight);
+                animation.add("normal", [0], 0, false, isPlayer);
+                animation.add("losing", [0], 0, false, isPlayer);
+                animation.add("winning", [0], 0, false, isPlayer);
+            } else if (frameRatio >= 2.6) {
+                isSingleFrame = false;
+                hasWinningFrame = true;
+                var frameWidth = Std.int(rawWidth / 3);
+                loadGraphic(graphic, true, frameWidth, rawHeight);
+                animation.add("winning", [0], 0, false, isPlayer);
+                animation.add("normal", [1], 0, false, isPlayer);
+                animation.add("losing", [2], 0, false, isPlayer);
             } else {
-                loadGraphic(bitmap, true, iconWidth, iconHeight);
-                animation.add(cleanChar, [0, 0], 0, false, isPlayer);
-                hasLosingIcon = false;
-                hasWinningIcon = false;
+                isSingleFrame = false;
+                hasWinningFrame = false;
+                var frameWidth = Std.int(rawWidth / 2);
+                loadGraphic(graphic, true, frameWidth, rawHeight);
+                animation.add("normal", [0], 0, false, isPlayer);
+                animation.add("losing", [1], 0, false, isPlayer);
+                animation.add("winning", [0], 0, false, isPlayer);
             }
 
-            animation.play(cleanChar);
+            animation.play("normal");
+            antialiasing = !cleanChar.endsWith("-pixel") && !cleanChar.startsWith("senpai") && !cleanChar.startsWith("spirit");
+            updateHitbox();
         } else {
-            makeGraphic(150, 150, 0xFFFF00FF);
+            makeGraphic(150, 150, 0xFFFF0055);
+            isSingleFrame = true;
+            hasWinningFrame = false;
         }
+    }
 
-        antialiasing = !cleanChar.endsWith("-pixel");
-        updateHitbox();
+    private function getIconGraphic(char:String):Null<FlxGraphic> {
+        var lookups = [
+            'icons/icon-$char',
+            'images/icons/icon-$char',
+            'ui/icons/icon-$char',
+            'icons/$char',
+            'images/icons/$char',
+            'icon-$char',
+            'ui/icons/$char',
+            'icons/icon-face',
+            'images/icons/icon-face',
+            'icon-face'
+        ];
+
+        for (path in lookups) {
+            var graph = AssetResolver.getGraphic(path);
+            if (graph != null) return graph;
+        }
+        return null;
     }
 
     public function updateHealth(healthPercent:Float):Void {
-        if (animation.curAnim == null) return;
+        if (isSingleFrame) {
+            if (animation.curAnim == null || animation.curAnim.name != "normal") {
+                animation.play("normal");
+            }
+            return;
+        }
 
-        if (hasWinningIcon && healthPercent > 80.0) {
-            animation.curAnim.curFrame = 2;
-        } else if (hasLosingIcon && healthPercent < 20.0) {
-            animation.curAnim.curFrame = 1;
+        if (healthPercent < 20.0) {
+            if (animation.getByName("losing") != null) animation.play("losing");
+        } else if (healthPercent > 80.0 && hasWinningFrame) {
+            if (animation.getByName("winning") != null) animation.play("winning");
         } else {
-            animation.curAnim.curFrame = 0;
+            if (animation.getByName("normal") != null) animation.play("normal");
         }
     }
 
-    public function bounce():Void {
-        scale.set(1.2, 1.2);
-    }
-
     public function beatHit(beat:Int):Void {
-        bounce();
+        scale.set(iconScale * 1.2, iconScale * 1.2);
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (sprTracker != null) {
-            setPosition(sprTracker.x + sprTracker.width + trackerOffset.x, sprTracker.y + trackerOffset.y);
-            scrollFactor.set(sprTracker.scrollFactor.x, sprTracker.scrollFactor.y);
-            visible = sprTracker.visible;
-            alpha = sprTracker.alpha;
+        if (sprTracker != null && autoUpdatePosition) {
+            setPosition(sprTracker.x + sprTracker.width + 10, sprTracker.y - 30);
         }
 
-        var lerpFactor = FlxMath.bound(elapsed * 9.0, 0, 1);
-        scale.x = FlxMath.lerp(scale.x, 1.0, lerpFactor);
-        scale.y = FlxMath.lerp(scale.y, 1.0, lerpFactor);
-    }
-
-    override public function destroy():Void {
-        if (trackerOffset != null) {
-            trackerOffset.put();
-            trackerOffset = null;
-        }
-        super.destroy();
+        scale.set(
+            FlxMath.lerp(scale.x, iconScale, FlxMath.bound(elapsed * 12.0, 0, 1)),
+            FlxMath.lerp(scale.y, iconScale, FlxMath.bound(elapsed * 12.0, 0, 1))
+        );
+        updateHitbox();
     }
 }

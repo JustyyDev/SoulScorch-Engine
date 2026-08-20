@@ -46,6 +46,17 @@ class ResultsState extends MusicBeatState {
         }
         #end
 
+        // Play results ambient music safely
+        var resultsMusic = Paths.music("results");
+        if (resultsMusic == null) resultsMusic = Paths.music("breakfast");
+        if (resultsMusic != null) {
+            FlxG.sound.playMusic(resultsMusic, 0);
+            if (FlxG.sound.music != null) {
+                FlxTween.cancelTweensOf(FlxG.sound.music);
+                FlxG.sound.music.fadeIn(1.0, 0, 0.7);
+            }
+        }
+
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
         bg.scrollFactor.set(0, 0);
         add(bg);
@@ -82,7 +93,7 @@ class ResultsState extends MusicBeatState {
         headerSub.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         add(headerSub);
 
-        // --- Left Stats Card ---
+        // Left Stats Card
         var leftCard = new FlxSpriteGroup(40, 95);
         add(leftCard);
 
@@ -130,7 +141,7 @@ class ResultsState extends MusicBeatState {
         hitStatsText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_MUTED, LEFT);
         leftCard.add(hitStatsText);
 
-        // --- Right Grade Card ---
+        // Right Grade Card
         rankCard = new FlxSpriteGroup(FlxG.width - 420, 95);
         add(rankCard);
 
@@ -184,11 +195,18 @@ class ResultsState extends MusicBeatState {
         super.update(elapsed);
 
         if (Controls.instance.ACCEPT || Controls.instance.BACK) {
+            if (FlxG.sound.music != null) {
+                FlxTween.cancelTweensOf(FlxG.sound.music);
+                FlxG.sound.music.stop();
+            }
             MusicBeatState.switchState(new FreeplayState());
         }
     }
 
     override public function destroy():Void {
+        if (FlxG.sound.music != null) {
+            FlxTween.cancelTweensOf(FlxG.sound.music);
+        }
         Controls.instance.unbindMobilePad();
         super.destroy();
     }

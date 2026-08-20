@@ -178,7 +178,6 @@ class Note extends FlxSprite {
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
-        // Distance > 0 means the note is in the future
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
         x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
@@ -186,15 +185,12 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (downscroll) {
                 flipY = true;
-                // In Downscroll: notes spawn ABOVE the receptor and scroll DOWN
                 y = strumY - distance + (STRUM_SPACING * 0.5) + offsetY;
             } else {
                 flipY = false;
-                // In Upscroll: notes spawn BELOW the receptor and scroll UP
                 y = strumY + distance + (STRUM_SPACING * 0.5) + offsetY;
             }
 
-            // Clip active hold notes passing through receptors
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
                 var diff:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
                 if (diff > 0) {
@@ -209,10 +205,8 @@ class Note extends FlxSprite {
             }
         } else {
             if (downscroll) {
-                // Downscroll: future notes are above (strumY - distance)
                 y = strumY - distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
             } else {
-                // Upscroll: future notes are below (strumY + distance)
                 y = strumY + distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
             }
         }

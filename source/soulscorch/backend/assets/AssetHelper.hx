@@ -4,78 +4,90 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
-import openfl.display.BitmapData;
+import flixel.system.FlxSound;
 import openfl.media.Sound;
-import soulscorch.backend.utils.Logger;
+
+#if sys
+import sys.FileSystem;
+#end
 
 using StringTools;
 
 class AssetHelper {
-    private static var _cachedAtlases:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
+    public static function loadGraphicSafely(spr:FlxSprite, key:String):Bool {
+        if (spr == null || key == null) return false;
 
-    public static function loadGraphicSafely(sprite:FlxSprite, graphicPath:String):Bool {
-        if (sprite == null || graphicPath == null || graphicPath.trim().length == 0) return false;
-
-        var graphic:FlxGraphic = AssetResolver.getGraphic(graphicPath);
-        if (graphic != null && graphic.bitmap != null) {
-            graphic.persist = true;
-            graphic.destroyOnNoUse = false;
-            sprite.loadGraphic(graphic);
+        var graphic = Paths.image(key);
+        if (graphic != null) {
+            spr.loadGraphic(graphic);
             return true;
         }
-
-        Logger.warn('Missing graphic: $graphicPath', "engine");
-        sprite.makeGraphic(64, 64, 0xFFFF00FF);
         return false;
     }
 
-    public static function loadImageSafely(sprite:FlxSprite, graphicPath:String):Bool {
-        return loadGraphicSafely(sprite, graphicPath);
-    }
-
-    public static function loadSparrowSafely(sprite:FlxSprite, assetName:String):Bool {
-        if (sprite == null || assetName == null || assetName.trim().length == 0) return false;
-
-        var clean = assetName.trim().replace("\\", "/");
-        if (clean.startsWith("/")) clean = clean.substr(1);
-
-        if (_cachedAtlases.exists(clean)) {
-            var cached = _cachedAtlases.get(clean);
-            if (cached != null && cached.parent != null && cached.parent.bitmap != null) {
-                sprite.frames = cached;
-                return true;
-            }
-            _cachedAtlases.remove(clean);
-        }
-
-        var frames = Paths.getSparrowAtlas(clean);
-        if (frames != null && frames.parent != null && frames.parent.bitmap != null) {
-            frames.parent.persist = true;
-            frames.parent.destroyOnNoUse = false;
-            _cachedAtlases.set(clean, frames);
-            sprite.frames = frames;
-            return true;
-        }
-
-        Logger.warn('Missing or corrupt Sparrow atlas: $assetName', "engine");
-        sprite.makeGraphic(64, 64, 0xFFFF00FF);
-        return false;
-    }
-
-    public static function playSoundSafely(soundName:String, volume:Float = 1.0):Void {
-        if (soundName == null || soundName.trim().length == 0) return;
-
-        var soundObj:Sound = Paths.sound(soundName);
-        if (soundObj == null) soundObj = AssetResolver.getSound(soundName);
-
-        if (soundObj != null) {
-            FlxG.sound.play(soundObj, volume);
-        } else {
-            Logger.warn('Missing sound asset: $soundName', "engine");
-        }
+    public static inline function loadImageSafely(spr:FlxSprite, key:String):Bool {
+        return loadGraphicSafely(spr, key);
     }
 
     public static function clearAtlasCache():Void {
-        _cachedAtlases.clear();
+        // Clears cached graphic frames if tracked
+    }
+
+    public static function loadSparrowSafely(spr:FlxSprite, key:String):Bool {
+        if (spr == null || key == null) return false;
+
+        var clean = key.trim();
+
+        // 1. Try loading as Adobe Animate JSON Texture Atlas (.json)
+        var jsonAtlas = Paths.getTextureAtlas(clean);
+        if (jsonAtlas != null && jsonAtlas.frames != null && jsonAtlas.frames.length > 0) {
+            spr.frames = jsonAtlas;
+            return true;
+        }
+
+        // 2. Try loading as Sparrow XML Atlas (.xml)
+        var xmlLookups = [
+            'images/$clean.xml',
+            'assets/preload/images/$clean.xml',
+            'assets/images/$clean.xml',
+            'ui/game/cutscenes/$clean.xml',
+            '$clean.xml'
+        ];
+
+        var hasXml = false;
+        #if sys
+        for (xp in xmlLookups) {
+            if (FileSystem.exists(xp)) {
+                hasXml = true;
+                break;
+            }
+        }
+        #else
+        hasXml = true;
+        #end
+
+        if (hasXml) {
+            var atlas:FlxAtlasFrames = Paths.getSparrowAtlas(clean);
+            if (atlas != null && atlas.frames != null && atlas.frames.length > 0) {
+                spr.frames = atlas;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function playSoundSafely(key:String, volume:Float = 1.0):Null<FlxSound> {
+        if (key == null) return null;
+
+        var soundObj:Sound = Paths.sound(key);
+        if (soundObj == null && (key == "fnf_loss_sfx" || key == "loss_sfx")) {
+            soundObj = Paths.sound("gameOverSFX");
+        }
+
+        if (soundObj != null) {
+            return FlxG.sound.play(soundObj, volume);
+        }
+        return null;
     }
 }

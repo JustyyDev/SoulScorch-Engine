@@ -1,0 +1,107 @@
+package soulscorch.gameplay.cutscenes;
+
+import flixel.FlxCamera;
+import flixel.FlxG;
+import flixel.FlxObject;
+import flixel.FlxSprite;
+import flixel.math.FlxEase;
+import flixel.math.FlxMath;
+import flixel.math.FlxPoint;
+import flixel.sound.FlxSound;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
+import soulscorch.backend.MusicBeatSubstate;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
+import soulscorch.gameplay.PlayState;
+import soulscorch.graphics.FunkinSprite;
+import soulscorch.graphics.shaders.CustomShader;
+import soulscorch.scripting.ScriptManager;
+
+class CutsceneSubState extends MusicBeatSubstate {
+    public var script:ScriptManager;
+    public var onFinish:Void->Void;
+    private var scriptPath:String;
+
+    public function new(scriptPath:String, onFinish:Void->Void) {
+        super();
+        this.scriptPath = scriptPath;
+        this.onFinish = onFinish;
+
+        this.persistentUpdate = true;
+        this.persistentDraw = true;
+    }
+
+    override public function create():Void {
+        super.create();
+
+        script = new ScriptManager();
+        script.loadScript(scriptPath);
+
+        script.setAll("game", PlayState.instance);
+        script.setAll("self", this);
+        script.setAll("PlayState", PlayState);
+        script.setAll("close", function() closeCutscene());
+        script.setAll("focusOn", function(char:Dynamic) {
+            if (char != null && PlayState.instance != null) {
+                if (Reflect.hasField(char, "getCameraPosition")) {
+                    var pos:FlxPoint = char.getCameraPosition();
+                    PlayState.instance.camFollow.setPosition(pos.x, pos.y);
+                    pos.put();
+                } else if (Reflect.hasField(char, "getMidpoint")) {
+                    var pt:FlxPoint = char.getMidpoint();
+                    PlayState.instance.camFollow.setPosition(pt.x, pt.y);
+                    pt.put();
+                }
+            }
+        });
+
+        script.setAll("timer", function(duration:Float, cb:Void->Void) {
+            new FlxTimer().start(duration, function(_) if (cb != null) cb());
+        });
+
+        script.setAll("FunkinSprite", FunkinSprite);
+        script.setAll("CustomShader", CustomShader);
+        script.setAll("Options", {gameplayShaders: true, week6PixelPerfect: false});
+        script.setAll("Paths", Paths);
+        script.setAll("Conductor", Conductor);
+        script.setAll("FlxTween", FlxTween);
+        script.setAll("FlxEase", FlxEase);
+        script.setAll("FlxTimer", FlxTimer);
+        script.setAll("FlxMath", FlxMath);
+        script.setAll("FlxColor", FlxColor);
+        script.setAll("dad", PlayState.instance.dad);
+        script.setAll("boyfriend", PlayState.instance.boyfriend);
+        script.setAll("gf", PlayState.instance.gf);
+        script.setAll("camGame", PlayState.instance.camGame);
+        script.setAll("camHUD", PlayState.instance.camHUD);
+
+        script.callAll("create", []);
+    }
+
+    override public function update(elapsed:Float):Void {
+        super.update(elapsed);
+        if (script != null) {
+            script.callAll("update", [elapsed]);
+            script.callAll("postUpdate", [elapsed]);
+        }
+    }
+
+    public function closeCutscene():Void {
+        if (script != null) {
+            script.callAll("destroy", []);
+            script.clear();
+        }
+        close();
+        if (onFinish != null) onFinish();
+    }
+
+    override public function destroy():Void {
+        if (script != null) {
+            script.callAll("destroy", []);
+            script.clear();
+        }
+        super.destroy();
+    }
+}

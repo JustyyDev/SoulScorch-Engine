@@ -32,6 +32,8 @@ class NoteSkinManager {
             cleanSkin,
             'ui/game/notes/NOTE_assets',
             'images/ui/game/notes/NOTE_assets',
+            'ui/notes/NOTE_assets',
+            'images/ui/notes/NOTE_assets',
             'ui/game/notes/default',
             'images/ui/game/notes/default',
             'gameplay/notes/$cleanSkin',
@@ -67,6 +69,7 @@ class NoteSkinManager {
             'ui/game/notes/noteSplashes',
             'images/ui/game/notes/noteSplashes',
             'ui/noteSplashes',
+            'images/ui/noteSplashes',
             'noteSplashes',
             'ui/notes/default_splashes'
         ];

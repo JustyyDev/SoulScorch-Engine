@@ -10,16 +10,17 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
-import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
@@ -36,6 +37,7 @@ using StringTools;
 typedef WeekData = {
     var id:String;
     var name:String;
+    var sprite:String;
     var songs:Array<String>;
     var characters:Array<String>;
     var ?color:String;
@@ -47,7 +49,7 @@ class StoryMenuState extends MusicBeatState {
     public static var curDifficulty:Int = 1;
 
     private var weeks:Array<WeekData> = [];
-    private var grpWeekTitles:FlxTypedGroup<Alphabet>;
+    private var grpWeekTitles:FlxTypedGroup<FlxSprite>;
     private var grpWeekPortraits:FlxTypedGroup<FlxSprite>;
     private var diffText:FlxText;
     private var tracklistText:FlxText;
@@ -61,6 +63,10 @@ class StoryMenuState extends MusicBeatState {
         #if desktop
         DiscordRPC.changePresence("Story Campaign", "Selecting Week");
         #end
+
+        if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
+            FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
+        }
 
         loadWeeks();
 
@@ -93,15 +99,30 @@ class StoryMenuState extends MusicBeatState {
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
 
-        grpWeekTitles = new FlxTypedGroup<Alphabet>();
+        grpWeekTitles = new FlxTypedGroup<FlxSprite>();
         add(grpWeekTitles);
 
         for (i in 0...weeks.length) {
-            var weekText = new Alphabet(0, (i * 70) + 420, weeks[i].name, false);
-            weekText.scale.set(0.75, 0.75);
-            weekText.screenCenter(X);
-            weekText.ID = i;
-            grpWeekTitles.add(weekText);
+            var week = weeks[i];
+            var weekSpriteKey = (week.sprite != null && week.sprite.length > 0) ? week.sprite : week.id;
+
+            var sprTitle = new FlxSprite(0, (i * 105) + 420);
+            var loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/$weekSpriteKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, 'storymenu/$weekSpriteKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/weeks/$weekSpriteKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, weekSpriteKey);
+
+            if (loaded) {
+                sprTitle.screenCenter(X);
+                sprTitle.ID = i;
+                grpWeekTitles.add(sprTitle);
+            } else {
+                var weekText = new Alphabet(0, (i * 105) + 420, (week.name.length > 0 ? week.name : week.id).toUpperCase(), true);
+                weekText.scale.set(0.75, 0.75);
+                weekText.screenCenter(X);
+                weekText.ID = i;
+                grpWeekTitles.add(cast weekText);
+            }
         }
 
         weekNameText = new FlxText(40, 75, FlxG.width - 80, "", 24);
@@ -133,25 +154,79 @@ class StoryMenuState extends MusicBeatState {
         weeks = [];
 
         #if sys
-        var weekDirs = ["data/weeks", "assets/data/weeks", "assets/preload/data/weeks"];
+        var weekDirs = [
+            "data/weeks/weeks",
+            "assets/preload/data/weeks/weeks",
+            "data/weeks",
+            "assets/data/weeks",
+            "assets/preload/data/weeks"
+        ];
+
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
+                weekDirs.unshift('mods/$m/data/weeks/weeks');
                 weekDirs.unshift('mods/$m/data/weeks');
                 weekDirs.unshift('mods/$m/weeks');
             }
         }
 
+        var loadedWeekIds:Array<String> = [];
+
         for (dir in weekDirs) {
             if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
                 for (file in FileSystem.readDirectory(dir)) {
-                    if (file.endsWith(".json")) {
+                    var fullPath = '$dir/$file';
+                    if (FileSystem.isDirectory(fullPath)) continue;
+
+                    var fileId = file.substr(0, file.lastIndexOf("."));
+                    if (loadedWeekIds.contains(fileId)) continue;
+
+                    // 1. Parse Codename Engine XML format (<week name="..." chars="..." sprite="...">)
+                    if (file.endsWith(".xml")) {
                         try {
-                            var content = File.getContent('$dir/$file');
-                            var data:WeekData = Json.parse(content);
-                            if (data.id == null) data.id = file.substr(0, file.length - 5);
-                            weeks.push(data);
+                            var rawXml = File.getContent(fullPath);
+                            var parsed = Xml.parse(rawXml);
+                            var access = new Access(parsed.firstElement());
+
+                            var weekName = access.has.name ? access.att.name : fileId;
+                            var charsStr = access.has.chars ? access.att.chars : "dad,bf,gf";
+                            var spriteName = access.has.sprite ? access.att.sprite : fileId;
+                            var colorStr = access.has.color ? access.att.color : null;
+
+                            var songsList:Array<String> = [];
+                            for (s in access.nodes.song) {
+                                var songName = s.innerData.trim();
+                                if (songName.length > 0) {
+                                    songsList.push(songName);
+                                }
+                            }
+
+                            weeks.push({
+                                id: fileId,
+                                name: weekName,
+                                sprite: spriteName,
+                                songs: songsList,
+                                characters: charsStr.split(","),
+                                color: colorStr,
+                                difficulties: ["easy", "normal", "hard"]
+                            });
+
+                            loadedWeekIds.push(fileId);
                         } catch (e:Dynamic) {
-                            Logger.warn('Failed parsing week file $file: $e', "weeks");
+                            Logger.warn('Failed parsing Codename XML week $file: $e', "weeks");
+                        }
+                    }
+                    // 2. Parse Standard/Psych JSON format
+                    else if (file.endsWith(".json")) {
+                        try {
+                            var content = File.getContent(fullPath);
+                            var data:WeekData = Json.parse(content);
+                            if (data.id == null) data.id = fileId;
+                            if (data.sprite == null) data.sprite = fileId;
+                            weeks.push(data);
+                            loadedWeekIds.push(fileId);
+                        } catch (e:Dynamic) {
+                            Logger.warn('Failed parsing JSON week $file: $e', "weeks");
                         }
                     }
                 }
@@ -159,18 +234,21 @@ class StoryMenuState extends MusicBeatState {
         }
         #end
 
+        // Fallback default
         if (weeks.length == 0) {
             weeks = [
                 {
-                    id: "week0",
+                    id: "tutorial",
                     name: "TEACHING TIME",
+                    sprite: "tutorial",
                     songs: ["Tutorial"],
                     characters: ["dad", "bf", "gf"]
                 },
                 {
                     id: "week1",
-                    name: "SCORCHED CAMPAIGN",
-                    songs: ["Bopeebo", "Fresh", "Dad Battle"],
+                    name: "DADDY DEAREST",
+                    sprite: "week1",
+                    songs: ["Bopeebo", "Fresh", "Dadbattle"],
                     characters: ["dad", "bf", "gf"]
                 }
             ];
@@ -191,9 +269,14 @@ class StoryMenuState extends MusicBeatState {
         }
 
         if (Controls.instance.ACCEPT && weeks.length > 0) {
+            if (FlxG.sound.music != null) {
+                FlxTween.cancelTweensOf(FlxG.sound.music);
+                FlxG.sound.music.stop();
+            }
+
             var currentWeek = weeks[curWeek];
             if (currentWeek.songs != null && currentWeek.songs.length > 0) {
-                PlayState.curSong = currentWeek.songs[0].toLowerCase();
+                PlayState.curSong = currentWeek.songs[0].toLowerCase().trim();
             }
             var diffs = (currentWeek.difficulties != null && currentWeek.difficulties.length > 0) ? currentWeek.difficulties : Difficulty.defaultList;
             PlayState.curDifficulty = diffs[curDifficulty];
@@ -208,8 +291,8 @@ class StoryMenuState extends MusicBeatState {
 
         var i = 0;
         for (item in grpWeekTitles.members) {
-            item.alpha = (i == curWeek ? 1.0 : 0.4);
-            item.y = ((i - curWeek) * 70) + 420;
+            item.alpha = (i == curWeek ? 1.0 : 0.35);
+            item.y = ((i - curWeek) * 105) + 420;
             item.screenCenter(X);
             i++;
         }
@@ -226,7 +309,7 @@ class StoryMenuState extends MusicBeatState {
         }
         tracklistText.text = trackStr;
 
-        if (week.color != null) {
+        if (week.color != null && week.color.trim().length > 0) {
             stageBanner.color = FlxColor.fromString(week.color);
         } else {
             stageBanner.color = 0xFFF9CF51;

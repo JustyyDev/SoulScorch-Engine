@@ -144,7 +144,10 @@ class GameOverSubState extends MusicBeatSubstate {
             if (bfDead.animation != null && bfDead.animation.exists("deathConfirm")) {
                 bfDead.animation.play("deathConfirm");
             }
-            if (FlxG.sound.music != null) FlxG.sound.music.stop();
+            if (FlxG.sound.music != null) {
+                FlxTween.cancelTweensOf(FlxG.sound.music);
+                FlxG.sound.music.stop();
+            }
             AssetHelper.playSoundSafely(endSoundName, 0.85);
 
             FlxTween.tween(statsCard, {y: -200, alpha: 0}, 0.5, {ease: FlxEase.cubeIn});
@@ -157,7 +160,10 @@ class GameOverSubState extends MusicBeatSubstate {
 
         if (Controls.instance.BACK && !isEnding) {
             isEnding = true;
-            if (FlxG.sound.music != null) FlxG.sound.music.stop();
+            if (FlxG.sound.music != null) {
+                FlxTween.cancelTweensOf(FlxG.sound.music);
+                FlxG.sound.music.stop();
+            }
             if (PlayState.instance != null && PlayState.instance.audio != null) {
                 PlayState.instance.audio.stop();
             }

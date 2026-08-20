@@ -16,6 +16,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.gameplay.notes.Note;
+import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.gameplay.notes.Strumline;
 import soulscorch.ui.menus.editors.editorui.EditorButton;
 import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
@@ -180,6 +181,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         add(opponentStrumline);
 
         playerStrumline = new Strumline(playerX, startY, true, false);
+        playerStrumline.alpha = 1.0;
         add(playerStrumline);
 
         for (i in 0...4) {
@@ -260,7 +262,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         var btnCycleEase = new EditorButton(160, 252, 135, 26, "Ease: " + easeOptions[curEaseIdx], function() {
             curEaseIdx = (curEaseIdx + 1) % easeOptions.length;
             if (keyframes.length > selectedKeyframeIdx) keyframes[selectedKeyframeIdx].ease = easeOptions[curEaseIdx];
-            timelineWindow.remove(timelineWindow.members[timelineWindow.members.length - 1]);
             updateKeyframeDisplay();
         });
         timelineWindow.addElement(btnCycleEase);
@@ -341,7 +342,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         if (FlxG.keys.justPressed.LEFT) adjustModifier(-delta);
         if (FlxG.keys.justPressed.RIGHT) adjustModifier(delta);
 
-        // Preset hotkeys [1 - 7]
         if (FlxG.keys.justPressed.ONE) applyPreset(1.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, "Preset 1 Loaded");
         if (FlxG.keys.justPressed.TWO) applyPreset(0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.2, "Preset 2 Loaded");
         if (FlxG.keys.justPressed.THREE) applyPreset(1.4, 1.2, 1.0, 1.5, 0.2, 0.0, 0.5, 0.5, 0.8, 0.0, 1.2, 0.8, 0.3, 0.5, 0.4, 0.6, 0.0, 2.4, "Preset 3 Loaded");
@@ -605,9 +605,6 @@ class ModchartWorkspaceState extends MusicBeatState {
         oscilloscopeGraph.pixels.fillRect(new openfl.geom.Rectangle(0, 0, 270, 90), 0xFF111118);
 
         var midY = 45.0;
-        var prevX = 0;
-        var prevY = 45;
-
         for (px in 0...270) {
             var sampleTime = simSongTime + (px * 12.0);
             var waveSample = Math.sin(sampleTime * 0.005) * drunkIntensity + Math.cos(sampleTime * 0.006) * tipsyIntensity + Math.sin(sampleTime * 0.008) * bumpyIntensity;
@@ -626,7 +623,7 @@ class ModchartWorkspaceState extends MusicBeatState {
             var lane = FlxG.random.int(0, 3);
             var def = playerDefaultPositions[lane];
 
-            var testNote = new Note(0, lane, 0.0, null, false, false, true, "default");
+            var testNote = new Note(0, lane, 0.0, null, false, false, true, "normal");
             testNote.x = def[0];
             testNote.y = FlxG.height + 60;
             fallingNotesGroup.add(testNote);
