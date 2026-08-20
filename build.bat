@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 title SoulScorch Engine - Build & Compilation Suite
 color 0b
 
-:: 1. Force Working Directory & Locate Environment
+:: 1. Force Working Directory
 cd /d "%~dp0"
 set "ROOT_DIR=%~dp0"
 set "TOOLS_DIR=%ROOT_DIR%.tools"
@@ -14,7 +14,6 @@ set "MINGW_DIR=%TOOLS_DIR%\mingw\bin"
 set "HAXELIB_DIR=%ROOT_DIR%.haxelib"
 if not exist "%HAXELIB_DIR%" set "HAXELIB_DIR=%TOOLS_DIR%\haxelib"
 
-:: Fallback if tools are installed locally in .tools root
 if not exist "%HAXE_DIR%\haxe.exe" if exist "%TOOLS_DIR%\haxe.exe" set "HAXE_DIR=%TOOLS_DIR%"
 if not exist "%NEKO_DIR%\neko.exe" if exist "%TOOLS_DIR%\neko.exe" set "NEKO_DIR=%TOOLS_DIR%"
 
@@ -41,22 +40,45 @@ if defined NUMBER_OF_PROCESSORS (
 :: 3. Clear Broken HXCPP Config Cache
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 
-:: 4. Auto-Detect 64-Bit MSVC Toolchain
-if not defined VSCMD_VER (
+:: 4. Comprehensive MSVC 64-Bit Environment Initialization
+where cl.exe >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    set "VCVARS_FOUND="
+    
+    :: Method A: Search via vswhere
     set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
     if not exist "!VSWHERE!" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
     
     if exist "!VSWHERE!" (
-        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
-            set "VS_PATH=%%i"
+        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -property installationPath`) do (
+            if exist "%%i\VC\Auxiliary\Build\vcvars64.bat" (
+                set "VCVARS_FOUND=%%i\VC\Auxiliary\Build\vcvars64.bat"
+            ) else if exist "%%i\VC\Auxiliary\Build\vcvarsall.bat" (
+                set "VCVARS_FOUND=%%i\VC\Auxiliary\Build\vcvarsall.bat x64"
+            )
         )
-        if exist "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" (
-            echo [*] Initializing MSVC x64 Environment from "!VS_PATH!"
-            call "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
-        ) else if exist "!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat" (
-            echo [*] Initializing MSVC x64 via vcvarsall from "!VS_PATH!"
-            call "!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat" x64 >nul 2>&1
+    )
+
+    :: Method B: Fallback scan across common Visual Studio editions
+    if not defined VCVARS_FOUND (
+        for %%Y in (2022 2019 2017) do (
+            for %%E in (Community Professional Enterprise BuildTools) do (
+                if not defined VCVARS_FOUND (
+                    if exist "%ProgramFiles%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat" (
+                        set "VCVARS_FOUND=%ProgramFiles%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat"
+                    ) else if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat" (
+                        set "VCVARS_FOUND=%ProgramFiles(x86)%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat"
+                    )
+                )
+            )
         )
+    )
+
+    if defined VCVARS_FOUND (
+        echo [*] Initializing MSVC x64: !VCVARS_FOUND!
+        call !VCVARS_FOUND! >nul 2>&1
+    ) else (
+        echo [!] WARNING: 64-bit MSVC environment not located automatically.
     )
 )
 

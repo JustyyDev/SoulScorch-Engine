@@ -156,6 +156,10 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
+      - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
+        run: |
+          haxelib run lime rebuild mac
+
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
           python3 -c '

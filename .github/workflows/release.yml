@@ -107,6 +107,11 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
+      - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
+        if: matrix.os == 'macos-14'
+        run: |
+          haxelib run lime rebuild mac
+
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
           python3 -c '
@@ -124,7 +129,7 @@ jobs:
           '
 
       - name: Compile SoulScorch Engine
-        run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
+        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
 
@@ -141,7 +146,6 @@ jobs:
           search_roots = ["bin", "export"]
           found_dir = None
 
-          # Search for the directory containing the compiled binary or .app bundle
           candidates = []
           for s_root in search_roots:
               if not os.path.exists(s_root):
@@ -156,7 +160,6 @@ jobs:
                   elif target == "linux" and ("linux" in root.lower() or any(os.access(os.path.join(root, f), os.X_OK) for f in files)):
                       candidates.append(root)
 
-          # Find best match
           for c in candidates:
               if target in c.lower() or (target == "mac" and "macos" in c.lower()):
                   found_dir = c
@@ -165,7 +168,6 @@ jobs:
           if not found_dir and candidates:
               found_dir = candidates[0]
 
-          # Fallback: scan any directory with a "bin" subfolder
           if not found_dir:
               for s_root in search_roots:
                   if not os.path.exists(s_root): continue
@@ -175,7 +177,7 @@ jobs:
                           break
 
           if not found_dir:
-              print("Error: Could not locate build directory. Workspace search:")
+              print("Error: Could not locate build directory. Workspace contents:")
               for r, d, f in os.walk("."):
                   if not r.startswith("./.git"):
                       print(r, d, f)
