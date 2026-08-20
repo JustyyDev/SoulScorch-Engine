@@ -71,7 +71,25 @@ class CutsceneSubState extends MusicBeatSubstate {
         script.setAll("FlxEase", FlxEase);
         script.setAll("FlxTimer", FlxTimer);
         script.setAll("FlxMath", FlxMath);
-        script.setAll("FlxColor", FlxColor);
+        
+        // Expose FlxColor constants safely as an anonymous script-compatible object
+        script.setAll("FlxColor", {
+            TRANSPARENT: 0x00000000,
+            WHITE: 0xFFFFFF,
+            BLACK: 0x000000,
+            RED: 0xFF0000,
+            GREEN: 0x00FF00,
+            BLUE: 0x0000FF,
+            YELLOW: 0xFFFF00,
+            PURPLE: 0x800080,
+            PINK: 0xFFC0CB,
+            CYAN: 0x00FFFF,
+            MAGENTA: 0xFF00FF,
+            ORANGE: 0xFFA500,
+            fromString: function(str:String) return FlxColor.fromString(str),
+            fromRGB: function(r:Int, g:Int, b:Int, a:Int = 255) return FlxColor.fromRGB(r, g, b, a)
+        });
+
         script.setAll("dad", PlayState.instance.dad);
         script.setAll("boyfriend", PlayState.instance.boyfriend);
         script.setAll("gf", PlayState.instance.gf);
