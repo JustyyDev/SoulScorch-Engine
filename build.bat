@@ -1,5 +1,4 @@
 @echo off
-setlocal EnableDelayedExpansion
 title SoulScorch Engine - Build & Compilation Suite
 color 0b
 
@@ -37,49 +36,30 @@ if defined NUMBER_OF_PROCESSORS (
     set "HXCPP_COMPILE_THREADS=8"
 )
 
-:: 3. Clear Broken HXCPP Config Cache
+:: 3. Clear Stale HXCPP Config & Bin Locks
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
+if exist "%USERPROFILE%\.hxcpp" rd /s /q "%USERPROFILE%\.hxcpp" >nul 2>&1
 
-:: 4. Comprehensive MSVC 64-Bit Environment Initialization
-where cl.exe >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    set "VCVARS_FOUND="
-    
-    :: Method A: Search via vswhere
-    set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-    if not exist "!VSWHERE!" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
-    
-    if exist "!VSWHERE!" (
-        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -property installationPath`) do (
-            if exist "%%i\VC\Auxiliary\Build\vcvars64.bat" (
-                set "VCVARS_FOUND=%%i\VC\Auxiliary\Build\vcvars64.bat"
-            ) else if exist "%%i\VC\Auxiliary\Build\vcvarsall.bat" (
-                set "VCVARS_FOUND=%%i\VC\Auxiliary\Build\vcvarsall.bat x64"
-            )
-        )
-    )
+:: 4. Direct 64-Bit MSVC Toolchain Detection
+set "VCVARS_PATH="
+if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+) else if exist "%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+) else if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
+) else if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+) else if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+) else if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+    set "VCVARS_PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+)
 
-    :: Method B: Fallback scan across common Visual Studio editions
-    if not defined VCVARS_FOUND (
-        for %%Y in (2022 2019 2017) do (
-            for %%E in (Community Professional Enterprise BuildTools) do (
-                if not defined VCVARS_FOUND (
-                    if exist "%ProgramFiles%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat" (
-                        set "VCVARS_FOUND=%ProgramFiles%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat"
-                    ) else if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat" (
-                        set "VCVARS_FOUND=%ProgramFiles(x86)%\Microsoft Visual Studio\%%Y\%%E\VC\Auxiliary\Build\vcvars64.bat"
-                    )
-                )
-            )
-        )
-    )
-
-    if defined VCVARS_FOUND (
-        echo [*] Initializing MSVC x64: !VCVARS_FOUND!
-        call !VCVARS_FOUND! >nul 2>&1
-    ) else (
-        echo [!] WARNING: 64-bit MSVC environment not located automatically.
-    )
+if defined VCVARS_PATH (
+    echo [*] Setting up 64-bit MSVC environment via:
+    echo     "%VCVARS_PATH%"
+    call "%VCVARS_PATH%"
 )
 
 :MENU
@@ -119,20 +99,19 @@ goto MENU
 :BUILD_RELEASE
 cls
 echo [*] Compiling Windows C++ 64-Bit Release Build...
-echo [*] Worker Threads: %HXCPP_COMPILE_THREADS%
-"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH -64
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH
 goto BUILD_END
 
 :BUILD_DEBUG
 cls
 echo [*] Compiling Windows C++ 64-Bit Debug Build...
-"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DHXCPP_NO_PCH -64
+"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DHXCPP_NO_PCH
 goto BUILD_END
 
 :BUILD_MINGW
 cls
 echo [*] Compiling Windows 64-Bit with MinGW GCC...
-"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_NO_PCH -64
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_NO_PCH
 goto BUILD_END
 
 :BUILD_X86
@@ -167,7 +146,7 @@ if exist "%USERPROFILE%\.hxcpp" rd /s /q "%USERPROFILE%\.hxcpp" >nul 2>&1
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 
 echo [*] Starting fresh multithreaded rebuild...
-"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH -64
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_NO_PCH
 goto BUILD_END
 
 :SETUP_LIBS
@@ -180,8 +159,8 @@ if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
 "%HAXELIB_CMD%" install flixel 5.6.2 --always --skip-dependencies
 "%HAXELIB_CMD%" install flixel-addons 3.2.3 --always --skip-dependencies
 "%HAXELIB_CMD%" install flixel-ui 2.6.1 --always --skip-dependencies
-"%HAXELIB_CMD%" install hscript 2.5.0 --always
-"%HAXELIB_CMD%" set hscript 2.5.0
+"%HAXELIB_CMD%" install hscript 2.4.0 --always
+"%HAXELIB_CMD%" set hscript 2.4.0
 "%HAXELIB_CMD%" install hscript-iris 1.1.0 --always
 "%HAXELIB_CMD%" install away3d --always
 "%HAXELIB_CMD%" install hxcpp 4.3.2 --always
