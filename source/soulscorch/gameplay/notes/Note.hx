@@ -147,10 +147,10 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (isSustainEnd) {
                 var endPrefixes:Array<String> = switch (noteData) {
-                    case 0: ["pruple end hold", "purple hold end", "purple end hold"];
-                    case 1: ["blue hold end", "blue end hold"];
-                    case 2: ["green hold end", "green end hold"];
-                    case 3: ["red hold end", "red end hold"];
+                    case 0: ["pruple end hold", "purple hold end", "purple end hold", "purple0end"];
+                    case 1: ["blue hold end", "blue end hold", "blue0end"];
+                    case 2: ["green hold end", "green end hold", "green0end"];
+                    case 3: ["red hold end", "red end hold", "red0end"];
                     default: ['$color hold end', '$color end hold'];
                 };
                 tryAddAnimation("holdend", endPrefixes, 24, true);
@@ -158,7 +158,8 @@ class Note extends FlxSprite {
                 var piecePrefixes = [
                     '$color hold piece',
                     '${color}0 hold piece',
-                    '$color hold'
+                    '$color hold',
+                    '${color}0 hold'
                 ];
                 tryAddAnimation("hold", piecePrefixes, 24, true);
             }
@@ -169,6 +170,33 @@ class Note extends FlxSprite {
                 '$color scroll'
             ];
             tryAddAnimation("scroll", scrollPrefixes, 24, true);
+        }
+    }
+
+    public function playAnim(?songSpeed:Float = 2.0):Void {
+        if (isSustainNote) {
+            if (isSustainEnd) {
+                if (animation.getByName("holdend") != null) {
+                    animation.play("holdend");
+                }
+                scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
+                updateHitbox();
+            } else {
+                if (animation.getByName("hold") != null) {
+                    animation.play("hold");
+                }
+                // Correct height calculation matching standard Psych/Codename engine metrics
+                var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed) * (135 / Conductor.stepCrochet));
+                var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
+                scale.set(DEFAULT_SCALE, stepHeight / baseH);
+                updateHitbox();
+            }
+        } else {
+            if (animation.getByName("scroll") != null) {
+                animation.play("scroll");
+            }
+            scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
+            updateHitbox();
         }
     }
 
@@ -185,26 +213,6 @@ class Note extends FlxSprite {
             }
         }
         return false;
-    }
-
-    public function playAnim(?songSpeed:Float = 2.0):Void {
-        if (isSustainNote) {
-            if (isSustainEnd) {
-                if (animation.getByName("holdend") != null) animation.play("holdend");
-                scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
-                updateHitbox();
-            } else {
-                if (animation.getByName("hold") != null) animation.play("hold");
-                var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
-                var baseH:Float = (frameHeight > 0) ? frameHeight : 87.0;
-                scale.set(DEFAULT_SCALE, (stepHeight + 1.5) / baseH);
-                updateHitbox();
-            }
-        } else {
-            if (animation.getByName("scroll") != null) animation.play("scroll");
-            scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
-            updateHitbox();
-        }
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
