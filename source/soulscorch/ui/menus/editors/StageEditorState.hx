@@ -145,14 +145,13 @@ class StageEditorState extends MusicBeatState {
         ground.scrollFactor.set(1, 1);
         add(ground);
 
-        loadStageData();
-
         for (l in layerOrder) {
             var group = new FlxSpriteGroup();
             stageLayers.set(l, group);
             add(group);
         }
 
+        loadStageData();
         buildStagePieces();
         spawnDummies();
 
@@ -240,29 +239,50 @@ class StageEditorState extends MusicBeatState {
         var list = stageData.pieces != null ? stageData.pieces : stageData.sprites;
         if (list != null) {
             for (p in list) {
+                if (p == null) continue;
                 var pName = (p.id != null) ? p.id : ((p.name != null) ? p.name : "piece_" + pieceNames.length);
-                var posX = p.position != null && p.position.length > 0 ? p.position[0] : (p.x != null ? p.x : 0.0);
-                var posY = p.position != null && p.position.length > 1 ? p.position[1] : (p.y != null ? p.y : 0.0);
+                var posX:Float = 0.0;
+                var posY:Float = 0.0;
+
+                if (p.position != null && p.position.length >= 2) {
+                    posX = p.position[0];
+                    posY = p.position[1];
+                } else {
+                    posX = (p.x != null) ? p.x : 0.0;
+                    posY = (p.y != null) ? p.y : 0.0;
+                }
 
                 var spr = new FlxSprite(posX, posY);
+                var loaded = false;
+
                 if (p.animated == true && p.animations != null && p.animations.length > 0) {
-                    AssetHelper.loadSparrowSafely(spr, p.image);
-                    for (anim in p.animations) {
-                        spr.animation.addByPrefix(anim.anim, anim.name, anim.fps != null ? Std.int(anim.fps) : 24, anim.loop != null ? anim.loop : true);
+                    loaded = AssetHelper.loadSparrowSafely(spr, p.image);
+                    if (loaded) {
+                        for (anim in p.animations) {
+                            spr.animation.addByPrefix(anim.anim, anim.name, anim.fps != null ? Std.int(anim.fps) : 24, anim.loop != null ? anim.loop : true);
+                        }
+                        if (p.animations.length > 0) spr.animation.play(p.animations[0].anim);
                     }
-                    spr.animation.play(p.animations[0].anim);
-                } else if (!AssetHelper.loadGraphicSafely(spr, p.image)) {
+                } else if (p.image != null) {
+                    loaded = AssetHelper.loadGraphicSafely(spr, p.image);
+                }
+
+                if (!loaded) {
                     spr.makeGraphic(400, 300, EditorTheme.PANEL_BORDER);
                 }
 
-                spr.scrollFactor.set(p.scroll != null ? p.scroll[0] : 1.0, p.scroll != null ? p.scroll[1] : 1.0);
-                spr.scale.set(p.scale != null ? p.scale[0] : 1.0, p.scale != null ? p.scale[1] : 1.0);
+                spr.scrollFactor.set(p.scroll != null && p.scroll.length >= 2 ? p.scroll[0] : 1.0, p.scroll != null && p.scroll.length >= 2 ? p.scroll[1] : 1.0);
+                spr.scale.set(p.scale != null && p.scale.length >= 2 ? p.scale[0] : 1.0, p.scale != null && p.scale.length >= 2 ? p.scale[1] : 1.0);
                 spr.alpha = p.alpha != null ? p.alpha : 1.0;
                 spr.updateHitbox();
                 spr.antialiasing = (p.antialiasing != null) ? p.antialiasing : true;
 
                 var targetLayer = (p.layer != null && stageLayers.exists(p.layer)) ? p.layer : "background";
-                stageLayers.get(targetLayer).add(spr);
+                if (stageLayers.exists(targetLayer)) {
+                    stageLayers.get(targetLayer).add(spr);
+                } else {
+                    stageLayers.get("background").add(spr);
+                }
 
                 pieceSprites.set(pName, spr);
                 pieceDataMap.set(pName, p);
@@ -280,9 +300,23 @@ class StageEditorState extends MusicBeatState {
         var dadPos = getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
         var bfPos = getSpawnPos(stageData.boyfriend != null ? stageData.boyfriend : stageData.player, [770.0, 450.0]);
 
-        dummyGF = new Character(gfPos[0], gfPos[1], "gf", false);
-        dummyDad = new Character(dadPos[0], dadPos[1], "dad", false);
-        dummyBF = new Character(bfPos[0], bfPos[1], "bf", true);
+        try {
+            dummyGF = new Character(gfPos[0], gfPos[1], "gf", false);
+        } catch (e:Dynamic) {
+            dummyGF = new Character(gfPos[0], gfPos[1], "gf", false);
+        }
+
+        try {
+            dummyDad = new Character(dadPos[0], dadPos[1], "dad", false);
+        } catch (e:Dynamic) {
+            dummyDad = new Character(dadPos[0], dadPos[1], "dad", false);
+        }
+
+        try {
+            dummyBF = new Character(bfPos[0], bfPos[1], "bf", true);
+        } catch (e:Dynamic) {
+            dummyBF = new Character(bfPos[0], bfPos[1], "bf", true);
+        }
 
         dummyGF.alpha = 0.85; dummyDad.alpha = 0.85; dummyBF.alpha = 0.85;
         dummyGF.visible = !(stageData.hideGirlfriend == true || stageData.hide_girlfriend == true);
@@ -333,8 +367,8 @@ class StageEditorState extends MusicBeatState {
         topBar.addAction("Redo (Ctrl+Y)", redo);
         topBar.addAction("Cycle Stage", promptCycleStage);
         topBar.addAction("Reset Camera", function() {
-            camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
-            camStage.zoom = stageData.defaultZoom;
+            if (dummyBF != null) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
+            camStage.zoom = (stageData != null && stageData.defaultZoom != null) ? stageData.defaultZoom : 0.9;
         });
         topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
@@ -441,7 +475,7 @@ class StageEditorState extends MusicBeatState {
         add(propExtrasWindow);
 
         checkIs3D = new EditorCheckbox(10, 8, "Render as 3D Mesh", false, function(c) {
-            if (currentMode == PIECE && pieceNames.length > 0) {
+            if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                 var p = pieceDataMap.get(pieceNames[curPieceIndex]);
                 if (p != null) p.is3D = c;
                 EditorToast.show('Set 3D Mode: $c');
@@ -453,7 +487,7 @@ class StageEditorState extends MusicBeatState {
         propExtrasWindow.addElement(input3DModel);
 
         var btnApply3D = new EditorButton(10, 78, 280, 26, "Bind 3D Model Path", function() {
-            if (currentMode == PIECE && pieceNames.length > 0) {
+            if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                 var p = pieceDataMap.get(pieceNames[curPieceIndex]);
                 if (p != null) {
                     pushUndoSnapshot();
@@ -520,13 +554,13 @@ class StageEditorState extends MusicBeatState {
         handleMouseDragControls();
         handleMarqueeSelection();
 
-        if (FlxG.keys.justPressed.ONE) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
-        if (FlxG.keys.justPressed.TWO) camFollow.set(dummyDad.getMidpoint().x, dummyDad.getMidpoint().y);
-        if (FlxG.keys.justPressed.THREE) camFollow.set(dummyGF.getMidpoint().x, dummyGF.getMidpoint().y);
+        if (FlxG.keys.justPressed.ONE && dummyBF != null) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
+        if (FlxG.keys.justPressed.TWO && dummyDad != null) camFollow.set(dummyDad.getMidpoint().x, dummyDad.getMidpoint().y);
+        if (FlxG.keys.justPressed.THREE && dummyGF != null) camFollow.set(dummyGF.getMidpoint().x, dummyGF.getMidpoint().y);
 
         if (FlxG.keys.justPressed.SPACE) {
-            dummyBF.playSingAnim(FlxG.random.int(0, 3), true);
-            dummyDad.playSingAnim(FlxG.random.int(0, 3), true);
+            if (dummyBF != null) dummyBF.playSingAnim(FlxG.random.int(0, 3), true);
+            if (dummyDad != null) dummyDad.playSingAnim(FlxG.random.int(0, 3), true);
         }
 
         if (FlxG.keys.justPressed.L) cyclePieceLayer();
@@ -680,7 +714,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function duplicateCurrentProp():Void {
-        if (currentMode != PIECE || pieceNames.length == 0) return;
+        if (currentMode != PIECE || pieceNames.length == 0 || curPieceIndex >= pieceNames.length) return;
         pushUndoSnapshot();
 
         var pName = pieceNames[curPieceIndex];
@@ -690,7 +724,7 @@ class StageEditorState extends MusicBeatState {
             var clonePiece:StagePieceJson = {
                 name: cloneName,
                 image: original.image,
-                position: [(original.position != null ? original.position[0] : 0.0) + 50, (original.position != null ? original.position[1] : 0.0) + 50],
+                position: [(original.position != null && original.position.length > 0 ? original.position[0] : 0.0) + 50, (original.position != null && original.position.length > 1 ? original.position[1] : 0.0) + 50],
                 scroll: original.scroll,
                 scale: original.scale,
                 layer: original.layer,
@@ -713,21 +747,21 @@ class StageEditorState extends MusicBeatState {
     private function getCurrentTargetPos():Array<Float> {
         return switch (currentMode) {
             case PIECE:
-                if (pieceNames.length > 0) {
+                if (pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                     var spr = pieceSprites.get(pieceNames[curPieceIndex]);
                     return spr != null ? [spr.x, spr.y] : [0.0, 0.0];
                 }
                 [0.0, 0.0];
-            case BF_SPAWN: getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
-            case DAD_SPAWN: getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
-            case GF_SPAWN: getSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, [400.0, 130.0]);
+            case BF_SPAWN: getSpawnPos(stageData != null ? stageData.boyfriend : null, [770.0, 450.0]);
+            case DAD_SPAWN: getSpawnPos(stageData != null ? (stageData.dad != null ? stageData.dad : stageData.opponent) : null, [100.0, 100.0]);
+            case GF_SPAWN: getSpawnPos(stageData != null ? (stageData.girlfriend != null ? stageData.girlfriend : stageData.gf) : null, [400.0, 130.0]);
         };
     }
 
     private function applyDeltaToCurrentTarget(dx:Float, dy:Float):Void {
         switch (currentMode) {
             case PIECE:
-                if (pieceNames.length > 0) {
+                if (pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                     var pName = pieceNames[curPieceIndex];
                     var spr = pieceSprites.get(pName);
                     if (spr != null) {
@@ -740,21 +774,21 @@ class StageEditorState extends MusicBeatState {
                 var pos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
                 pos[0] += dx; pos[1] += dy;
                 setSpawnPos(stageData.boyfriend, pos[0], pos[1]);
-                dummyBF.setPosition(pos[0], pos[1]);
+                if (dummyBF != null) dummyBF.setPosition(pos[0], pos[1]);
 
             case DAD_SPAWN:
                 var oppData = stageData.dad != null ? stageData.dad : stageData.opponent;
                 var pos = getSpawnPos(oppData, [100.0, 100.0]);
                 pos[0] += dx; pos[1] += dy;
                 setSpawnPos(oppData, pos[0], pos[1]);
-                dummyDad.setPosition(pos[0], pos[1]);
+                if (dummyDad != null) dummyDad.setPosition(pos[0], pos[1]);
 
             case GF_SPAWN:
                 var gfData = stageData.girlfriend != null ? stageData.girlfriend : stageData.gf;
                 var pos = getSpawnPos(gfData, [400.0, 130.0]);
                 pos[0] += dx; pos[1] += dy;
                 setSpawnPos(gfData, pos[0], pos[1]);
-                dummyGF.setPosition(pos[0], pos[1]);
+                if (dummyGF != null) dummyGF.setPosition(pos[0], pos[1]);
         }
         updateHUD();
     }
@@ -762,7 +796,7 @@ class StageEditorState extends MusicBeatState {
     private function setAbsoluteCurrentTarget(x:Float, y:Float):Void {
         switch (currentMode) {
             case PIECE:
-                if (pieceNames.length > 0) {
+                if (pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                     var pName = pieceNames[curPieceIndex];
                     var spr = pieceSprites.get(pName);
                     if (spr != null) {
@@ -772,13 +806,13 @@ class StageEditorState extends MusicBeatState {
                 }
             case BF_SPAWN:
                 setSpawnPos(stageData.boyfriend, x, y);
-                dummyBF.setPosition(x, y);
+                if (dummyBF != null) dummyBF.setPosition(x, y);
             case DAD_SPAWN:
                 setSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, x, y);
-                dummyDad.setPosition(x, y);
+                if (dummyDad != null) dummyDad.setPosition(x, y);
             case GF_SPAWN:
                 setSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, x, y);
-                dummyGF.setPosition(x, y);
+                if (dummyGF != null) dummyGF.setPosition(x, y);
         }
         updateHUD();
     }
@@ -802,7 +836,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function cyclePieceLayer():Void {
-        if (currentMode != PIECE || pieceNames.length == 0) return;
+        if (currentMode != PIECE || pieceNames.length == 0 || curPieceIndex >= pieceNames.length) return;
         var pName = pieceNames[curPieceIndex];
         var spr = pieceSprites.get(pName);
         var p = pieceDataMap.get(pName);
@@ -813,9 +847,9 @@ class StageEditorState extends MusicBeatState {
             var nextLayerIdx = (layerOrder.indexOf(curLayer) + 1) % layerOrder.length;
             var nextLayer = layerOrder[nextLayerIdx];
 
-            stageLayers.get(curLayer).remove(spr, true);
+            if (stageLayers.exists(curLayer)) stageLayers.get(curLayer).remove(spr, true);
             p.layer = nextLayer;
-            stageLayers.get(nextLayer).add(spr);
+            if (stageLayers.exists(nextLayer)) stageLayers.get(nextLayer).add(spr);
 
             updateHUD();
             EditorToast.show('Moved $pName -> $nextLayer');
@@ -823,7 +857,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function updateCurrentPieceScale(val:Float, isX:Bool):Void {
-        if (currentMode == PIECE && pieceNames.length > 0) {
+        if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
             var pName = pieceNames[curPieceIndex];
             var spr = pieceSprites.get(pName);
             if (spr != null) {
@@ -843,7 +877,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function updateCurrentPieceScroll(val:Float, isX:Bool):Void {
-        if (currentMode == PIECE && pieceNames.length > 0) {
+        if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
             var pName = pieceNames[curPieceIndex];
             var spr = pieceSprites.get(pName);
             if (spr != null) {
@@ -862,7 +896,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function updateCurrentPieceAlpha(val:Float):Void {
-        if (currentMode == PIECE && pieceNames.length > 0) {
+        if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
             var pName = pieceNames[curPieceIndex];
             var spr = pieceSprites.get(pName);
             if (spr != null) {
@@ -874,7 +908,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function updateCurrentPieceAntialiasing(val:Bool):Void {
-        if (currentMode == PIECE && pieceNames.length > 0) {
+        if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
             var pName = pieceNames[curPieceIndex];
             var spr = pieceSprites.get(pName);
             if (spr != null) {
@@ -886,7 +920,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function removeCurrentPiece():Void {
-        if (currentMode != PIECE || pieceNames.length == 0) {
+        if (currentMode != PIECE || pieceNames.length == 0 || curPieceIndex >= pieceNames.length) {
             EditorToast.show("Select a prop to delete!", true);
             return;
         }
@@ -898,7 +932,7 @@ class StageEditorState extends MusicBeatState {
 
         if (spr != null && p != null) {
             var lyr = p.layer != null ? p.layer : "background";
-            stageLayers.get(lyr).remove(spr, true);
+            if (stageLayers.exists(lyr)) stageLayers.get(lyr).remove(spr, true);
             spr.destroy();
             pieceSprites.remove(pName);
             pieceDataMap.remove(pName);
@@ -921,6 +955,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function pushUndoSnapshot():Void {
+        if (stageData == null) return;
         undoStack.push(Json.stringify(stageData));
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
         redoStack = [];
@@ -988,7 +1023,7 @@ class StageEditorState extends MusicBeatState {
 
     private function updateHUD():Void {
         var targetName = switch (currentMode) {
-            case PIECE: (pieceNames.length > 0 ? 'Prop: ${pieceNames[curPieceIndex]}' : "None");
+            case PIECE: (pieceNames.length > 0 && curPieceIndex < pieceNames.length ? 'Prop: ${pieceNames[curPieceIndex]}' : "None");
             case BF_SPAWN: "Boyfriend Anchor";
             case DAD_SPAWN: "Dad Anchor";
             case GF_SPAWN: "Girlfriend Anchor";
@@ -997,61 +1032,71 @@ class StageEditorState extends MusicBeatState {
         var curPos:Array<Float> = [0.0, 0.0];
         switch (currentMode) {
             case PIECE:
-                if (pieceNames.length > 0) {
+                if (pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                     var pName = pieceNames[curPieceIndex];
                     var spr = pieceSprites.get(pName);
                     var p = pieceDataMap.get(pName);
                     if (spr != null) {
                         curPos = [spr.x, spr.y];
                         targetMarker.setPosition(spr.x, spr.y);
-                        stepperPieceScaleX.value = spr.scale.x;
-                        stepperPieceScaleY.value = spr.scale.y;
-                        stepperScrollX.value = spr.scrollFactor.x;
-                        stepperScrollY.value = spr.scrollFactor.y;
-                        stepperAlpha.value = spr.alpha;
-                        checkAntialias.checked = spr.antialiasing;
+                        if (stepperPieceScaleX != null) stepperPieceScaleX.value = spr.scale.x;
+                        if (stepperPieceScaleY != null) stepperPieceScaleY.value = spr.scale.y;
+                        if (stepperScrollX != null) stepperScrollX.value = spr.scrollFactor.x;
+                        if (stepperScrollY != null) stepperScrollY.value = spr.scrollFactor.y;
+                        if (stepperAlpha != null) stepperAlpha.value = spr.alpha;
+                        if (checkAntialias != null) checkAntialias.checked = spr.antialiasing;
 
-                        selectionOutline.setPosition(spr.x, spr.y);
-                        selectionOutline.setGraphicSize(Std.int(spr.width), Std.int(spr.height));
-                        selectionOutline.updateHitbox();
-                        selectionOutline.visible = true;
+                        if (selectionOutline != null) {
+                            selectionOutline.setPosition(spr.x, spr.y);
+                            selectionOutline.setGraphicSize(Std.int(Math.max(1, spr.width)), Std.int(Math.max(1, spr.height)));
+                            selectionOutline.updateHitbox();
+                            selectionOutline.visible = true;
+                        }
                     }
                     if (p != null) {
-                        layerIndicatorTxt.text = 'Layer: ${p.layer != null ? p.layer : "background"}';
-                        checkIs3D.checked = p.is3D == true;
-                        input3DModel.text = p.modelPath != null ? p.modelPath : "arena.obj";
+                        if (layerIndicatorTxt != null) layerIndicatorTxt.text = 'Layer: ${p.layer != null ? p.layer : "background"}';
+                        if (checkIs3D != null) checkIs3D.checked = p.is3D == true;
+                        if (input3DModel != null) input3DModel.text = p.modelPath != null ? p.modelPath : "arena.obj";
                     }
+                } else if (selectionOutline != null) {
+                    selectionOutline.visible = false;
                 }
             case BF_SPAWN:
-                curPos = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
-                targetMarker.setPosition(dummyBF.x, dummyBF.y);
-                layerIndicatorTxt.text = "Layer: behindBF";
-                selectionOutline.visible = false;
+                curPos = getSpawnPos(stageData != null ? stageData.boyfriend : null, [770.0, 450.0]);
+                if (dummyBF != null) targetMarker.setPosition(dummyBF.x, dummyBF.y);
+                if (layerIndicatorTxt != null) layerIndicatorTxt.text = "Layer: behindBF";
+                if (selectionOutline != null) selectionOutline.visible = false;
             case DAD_SPAWN:
-                curPos = getSpawnPos(stageData.dad != null ? stageData.dad : stageData.opponent, [100.0, 100.0]);
-                targetMarker.setPosition(dummyDad.x, dummyDad.y);
-                layerIndicatorTxt.text = "Layer: behindDad";
-                selectionOutline.visible = false;
+                curPos = getSpawnPos(stageData != null ? (stageData.dad != null ? stageData.dad : stageData.opponent) : null, [100.0, 100.0]);
+                if (dummyDad != null) targetMarker.setPosition(dummyDad.x, dummyDad.y);
+                if (layerIndicatorTxt != null) layerIndicatorTxt.text = "Layer: behindDad";
+                if (selectionOutline != null) selectionOutline.visible = false;
             case GF_SPAWN:
-                curPos = getSpawnPos(stageData.girlfriend != null ? stageData.girlfriend : stageData.gf, [400.0, 130.0]);
-                targetMarker.setPosition(dummyGF.x, dummyGF.y);
-                layerIndicatorTxt.text = "Layer: behindGF";
-                selectionOutline.visible = false;
+                curPos = getSpawnPos(stageData != null ? (stageData.girlfriend != null ? stageData.girlfriend : stageData.gf) : null, [400.0, 130.0]);
+                if (dummyGF != null) targetMarker.setPosition(dummyGF.x, dummyGF.y);
+                if (layerIndicatorTxt != null) layerIndicatorTxt.text = "Layer: behindGF";
+                if (selectionOutline != null) selectionOutline.visible = false;
         }
 
-        infoTxt.text = 'Target: $targetName\nPos: [${Math.round(curPos[0])}, ${Math.round(curPos[1])}]\nZoom: ${Math.round(stageData.defaultZoom * 100) / 100}x';
-
-        var list = "";
-        for (i in 0...pieceNames.length) {
-            list += (currentMode == PIECE && i == curPieceIndex ? '> ' : '  ') + pieceNames[i] + '\n';
+        var defaultZoomVal:Float = (stageData != null && stageData.defaultZoom != null) ? stageData.defaultZoom : 0.9;
+        if (infoTxt != null) {
+            infoTxt.text = 'Target: $targetName\nPos: [${Math.round(curPos[0])}, ${Math.round(curPos[1])}]\nZoom: ${Math.round(defaultZoomVal * 100) / 100}x';
         }
-        list += (currentMode == BF_SPAWN ? '> ' : '  ') + 'BF Spawn\n';
-        list += (currentMode == DAD_SPAWN ? '> ' : '  ') + 'Dad Spawn\n';
-        list += (currentMode == GF_SPAWN ? '> ' : '  ') + 'GF Spawn\n';
-        listTxt.text = list;
+
+        if (listTxt != null) {
+            var list = "";
+            for (i in 0...pieceNames.length) {
+                list += (currentMode == PIECE && i == curPieceIndex ? '> ' : '  ') + pieceNames[i] + '\n';
+            }
+            list += (currentMode == BF_SPAWN ? '> ' : '  ') + 'BF Spawn\n';
+            list += (currentMode == DAD_SPAWN ? '> ' : '  ') + 'Dad Spawn\n';
+            list += (currentMode == GF_SPAWN ? '> ' : '  ') + 'GF Spawn\n';
+            listTxt.text = list;
+        }
     }
 
     private function saveStageJson():Void {
+        if (stageData == null) return;
         var json = Json.stringify(stageData, "\t");
         var fileName = '$curStage.json';
 

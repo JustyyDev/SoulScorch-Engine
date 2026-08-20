@@ -120,31 +120,77 @@ jobs:
               content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
               with open(console_util, "w", encoding="utf-8") as f:
                   f.write(content)
+              print("Patched:", console_util)
           '
 
       - name: Compile SoulScorch Engine
         run: haxelib run lime build ${{ matrix.target }} -release -D HXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
-          HXCPP_SILENT: 1
 
-      - name: Package Executable Archive
-        shell: bash
+      - name: Package Executable Archive (Universal Python Packager)
         run: |
-          BUILD_DIR=$(find bin export -type d -name "bin" 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
-          if [ -z "$BUILD_DIR" ]; then
-            BUILD_DIR=$(find bin export -maxdepth 3 -type d 2>/dev/null | grep -i "${{ matrix.target }}" | head -n 1)
-          fi
+          python3 -c '
+          import os, sys, zipfile
 
-          if [ -d "$BUILD_DIR" ]; then
-            echo "Packaging binary from: $BUILD_DIR"
-            cd "$BUILD_DIR"
-            chmod +x * 2>/dev/null || true
-            zip -qry "$GITHUB_WORKSPACE/${{ matrix.archive_name }}" .
-          else
-            echo "Error: Output directory not found."
-            exit 1
-          fi
+          target = "${{ matrix.target }}".lower()
+          archive_name = "${{ matrix.archive_name }}"
+          workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
+          output_zip = os.path.join(workspace, archive_name)
+
+          search_roots = ["bin", "export"]
+          found_dir = None
+
+          # Search for the directory containing the compiled binary or .app bundle
+          candidates = []
+          for s_root in search_roots:
+              if not os.path.exists(s_root):
+                  continue
+              for root, dirs, files in os.walk(s_root):
+                  if "obj" in root or "haxe" in root:
+                      continue
+                  if target == "windows" and any(f.endswith(".exe") for f in files):
+                      candidates.append(root)
+                  elif target == "mac" and (any(d.endswith(".app") for d in dirs) or any(f.endswith(".app") for f in files) or "mac" in root.lower()):
+                      candidates.append(root)
+                  elif target == "linux" and ("linux" in root.lower() or any(os.access(os.path.join(root, f), os.X_OK) for f in files)):
+                      candidates.append(root)
+
+          # Find best match
+          for c in candidates:
+              if target in c.lower() or (target == "mac" and "macos" in c.lower()):
+                  found_dir = c
+                  break
+
+          if not found_dir and candidates:
+              found_dir = candidates[0]
+
+          # Fallback: scan any directory with a "bin" subfolder
+          if not found_dir:
+              for s_root in search_roots:
+                  if not os.path.exists(s_root): continue
+                  for root, dirs, files in os.walk(s_root):
+                      if os.path.basename(root) == "bin" and "obj" not in root and "haxe" not in root:
+                          found_dir = root
+                          break
+
+          if not found_dir:
+              print("Error: Could not locate build directory. Workspace search:")
+              for r, d, f in os.walk("."):
+                  if not r.startswith("./.git"):
+                      print(r, d, f)
+              sys.exit(1)
+
+          print(f"Packaging build from: {found_dir} -> {output_zip}")
+          with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
+              for root, dirs, files in os.walk(found_dir):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, found_dir)
+                      zipf.write(file_path, arcname)
+
+          print(f"Archive successfully created: {output_zip} ({os.path.getsize(output_zip)} bytes)")
+          '
 
       - name: Upload Packaged Release Artifact
         uses: actions/upload-artifact@v4

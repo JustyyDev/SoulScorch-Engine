@@ -35,7 +35,15 @@ jobs:
       - name: Install Android NDK & Build-Tools
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager --install "ndk;23.2.8568313" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1"
+          sdkmanager --install "ndk;21.4.7075529" "platforms;android-33" "build-tools;33.0.2" "cmake;3.22.1"
+
+      - name: Export Android NDK Environment Variables
+        run: |
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
+          echo "NDK_ROOT=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
+          echo "NDK_HOME=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk/21.4.7075529" >> $GITHUB_ENV
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v2
@@ -81,20 +89,23 @@ jobs:
               content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
               with open(console_util, "w", encoding="utf-8") as f:
                   f.write(content)
+              print("Patched ConsoleUtil:", console_util)
           '
 
       - name: Configure Android Lime SDK Paths
         run: |
           haxelib run lime config ANDROID_SDK $ANDROID_HOME
-          haxelib run lime config ANDROID_NDK_ROOT $ANDROID_HOME/ndk/23.2.8568313
+          haxelib run lime config ANDROID_NDK_ROOT $ANDROID_HOME/ndk/21.4.7075529
           haxelib run lime config JAVA_HOME $JAVA_HOME
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH
         env:
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          NDK_ROOT: ${{ env.NDK_ROOT }}
           HXCPP_COMPILE_THREADS: 4
-          HXCPP_SILENT: 1
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -158,27 +169,50 @@ jobs:
               content = content.replace("return interp.expr(", "return @:privateAccess interp.expr(")
               with open(console_util, "w", encoding="utf-8") as f:
                   f.write(content)
+              print("Patched ConsoleUtil:", console_util)
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -D HXCPP_NO_PCH
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
-          HXCPP_SILENT: 1
 
       - name: Package Xcode Build Output
-        shell: bash
         run: |
-          PROJECT_FILE=$(find bin export -name "*.xcodeproj" 2>/dev/null | head -n 1)
-          if [ -n "$PROJECT_FILE" ]; then
-            TARGET_DIR=$(dirname "$PROJECT_FILE")
-            echo "Packaging iOS Project from: $TARGET_DIR"
-            cd "$TARGET_DIR"
-            zip -qry "$GITHUB_WORKSPACE/SoulScorch-iOS-XcodeProject.zip" .
-          else
-            echo "Error: Xcode project directory not found."
-            exit 1
-          fi
+          python3 -c '
+          import os, sys, zipfile
+
+          workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
+          output_zip = os.path.join(workspace, "SoulScorch-iOS-XcodeProject.zip")
+
+          found_dir = None
+          for root, dirs, files in os.walk("."):
+              if "obj" in root or ".git" in root or "haxe" in root:
+                  continue
+              if any(d.endswith(".xcodeproj") for d in dirs):
+                  found_dir = root
+                  break
+
+          if not found_dir:
+              for root, dirs, files in os.walk("."):
+                  if "ios" in root.lower() and ("bin" in root.lower() or "export" in root.lower()):
+                      found_dir = root
+                      break
+
+          if not found_dir:
+              print("Error: Could not locate Xcode project directory.")
+              sys.exit(1)
+
+          print(f"Packaging iOS build from: {found_dir} -> {output_zip}")
+          with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
+              for root, dirs, files in os.walk(found_dir):
+                  for file in files:
+                      file_path = os.path.join(root, file)
+                      arcname = os.path.relpath(file_path, found_dir)
+                      zipf.write(file_path, arcname)
+
+          print("Successfully created archive:", output_zip)
+          '
 
       - name: Upload iOS Xcode Project Artifact
         uses: actions/upload-artifact@v4

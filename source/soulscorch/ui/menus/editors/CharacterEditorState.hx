@@ -140,21 +140,37 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function reloadCharacters():Void {
-        if (ghostChar != null) { remove(ghostChar, true); ghostChar.destroy(); }
-        if (charLayer != null) { remove(charLayer, true); charLayer.destroy(); }
+        if (ghostChar != null) { 
+            remove(ghostChar, true); 
+            ghostChar.destroy(); 
+        }
+        if (charLayer != null) { 
+            remove(charLayer, true); 
+            charLayer.destroy(); 
+        }
 
-        ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+        try {
+            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+        } catch (e:Dynamic) {
+            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, "dad", isPlayer);
+        }
         ghostChar.alpha = showGhost ? 0.35 : 0.0;
         ghostChar.color = EditorTheme.ACCENT_PURPLE;
         add(ghostChar);
 
-        charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+        try {
+            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+        } catch (e:Dynamic) {
+            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, "dad", isPlayer);
+        }
         add(charLayer);
 
         animList = [];
-        if (charLayer.animation != null) {
+        if (charLayer != null && charLayer.animation != null) {
             @:privateAccess
-            for (key in charLayer.animation._animations.keys()) animList.push(key);
+            if (charLayer.animation._animations != null) {
+                for (key in charLayer.animation._animations.keys()) animList.push(key);
+            }
         }
         if (animList.length == 0) animList = ["idle", "singUP", "singRIGHT", "singDOWN", "singLEFT"];
 
@@ -169,13 +185,15 @@ class CharacterEditorState extends MusicBeatState {
         previewHealthBarBG.scrollFactor.set();
         add(previewHealthBarBG);
 
+        var healthBarCol:FlxColor = (charLayer != null && charLayer.healthColor != null) ? charLayer.healthColor : 0xFF66FF33;
         previewHealthBar = new FlxBar(previewHealthBarBG.x + 2, previewHealthBarBG.y + 2, RIGHT_TO_LEFT, 396, 14);
-        previewHealthBar.createFilledBar(0xFFFF0000, charLayer != null ? charLayer.healthColor : 0xFF66FF33);
+        previewHealthBar.createFilledBar(0xFFFF0000, healthBarCol);
         previewHealthBar.cameras = [camHUD];
         previewHealthBar.scrollFactor.set();
         add(previewHealthBar);
 
-        previewIcon = new HealthIcon(charLayer != null ? charLayer.healthIcon : "face", isPlayer);
+        var iconKey:String = (charLayer != null && charLayer.healthIcon != null) ? charLayer.healthIcon : "face";
+        previewIcon = new HealthIcon(iconKey, isPlayer);
         previewIcon.cameras = [camHUD];
         previewIcon.setPosition(previewHealthBar.x + (previewHealthBar.width * 0.5) - 40, previewHealthBar.y - 45);
         add(previewIcon);
@@ -229,7 +247,8 @@ class CharacterEditorState extends MusicBeatState {
         propertiesWindow.cameras = [camHUD];
         add(propertiesWindow);
 
-        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale Multiplier", charLayer != null ? charLayer.scale.x : 1.0, 0.1, 8.0, 0.05, 2, function(v) {
+        var currentScale:Float = (charLayer != null && charLayer.scale != null) ? charLayer.scale.x : 1.0;
+        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale Multiplier", currentScale, 0.1, 8.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             if (charLayer != null) {
                 charLayer.scale.set(v, v);
@@ -243,13 +262,15 @@ class CharacterEditorState extends MusicBeatState {
         });
         propertiesWindow.addElement(stepperScale);
 
-        var stepperSing = new EditorNumericStepper(10, 44, 290, "Sing Hold Duration", charLayer != null ? charLayer.singDuration : 4.0, 0.5, 16.0, 0.5, 1, function(v) {
+        var currentSing:Float = (charLayer != null) ? charLayer.singDuration : 4.0;
+        var stepperSing = new EditorNumericStepper(10, 44, 290, "Sing Hold Duration", currentSing, 0.5, 16.0, 0.5, 1, function(v) {
             pushUndoSnapshot();
             if (charLayer != null) charLayer.singDuration = v;
         });
         propertiesWindow.addElement(stepperSing);
 
-        inputHealthIcon = new EditorInputText(10, 84, 290, "Health Icon Key", charLayer != null ? charLayer.healthIcon : "face");
+        var curIconName:String = (charLayer != null && charLayer.healthIcon != null) ? charLayer.healthIcon : "face";
+        inputHealthIcon = new EditorInputText(10, 84, 290, "Health Icon Key", curIconName);
         propertiesWindow.addElement(inputHealthIcon);
 
         var checkGhost = new EditorCheckbox(10, 128, "Ghost Overlay (G)", showGhost, function(c) {
@@ -258,7 +279,8 @@ class CharacterEditorState extends MusicBeatState {
         });
         propertiesWindow.addElement(checkGhost);
 
-        var checkFlip = new EditorCheckbox(160, 128, "Flip X Axis", charLayer != null ? charLayer.flipX : false, function(c) {
+        var isFlipped:Bool = (charLayer != null) ? charLayer.flipX : false;
+        var checkFlip = new EditorCheckbox(160, 128, "Flip X Axis", isFlipped, function(c) {
             pushUndoSnapshot();
             if (charLayer != null) charLayer.flipX = c;
             if (ghostChar != null) ghostChar.flipX = c;
@@ -269,16 +291,18 @@ class CharacterEditorState extends MusicBeatState {
         offsetsWindow.cameras = [camHUD];
         add(offsetsWindow);
 
-        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", charLayer != null ? charLayer.cameraOffset[0] : 0, -900, 900, 5.0, 1, function(v) {
+        var camXVal:Float = (charLayer != null && charLayer.cameraOffset != null && charLayer.cameraOffset.length > 0) ? charLayer.cameraOffset[0] : 0.0;
+        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", camXVal, -900, 900, 5.0, 1, function(v) {
             pushUndoSnapshot();
-            if (charLayer != null) charLayer.cameraOffset[0] = v;
+            if (charLayer != null && charLayer.cameraOffset != null) charLayer.cameraOffset[0] = v;
             updateCrosshair();
         });
         offsetsWindow.addElement(stepperCamX);
 
-        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", charLayer != null ? charLayer.cameraOffset[1] : 0, -900, 900, 5.0, 1, function(v) {
+        var camYVal:Float = (charLayer != null && charLayer.cameraOffset != null && charLayer.cameraOffset.length > 1) ? charLayer.cameraOffset[1] : 0.0;
+        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", camYVal, -900, 900, 5.0, 1, function(v) {
             pushUndoSnapshot();
-            if (charLayer != null) charLayer.cameraOffset[1] = v;
+            if (charLayer != null && charLayer.cameraOffset != null) charLayer.cameraOffset[1] = v;
             updateCrosshair();
         });
         offsetsWindow.addElement(stepperCamY);
@@ -288,7 +312,7 @@ class CharacterEditorState extends MusicBeatState {
         add(quickToolsWindow);
 
         var btnZeroOffset = new EditorButton(10, 8, 280, 26, "Reset Current Offset to [0, 0]", function() {
-            if (animList.length == 0) return;
+            if (animList.length == 0 || curAnimIndex >= animList.length) return;
             var anim = animList[curAnimIndex];
             pushUndoSnapshot();
             if (charLayer != null) charLayer.addOffset(anim, 0, 0);
@@ -321,7 +345,7 @@ class CharacterEditorState extends MusicBeatState {
             if (inputAnimName.text.trim().length > 0 && inputAnimPrefix.text.trim().length > 0) {
                 var animKey = inputAnimName.text.trim();
                 pushUndoSnapshot();
-                if (charLayer != null) {
+                if (charLayer != null && charLayer.animation != null) {
                     charLayer.animation.addByPrefix(animKey, inputAnimPrefix.text.trim(), Std.int(stepperAnimFPS.value), checkAnimLoop.checked);
                     charLayer.addOffset(animKey, 0, 0);
                 }
@@ -386,14 +410,17 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function handleOffsetControls():Void {
-        if (charLayer == null || animList.length == 0 || newAnimWindow.visible) return;
+        if (charLayer == null || animList.length == 0 || curAnimIndex >= animList.length || newAnimWindow.visible) return;
 
         var anim = animList[curAnimIndex];
         var mult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
         var changed:Bool = false;
 
         var curOffset = charLayer.animOffsets.get(anim);
-        if (curOffset == null) { curOffset = [0.0, 0.0]; charLayer.animOffsets.set(anim, curOffset); }
+        if (curOffset == null) { 
+            curOffset = [0.0, 0.0]; 
+            charLayer.animOffsets.set(anim, curOffset); 
+        }
 
         if (FlxG.keys.justPressed.LEFT) { curOffset[0] += mult; changed = true; }
         if (FlxG.keys.justPressed.RIGHT) { curOffset[0] -= mult; changed = true; }
@@ -418,7 +445,7 @@ class CharacterEditorState extends MusicBeatState {
             }
         }
 
-        if (isDraggingCamAnchor && charLayer != null) {
+        if (isDraggingCamAnchor && charLayer != null && charLayer.cameraOffset != null) {
             if (FlxG.mouse.pressed) {
                 charLayer.cameraOffset[0] = Math.round(worldMouse.x - charLayer.getMidpoint().x);
                 charLayer.cameraOffset[1] = Math.round(worldMouse.y - charLayer.getMidpoint().y);
@@ -432,14 +459,14 @@ class CharacterEditorState extends MusicBeatState {
             isDraggingCharOffset = true;
             pushUndoSnapshot();
             dragStartMouse.set(worldMouse.x, worldMouse.y);
-            if (animList.length > 0 && charLayer != null) {
+            if (animList.length > 0 && curAnimIndex < animList.length && charLayer != null) {
                 var anim = animList[curAnimIndex];
                 var curOff = charLayer.animOffsets.get(anim);
                 dragStartOffset.set(curOff != null ? curOff[0] : 0, curOff != null ? curOff[1] : 0);
             }
         }
 
-        if (isDraggingCharOffset && charLayer != null && animList.length > 0) {
+        if (isDraggingCharOffset && charLayer != null && animList.length > 0 && curAnimIndex < animList.length) {
             if (FlxG.mouse.pressedMiddle) {
                 var anim = animList[curAnimIndex];
                 var dx = Math.round(dragStartMouse.x - worldMouse.x);
@@ -487,30 +514,32 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function stepAnimationFrame(delta:Int):Void {
-        if (charLayer != null && charLayer.animation.curAnim != null) {
+        if (charLayer != null && charLayer.animation != null && charLayer.animation.curAnim != null) {
             charLayer.animation.curAnim.pause();
             var total = charLayer.animation.curAnim.numFrames;
             charLayer.animation.curAnim.curFrame = FlxMath.wrap(charLayer.animation.curAnim.curFrame + delta, 0, total - 1);
-            frameInfoTxt.text = 'Frame: ${charLayer.animation.curAnim.curFrame + 1} / $total';
+            if (frameInfoTxt != null) {
+                frameInfoTxt.text = 'Frame: ${charLayer.animation.curAnim.curFrame + 1} / $total';
+            }
         }
     }
 
     private function playCurrentAnim():Void {
-        if (charLayer == null || animList.length == 0) return;
+        if (charLayer == null || animList.length == 0 || curAnimIndex >= animList.length) return;
         var anim = animList[curAnimIndex];
         charLayer.playAnim(anim, true);
 
         var curOffset = charLayer.animOffsets.get(anim);
         charLayer.offset.set(curOffset != null ? curOffset[0] : 0, curOffset != null ? curOffset[1] : 0);
 
-        if (ghostChar != null && showGhost) {
+        if (ghostChar != null && showGhost && ghostAnimIndex < animList.length) {
             var ghostAnim = animList[ghostAnimIndex];
             ghostChar.playAnim(ghostAnim, true);
             var gOffset = ghostChar.animOffsets.get(ghostAnim);
             ghostChar.offset.set(gOffset != null ? gOffset[0] : 0, gOffset != null ? gOffset[1] : 0);
         }
 
-        if (charLayer.animation.curAnim != null) {
+        if (frameInfoTxt != null && charLayer.animation != null && charLayer.animation.curAnim != null) {
             frameInfoTxt.text = 'Frame: ${charLayer.animation.curAnim.curFrame + 1} / ${charLayer.animation.curAnim.numFrames}';
         }
 
@@ -566,14 +595,14 @@ class CharacterEditorState extends MusicBeatState {
         var charJson:CharacterJson = {
             animations: [],
             image: 'characters/$curCharacter',
-            scale: charLayer != null ? charLayer.scale.x : 1.0,
-            sing_duration: charLayer != null ? charLayer.singDuration : 4.0,
-            healthicon: inputHealthIcon != null && inputHealthIcon.text.trim().length > 0 ? inputHealthIcon.text.trim() : (charLayer != null ? charLayer.healthIcon : "face"),
-            position: charLayer != null ? charLayer.positionOffset : [0.0, 0.0],
-            camera_position: charLayer != null ? charLayer.cameraOffset : [0.0, 0.0],
-            flip_x: charLayer != null ? charLayer.flipX : false,
-            no_antialiasing: charLayer != null ? !charLayer.antialiasing : false,
-            healthbar_colors: charLayer != null ? [Std.int(charLayer.healthColor.red), Std.int(charLayer.healthColor.green), Std.int(charLayer.healthColor.blue)] : [255, 255, 255]
+            scale: (charLayer != null && charLayer.scale != null) ? charLayer.scale.x : 1.0,
+            sing_duration: (charLayer != null) ? charLayer.singDuration : 4.0,
+            healthicon: (inputHealthIcon != null && inputHealthIcon.text.trim().length > 0) ? inputHealthIcon.text.trim() : ((charLayer != null && charLayer.healthIcon != null) ? charLayer.healthIcon : "face"),
+            position: (charLayer != null && charLayer.positionOffset != null) ? charLayer.positionOffset : [0.0, 0.0],
+            camera_position: (charLayer != null && charLayer.cameraOffset != null) ? charLayer.cameraOffset : [0.0, 0.0],
+            flip_x: (charLayer != null) ? charLayer.flipX : false,
+            no_antialiasing: (charLayer != null) ? !charLayer.antialiasing : false,
+            healthbar_colors: (charLayer != null && charLayer.healthColor != null) ? [Std.int(charLayer.healthColor.red), Std.int(charLayer.healthColor.green), Std.int(charLayer.healthColor.blue)] : [255, 255, 255]
         };
 
         for (anim in animList) {
@@ -590,15 +619,18 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function applyCharacterJsonObject(json:CharacterJson):Void {
-        if (charLayer == null) return;
-        charLayer.scale.set(json.scale != null ? json.scale : 1.0, json.scale != null ? json.scale : 1.0);
-        charLayer.singDuration = json.sing_duration != null ? json.sing_duration : 4.0;
-        charLayer.flipX = json.flip_x == true;
-        charLayer.cameraOffset = json.camera_position != null ? json.camera_position : [0.0, 0.0];
+        if (charLayer == null || json == null) return;
+        var s = (json.scale != null) ? json.scale : 1.0;
+        charLayer.scale.set(s, s);
+        charLayer.singDuration = (json.sing_duration != null) ? json.sing_duration : 4.0;
+        charLayer.flipX = (json.flip_x == true);
+        charLayer.cameraOffset = (json.camera_position != null) ? json.camera_position : [0.0, 0.0];
 
         if (json.animations != null) {
             for (a in json.animations) {
-                if (a.offsets != null) charLayer.addOffset(a.anim, a.offsets[0], a.offsets[1]);
+                if (a != null && a.offsets != null && a.offsets.length >= 2) {
+                    charLayer.addOffset(a.anim, a.offsets[0], a.offsets[1]);
+                }
             }
         }
         playCurrentAnim();
@@ -645,32 +677,41 @@ class CharacterEditorState extends MusicBeatState {
     private function updateCrosshair():Void {
         if (charLayer != null && camFollowMarker != null) {
             crosshair.setPosition(charLayer.x, charLayer.y);
+            var offX:Float = (charLayer.cameraOffset != null && charLayer.cameraOffset.length > 0) ? charLayer.cameraOffset[0] : 0.0;
+            var offY:Float = (charLayer.cameraOffset != null && charLayer.cameraOffset.length > 1) ? charLayer.cameraOffset[1] : 0.0;
+
             camFollowMarker.setPosition(
-                charLayer.getMidpoint().x + charLayer.cameraOffset[0] - 9,
-                charLayer.getMidpoint().y + charLayer.cameraOffset[1] - 9
+                charLayer.getMidpoint().x + offX - 9,
+                charLayer.getMidpoint().y + offY - 9
             );
         }
     }
 
     private function updateHUDText():Void {
-        if (animList.length == 0 || charLayer == null) return;
+        if (animList.length == 0 || curAnimIndex >= animList.length || charLayer == null) return;
         var anim = animList[curAnimIndex];
-        curAnimTxt.text = 'Anim: $anim (${curAnimIndex + 1}/${animList.length})';
+        if (curAnimTxt != null) {
+            curAnimTxt.text = 'Anim: $anim (${curAnimIndex + 1}/${animList.length})';
+        }
 
         var off = charLayer.animOffsets.get(anim);
-        offsetTxt.text = off != null ? 'Offset: [${off[0]}, ${off[1]}]' : 'Offset: [0, 0]';
-
-        var list = "";
-        var start = Std.int(Math.max(0, curAnimIndex - 5));
-        var end = Std.int(Math.min(animList.length, start + 11));
-
-        for (i in start...end) {
-            var name = animList[i];
-            var aOff = charLayer.animOffsets.get(name);
-            var str = aOff != null ? '[${aOff[0]}, ${aOff[1]}]' : '[0, 0]';
-            list += (i == curAnimIndex ? '> $name: $str <\n' : '  $name: $str\n');
+        if (offsetTxt != null) {
+            offsetTxt.text = off != null ? 'Offset: [${off[0]}, ${off[1]}]' : 'Offset: [0, 0]';
         }
-        animListTxt.text = list;
+
+        if (animListTxt != null) {
+            var list = "";
+            var start = Std.int(Math.max(0, curAnimIndex - 5));
+            var end = Std.int(Math.min(animList.length, start + 11));
+
+            for (i in start...end) {
+                var name = animList[i];
+                var aOff = charLayer.animOffsets.get(name);
+                var str = aOff != null ? '[${aOff[0]}, ${aOff[1]}]' : '[0, 0]';
+                list += (i == curAnimIndex ? '> $name: $str <\n' : '  $name: $str\n');
+            }
+            animListTxt.text = list;
+        }
     }
 
     private function saveOffsetsJson():Void {
