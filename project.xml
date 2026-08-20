@@ -12,6 +12,9 @@
 	<haxelib name="away3d" />
 	<haxelib name="hscript" />
 
+	<!-- Flixel 5.6.2 ConsoleUtil Private Access Fix for hscript 2.5.0+ -->
+	<haxeflag name="--macro" value="addGlobalMetadata('flixel.system.debug.console.ConsoleUtil', '@:access(hscript.Interp)')" />
+
 	<!-- Optional Scripting Backends -->
 	<haxelib name="hscript-iris" if="SOULSCORCH_IRIS" />
 	<haxelib name="linc_luajit" if="SOULSCORCH_LUAJIT" />

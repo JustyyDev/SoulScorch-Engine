@@ -44,12 +44,18 @@ if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_confi
 :: 4. Auto-Detect 64-Bit MSVC Toolchain
 if not defined VSCMD_VER (
     set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+    if not exist "!VSWHERE!" set "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+    
     if exist "!VSWHERE!" (
         for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
             set "VS_PATH=%%i"
         )
         if exist "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" (
+            echo [*] Initializing MSVC x64 Environment from "!VS_PATH!"
             call "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        ) else if exist "!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat" (
+            echo [*] Initializing MSVC x64 via vcvarsall from "!VS_PATH!"
+            call "!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat" x64 >nul 2>&1
         )
     )
 )
