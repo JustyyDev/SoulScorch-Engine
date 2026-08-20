@@ -1,78 +1,70 @@
-// SoulScript Runtime for Actor Studio (Character & Offset Editor)
-var curCharacter = "dad";
-var curAnim = "idle";
-var animList = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT"];
-var animOffsets = [];
-var showGhost = true;
-var isFlipped = false;
-var charScale = 1.0;
-var singDuration = 4.0;
-var camOffset = [0.0, 0.0];
+// Actor Studio Pro Engine Controller
+var activeCharacter = "bf";
+var charActor = null;
+var animList = [];
+var curAnimIndex = 0;
+var isGhostEnabled = true;
 
 function onCreate() {
-    Logger.info("[ActorStudio] Actor Studio .soul runtime initialized.", "editor");
-    refreshAnimDisplay();
+    Logger.info("[ActorStudio] Initializing Actor Studio Matrix...", "editor");
+    loadCharacterData(activeCharacter);
 }
 
-function onUpdate(elapsed) {
-    // Per-frame actor matrix updates and ghost synchronization
+function loadCharacterData(charName) {
+    activeCharacter = charName;
+    if (charActor != null) game.remove(charActor);
+
+    charActor = new Character(FlxG.width * 0.45, FlxG.height * 0.35, charName, (charName == "bf" || charName.startsWith("bf")));
+    game.add(charActor);
+
+    animList = charActor.animationsArray != null ? charActor.animationsArray : [];
+    updateUI();
 }
 
-function updateScale(newScale) {
-    charScale = newScale;
-    Logger.info("[ActorStudio] Character scale updated to: " + newScale, "editor");
+function updateScale(val) {
+    if (charActor != null) {
+        charActor.scale.set(val, val);
+        charActor.updateHitbox();
+    }
 }
 
-function updateSing(newDuration) {
-    singDuration = newDuration;
-    Logger.info("[ActorStudio] Sing duration set: " + newDuration, "editor");
+function updateSing(val) {
+    if (charActor != null) charActor.holdLoopDuration = val;
 }
 
 function updateIcon(iconName) {
-    Logger.info("[ActorStudio] Health icon key changed to: " + iconName, "editor");
+    if (charActor != null) charActor.healthIcon = iconName;
 }
 
-function toggleGhost(enabled) {
-    showGhost = enabled;
-    Logger.info("[ActorStudio] Ghost overlay visibility: " + enabled, "editor");
+function toggleGhost(checked) {
+    isGhostEnabled = checked;
 }
 
-function toggleFlip(enabled) {
-    isFlipped = enabled;
-    Logger.info("[ActorStudio] X-axis flip toggled: " + enabled, "editor");
+function toggleFlip(checked) {
+    if (charActor != null) {
+        charActor.flipX = checked;
+    }
 }
 
 function updateCamX(val) {
-    camOffset[0] = val;
+    if (charActor != null) charActor.cameraOffset[0] = val;
 }
 
 function updateCamY(val) {
-    camOffset[1] = val;
+    if (charActor != null) charActor.cameraOffset[1] = val;
 }
 
-function onPlayAnim(animName) {
-    curAnim = animName;
-    Logger.info("[ActorStudio] Playing animation node: " + animName, "editor");
+function removeAnim() {
+    if (animList.length > 0) {
+        var removed = animList.splice(curAnimIndex, 1);
+        Logger.info("[ActorStudio] Removed animation node.", "editor");
+        updateUI();
+    }
 }
 
-function onZeroOffset() {
-    Logger.info("[ActorStudio] Zeroed offset for active animation [" + curAnim + "]", "editor");
-}
-
-function onAlignAllToIdle() {
-    Logger.info("[ActorStudio] Aligned all animation offsets to idle baseline.", "editor");
-}
-
-function onSaveCharacter() {
-    XMSoul.clearCache();
-    Logger.info("[ActorStudio] Serialized character manifest into .xmsoul schema.", "editor");
-}
-
-function refreshAnimDisplay() {
+function updateUI() {
     var txt = editor.widgets.get("curAnimTxt");
-    if (txt != null) txt.text = "Anim: " + curAnim;
-}
-
-function onExit() {
-    MusicBeatState.switchState(new MainMenuState());
+    if (txt != null && charActor != null && charActor.animation.curAnim != null) {
+        txt.text = "Anim: " + charActor.animation.curAnim.name;
+    }
 }

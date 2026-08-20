@@ -14,6 +14,7 @@ import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
+import soulscorch.ui.menus.editors.XMSoulEditorState;
 import soulscorch.ui.menus.editors.editorui.*;
 
 class XMSoulState extends MusicBeatState {
@@ -48,6 +49,7 @@ class XMSoulState extends MusicBeatState {
             script = new ScriptManager();
             script.loadScript(scriptPath);
             script.setAll("menu", this);
+            script.setAll("game", this);
             script.callAll("onCreate");
         }
 
@@ -58,7 +60,7 @@ class XMSoulState extends MusicBeatState {
         for (node in root.elements) {
             switch (node.name.toLowerCase()) {
                 case "theme":
-                    var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(XMSoul.getAttr(node, "bg", "0xFF110D1B")));
+                    var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(XMSoul.getAttr(node, "bg", "0xFF000000")));
                     bg.scrollFactor.set();
                     add(bg);
 
@@ -116,7 +118,7 @@ class XMSoulState extends MusicBeatState {
                 var stp = new EditorNumericStepper(
                     x, y, XMSoul.getIntAttr(node, "width", 140),
                     XMSoul.getAttr(node, "label", "Value"),
-                    XMSoul.getFloatAttr(node, "min", 0),
+                    XMSoul.getFloatAttr(node, "default", 0),
                     XMSoul.getFloatAttr(node, "min", 0),
                     XMSoul.getFloatAttr(node, "max", 100),
                     XMSoul.getFloatAttr(node, "step", 1),
@@ -144,7 +146,7 @@ class XMSoulState extends MusicBeatState {
         var cardH = XMSoul.getFloatAttr(node, "height", 110);
 
         var idx = 0;
-        for (cardNode in node.nodes.card) {
+        for (cardNode in node.nodes.resolve("card")) {
             var group = new FlxSpriteGroup(startX, startY + (idx * spacing));
             var border = new FlxSprite(-1, -1).makeGraphic(Std.int(cardW + 2), Std.int(cardH + 2), EditorTheme.PANEL_BORDER);
             var bg = new FlxSprite(0, 0).makeGraphic(Std.int(cardW), Std.int(cardH), EditorTheme.PANEL_BG);
@@ -169,8 +171,10 @@ class XMSoulState extends MusicBeatState {
         if (action.startsWith("openEditor:")) {
             var target = action.split(":")[1];
             switch (target) {
-                case "actor": MusicBeatState.switchState(new XMSoulState("config/ui/menus/actorStudio.xmsoul"));
-                case "modchart": MusicBeatState.switchState(new XMSoulState("config/ui/menus/modchartMatrix.xmsoul"));
+                case "chart": MusicBeatState.switchState(new XMSoulEditorState("config/ui/menus/chartStudio.xmsoul"));
+                case "actor": MusicBeatState.switchState(new XMSoulEditorState("config/ui/menus/actorStudio.xmsoul"));
+                case "stage": MusicBeatState.switchState(new XMSoulEditorState("config/ui/menus/stageArchitect.xmsoul"));
+                case "modchart": MusicBeatState.switchState(new XMSoulEditorState("config/ui/menus/modchartMatrix.xmsoul"));
             }
             return;
         }

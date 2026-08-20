@@ -52,7 +52,6 @@ class SongLoader {
     }
 
     private static function loadMetadata(song:Song, cleanSong:String):Void {
-        // Try XMSoul meta first
         var metaXml:Access = XMSoul.parse('songs/$cleanSong/meta');
         if (metaXml == null) metaXml = XMSoul.parse('data/$cleanSong/meta');
 
@@ -61,20 +60,20 @@ class SongLoader {
             song.bpm = XMSoul.getFloatAttr(metaXml, "bpm", song.bpm > 0 ? song.bpm : 100.0);
             song.needsVoices = XMSoul.getBoolAttr(metaXml, "needsVoices", false);
 
-            if (metaXml.has.color) {
-                var c = FlxColor.fromString(metaXml.att.color);
+            if (metaXml.has.resolve("color")) {
+                var c = FlxColor.fromString(metaXml.att.resolve("color"));
                 if (c != null) song.color = c;
             }
 
-            if (metaXml.hasNode.characters) {
-                var cNode = metaXml.node.characters;
+            if (metaXml.hasNode.resolve("characters")) {
+                var cNode = metaXml.node.resolve("characters");
                 song.player1 = XMSoul.getAttr(cNode, "player1", song.player1);
                 song.player2 = XMSoul.getAttr(cNode, "player2", song.player2);
                 song.gfVersion = XMSoul.getAttr(cNode, "gfVersion", song.gfVersion);
             }
 
-            if (metaXml.hasNode.stage) {
-                song.stage = XMSoul.getAttr(metaXml.node.stage, "name", song.stage);
+            if (metaXml.hasNode.resolve("stage")) {
+                song.stage = XMSoul.getAttr(metaXml.node.resolve("stage"), "name", song.stage);
             }
             return;
         }
@@ -124,17 +123,17 @@ class SongLoader {
         song.scrollSpeed = XMSoul.getFloatAttr(chartXml, "speed", song.scrollSpeed > 0 ? song.scrollSpeed : 1.0);
         song.chart = new Chart(song.bpm, song.scrollSpeed);
 
-        for (strumNode in chartXml.nodes.strumLine) {
+        for (strumNode in chartXml.nodes.resolve("strumLine")) {
             var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player" 
                 || XMSoul.getAttr(strumNode, "position", "").toLowerCase() == "boyfriend";
 
-            for (noteNode in strumNode.nodes.note) {
+            for (noteNode in strumNode.nodes.resolve("note")) {
                 var t = XMSoul.getFloatAttr(noteNode, "time", 0.0);
                 var dir = XMSoul.getIntAttr(noteNode, "lane", XMSoul.getIntAttr(noteNode, "id", 0));
                 var len = XMSoul.getFloatAttr(noteNode, "len", XMSoul.getFloatAttr(noteNode, "sLen", 0.0));
                 var type = XMSoul.getAttr(noteNode, "type", "normal");
 
-                song.chart.addNote(t, dir, len, isPlayer, type);
+                song.chart.addNote(t, dir, len, type, isPlayer);
             }
         }
 
@@ -187,16 +186,13 @@ class SongLoader {
         if (eventsXml == null) eventsXml = XMSoul.parse('data/$cleanSong/events');
 
         if (eventsXml != null && song.chart != null) {
-            for (evNode in eventsXml.nodes.event) {
+            for (evNode in eventsXml.nodes.resolve("event")) {
                 var time = XMSoul.getFloatAttr(evNode, "time", 0.0);
                 var name = XMSoul.getAttr(evNode, "name", "");
-                var target = XMSoul.getIntAttr(evNode, "target", 0);
-                var anim = XMSoul.getAttr(evNode, "anim", "");
+                var target = XMSoul.getAttr(evNode, "target", XMSoul.getAttr(evNode, "val1", "0"));
+                var anim = XMSoul.getAttr(evNode, "anim", XMSoul.getAttr(evNode, "val2", ""));
 
-                var params:Array<Dynamic> = [target];
-                if (anim.length > 0) params.push(anim);
-
-                song.chart.addEvent(time, name, params);
+                song.chart.addEvent(time, name, target, anim);
             }
         }
     }

@@ -1,6 +1,0 @@
-hi--hi
-example--mod
-soul--scorch
-overridden--text
-tab--to switch mods
-key seven--opens editors

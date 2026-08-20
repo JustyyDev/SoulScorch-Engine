@@ -86,7 +86,6 @@ class PlayState extends MusicBeatState {
 
     // --- Cameras & Viewports ---
     public var camControls:FlxCamera;
-    public var defaultCamZoom:Float = 0.9;
     public var defaultHUDZoom:Float = 1.0;
     public var camFollow:FlxObject;
     public var camFollowPos:FlxObject;
@@ -172,6 +171,7 @@ class PlayState extends MusicBeatState {
     override public function create():Void {
         super.create();
         instance = this;
+        defaultCamZoom = 0.9;
 
         if (FlxG.sound.music != null) {
             FlxG.sound.music.stop();
@@ -323,12 +323,11 @@ class PlayState extends MusicBeatState {
     private function loadExternalEvents(songId:String):Void {
         var cleanSong = songId.toLowerCase().trim();
 
-        // 1. Try events.xmsoul
         var eventsXml:Access = XMSoul.parse('songs/$cleanSong/events');
         if (eventsXml == null) eventsXml = XMSoul.parse('data/$cleanSong/events');
 
         if (eventsXml != null) {
-            for (evNode in eventsXml.nodes.event) {
+            for (evNode in eventsXml.nodes.resolve("event")) {
                 var t = XMSoul.getFloatAttr(evNode, "time", 0.0);
                 var name = XMSoul.getAttr(evNode, "name", "");
                 var v1 = XMSoul.getAttr(evNode, "target", XMSoul.getAttr(evNode, "val1", ""));
@@ -347,7 +346,6 @@ class PlayState extends MusicBeatState {
             return;
         }
 
-        // 2. Legacy JSON events fallback
         var eventPaths = [
             'songs/$cleanSong/events.json',
             'data/$cleanSong/events.json',
@@ -493,8 +491,8 @@ class PlayState extends MusicBeatState {
         var timeBarWidth:Int = 400;
         var timeBarHeight:Int = 16;
 
-        if (hudConfig != null && hudConfig.hasNode.timebar) {
-            var tbNode = hudConfig.node.timebar;
+        if (hudConfig != null && hudConfig.hasNode.resolve("timebar")) {
+            var tbNode = hudConfig.node.resolve("timebar");
             timeBarY = XMSoul.getFloatAttr(tbNode, downscroll ? "yDown" : "yUp", defaultTimeY);
             timeBarWidth = XMSoul.getIntAttr(tbNode, "width", 400);
             timeBarHeight = XMSoul.getIntAttr(tbNode, "height", 16);
@@ -525,8 +523,8 @@ class PlayState extends MusicBeatState {
         var healthBarH:Int = 22;
         var bgGraphicName = "ui/game/healthBar";
 
-        if (hudConfig != null && hudConfig.hasNode.healthbar) {
-            var hbNode = hudConfig.node.healthbar;
+        if (hudConfig != null && hudConfig.hasNode.resolve("healthbar")) {
+            var hbNode = hudConfig.node.resolve("healthbar");
             healthBarY = XMSoul.getFloatAttr(hbNode, downscroll ? "yDown" : "yUp", defaultHealthY);
             healthBarW = XMSoul.getIntAttr(hbNode, "width", 604);
             healthBarH = XMSoul.getIntAttr(hbNode, "height", 22);
@@ -567,8 +565,8 @@ class PlayState extends MusicBeatState {
         var scoreFontSize:Int = 18;
         var fontName = "vcr";
 
-        if (hudConfig != null && hudConfig.hasNode.scoretext) {
-            var stNode = hudConfig.node.scoretext;
+        if (hudConfig != null && hudConfig.hasNode.resolve("scoretext")) {
+            var stNode = hudConfig.node.resolve("scoretext");
             scoreYOffset = XMSoul.getFloatAttr(stNode, "yOffset", 32);
             scoreFontSize = XMSoul.getIntAttr(stNode, "size", 18);
             fontName = XMSoul.getAttr(stNode, "font", "vcr");
@@ -731,8 +729,6 @@ class PlayState extends MusicBeatState {
         if (paused || isEnding) return;
 
         if (scripts != null) {
-            scripts.setAll("curBeatFloat", Conductor.curBeatFloat);
-            scripts.setAll("curStepFloat", Conductor.curStepFloat);
             scripts.setAll("curBeat", Conductor.curBeat);
             scripts.setAll("curStep", Conductor.curStep);
             scripts.setAll("songPosition", Conductor.songPosition);

@@ -1,5 +1,8 @@
 package soulscorch.backend.system.apis;
 
+import haxe.xml.Access;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 
 #if windows
@@ -21,7 +24,6 @@ import soulscorch.backend.utils.Logger;
 #include <iostream>
 #include <string>
 
-// Undefine conflicting Windows SDK macros to keep OpenFL/Flixel compiling cleanly
 #undef ERROR
 #undef DELETE
 #undef TRANSPARENT
@@ -38,7 +40,6 @@ import soulscorch.backend.utils.Logger;
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "psapi.lib")
 
-// Reliable fallback window finder across active threads
 static HWND getEngineHWND() {
     HWND hwnd = GetActiveWindow();
     if (hwnd == NULL) hwnd = GetForegroundWindow();
@@ -59,18 +60,77 @@ static HWND getEngineHWND() {
 ')
 #end
 class NativeAPI {
+    public static function loadFromXMSoul(?customConfigPath:String):Void {
+        var path = customConfigPath != null ? customConfigPath : "config/window";
+        var access:Access = XMSoul.parse(path);
+        if (access == null) access = XMSoul.parse("data/" + path);
+
+        if (access != null) {
+            setDarkMode(XMSoul.getBoolAttr(access, "darkMode", true));
+            setWindowAlpha(XMSoul.getFloatAttr(access, "alpha", 1.0));
+            setWindowTopmost(XMSoul.getBoolAttr(access, "topmost", false));
+            setPreventSleep(XMSoul.getBoolAttr(access, "preventSleep", true));
+
+            if (access.hasNode.resolve("titlebar")) {
+                var tb = access.node.resolve("titlebar");
+                var col = parseRGB(XMSoul.getAttr(tb, "color", "15,14,23"));
+                setTitleBarColor(col[0], col[1], col[2]);
+
+                var bCol = parseRGB(XMSoul.getAttr(tb, "borderColor", "0,255,204"));
+                setBorderColor(bCol[0], bCol[1], bCol[2]);
+
+                var tCol = parseRGB(XMSoul.getAttr(tb, "textColor", "255,255,255"));
+                setTitleTextColor(tCol[0], tCol[1], tCol[2]);
+            }
+
+            var iconPath = XMSoul.getAttr(access, "icon", "icons/iconOG");
+            var fallback = XMSoul.getAttr(access, "fallback", "art/iconOG");
+            setWindowIcon(iconPath, fallback);
+
+            Logger.info('Applied window parameters from $path.xmsoul', "native");
+        }
+    }
+
+    private static function parseRGB(str:String):Array<Int> {
+        if (str.indexOf(",") != -1) {
+            var parts = str.split(",");
+            return [
+                parts.length > 0 ? Std.parseInt(StringTools.trim(parts[0])) : 0,
+                parts.length > 1 ? Std.parseInt(StringTools.trim(parts[1])) : 0,
+                parts.length > 2 ? Std.parseInt(StringTools.trim(parts[2])) : 0
+            ];
+        }
+        var parsed = Std.parseInt(str);
+        if (parsed != null) {
+            return [(parsed >> 16) & 0xFF, (parsed >> 8) & 0xFF, parsed & 0xFF];
+        }
+        return [0, 0, 0];
+    }
+
+    public static function setWindowIcon(iconKey:String = "icons/iconOG", fallbackKey:String = "art/iconOG"):Void {
+        var resolved = AssetResolver.resolveFile(iconKey, [".png", ""]);
+        if (resolved == null) resolved = AssetResolver.resolveFile(fallbackKey, [".png", ""]);
+        if (resolved == null && sys.FileSystem.exists(iconKey)) resolved = iconKey;
+        if (resolved == null && sys.FileSystem.exists(fallbackKey)) resolved = fallbackKey;
+
+        if (resolved != null) {
+            try {
+                var img = lime.graphics.Image.fromFile(resolved);
+                if (img != null && lime.app.Application.current != null && lime.app.Application.current.window != null) {
+                    lime.app.Application.current.window.setIcon(img);
+                    Logger.info('Window icon successfully loaded from: $resolved', "native");
+                }
+            } catch (e:Dynamic) {
+                Logger.warn('Failed setting window icon ($resolved): $e', "native");
+            }
+        }
+    }
+
     #if windows
-
-    // ==========================================
-    // WINDOW THEME & CHROME (Win10 / Win11 DWM)
-    // ==========================================
-
     @:functionCode('
         HWND hwnd = getEngineHWND();
         if (hwnd == NULL) return;
-
         BOOL darkMode = enable ? TRUE : FALSE;
-        // DWMWA_USE_IMMERSIVE_DARK_MODE (20 on Win11/modern Win10, 19 on early Win10)
         if (FAILED(DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode)))) {
             DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
         }
@@ -81,10 +141,7 @@ class NativeAPI {
     @:functionCode('
         HWND hwnd = getEngineHWND();
         if (hwnd == NULL) return;
-
-        // COLORREF is 0x00BBGGRR
         COLORREF color = RGB(r, g, b);
-        // DWMWA_CAPTION_COLOR = 35 (Windows 11 Build 22000+)
         DwmSetWindowAttribute(hwnd, 35, &color, sizeof(color));
         UpdateWindow(hwnd);
     ')
@@ -93,9 +150,7 @@ class NativeAPI {
     @:functionCode('
         HWND hwnd = getEngineHWND();
         if (hwnd == NULL) return;
-
         COLORREF color = RGB(r, g, b);
-        // DWMWA_BORDER_COLOR = 34 (Windows 11 Build 22000+)
         DwmSetWindowAttribute(hwnd, 34, &color, sizeof(color));
         UpdateWindow(hwnd);
     ')
@@ -104,22 +159,15 @@ class NativeAPI {
     @:functionCode('
         HWND hwnd = getEngineHWND();
         if (hwnd == NULL) return;
-
         COLORREF color = RGB(r, g, b);
-        // DWMWA_TEXT_COLOR = 36 (Windows 11 Build 22000+)
         DwmSetWindowAttribute(hwnd, 36, &color, sizeof(color));
         UpdateWindow(hwnd);
     ')
     public static function setTitleTextColor(r:Int, g:Int, b:Int):Void {}
 
-    // ==========================================
-    // WINDOW POSITION, SIZE & TRANSPARENCY
-    // ==========================================
-
     @:functionCode('
         HWND hwnd = getEngineHWND();
         if (hwnd == NULL) return;
-
         LONG style = GetWindowLong(hwnd, GWL_EXSTYLE);
         if (alpha < 1.0f) {
             SetWindowLong(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED);
@@ -216,10 +264,6 @@ class NativeAPI {
     ')
     public static function setWindowTitle(title:String):Void {}
 
-    // ==========================================
-    // HARDWARE & SYSTEM METRICS
-    // ==========================================
-
     @:functionCode('
         PROCESS_MEMORY_COUNTERS_EX pmc;
         if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc))) {
@@ -257,10 +301,6 @@ class NativeAPI {
         }
     ')
     public static function setPreventSleep(prevent:Bool):Void {}
-
-    // ==========================================
-    // DESKTOP INTERACTION & SYSTEM UTILITIES
-    // ==========================================
 
     @:functionCode('
         if (!OpenClipboard(NULL)) return String("");
@@ -340,10 +380,6 @@ class NativeAPI {
 
     #else
 
-    // ==========================================
-    // CROSS-PLATFORM FALLBACK IMPLEMENTATION
-    // ==========================================
-
     public static function setDarkMode(enable:Bool):Void {}
     public static function setTitleBarColor(r:Int, g:Int, b:Int):Void {}
     public static function setBorderColor(r:Int, g:Int, b:Int):Void {}
@@ -402,6 +438,5 @@ class NativeAPI {
 
     public static function allocConsole():Void {}
     public static function freeConsole():Void {}
-
     #end
 }

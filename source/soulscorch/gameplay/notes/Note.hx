@@ -101,7 +101,6 @@ class Note extends FlxSprite {
     public function applyNoteTypeConfig(typeId:String):Void {
         var cleanType = (typeId == null || typeId.trim().length == 0) ? "normal" : typeId.trim();
 
-        // 1. Dynamic .xmsoul lookup
         var access:Access = XMSoul.parse('data/notes/$cleanType');
         if (access == null) access = XMSoul.parse('notes/$cleanType');
 
@@ -115,11 +114,11 @@ class Note extends FlxSprite {
             var customTexture = XMSoul.getAttr(access, "texture", "default");
             if (customTexture != "default") {
                 loadNoteSkin(customTexture);
+                setupAnimation();
             }
             return;
         }
 
-        // 2. Legacy fallback
         switch (cleanType.toLowerCase()) {
             case "hurt note", "hurt":
                 color = 0xFF444444;
@@ -193,47 +192,53 @@ class Note extends FlxSprite {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") != null) animation.play("holdend");
                 scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
+                updateHitbox();
             } else {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
-                var baseH:Float = frameHeight > 0 ? frameHeight : 87.0;
-                scale.set(DEFAULT_SCALE, (stepHeight + 2.0) / baseH);
+                var baseH:Float = (frameHeight > 0) ? frameHeight : 87.0;
+                scale.set(DEFAULT_SCALE, (stepHeight + 1.5) / baseH);
+                updateHitbox();
             }
         } else {
             if (animation.getByName("scroll") != null) animation.play("scroll");
             scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
+            updateHitbox();
         }
-
-        updateHitbox();
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
-        x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
-
         if (isSustainNote) {
+            // Sustain pieces stay horizontally locked to the center of the lane
+            x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
+
+            flipY = downscroll;
+
             if (downscroll) {
-                flipY = true;
-                y = strumY - distance + (STRUM_SPACING * 0.5) + offsetY;
+                y = (strumY + (STRUM_SPACING * 0.5)) - distance - height + offsetY;
             } else {
-                flipY = false;
-                y = strumY + distance + (STRUM_SPACING * 0.5) + offsetY;
+                y = (strumY + (STRUM_SPACING * 0.5)) + distance + offsetY;
             }
 
+            // Clipping when sustain is being actively held
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
                 var diff:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
                 if (diff > 0) {
+                    var remainingHeight:Float = Math.max(0, frameHeight - (diff / scale.y));
                     if (downscroll) {
-                        clipRect = new FlxRect(0, 0, frameWidth, Math.max(0, frameHeight - (diff / scale.y)));
+                        clipRect = new FlxRect(0, 0, frameWidth, remainingHeight);
                     } else {
-                        clipRect = new FlxRect(0, diff / scale.y, frameWidth, Math.max(0, frameHeight - (diff / scale.y)));
+                        clipRect = new FlxRect(0, diff / scale.y, frameWidth, remainingHeight);
                     }
                 }
             } else {
                 clipRect = null;
             }
         } else {
+            x = strumX + (STRUM_SPACING * 0.5) - (width * 0.5) + offsetX;
+            
             if (downscroll) {
                 y = strumY - distance + (STRUM_SPACING * 0.5) - (height * 0.5) + offsetY;
             } else {

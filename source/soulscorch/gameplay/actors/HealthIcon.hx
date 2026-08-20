@@ -1,5 +1,6 @@
 package soulscorch.gameplay.actors;
 
+import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
 import flixel.math.FlxMath;

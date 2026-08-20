@@ -103,12 +103,10 @@ class StrumArrow extends FlxSprite {
         centerOffsets();
         centerOrigin();
 
+        // Dynamically center oversized confirm frames based on frame dimensions
         if (animName == "confirm") {
-            centerOffsets();
-            offset.x -= 13;
-            offset.y -= 13;
-        } else {
-            centerOffsets();
+            offset.x += (frameWidth * scale.x - 112 * baseScale) * 0.5;
+            offset.y += (frameHeight * scale.y - 112 * baseScale) * 0.5;
         }
     }
 

@@ -15,6 +15,7 @@ typedef SongScoreEntry = {
     var rating:String;
     var ?letterRank:String;
     var ?date:String;
+    var ?cleared:Bool;
 }
 
 typedef WeekScoreEntry = {
@@ -24,16 +25,27 @@ typedef WeekScoreEntry = {
     var ?date:String;
 }
 
+typedef ReplayDataEntry = {
+    var songId:String;
+    var difficulty:String;
+    var timestamp:Float;
+    var score:Int;
+    var accuracy:Float;
+    var rawInputs:Array<Dynamic>;
+}
+
 class SaveData {
     public static var instance(get, null):SaveData;
     private static var _instance:SaveData;
 
-    public static inline var CURRENT_SAVE_VERSION:Int = 2;
+    public static inline var CURRENT_SAVE_VERSION:Int = 3;
 
     public var songScores:Map<String, SongScoreEntry> = new Map<String, SongScoreEntry>();
     public var weekScores:Map<String, WeekScoreEntry> = new Map<String, WeekScoreEntry>();
     public var settings:Map<String, Dynamic> = new Map<String, Dynamic>();
     public var unlocks:Map<String, Bool> = new Map<String, Bool>();
+    public var enabledMods:Array<String> = [];
+    public var customFlags:Map<String, Dynamic> = new Map<String, Dynamic>();
 
     private var save:FlxSave;
     private var isDirty:Bool = false;
@@ -61,10 +73,12 @@ class SaveData {
         weekScores.clear();
         settings.clear();
         unlocks.clear();
+        customFlags.clear();
+        enabledMods = [];
 
         if (save.data == null) return;
 
-        // Song Scores
+        // 1. Song High Scores & Accuracies
         if (save.data.songScores != null) {
             var raw:Dynamic = save.data.songScores;
             for (key in Reflect.fields(raw)) {
@@ -73,7 +87,7 @@ class SaveData {
             }
         }
 
-        // Week Scores
+        // 2. Story Mode Week Progress
         if (save.data.weekScores != null) {
             var raw:Dynamic = save.data.weekScores;
             for (key in Reflect.fields(raw)) {
@@ -82,7 +96,7 @@ class SaveData {
             }
         }
 
-        // Settings Map
+        // 3. User Preferences & Settings
         if (save.data.settings != null) {
             var raw:Dynamic = save.data.settings;
             for (key in Reflect.fields(raw)) {
@@ -90,7 +104,7 @@ class SaveData {
             }
         }
 
-        // Unlocked Items & Characters
+        // 4. Content Unlocks
         if (save.data.unlocks != null) {
             var raw:Dynamic = save.data.unlocks;
             for (key in Reflect.fields(raw)) {
@@ -98,11 +112,40 @@ class SaveData {
             }
         }
 
-        Logger.info('[SaveData] Loaded ${Lambda.count(songScores)} song scores and ${Lambda.count(settings)} settings.', "save");
+        // 5. Active Mod Stack Configuration
+        if (save.data.enabledMods != null && Std.isOfType(save.data.enabledMods, Array)) {
+            for (mod in (cast save.data.enabledMods : Array<Dynamic>)) {
+                enabledMods.push(Std.string(mod));
+            }
+        }
+
+        // 6. Custom XMSoul Gameplay Flags
+        if (save.data.customFlags != null) {
+            var raw:Dynamic = save.data.customFlags;
+            for (key in Reflect.fields(raw)) {
+                customFlags.set(key, Reflect.field(raw, key));
+            }
+        }
+
+        // Apply Default Gameplay Preferences if Absent
+        applyMissingDefaults();
+
+        Logger.info('[SaveData] Loaded ${Lambda.count(songScores)} scores, ${Lambda.count(settings)} settings, and ${enabledMods.length} active mods.', "save");
+    }
+
+    private function applyMissingDefaults():Void {
+        if (!settings.exists("downscroll")) settings.set("downscroll", false);
+        if (!settings.exists("middlescroll")) settings.set("middlescroll", false);
+        if (!settings.exists("ghostTapping")) settings.set("ghostTapping", true);
+        if (!settings.exists("noteSplash")) settings.set("noteSplash", true);
+        if (!settings.exists("flashingLights")) settings.set("flashingLights", true);
+        if (!settings.exists("cameraZooms")) settings.set("cameraZooms", true);
+        if (!settings.exists("framerate")) settings.set("framerate", 120);
+        if (!settings.exists("noteSkin")) settings.set("noteSkin", "default");
     }
 
     // ==========================================
-    // SCORE MANAGEMENT
+    // SCORE & LEADERBOARD MANAGEMENT
     // ==========================================
 
     public function submitScore(song:String, diff:String, entry:SongScoreEntry):Bool {
@@ -149,7 +192,7 @@ class SaveData {
     }
 
     // ==========================================
-    // TYPE-SAFE SETTINGS & UNLOCKS
+    // TYPE-SAFE SETTINGS & FLAGS
     // ==========================================
 
     public function setSetting(key:String, value:Dynamic, autoFlush:Bool = true):Void {
@@ -176,6 +219,26 @@ class SaveData {
 
     public function getString(key:String, defaultValue:String = ""):String {
         return Std.string(getSetting(key, defaultValue));
+    }
+
+    // ==========================================
+    // MODDING & FLAG INTEGRATION
+    // ==========================================
+
+    public function setFlag(flagName:String, value:Dynamic, autoFlush:Bool = true):Void {
+        customFlags.set(flagName, value);
+        isDirty = true;
+        if (autoFlush) persist();
+    }
+
+    public function getFlag(flagName:String, defaultValue:Dynamic):Dynamic {
+        return customFlags.exists(flagName) ? customFlags.get(flagName) : defaultValue;
+    }
+
+    public function setEnabledMods(mods:Array<String>):Void {
+        enabledMods = mods.copy();
+        isDirty = true;
+        persist();
     }
 
     public function setUnlock(unlockID:String, unlocked:Bool = true):Void {
@@ -211,7 +274,13 @@ class SaveData {
         for (key => val in unlocks) Reflect.setField(serializedUnlocks, key, val);
         save.data.unlocks = serializedUnlocks;
 
+        var serializedFlags:Dynamic = {};
+        for (key => val in customFlags) Reflect.setField(serializedFlags, key, val);
+        save.data.customFlags = serializedFlags;
+
+        save.data.enabledMods = enabledMods.copy();
         save.data.saveVersion = CURRENT_SAVE_VERSION;
+
         flush();
     }
 
@@ -231,6 +300,8 @@ class SaveData {
         weekScores.clear();
         settings.clear();
         unlocks.clear();
+        customFlags.clear();
+        enabledMods = [];
         if (save != null) {
             save.erase();
             save.flush();

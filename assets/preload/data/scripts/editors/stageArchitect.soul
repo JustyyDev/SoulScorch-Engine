@@ -1,21 +1,76 @@
-var curStageName = "stage";
+// Stage Architect Pro Controller
+var currentStageId = "stage";
+var loadedProps = [];
+var curSelectedProp = null;
 
 function onCreate() {
-    Logger.info("Stage Architect .soul script online.", "editor");
+    Logger.info("[StageArchitect] Initializing Stage Visualizer...", "editor");
 }
 
-function onSaveStage() {
-    XMSoul.clearCache();
-    Logger.info("Exported stage as .xmsoul to assets/data/stages/" + curStageName + ".xmsoul", "editor");
+function onAddProp() {
+    var dummyProp = new FlxSprite(FlxG.width * 0.3, FlxG.height * 0.3);
+    dummyProp.makeGraphic(200, 200, 0xFF00FFCC);
+    game.add(dummyProp);
+    loadedProps.push(dummyProp);
+    curSelectedProp = dummyProp;
+    updateTreeDisplay();
+}
+
+function onRemoveProp() {
+    if (curSelectedProp != null) {
+        game.remove(curSelectedProp);
+        loadedProps.remove(curSelectedProp);
+        curSelectedProp.destroy();
+        curSelectedProp = null;
+        updateTreeDisplay();
+    }
 }
 
 function onScaleX(val) {
-    Logger.info("Scale X modified: " + val, "editor");
+    if (curSelectedProp != null) curSelectedProp.scale.x = val;
+}
+
+function onScaleY(val) {
+    if (curSelectedProp != null) curSelectedProp.scale.y = val;
+}
+
+function onScrollX(val) {
+    if (curSelectedProp != null) curSelectedProp.scrollFactor.x = val;
+}
+
+function onScrollY(val) {
+    if (curSelectedProp != null) curSelectedProp.scrollFactor.y = val;
+}
+
+function onAlpha(val) {
+    if (curSelectedProp != null) curSelectedProp.alpha = val;
+}
+
+function onAntialias(val) {
+    if (curSelectedProp != null) curSelectedProp.antialiasing = val;
 }
 
 function onCycleLayer() {
-    var lyr = editor.widgets.get("layerTxt");
-    if (lyr != null) lyr.text = "Layer: foreground";
+    Logger.info("[StageArchitect] Cycled active layer depth.", "editor");
+}
+
+function onResetView() {
+    game.camGame.zoom = 1.0;
+    game.camGame.scroll.set(0, 0);
+}
+
+function onSaveStage() {
+    var out = '<?xml version="1.0" encoding="utf-8"?>\n<stage defaultZoom="0.9">\n</stage>\n';
+    File.saveContent("assets/preload/data/stages/" + currentStageId + ".xmsoul", out);
+    XMSoul.clearCache();
+    Logger.info("[StageArchitect] Saved stage layout to disk.", "editor");
+}
+
+function updateTreeDisplay() {
+    var treeTxt = editor.widgets.get("treeListTxt");
+    if (treeTxt != null) {
+        treeTxt.text = "Props Loaded: " + loadedProps.length;
+    }
 }
 
 function onExit() {

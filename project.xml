@@ -46,17 +46,13 @@
 	<!-- Source Roots -->
 	<source path="source" />
 
-	<!-- Core Asset Pipelines (Mapped from assets/preload) -->
+	<!-- Core Asset Pipelines (Single Consolidated Map) -->
 	<assets path="assets/preload" rename="assets" exclude="*.ogg" if="web" />
 	<assets path="assets/preload" rename="assets" exclude="*.mp3" unless="web" embed="false" />
 	<assets path="assets/preload" rename="assets" embed="true" if="mobile" />
 
-	<!-- Engine Data & Song Route Aliases -->
-	<assets path="assets/preload/data" rename="data" embed="false" unless="mobile" />
-	<assets path="assets/preload/data" rename="data" embed="true" if="mobile" />
-
-	<assets path="assets/preload/songs" rename="songs" exclude="*.mp3" unless="web" embed="false" />
-	<assets path="assets/preload/songs" rename="songs" embed="true" if="mobile" />
+	<!-- External Mods Folder (Kept at Root for Modders) -->
+	<assets path="mods" rename="mods" embed="false" unless="mobile" />
 
 	<!-- Engine Optimization & Crash Prevention Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />

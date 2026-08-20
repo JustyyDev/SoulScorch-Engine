@@ -4,6 +4,7 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import haxe.xml.Access;
@@ -12,16 +13,21 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
-import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.*;
 
 class XMSoulEditorState extends MusicBeatState {
+    public static var instance:XMSoulEditorState;
+
     public var layoutFile:String;
     public var script:ScriptManager;
     public var widgets:Map<String, Dynamic> = new Map<String, Dynamic>();
+    public var windowList:Array<EditorWindow> = [];
 
     public var camWorld:FlxCamera;
     public var camUI:FlxCamera;
+
+    public var topBar:EditorTopBar;
+    public var toast:EditorToast;
 
     public function new(layoutFile:String) {
         super();
@@ -30,6 +36,7 @@ class XMSoulEditorState extends MusicBeatState {
 
     override public function create():Void {
         super.create();
+        instance = this;
 
         camWorld = new FlxCamera();
         camUI = new FlxCamera();
@@ -52,18 +59,27 @@ class XMSoulEditorState extends MusicBeatState {
             script = new ScriptManager();
             script.loadScript(scriptPath);
             script.setAll("editor", this);
+            script.setAll("game", this);
             script.setAll("camWorld", camWorld);
             script.setAll("camUI", camUI);
+            script.setAll("showToast", showToast);
             script.callAll("onCreate");
         }
 
-        add(new EditorToast());
+        toast = new EditorToast();
+        toast.cameras = [camUI];
+        add(toast);
+
         FlxG.mouse.visible = true;
     }
 
+    public function showToast(msg:String, isError:Bool = false):Void {
+            EditorToast.show(msg, isError ? 0xFFFF0055 : 0xFF00FFCC);
+    }
+
     private function buildLayout(root:Access):Void {
-        var topBarTitle = XMSoul.getAttr(root, "title", "SOULSCORCH EDITOR");
-        var topBar = new EditorTopBar(topBarTitle);
+        var topBarTitle = XMSoul.getAttr(root, "title", "SOULSCORCH EDITOR MATRIX");
+        topBar = new EditorTopBar(topBarTitle);
         topBar.cameras = [camUI];
         add(topBar);
 
@@ -86,6 +102,7 @@ class XMSoulEditorState extends MusicBeatState {
                     );
                     win.cameras = [camUI];
                     add(win);
+                    windowList.push(win);
 
                     var winId = XMSoul.getAttr(node, "id", "");
                     if (winId != "") widgets.set(winId, win);

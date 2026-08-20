@@ -1,0 +1,150 @@
+// SoulScript Matrix // Title Screen Runtime Controller
+var initialized = false;
+var skippedIntro = false;
+var curBeat = 0;
+
+var gfDanceLeft = false;
+var gfSpr = null;
+var logoSpr = null;
+var enterSpr = null;
+var bgSpr = null;
+
+var introTextGroup = [];
+var curWacky = [];
+
+function onCreate() {
+    curWacky = getIntroTextList();
+
+    // 1. Force true pitch-black background
+    FlxG.camera.bgColor = 0xFF000000;
+    game.camGame.bgColor = 0xFF000000;
+
+    bgSpr = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
+    bgSpr.scrollFactor.set(0, 0);
+    game.add(bgSpr);
+
+    // 2. Fetch widgets from titleScreen.xmsoul
+    logoSpr = game.getElement("logo");
+    gfSpr = game.getElement("gf");
+    enterSpr = game.getElement("enterButton");
+
+    if (gfSpr != null) {
+        gfSpr.animation.addByIndices("danceLeft", "GF Dancing Beat", [30, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "", 24, false);
+        gfSpr.animation.addByIndices("danceRight", "GF Dancing Beat", [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "", 24, false);
+        gfSpr.visible = false;
+    }
+
+    if (logoSpr != null) logoSpr.visible = false;
+    if (enterSpr != null) enterSpr.visible = false;
+
+    Conductor.changeBPM(102.0);
+    initialized = true;
+}
+
+function onUpdate(elapsed) {
+    if (FlxG.keys.justPressed.ENTER || Controls.ACCEPT) {
+        if (!skippedIntro) {
+            skipIntro();
+        } else {
+            if (enterSpr != null) enterSpr.animation.play("press enter", true);
+            FlxG.sound.play(Paths.sound("confirmMenu"), 0.7);
+            FlxTween.flash(game.camGame, 0xFFFFFFFF, 1.0, {
+                onComplete: function(_) {
+                    MusicBeatState.switchState(new MainMenuState());
+                }
+            });
+        }
+    }
+}
+
+function onBeatHit(beat) {
+    curBeat = beat;
+
+    // GF sync fix: Alternate between left/right dance frames
+    if (gfSpr != null && gfSpr.visible) {
+        gfDanceLeft = !gfDanceLeft;
+        if (gfDanceLeft) {
+            gfSpr.animation.play("danceRight", true);
+        } else {
+            gfSpr.animation.play("danceLeft", true);
+        }
+    }
+
+    if (logoSpr != null && logoSpr.visible && beat % 2 == 0) {
+        logoSpr.scale.set(1.05, 1.05);
+        FlxTween.tween(logoSpr.scale, {x: 1.0, y: 1.0}, 0.2, {ease: FlxEase.quadOut});
+    }
+
+    if (!skippedIntro) {
+        processIntroText(beat);
+    }
+}
+
+function processIntroText(beat) {
+    switch (beat) {
+        case 1: createIntroText(["SoulScorch Engine", "by"]);
+        case 3: appendIntroText(["JustyyDev", "and Contributors"]);
+        case 4: deleteIntroText();
+        case 5: createIntroText(["In Association", "With"]);
+        case 7: appendIntroText(["HomeSoulDB"]);
+        case 8: deleteIntroText();
+        case 9: createIntroText([curWacky[0]]);
+        case 11: appendIntroText([curWacky[1]]);
+        case 12: deleteIntroText();
+        case 13: createIntroText(["Friday"]);
+        case 14: appendIntroText(["Night"]);
+        case 15: appendIntroText(["Funkin"]);
+        case 16: skipIntro();
+    }
+}
+
+function createIntroText(lines) {
+    deleteIntroText();
+    for (i in 0...lines.length) {
+        var txt = new FlxText(0, (FlxG.height * 0.4) + (i * 45), FlxG.width, lines[i], 32);
+        txt.setFormat(Paths.font("vcr"), 32, 0xFFFFFFFF, CENTER, OUTLINE, 0xFF000000);
+        txt.borderSize = 2;
+        game.add(txt);
+        introTextGroup.push(txt);
+    }
+}
+
+function appendIntroText(lines) {
+    var startY = (FlxG.height * 0.4) + (introTextGroup.length * 45);
+    for (i in 0...lines.length) {
+        var txt = new FlxText(0, startY + (i * 45), FlxG.width, lines[i], 32);
+        txt.setFormat(Paths.font("vcr"), 32, 0xFFFFFFFF, CENTER, OUTLINE, 0xFF000000);
+        txt.borderSize = 2;
+        game.add(txt);
+        introTextGroup.push(txt);
+    }
+}
+
+function deleteIntroText() {
+    for (item in introTextGroup) {
+        game.remove(item);
+        item.destroy();
+    }
+    introTextGroup = [];
+}
+
+function skipIntro() {
+    if (skippedIntro) return;
+    skippedIntro = true;
+
+    deleteIntroText();
+    game.camGame.flash(0xFFFFFFFF, 1.0);
+
+    if (gfSpr != null) gfSpr.visible = true;
+    if (logoSpr != null) logoSpr.visible = true;
+    if (enterSpr != null) enterSpr.visible = true;
+}
+
+function getIntroTextList() {
+    var raw = AssetResolver.getText("data/introText.txt");
+    if (raw == null || raw.length == 0) return ["SoulScorch", "Reborn"];
+    var lines = raw.split("\n");
+    var chosen = lines[FlxG.random.int(0, lines.length - 1)].trim();
+    var parts = chosen.split("--");
+    return [parts[0].trim(), parts.length > 1 ? parts[1].trim() : ""];
+}

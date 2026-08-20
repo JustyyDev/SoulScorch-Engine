@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Ugh" bpm="160.0" icon="tankman" color="0xFFF6B604" needsVoices="true">
+    <stage name="tank" defaultZoom="0.9" />
+    <characters player1="bf" player2="tankman" gfVersion="gf" />
+</songMeta>

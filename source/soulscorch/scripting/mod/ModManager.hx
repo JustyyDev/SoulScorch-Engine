@@ -1,13 +1,12 @@
 package soulscorch.scripting.mod;
 
-import haxe.Json;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulModData;
+import soulscorch.scripting.mod.SoulModParser;
 
 #if sys
 import sys.FileSystem;
-import sys.io.File;
 #end
 
 using StringTools;
@@ -29,21 +28,8 @@ class ModManager {
                 var fullDir = '$modsDir/$folder';
                 if (FileSystem.isDirectory(fullDir) && !folder.startsWith(".") && !folder.startsWith("_")) {
                     allMods.push(folder);
-
-                    var configFiles = ['config.json', 'mod.json', '_polymod_meta.json'];
-                    for (cfg in configFiles) {
-                        var configPath = '$fullDir/$cfg';
-                        if (FileSystem.exists(configPath)) {
-                            try {
-                                var raw = File.getContent(configPath);
-                                var data:SoulModData = Json.parse(raw);
-                                modConfigs.set(folder, data);
-                                break;
-                            } catch (e:Dynamic) {
-                                Logger.warn('Failed parsing mod config in $folder ($cfg): $e', "mods");
-                            }
-                        }
-                    }
+                    var data = SoulModParser.parseFolder(fullDir, folder);
+                    modConfigs.set(folder, data);
                 }
             }
         }
@@ -65,6 +51,15 @@ class ModManager {
             var modPath = 'mods/$mod/$clean';
             if (FileSystem.exists(modPath)) {
                 return modPath;
+            }
+
+            // Route standard asset folder prefixes
+            if (clean.startsWith("assets/")) {
+                var stripped = clean.substr(7);
+                var subModPath = 'mods/$mod/$stripped';
+                if (FileSystem.exists(subModPath)) {
+                    return subModPath;
+                }
             }
         }
 

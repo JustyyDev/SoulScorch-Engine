@@ -132,7 +132,7 @@ class ModelAPI {
                 if (customMaterial != null) {
                     mesh.material = customMaterial;
                 }
-                mesh.pickingCollider = PickingColliderType.AS3_FIRST_ENCOUNTERED;
+                mesh.pickingCollider = PickingColliderType.AUTO_FIRST_ENCOUNTERED;
                 _meshCache.set(resolvedModel, cast(mesh.clone(), Mesh));
                 _geometryCache.set(resolvedModel, mesh.geometry.clone());
 
