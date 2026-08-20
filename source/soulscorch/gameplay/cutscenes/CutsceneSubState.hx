@@ -4,10 +4,10 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
-import flixel.math.FlxEase;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.sound.FlxSound;
+import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
@@ -16,7 +16,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.gameplay.PlayState;
 import soulscorch.graphics.FunkinSprite;
-import soulscorch.graphics.shaders.CustomShader;
+import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptManager;
 
 class CutsceneSubState extends MusicBeatSubstate {
@@ -62,7 +62,8 @@ class CutsceneSubState extends MusicBeatSubstate {
         });
 
         script.setAll("FunkinSprite", FunkinSprite);
-        script.setAll("CustomShader", CustomShader);
+        script.setAll("CustomShader", SoulShader);
+        script.setAll("SoulShader", SoulShader);
         script.setAll("Options", {gameplayShaders: true, week6PixelPerfect: false});
         script.setAll("Paths", Paths);
         script.setAll("Conductor", Conductor);
