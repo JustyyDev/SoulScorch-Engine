@@ -7,16 +7,24 @@ function onPlaySequence() {
 }
 
 function onSaveModifiers() {
-    showToast("Exported modifier tags to modifiers.xmsoul", false);
+    showToast("Exported modifier tags to modifiers.xmsoul.", false);
 }
 
 function onSwayX(val) {
-    showToast("Lane Sway X: " + val, false);
+    if (val != null) showToast("Lane Sway X: " + val, false);
+}
+
+function onSwayY(val) {
+    if (val != null) showToast("Lane Sway Y: " + val, false);
 }
 
 function onRotate(val) {
-    showToast("Lane Angle: " + val + "°", false);
+    if (val != null) showToast("Lane Angle: " + val + "°", false);
 }
+
+function onAlpha(val) {}
+function onIntensityChange(val) {}
+function onToggleHUDShader(val) {}
 
 function onShaderChange(name) {
     showToast("Compiled shader hook: " + name, false);

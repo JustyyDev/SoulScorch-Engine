@@ -26,19 +26,23 @@ typedef WeekScoreEntry = {
 }
 
 typedef ReplayDataEntry = {
+    var id:String;
     var songId:String;
     var difficulty:String;
     var timestamp:Float;
+    var dateString:String;
     var score:Int;
     var accuracy:Float;
-    var rawInputs:Array<Dynamic>;
+    var misses:Int;
+    var replayPath:String;
+    var ?mp4Path:String;
 }
 
 class SaveData {
     public static var instance(get, null):SaveData;
     private static var _instance:SaveData;
 
-    public static inline var CURRENT_SAVE_VERSION:Int = 3;
+    public static inline var CURRENT_SAVE_VERSION:Int = 4;
 
     public var songScores:Map<String, SongScoreEntry> = new Map<String, SongScoreEntry>();
     public var weekScores:Map<String, WeekScoreEntry> = new Map<String, WeekScoreEntry>();
@@ -46,6 +50,7 @@ class SaveData {
     public var unlocks:Map<String, Bool> = new Map<String, Bool>();
     public var enabledMods:Array<String> = [];
     public var customFlags:Map<String, Dynamic> = new Map<String, Dynamic>();
+    public var savedReplays:Array<ReplayDataEntry> = [];
 
     private var save:FlxSave;
     private var isDirty:Bool = false;
@@ -75,6 +80,7 @@ class SaveData {
         unlocks.clear();
         customFlags.clear();
         enabledMods = [];
+        savedReplays = [];
 
         if (save.data == null) return;
 
@@ -127,10 +133,16 @@ class SaveData {
             }
         }
 
-        // Apply Default Gameplay Preferences if Absent
+        // 7. Recorded Replays Metadata Archive
+        if (save.data.savedReplays != null && Std.isOfType(save.data.savedReplays, Array)) {
+            for (item in (cast save.data.savedReplays : Array<Dynamic>)) {
+                if (item != null) savedReplays.push(cast item);
+            }
+        }
+
         applyMissingDefaults();
 
-        Logger.info('[SaveData] Loaded ${Lambda.count(songScores)} scores, ${Lambda.count(settings)} settings, and ${enabledMods.length} active mods.', "save");
+        Logger.info('[SaveData] Loaded ${Lambda.count(songScores)} scores, ${Lambda.count(settings)} settings, ${savedReplays.length} replay records, and ${enabledMods.length} active mods.', "save");
     }
 
     private function applyMissingDefaults():Void {
@@ -142,6 +154,30 @@ class SaveData {
         if (!settings.exists("cameraZooms")) settings.set("cameraZooms", true);
         if (!settings.exists("framerate")) settings.set("framerate", 120);
         if (!settings.exists("noteSkin")) settings.set("noteSkin", "default");
+        if (!settings.exists("exportReplayMp4")) settings.set("exportReplayMp4", false);
+    }
+
+    // ==========================================
+    // REPLAY PERSISTENCE
+    // ==========================================
+
+    public function registerReplay(entry:ReplayDataEntry):Void {
+        if (entry == null) return;
+        savedReplays.unshift(entry);
+        // Retain last 100 replays max
+        if (savedReplays.length > 100) savedReplays.pop();
+        isDirty = true;
+        persist();
+    }
+
+    public function getReplays():Array<ReplayDataEntry> {
+        return savedReplays;
+    }
+
+    public function deleteReplay(id:String):Void {
+        savedReplays = savedReplays.filter(function(r) return r.id != id);
+        isDirty = true;
+        persist();
     }
 
     // ==========================================
@@ -278,6 +314,7 @@ class SaveData {
         for (key => val in customFlags) Reflect.setField(serializedFlags, key, val);
         save.data.customFlags = serializedFlags;
 
+        save.data.savedReplays = savedReplays;
         save.data.enabledMods = enabledMods.copy();
         save.data.saveVersion = CURRENT_SAVE_VERSION;
 
@@ -301,6 +338,7 @@ class SaveData {
         settings.clear();
         unlocks.clear();
         customFlags.clear();
+        savedReplays = [];
         enabledMods = [];
         if (save != null) {
             save.erase();

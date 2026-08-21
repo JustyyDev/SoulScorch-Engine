@@ -3,13 +3,13 @@
     <action label="Play/Pause (Space)" onTrigger="onTogglePlayback" />
     <action label="Practice Mode (Tab)" onTrigger="onTogglePracticeBench" />
     <action label="Save .xmsoul (Ctrl+S)" onTrigger="onSaveSoulChart" />
+    <action label="Export JSON (Ctrl+E)" onTrigger="onExportLegacyJson" />
     <action label="Undo (Ctrl+Z)" onTrigger="onUndo" />
     <action label="Redo (Ctrl+Y)" onTrigger="onRedo" />
     <action label="Metronome (M)" onTrigger="onToggleMetronome" />
     <action label="Hitsounds (H)" onTrigger="onToggleHitsounds" />
-    <action label="Waveform (W)" onTrigger="onToggleWaveform" />
     <action label="Test in Game (Enter)" onTrigger="onTestInGame" />
-    <action label="Exit" onTrigger="onExit" />
+    <action label="Exit (Esc)" onTrigger="onExit" />
 
     <window id="songProps" title="Song &amp; Strumline Setup" x="15" y="45" width="290" height="340">
         <stepper id="bpmStep" label="Master BPM" default="120" min="30" max="500" step="1" precision="1" x="10" y="8" width="270" action="onChangeBPM" />
@@ -52,11 +52,11 @@
         <stepper id="sustainStep" label="Hold Duration (Steps)" default="0" min="0" max="128" step="0.5" precision="1" x="10" y="6" width="270" action="onChangeSustain" />
         <input id="noteTypeInput" label="Active Note Type" text="normal" x="10" y="44" width="270" action="onChangeNoteType" />
         <button id="cycleNoteTypeBtn" text="Cycle Note Type (T)" x="10" y="86" width="270" height="24" action="onCycleNoteType" />
-        <input id="eventInput" label="Event Name (e.g. Camera Movement)" text="Camera Movement" x="10" y="116" width="270" action="onSelectEvent" />
+        <input id="eventInput" label="Event Name (e.g. Camera Focus)" text="Camera Focus" x="10" y="116" width="270" action="onSelectEvent" />
         <input id="eventVal1Input" label="Value 1" text="" x="10" y="152" width="130" action="onChangeEventVal1" />
         <input id="eventVal2Input" label="Value 2" text="" x="150" y="152" width="130" action="onChangeEventVal2" />
-        <button id="addEventBtn" text="Add Event at Playhead (E)" x="10" y="188" width="130" height="24" action="onAddEventAtPlayhead" />
-        <button id="delNoteBtn" text="Delete Note / Event (Del)" x="150" y="188" width="130" height="24" action="onDeleteNote" />
+        <button id="addEventBtn" text="Add Event (E)" x="10" y="188" width="130" height="24" action="onAddEventAtPlayhead" />
+        <button id="delNoteBtn" text="Delete (Del)" x="150" y="188" width="130" height="24" action="onDeleteNote" />
     </window>
 
     <window id="patternTools" title="DAW Pattern Transformer" x="975" y="490" width="290" height="165">

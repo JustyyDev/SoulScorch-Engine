@@ -13,17 +13,24 @@ function onRemoveProp() {
     showToast("Prop removed from stage hierarchy", false);
 }
 
+function onScaleX(val) {}
+function onScaleY(val) {}
+function onScrollX(val) {}
+function onScrollY(val) {}
+function onAlpha(val) {}
+function onAntialias(val) {}
+
 function onCycleLayer() {
     var nextIdx = (layers.indexOf(activeLayer) + 1) % layers.length;
     activeLayer = layers[nextIdx];
-    if (editor.widgets.exists("layerTxt")) {
+    if (editor != null && editor.widgets != null && editor.widgets.exists("layerTxt")) {
         editor.widgets.get("layerTxt").text = "Layer: " + activeLayer;
     }
     showToast("Selected Layer: " + activeLayer, false);
 }
 
 function onSaveStage() {
-    showToast("Stage architecture exported to .xmsoul", false);
+    showToast("Stage architecture exported to .xmsoul.", false);
 }
 
 function onResetView() {

@@ -90,9 +90,14 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
+            // Zero-Lag Engine Execution Setup
             FlxG.fixedTimestep = false;
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
+
+            #if (cpp && windows)
+            cpp.vm.ExecutionTrace.setLevel(0);
+            #end
 
             setupStateSwitchOptimization();
 
@@ -116,7 +121,6 @@ class Main extends Sprite {
             SongRegistry.scanAll();
             SoulGlobalScript.init();
 
-            // --- .XMSOUL & Native Window Configuration Integration ---
             applyWindowConfiguration();
 
             #if desktop
@@ -143,7 +147,6 @@ class Main extends Sprite {
 
     private function applyWindowConfiguration():Void {
         #if windows
-        // Resolve window.xmsoul configuration
         var access = XMSoul.parse("config/window");
         if (access == null) access = XMSoul.parse("data/config/window");
 
@@ -183,9 +186,7 @@ class Main extends Sprite {
     private function setupStateSwitchOptimization():Void {
         FlxG.signals.preStateSwitch.add(function() {
             Paths.clearUnusedMemory();
-            #if cpp
-            Gc.compact();
-            #end
+            EngineOptimizer.runMemorySweep();
         });
     }
 

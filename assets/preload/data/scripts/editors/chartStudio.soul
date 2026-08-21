@@ -27,16 +27,16 @@ function onChangeSpeed(val) {
 }
 
 function onChangeStage(val) {
-    showToast("Stage set to: " + val, false);
+    showToast("Stage: " + val, false);
 }
 
 function onChangeStrumline(val) {
     activeStrumline = (val != null) ? Std.int(val) : 2;
-    showToast("Editing Strumline: " + activeStrumline, false);
+    showToast("Active Strumline: " + activeStrumline, false);
 }
 
 function onChangePlayer(val) {
-    showToast("Player 1: " + val, false);
+    showToast("Player: " + val, false);
 }
 
 function onChangeOpponent(val) {
@@ -93,36 +93,36 @@ function onResyncAudio() { showToast("Audio Re-synced", false); }
 function onSelectEvent(val) {}
 function onChangeEventVal1(val) {}
 function onChangeEventVal2(val) {}
-function onAddEventAtPlayhead() { showToast("Event Added", false); }
-function onDeleteNote() { showToast("Note Deleted", false); }
+function onAddEventAtPlayhead() { showToast("Event Placed", false); }
+function onDeleteNote() { showToast("Note Removed", false); }
 
 function onCopyNotes() { showToast("Notes Copied", false); }
 function onPasteNotes() { showToast("Notes Pasted", false); }
-function onSwapLanes() { showToast("Lanes Swapped", false); }
+function onSwapLanes() { showToast("Lanes Inverted", false); }
 function onMirrorLanes() { showToast("Lanes Mirrored", false); }
-function onCompressNotes() { showToast("Notes Compressed 2x", false); }
-function onHumanizeOffsets() { showToast("Humanized Offsets", false); }
+function onCompressNotes() { showToast("Compressed 2x", false); }
+function onHumanizeOffsets() { showToast("Jitter Humanized", false); }
 function onClearSection() { showToast("Section Cleared", false); }
-function onQuantizeSelection() { showToast("Quantized to Grid", false); }
+function onQuantizeSelection() { showToast("Snapped to Grid", false); }
 
-function onTogglePracticeBench() { showToast("Toggled Practice", false); }
-function onUndo() { showToast("Undo", false); }
-function onRedo() { showToast("Redo", false); }
+function onTogglePracticeBench() { showToast("Toggled Practice Mode", false); }
+function onUndo() { showToast("Undo Step", false); }
+function onRedo() { showToast("Redo Step", false); }
 function onToggleMetronome() { showToast("Toggled Metronome", false); }
 function onToggleHitsounds() { showToast("Toggled Hitsounds", false); }
-function onToggleWaveform() { showToast("Toggled Waveform", false); }
-function onReloadChart() { showToast("Reloaded Chart", false); }
+function onToggleWaveform() { showToast("Toggled Waveform Visualizer", false); }
+function onReloadChart() { showToast("Chart Reloaded from Disk", false); }
 
 function onSaveSoulChart() {
-    showToast("Exported .xmsoul chart file successfully", false);
+    showToast("Exported .xmsoul chart successfully", false);
 }
 
 function onExportLegacyJson() {
-    showToast("Exported legacy .json chart data", false);
+    showToast("Exported legacy JSON chart successfully", false);
 }
 
 function onTestInGame() {
-    showToast("Launching PlayState Chart Tester...", false);
+    showToast("Booting Playtest...", false);
     FlxG.switchState(new PlayState());
 }
 

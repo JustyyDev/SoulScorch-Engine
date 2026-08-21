@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <editor title="STAGE ARCHITECT PRO // [XMSOUL]" script="data/scripts/editors/stageArchitect.soul">
     <action label="Save .xmsoul (Ctrl+S)" onTrigger="onSaveStage" />
-    <action label="Reset View" onTrigger="onResetView" />
-    <action label="Exit" onTrigger="onExit" />
+    <action label="Reset View (R)" onTrigger="onResetView" />
+    <action label="Exit (Esc)" onTrigger="onExit" />
 
     <window id="treeWin" title="Stage Tree &amp; Pieces" x="15" y="45" width="300" height="420">
         <text id="infoTxt" text="Target: ground" x="10" y="4" size="14" color="0xFF00FFCC" />

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<editor title="MODCHART MATRIX // [STAGE3D / NOTEMODS]" script="data/scripts/editors/modchartMatrix.soul">
-    <action label="Play Sequence" onTrigger="onPlaySequence" />
-    <action label="Export .soulchart Modifiers" onTrigger="onSaveModifiers" />
+<editor title="MODCHART MATRIX // [STAGE3D &amp; LANE MODIFIERS]" script="data/scripts/editors/modchartMatrix.soul">
+    <action label="Play Sequence (Space)" onTrigger="onPlaySequence" />
+    <action label="Export .xmsoul (Ctrl+S)" onTrigger="onSaveModifiers" />
     <action label="Exit" onTrigger="onExit" />
 
     <window id="easeMatrix" title="Lane Transforms" x="15" y="45" width="300" height="320">

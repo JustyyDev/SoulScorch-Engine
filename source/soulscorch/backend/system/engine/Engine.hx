@@ -9,6 +9,7 @@ import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.Scene;
+import soulscorch.backend.system.engine.EngineOptimizer;
 import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Version;
@@ -121,6 +122,7 @@ class Engine {
             if (module != null) module.onStateSwitch();
         }
         Paths.clearUnusedMemory();
+        EngineOptimizer.performIncrementalVRAMPurge();
     }
 
     public function notifySceneSwitch(scene:Scene):Void {

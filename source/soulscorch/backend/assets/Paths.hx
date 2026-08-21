@@ -9,6 +9,7 @@ import openfl.display.BitmapData;
 import openfl.media.Sound;
 import openfl.utils.Assets;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.system.engine.EngineOptimizer;
 import soulscorch.scripting.mod.ModManager;
 
 #if cpp

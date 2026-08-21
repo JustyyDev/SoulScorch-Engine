@@ -42,6 +42,7 @@ class Note extends FlxSprite {
     public var multSpeed:Float = 1.0;
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
+    public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
 
     public function new(
         strumTime:Float,
@@ -92,7 +93,7 @@ class Note extends FlxSprite {
                 case 3: 0xFFF9393F;
                 default: 0xFFFFFFFF;
             };
-            makeGraphic(Std.int(112 * DEFAULT_SCALE), isSustainNote ? 30 : Std.int(112 * DEFAULT_SCALE), colorInt);
+            makeGraphic(Std.int(STRUM_WIDTH), isSustainNote ? 30 : Std.int(STRUM_WIDTH), colorInt);
         }
     }
 
@@ -144,7 +145,7 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (isSustainEnd) {
                 var endPrefix = (noteData == 0) ? "pruple end hold" : (colorName + " hold end");
-                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end"]);
+                tryAddAnimation("holdend", [endPrefix, "purlpe end hold", "purple hold end", colorName + " end hold", colorName + " hold end"]);
             } else {
                 var bodyPrefix = (noteData == 0) ? "purple hold piece" : (colorName + " hold piece");
                 tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece"]);
@@ -179,7 +180,7 @@ class Note extends FlxSprite {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(DEFAULT_SCALE, (stepHeight + 1.0) / baseH);
+                scale.set(DEFAULT_SCALE, (stepHeight + 1.2) / baseH);
                 updateHitbox();
             }
         } else {
@@ -191,39 +192,40 @@ class Note extends FlxSprite {
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
+        var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
+
+        // Exact horizontal centering aligned to receptor centerline
+        var strumCenterX:Float = strumX + (STRUM_WIDTH * 0.5);
+        var strumCenterY:Float = strumY + (STRUM_WIDTH * 0.5);
+
+        x = strumCenterX - (width * 0.5) + offsetX;
 
         if (isSustainNote) {
-            // Anchor hold piece centered horizontally on the receptor width
-            x = strumX + ((112.0 * DEFAULT_SCALE) - width) * 0.5 + offsetX;
             flipY = downscroll;
 
             if (downscroll) {
-                y = (strumY + (112.0 * DEFAULT_SCALE * 0.5)) - distance - height + offsetY;
+                y = strumCenterY - distance + stepHeight - height + offsetY;
             } else {
-                y = (strumY + (112.0 * DEFAULT_SCALE * 0.5)) + distance + offsetY;
+                y = strumCenterY + distance - stepHeight + offsetY;
             }
 
-            if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
-                var diff:Float = (Conductor.songPosition - strumTime) * (0.45 * (songSpeed * multSpeed));
-                if (diff > 0) {
-                    var remainingHeight:Float = Math.max(0, frameHeight - (diff / scale.y));
-                    if (downscroll) {
-                        clipRect = new FlxRect(0, 0, frameWidth, remainingHeight);
-                    } else {
-                        clipRect = new FlxRect(0, diff / scale.y, frameWidth, remainingHeight);
-                    }
+            // High-precision sustain clipping as notes enter receptors
+            if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
+                if (downscroll) {
+                    var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);
+                    clipRect = new FlxRect(0, 0, frameWidth, clipHeight);
+                } else {
+                    var clipHeight:Float = Math.max(0, (y + height - strumCenterY) / scale.y);
+                    clipRect = new FlxRect(0, frameHeight - clipHeight, frameWidth, clipHeight);
                 }
             } else {
                 clipRect = null;
             }
         } else {
-            // Snap note x/y directly to receptor coordinate
-            x = strumX + offsetX;
-
             if (downscroll) {
-                y = strumY - distance + offsetY;
+                y = strumCenterY - distance - (height * 0.5) + offsetY;
             } else {
-                y = strumY + distance + offsetY;
+                y = strumCenterY + distance - (height * 0.5) + offsetY;
             }
         }
 

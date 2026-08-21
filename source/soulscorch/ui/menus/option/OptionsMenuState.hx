@@ -14,6 +14,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.InputMap;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -193,6 +194,26 @@ class OptionsMenuState extends MusicBeatState {
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("noteSplash", true),
                     setValue: function(v) { GameplayFlags.set("noteSplash", v); savePreferences(); }
+                },
+                {
+                    name: "Export Replay MP4s",
+                    description: "Automatically encodes and exports Discord-embeddable 60FPS MP4 videos of your runs to replays/videos/.",
+                    type: "bool",
+                    getValue: function() return GameplayFlags.getBool("exportReplayMp4", false),
+                    setValue: function(v) {
+                        GameplayFlags.set("exportReplayMp4", v);
+                        if (SaveData.instance != null) SaveData.instance.setSetting("exportReplayMp4", v, true);
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Replay & MP4 Archive",
+                    description: "View and play recorded gameplay replays or open your exported MP4 video folder.",
+                    type: "button",
+                    getValue: function() return "OPEN",
+                    setValue: function(_) {
+                        openSubState(new soulscorch.ui.menus.substate.ReplayGallerySubState());
+                    }
                 }
             ]),
             new OptionCategory("Visuals", "options", 0xFF1A2A30, [

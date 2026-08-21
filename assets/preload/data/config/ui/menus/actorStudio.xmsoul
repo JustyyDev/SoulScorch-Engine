@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<editor title="ACTOR STUDIO PRO" script="data/scripts/editors/actorStudio.soul">
+<editor title="ACTOR STUDIO PRO // [CHARACTER MATRIX]" script="data/scripts/editors/actorStudio.soul">
     <action label="Save Character XML" onTrigger="onSaveActor" />
     <action label="Reload Atlas" onTrigger="onReloadAtlas" />
+    <action label="Reset Offsets" onTrigger="onResetOffsets" />
     <action label="Exit" onTrigger="onExit" />
 
     <window id="animMatrix" title="Animation Matrix" x="15" y="45" width="300" height="420">

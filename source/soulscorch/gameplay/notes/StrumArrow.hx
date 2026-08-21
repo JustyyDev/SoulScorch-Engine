@@ -16,6 +16,8 @@ class StrumArrow extends FlxSprite {
     public var baseY:Float = 0.0;
     public var baseScale:Float = 0.7;
 
+    public static inline var STRUM_SIZE:Float = 112.0 * 0.7;
+
     public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "NOTE_assets") {
         super(x, y);
         this.direction = direction % 4;
@@ -42,7 +44,7 @@ class StrumArrow extends FlxSprite {
         if (atlas != null) {
             frames = atlas;
         } else {
-            makeGraphic(Std.int(112 * baseScale), Std.int(112 * baseScale), 0xFFFFFFFF);
+            makeGraphic(Std.int(STRUM_SIZE), Std.int(STRUM_SIZE), 0xFFFFFFFF);
         }
     }
 
@@ -76,7 +78,6 @@ class StrumArrow extends FlxSprite {
         centerOffsets();
         centerOrigin();
 
-        // Exact compensation for FNF glow padding on confirm animation
         if (animName == "confirm") {
             offset.x -= 13;
             offset.y -= 13;

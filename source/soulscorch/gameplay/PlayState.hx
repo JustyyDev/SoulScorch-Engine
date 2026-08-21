@@ -123,7 +123,7 @@ class PlayState extends MusicBeatState {
 
     public var maxHealth:Float = 2.0;
     public var songScore(get, never):Int;
-    inline function get_songScore():Int return judgementManager != null ? judgementManager.combo : 0;
+    inline function get_songScore():Int return judgementManager != null ? judgementManager.combo * 100 : 0;
     public var songMisses(get, never):Int;
     inline function get_songMisses():Int return judgementManager != null ? judgementManager.misses : 0;
     public var songHits(get, never):Int;
@@ -1193,11 +1193,13 @@ class PlayState extends MusicBeatState {
 
         if (audio != null) audio.stop();
 
+        var cleared = health > 0;
+        var rank = getRatingString(accuracy);
+
         if (ReplayManager.recording) {
-            ReplayManager.saveReplay(curSong, curDifficulty);
+            ReplayManager.saveReplay(curSong, curDifficulty, songScore, accuracy, songMisses, rank);
         }
 
-        var cleared = health > 0;
         var stats = new SongStats(curSong, curDifficulty, songScore, songMisses, songHits, accuracy, health, maxHealth, cleared);
 
         if (SaveData.instance != null) {
