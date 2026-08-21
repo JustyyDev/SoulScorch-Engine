@@ -76,6 +76,7 @@ class StrumArrow extends FlxSprite {
         centerOffsets();
         centerOrigin();
 
+        // Exact compensation for FNF glow padding on confirm animation
         if (animName == "confirm") {
             offset.x -= 13;
             offset.y -= 13;

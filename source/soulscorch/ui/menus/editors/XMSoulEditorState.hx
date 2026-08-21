@@ -95,12 +95,8 @@ class XMSoulEditorState extends MusicBeatState {
             script.setAll("FlxText", FlxText);
             script.setAll("FlxMath", FlxMath);
             script.setAll("FlxPoint", {
-                get: function(?x:Float = 0, ?y:Float = 0) {
-                    return FlxPoint.get(x, y);
-                },
-                weak: function(?x:Float = 0, ?y:Float = 0) {
-                    return FlxPoint.weak(x, y);
-                }
+                get: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.get(x, y),
+                weak: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.weak(x, y)
             });
             script.setAll("FlxTween", FlxTween);
             script.setAll("FlxEase", FlxEase);
@@ -135,7 +131,9 @@ class XMSoulEditorState extends MusicBeatState {
                     var label = XMSoul.getAttr(node, "label", "Action");
                     var callback = XMSoul.getAttr(node, "onTrigger", "");
                     topBar.addAction(label, function() {
-                        if (script != null && callback != "") script.callAll(callback, []);
+                        if (script != null && callback != "") {
+                            script.callAll(callback, []);
+                        }
                     });
 
                 case "window":
@@ -198,7 +196,9 @@ class XMSoulEditorState extends MusicBeatState {
                     XMSoul.getFloatAttr(node, "step", 1),
                     XMSoul.getIntAttr(node, "precision", 0),
                     function(val) {
-                        if (script != null && action != "") script.callAll(action, [val]);
+                        if (script != null && action != "") {
+                            script.callAll(action, [val]);
+                        }
                     }
                 );
                 if (id != "") widgets.set(id, stp);

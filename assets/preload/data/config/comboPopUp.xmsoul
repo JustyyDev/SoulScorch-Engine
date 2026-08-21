@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<comboPopup offsetX="0.55" offsetY="-60" scale="0.7" alphaFadeDuration="0.2" antialiasing="true">
+<comboPopup offsetX="0.55" offsetY="-40" scale="0.7" alphaFadeDuration="0.2" antialiasing="true">
     <ratingVelocity xMin="-10" xMax="0" yMin="-175" yMax="-140" gravity="550" />
-    <numberVelocity xMin="-5" xMax="5" yMin="-150" yMax="-120" gravity="550" spacing="24" scale="0.5" />
+    <numberVelocity xMin="-5" xMax="5" yMin="-150" yMax="-120" gravity="550" spacing="28" scale="0.55" />
 </comboPopup>

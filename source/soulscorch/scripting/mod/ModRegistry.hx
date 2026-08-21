@@ -6,6 +6,10 @@ import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.SoulModData;
 
+#if sys
+import sys.FileSystem;
+#end
+
 class ModRegistry {
     public static var instance(get, null):ModRegistry;
     private static var _instance:ModRegistry;
@@ -14,7 +18,6 @@ class ModRegistry {
 
     public function new() {
         _instance = this;
-        loadConfig();
     }
 
     public static inline function get_instance():ModRegistry {
@@ -48,7 +51,10 @@ class ModRegistry {
             } catch (e:Dynamic) {
                 Logger.warn('Failed restoring enabled mods list: $e', "mods");
             }
-        } else if (ModManager.allMods != null) {
+        }
+
+        // If no saved configuration exists, auto-enable all discovered valid mod folders
+        if (enabledMods.length == 0 && ModManager.allMods != null && ModManager.allMods.length > 0) {
             enabledMods = ModManager.allMods.copy();
         }
 

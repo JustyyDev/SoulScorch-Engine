@@ -1,8 +1,8 @@
 package soulscorch.scripting.mod;
 
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.ModRegistry;
+import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.scripting.mod.SoulModParser;
 
@@ -40,7 +40,6 @@ class ModManager {
         ModRegistry.instance.loadConfig();
         activeMods = ModRegistry.instance.enabledMods.copy();
 
-        // Sort active mods by load priority (highest to lowest)
         activeMods.sort(function(a:String, b:String):Int {
             var pA = modConfigs.exists(a) ? modConfigs.get(a).load_priority : 0;
             var pB = modConfigs.exists(b) ? modConfigs.get(b).load_priority : 0;

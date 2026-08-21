@@ -41,7 +41,7 @@ class Note extends FlxSprite {
     public var multAlpha:Float = 1.0;
     public var multSpeed:Float = 1.0;
 
-    public static inline var STRUM_SPACING:Float = 112.0;
+    public static inline var DEFAULT_SCALE:Float = 0.7;
 
     public function new(
         strumTime:Float,
@@ -92,7 +92,7 @@ class Note extends FlxSprite {
                 case 3: 0xFFF9393F;
                 default: 0xFFFFFFFF;
             };
-            makeGraphic(Std.int(STRUM_SPACING * 0.7), isSustainNote ? 30 : Std.int(STRUM_SPACING * 0.7), colorInt);
+            makeGraphic(Std.int(112 * DEFAULT_SCALE), isSustainNote ? 30 : Std.int(112 * DEFAULT_SCALE), colorInt);
         }
     }
 
@@ -144,7 +144,7 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (isSustainEnd) {
                 var endPrefix = (noteData == 0) ? "pruple end hold" : (colorName + " hold end");
-                tryAddAnimation("holdend", [endPrefix, "purlpe end hold", "purple hold end", colorName + " end hold", colorName + " hold end"]);
+                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end"]);
             } else {
                 var bodyPrefix = (noteData == 0) ? "purple hold piece" : (colorName + " hold piece");
                 tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece"]);
@@ -168,7 +168,9 @@ class Note extends FlxSprite {
     }
 
     public function playAnim(?songSpeed:Float = 2.0):Void {
-        scale.set(0.7, 0.7);
+        scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
+        updateHitbox();
+
         if (isSustainNote) {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") != null) animation.play("holdend");
@@ -177,12 +179,13 @@ class Note extends FlxSprite {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(0.7, (stepHeight + 1.2) / baseH);
+                scale.set(DEFAULT_SCALE, (stepHeight + 1.0) / baseH);
                 updateHitbox();
             }
         } else {
             if (animation.getByName("scroll") != null) animation.play("scroll");
-            updateHitbox();
+            centerOffsets();
+            centerOrigin();
         }
     }
 
@@ -190,14 +193,14 @@ class Note extends FlxSprite {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
         if (isSustainNote) {
-            // Anchor sustain directly to receptor center
-            x = strumX + (STRUM_SPACING * 0.7 * 0.5) - (width * 0.5) + offsetX;
+            // Anchor hold piece centered horizontally on the receptor width
+            x = strumX + ((112.0 * DEFAULT_SCALE) - width) * 0.5 + offsetX;
             flipY = downscroll;
 
             if (downscroll) {
-                y = (strumY + 38.0) - distance - height + offsetY;
+                y = (strumY + (112.0 * DEFAULT_SCALE * 0.5)) - distance - height + offsetY;
             } else {
-                y = (strumY + 38.0) + distance + offsetY;
+                y = (strumY + (112.0 * DEFAULT_SCALE * 0.5)) + distance + offsetY;
             }
 
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
@@ -214,8 +217,8 @@ class Note extends FlxSprite {
                 clipRect = null;
             }
         } else {
-            // Centered cleanly on the receptor bounds
-            x = strumX + (STRUM_SPACING * 0.7 * 0.5) - (width * 0.5) + offsetX;
+            // Snap note x/y directly to receptor coordinate
+            x = strumX + offsetX;
 
             if (downscroll) {
                 y = strumY - distance + offsetY;

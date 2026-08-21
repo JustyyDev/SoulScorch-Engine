@@ -1,20 +1,14 @@
 // SOULSCORCH Chart Studio Controller
 
-var isPlaying;
-var curBpm;
-var curSpeed;
-var curSnap;
-var activeStrumline;
-var curNoteType;
+var isPlaying = false;
+var masterBpm = 120.0;
+var scrollSpeed = 2.0;
+var snapDiv = 16;
+var activeStrumline = 2;
+var curNoteType = "normal";
+var curSustain = 0.0;
 
 function onCreate() {
-    isPlaying = false;
-    curBpm = 120;
-    curSpeed = 2;
-    curSnap = 16;
-    activeStrumline = 2;
-    curNoteType = "normal";
-
     showToast("SOULSCORCH Chart Studio Engine Ready", false);
 }
 
@@ -24,17 +18,29 @@ function onTogglePlayback() {
 }
 
 function onChangeBPM(val) {
-    curBpm = val;
-    showToast("Master BPM: " + curBpm, false);
+    masterBpm = (val != null) ? val : 120.0;
+    showToast("Master BPM: " + masterBpm, false);
 }
 
 function onChangeSpeed(val) {
-    curSpeed = val;
+    scrollSpeed = (val != null) ? val : 2.0;
+}
+
+function onChangeStage(val) {
+    showToast("Stage set to: " + val, false);
 }
 
 function onChangeStrumline(val) {
-    activeStrumline = Std.int(val);
+    activeStrumline = (val != null) ? Std.int(val) : 2;
     showToast("Editing Strumline: " + activeStrumline, false);
+}
+
+function onChangePlayer(val) {
+    showToast("Player 1: " + val, false);
+}
+
+function onChangeOpponent(val) {
+    showToast("Opponent: " + val, false);
 }
 
 function onSetSnap4() { setSnap(4, "Red"); }
@@ -47,14 +53,22 @@ function onSetSnap48() { setSnap(48, "Cyan"); }
 function onSetSnap64() { setSnap(64, "Green"); }
 
 function setSnap(div, colName) {
-    curSnap = div;
+    snapDiv = div;
     if (editor != null && editor.widgets != null && editor.widgets.exists("currentSnapTxt")) {
         editor.widgets.get("currentSnapTxt").text = "Active Snap: 1/" + div + " (" + colName + ")";
     }
 }
 
+function onChangeSnapDiv(val) {
+    if (val != null) snapDiv = Std.int(val);
+}
+
 function onChangeSustain(val) {
-    // Hold step update
+    curSustain = (val != null) ? val : 0.0;
+}
+
+function onChangeNoteType(val) {
+    curNoteType = val;
 }
 
 function onCycleNoteType() {
@@ -67,12 +81,44 @@ function onCycleNoteType() {
     showToast("Note Type: " + curNoteType, false);
 }
 
+function onSetInstVol(val) {}
+function onSetVoiceVol(val) {}
+function onChangePlaybackRate(val) {}
+function onSetHitsoundVol(val) {}
+function onSetMetroVol(val) {}
+function onToggleVocalWaveform(val) {}
+function onToggleInstWaveform(val) {}
+function onResyncAudio() { showToast("Audio Re-synced", false); }
+
+function onSelectEvent(val) {}
+function onChangeEventVal1(val) {}
+function onChangeEventVal2(val) {}
+function onAddEventAtPlayhead() { showToast("Event Added", false); }
+function onDeleteNote() { showToast("Note Deleted", false); }
+
+function onCopyNotes() { showToast("Notes Copied", false); }
+function onPasteNotes() { showToast("Notes Pasted", false); }
+function onSwapLanes() { showToast("Lanes Swapped", false); }
+function onMirrorLanes() { showToast("Lanes Mirrored", false); }
+function onCompressNotes() { showToast("Notes Compressed 2x", false); }
+function onHumanizeOffsets() { showToast("Humanized Offsets", false); }
+function onClearSection() { showToast("Section Cleared", false); }
+function onQuantizeSelection() { showToast("Quantized to Grid", false); }
+
+function onTogglePracticeBench() { showToast("Toggled Practice", false); }
+function onUndo() { showToast("Undo", false); }
+function onRedo() { showToast("Redo", false); }
+function onToggleMetronome() { showToast("Toggled Metronome", false); }
+function onToggleHitsounds() { showToast("Toggled Hitsounds", false); }
+function onToggleWaveform() { showToast("Toggled Waveform", false); }
+function onReloadChart() { showToast("Reloaded Chart", false); }
+
 function onSaveSoulChart() {
-    showToast("Exported .xmsoul chart file to songs directory.", false);
+    showToast("Exported .xmsoul chart file successfully", false);
 }
 
 function onExportLegacyJson() {
-    showToast("Exported legacy .json chart data.", false);
+    showToast("Exported legacy .json chart data", false);
 }
 
 function onTestInGame() {

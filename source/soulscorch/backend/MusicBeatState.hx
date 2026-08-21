@@ -8,6 +8,7 @@ import haxe.xml.Access;
 import soulscorch.backend.TransitionData;
 import soulscorch.backend.TransitionData.TransitionDirection;
 import soulscorch.backend.TransitionData.TransitionType;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
@@ -107,9 +108,14 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         var stateName:String = Type.getClassName(Type.getClass(nextState)).split(".").pop();
         var redirectTarget:Null<String> = soulscorch.scripting.mod.SoulGlobalScript.getRedirect(stateName);
 
-        var finalTarget:FlxState = (redirectTarget != null) 
-            ? new soulscorch.scripting.mod.ModCustomState(redirectTarget) 
-            : nextState;
+        // Only redirect if an explicit mapping exists that differs from the base state and exists on disk
+        var finalTarget:FlxState = nextState;
+        if (redirectTarget != null && redirectTarget != stateName) {
+            var customProbe = AssetResolver.resolveFile('states/$redirectTarget', [".xmsoul", ".soul", ".hx", ""]);
+            if (customProbe != null) {
+                finalTarget = new soulscorch.scripting.mod.ModCustomState(redirectTarget);
+            }
+        }
 
         if (skipNextTransOut || transition.type == NONE || FlxG.state == null) {
             skipNextTransOut = false;

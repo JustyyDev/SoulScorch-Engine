@@ -4,10 +4,6 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
-import flixel.math.FlxPoint;
-import flixel.tweens.FlxEase;
-import flixel.tweens.FlxTween;
-import flixel.util.FlxColor;
 import flixel.util.FlxDestroyUtil;
 import soulscorch.gameplay.notes.StrumArrow;
 
@@ -18,7 +14,7 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public var isPlayer:Bool = false;
     public var downscroll:Bool = false;
     public var keyCount:Int = 4;
-    public var currentSkin:String = "default";
+    public var currentSkin:String = "NOTE_assets";
 
     @:isVar public var x(get, set):Float = 0.0;
     @:isVar public var y(get, set):Float = 0.0;
@@ -33,8 +29,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public var modScaleX:Float = 1.0;
     public var modScaleY:Float = 1.0;
 
-    private var activeTweens:Array<FlxTween> = [];
-
     public static inline var STRUM_SPACING:Float = 112.0;
 
     public function new(
@@ -43,14 +37,14 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         isPlayer:Bool = false,
         downscroll:Bool = false,
         keyCount:Int = 4,
-        ?skin:String = "default",
+        ?skin:String = "NOTE_assets",
         ?spacing:Float = 112.0
     ) {
         super();
         this.keyCount = (keyCount > 0) ? keyCount : 4;
         this.isPlayer = isPlayer;
         this.downscroll = downscroll;
-        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "default";
+        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
         this.spacing = (spacing != null && spacing > 0) ? spacing : STRUM_SPACING;
 
         this.x = x;
@@ -83,7 +77,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     }
 
     public function clearReceptors():Void {
-        cancelTweens();
         while (receptors.length > 0) {
             var r = receptors.pop();
             remove(r, true);
@@ -101,22 +94,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
                 r.playAnim("static", true);
             }
         }
-    }
-
-    public inline function setAlpha(val:Float):Void {
-        this.alpha = val;
-    }
-
-    public function screenCenter(?axes:String = "X"):Void {
-        var totalWidth:Float = (keyCount - 1) * spacing + (receptors.length > 0 ? receptors[0].width : spacing);
-
-        if (axes.toUpperCase().contains("X")) {
-            this.x = (FlxG.width - totalWidth) * 0.5;
-        }
-        if (axes.toUpperCase().contains("Y")) {
-            this.y = (FlxG.height - (receptors.length > 0 ? receptors[0].height : 100)) * 0.5;
-        }
-        updateLayout();
     }
 
     public function updateLayout():Void {
@@ -164,16 +141,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         return null;
     }
 
-    public function cancelTweens():Void {
-        for (tw in activeTweens) {
-            if (tw != null && !tw.finished) {
-                tw.cancel();
-                tw.destroy();
-            }
-        }
-        activeTweens = [];
-    }
-
     inline function get_x():Float return x;
     function set_x(val:Float):Float {
         x = val;
@@ -205,14 +172,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
             if (r != null) r.alpha = val * modAlpha;
         }
         return val;
-    }
-
-    override function set_visible(Value:Bool):Bool {
-        super.set_visible(Value);
-        for (r in receptors) {
-            if (r != null) r.visible = Value;
-        }
-        return Value;
     }
 
     inline function get_angle():Float return angle;
@@ -248,7 +207,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     }
 
     override public function destroy():Void {
-        cancelTweens();
         clearReceptors();
         receptors = [];
         super.destroy();

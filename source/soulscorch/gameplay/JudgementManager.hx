@@ -1,5 +1,6 @@
 package soulscorch.gameplay;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -39,16 +40,19 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public var popupFadeDuration:Float = 0.2;
     public var popupHoldTime:Float = 0.35;
     public var numSpacing:Float = 24.0;
-    public var ratingPath:String = "ui/game/score/";
+    public var baseOffsetX:Float = 0.55;
+    public var baseOffsetY:Float = -40.0;
 
     public var onJudgement:Judgment->Float->Void;
     public var onHealthChange:Float->Void;
     public var onMiss:Note->Void;
 
+    public var targetCamera:FlxCamera;
     private var activeTweens:Map<FlxSprite, FlxTween> = new Map<FlxSprite, FlxTween>();
 
-    public function new() {
+    public function new(?camera:FlxCamera) {
         super();
+        this.targetCamera = camera;
         maxHealth = GameplayFlags.getFloat("maxHealth", 2.0);
         loadConfigFromXMSoul();
         updateWindows();
@@ -71,10 +75,14 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
             }
         }
 
-        var comboAccess:Access = XMSoul.parse("config/combo");
+        var comboAccess:Access = XMSoul.parse("config/comboPopup");
+        if (comboAccess == null) comboAccess = XMSoul.parse("data/config/comboPopup");
+        if (comboAccess == null) comboAccess = XMSoul.parse("config/combo");
         if (comboAccess == null) comboAccess = XMSoul.parse("data/config/combo");
 
         if (comboAccess != null) {
+            baseOffsetX = XMSoul.getFloatAttr(comboAccess, "offsetX", 0.55);
+            baseOffsetY = XMSoul.getFloatAttr(comboAccess, "offsetY", -40.0);
             popupScale = XMSoul.getFloatAttr(comboAccess, "scale", 0.7);
             popupFadeDuration = XMSoul.getFloatAttr(comboAccess, "alphaFadeDuration", 0.2);
 
@@ -162,29 +170,37 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         var ratingSpr:FlxSprite = recycle(FlxSprite);
         var ratingName:String = (result == MISS ? "bad" : Std.string(result)).toLowerCase();
 
-        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, '${ratingPath}$ratingName');
-        if (!loaded) {
-            loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
-        }
+        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/ratings/$ratingName');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, ratingName);
 
-        ratingSpr.screenCenter();
-        ratingSpr.x = (FlxG.width * 0.55) - 40;
-        ratingSpr.y -= 60;
+        ratingSpr.cameras = (targetCamera != null) ? [targetCamera] : (cameras != null ? cameras : null);
+        ratingSpr.scrollFactor.set(0, 0);
+        ratingSpr.scale.set(popupScale, popupScale);
+        ratingSpr.updateHitbox();
+
+        // Exact HUD-relative placement
+        var startX:Float = (FlxG.width * baseOffsetX) - (ratingSpr.width * 0.5);
+        var startY:Float = (FlxG.height * 0.5) + baseOffsetY - (ratingSpr.height * 0.5);
+
+        ratingSpr.setPosition(startX, startY);
         ratingSpr.acceleration.y = popupGravity;
         ratingSpr.velocity.y = -FlxG.random.int(140, 175);
         ratingSpr.velocity.x = -FlxG.random.int(0, 10);
         ratingSpr.alpha = 1.0;
-        ratingSpr.scale.set(popupScale, popupScale);
         ratingSpr.visible = true;
         add(ratingSpr);
 
         if (activeTweens.exists(ratingSpr)) {
-            activeTweens.get(ratingSpr).cancel();
+            var oldTwn = activeTweens.get(ratingSpr);
+            if (oldTwn != null) oldTwn.cancel();
             activeTweens.remove(ratingSpr);
         }
 
-        var twn = FlxTween.tween(ratingSpr, {alpha: 0}, popupFadeDuration, {
+        var twn = FlxTween.tween(ratingSpr, {alpha: 0.0}, popupFadeDuration, {
             startDelay: popupHoldTime,
+            ease: FlxEase.cubeIn,
             onComplete: function(_) {
                 ratingSpr.kill();
                 activeTweens.remove(ratingSpr);
@@ -192,33 +208,44 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         });
         activeTweens.set(ratingSpr, twn);
 
-        if (currentCombo > 0 && result != MISS) {
-            var comboDigits = Std.string(currentCombo).split("");
-            var startX:Float = ratingSpr.x + 20;
+        if (currentCombo >= 0 && result != MISS) {
+            var comboStr = Std.string(currentCombo);
+            while (comboStr.length < 3) comboStr = "0" + comboStr;
 
-            for (i in 0...comboDigits.length) {
+            var numStartX:Float = startX + (ratingSpr.width * 0.5) - ((comboStr.length * numSpacing) * 0.5);
+            var numStartY:Float = startY + ratingSpr.height + 4.0;
+
+            for (i in 0...comboStr.length) {
+                var digit = comboStr.charAt(i);
                 var numSpr:FlxSprite = recycle(FlxSprite);
-                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, '${ratingPath}num' + comboDigits[i]);
-                if (!numLoaded) {
-                    AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num' + comboDigits[i]);
-                }
 
-                numSpr.setPosition(startX + (i * numSpacing), ratingSpr.y + 70);
+                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/ratings/num$digit');
+                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/score/num$digit');
+                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num$digit');
+                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'num$digit');
+
+                numSpr.cameras = (targetCamera != null) ? [targetCamera] : (cameras != null ? cameras : null);
+                numSpr.scrollFactor.set(0, 0);
+                numSpr.scale.set(numScale, numScale);
+                numSpr.updateHitbox();
+
+                numSpr.setPosition(numStartX + (i * numSpacing), numStartY);
                 numSpr.acceleration.y = popupGravity;
                 numSpr.velocity.y = -FlxG.random.int(120, 150);
                 numSpr.velocity.x = FlxG.random.float(-5, 5);
                 numSpr.alpha = 1.0;
-                numSpr.scale.set(numScale, numScale);
                 numSpr.visible = true;
                 add(numSpr);
 
                 if (activeTweens.exists(numSpr)) {
-                    activeTweens.get(numSpr).cancel();
+                    var oldNumTwn = activeTweens.get(numSpr);
+                    if (oldNumTwn != null) oldNumTwn.cancel();
                     activeTweens.remove(numSpr);
                 }
 
-                var numTwn = FlxTween.tween(numSpr, {alpha: 0}, popupFadeDuration, {
-                    startDelay: popupHoldTime,
+                var numTwn = FlxTween.tween(numSpr, {alpha: 0.0}, popupFadeDuration, {
+                    startDelay: popupHoldTime + 0.05,
+                    ease: FlxEase.cubeIn,
                     onComplete: function(_) {
                         numSpr.kill();
                         activeTweens.remove(numSpr);
@@ -262,7 +289,9 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     }
 
     public function reset():Void {
-        for (twn in activeTweens) twn.cancel();
+        for (twn in activeTweens) {
+            if (twn != null) twn.cancel();
+        }
         activeTweens.clear();
         forEach(function(spr:FlxSprite) spr.kill());
 
@@ -276,8 +305,11 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     }
 
     override public function destroy():Void {
-        for (twn in activeTweens) twn.cancel();
+        for (twn in activeTweens) {
+            if (twn != null) twn.cancel();
+        }
         activeTweens.clear();
+        targetCamera = null;
         super.destroy();
     }
 }
