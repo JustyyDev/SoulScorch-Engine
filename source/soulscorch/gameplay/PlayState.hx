@@ -1225,9 +1225,12 @@ class PlayState extends MusicBeatState {
         paused = true;
         if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
-        openSubState(new GameOverSubState(boyfriend != lineGetX(), boyfriend != lineGetY()));
+        
+        // Pass boyfriend's actual x and y coordinates (or 0,0 as fallback)
+        var bfX:Float = (boyfriend != null) ? boyfriend.x : 100;
+        var bfY:Float = (boyfriend != null) ? boyfriend.y : 100;
+        openSubState(new GameOverSubState(bfX, bfY));
     }
-
     private inline function lineGetX():Float return boyfriend != null ? boyfriend.x : 100;
     private inline function lineGetY():Float return boyfriend != null ? boyfriend.y : 100;
 
