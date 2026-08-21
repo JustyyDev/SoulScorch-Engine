@@ -46,6 +46,7 @@ class SongParser {
 
             var chart = new Chart(bpm, speed);
             var allNotes:Array<Note> = [];
+            var stepCrochet:Float = ((60.0 / bpm) * 1000.0) / 4.0;
 
             for (strumNode in chartXml.nodes.strumLine) {
                 var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player"
@@ -60,6 +61,17 @@ class SongParser {
                     var n = new Note(t, lane, len, null, false, false, isPlayer, type);
                     chart.addNote(t, lane, len, isPlayer, type);
                     allNotes.push(n);
+
+                    if (len > 0) {
+                        var holdSteps:Int = Math.floor(len / stepCrochet);
+                        for (s in 0...holdSteps) {
+                            var isEnd:Bool = (s == holdSteps - 1);
+                            var susTime:Float = t + (s * stepCrochet) + stepCrochet;
+                            var sustainNode = new Note(susTime, lane, len, n, true, isEnd, isPlayer, type);
+                            n.tail.push(sustainNode);
+                            allNotes.push(sustainNode);
+                        }
+                    }
                 }
             }
 
@@ -74,7 +86,7 @@ class SongParser {
             };
         }
 
-        // 2. Legacy JSON fallback[cite: 49]
+        // 2. JSON Fallback
         var diffSuffix = (diff == "normal") ? "" : '-$diff';
         var possiblePaths = [
             'songs/$cleanSong/charts/$diff.json',
@@ -156,6 +168,7 @@ class SongParser {
                                         parsed.noteType
                                     );
                                     parsed.tail.push(sustainNode);
+                                    sectionNotes.push(sustainNode);
                                 }
                             }
                         }

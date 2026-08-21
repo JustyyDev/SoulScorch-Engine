@@ -85,7 +85,6 @@ class XMSoulEditorState extends MusicBeatState {
             script = new ScriptManager();
             script.loadScript(scriptPath);
 
-            // Complete global injection scope
             script.setAll("editor", this);
             script.setAll("game", this);
             script.setAll("state", this);
@@ -95,7 +94,14 @@ class XMSoulEditorState extends MusicBeatState {
             script.setAll("FlxSprite", FlxSprite);
             script.setAll("FlxText", FlxText);
             script.setAll("FlxMath", FlxMath);
-            script.setAll("FlxPoint", FlxPoint);
+            script.setAll("FlxPoint", {
+                get: function(?x:Float = 0, ?y:Float = 0) {
+                    return FlxPoint.get(x, y);
+                },
+                weak: function(?x:Float = 0, ?y:Float = 0) {
+                    return FlxPoint.weak(x, y);
+                }
+            });
             script.setAll("FlxTween", FlxTween);
             script.setAll("FlxEase", FlxEase);
             script.setAll("FlxTimer", FlxTimer);

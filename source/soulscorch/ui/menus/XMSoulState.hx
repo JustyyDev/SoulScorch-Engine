@@ -5,8 +5,13 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxMath;
+import flixel.math.FlxPoint;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.Paths;
@@ -48,9 +53,30 @@ class XMSoulState extends MusicBeatState {
         if (scriptPath != "") {
             script = new ScriptManager();
             script.loadScript(scriptPath);
+
             script.setAll("menu", this);
             script.setAll("game", this);
-            script.callAll("onCreate");
+            script.setAll("state", this);
+            script.setAll("camUI", camUI);
+            script.setAll("FlxG", FlxG);
+            script.setAll("FlxSprite", FlxSprite);
+            script.setAll("FlxText", FlxText);
+            script.setAll("FlxMath", FlxMath);
+            script.setAll("FlxPoint", {
+                get: function(?x:Float = 0, ?y:Float = 0) {
+                    return FlxPoint.get(x, y);
+                },
+                weak: function(?x:Float = 0, ?y:Float = 0) {
+                    return FlxPoint.weak(x, y);
+                }
+            });
+            script.setAll("FlxTween", FlxTween);
+            script.setAll("FlxEase", FlxEase);
+            script.setAll("FlxTimer", FlxTimer);
+            script.setAll("Paths", Paths);
+            script.setAll("elements", elements);
+
+            script.callAll("onCreate", []);
         }
 
         FlxG.mouse.visible = true;
@@ -146,24 +172,26 @@ class XMSoulState extends MusicBeatState {
         var cardH = XMSoul.getFloatAttr(node, "height", 110);
 
         var idx = 0;
-        for (cardNode in node.nodes.resolve("card")) {
-            var group = new FlxSpriteGroup(startX, startY + (idx * spacing));
-            var border = new FlxSprite(-1, -1).makeGraphic(Std.int(cardW + 2), Std.int(cardH + 2), EditorTheme.PANEL_BORDER);
-            var bg = new FlxSprite(0, 0).makeGraphic(Std.int(cardW), Std.int(cardH), EditorTheme.PANEL_BG);
-            
-            var title = new Alphabet(16, 38, XMSoul.getAttr(cardNode, "title", ""), true);
-            title.scale.set(0.75, 0.75);
+        if (node.hasNode.card) {
+            for (cardNode in node.nodes.card) {
+                var group = new FlxSpriteGroup(startX, startY + (idx * spacing));
+                var border = new FlxSprite(-1, -1).makeGraphic(Std.int(cardW + 2), Std.int(cardH + 2), EditorTheme.PANEL_BORDER);
+                var bg = new FlxSprite(0, 0).makeGraphic(Std.int(cardW), Std.int(cardH), EditorTheme.PANEL_BG);
 
-            var desc = new FlxText(20, 82, cardW - 40, XMSoul.getAttr(cardNode, "desc", ""), 11);
-            desc.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
+                var title = new Alphabet(16, 38, XMSoul.getAttr(cardNode, "title", ""), true);
+                title.scale.set(0.75, 0.75);
 
-            group.add(border);
-            group.add(bg);
-            group.add(title);
-            group.add(desc);
-            add(group);
+                var desc = new FlxText(20, 82, cardW - 40, XMSoul.getAttr(cardNode, "desc", ""), 11);
+                desc.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
 
-            idx++;
+                group.add(border);
+                group.add(bg);
+                group.add(title);
+                group.add(desc);
+                add(group);
+
+                idx++;
+            }
         }
     }
 

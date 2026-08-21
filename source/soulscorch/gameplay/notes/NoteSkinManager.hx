@@ -22,7 +22,7 @@ typedef HoldAnimConfig = {
 
 typedef NoteSkinConfig = {
     var name:String;
-    var type:String; // "sparrow" or "grid"
+    var type:String;
     var atlasPath:String;
     var sustainPath:String;
     var scale:Float;
@@ -50,7 +50,7 @@ typedef NoteSplashConfig = {
 }
 
 class NoteSkinManager {
-    public static var defaultSkin:String = "default";
+    public static var defaultSkin:String = "NOTE_assets";
     private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
     private static var _splashCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
     private static var _configCache:Map<String, NoteSkinConfig> = new Map<String, NoteSkinConfig>();
@@ -59,7 +59,7 @@ class NoteSkinManager {
     public static var noteDirections:Array<String> = ["left", "down", "up", "right"];
 
     public static function getSkinConfig(?skinName:String):NoteSkinConfig {
-        var cleanSkin = (skinName != null && skinName.trim().length > 0) ? skinName.trim() : getNoteSkinName();
+        var cleanSkin = (skinName != null && skinName.trim().length > 0 && skinName != "default") ? skinName.trim() : getNoteSkinName();
 
         if (_configCache.exists(cleanSkin)) {
             return _configCache.get(cleanSkin);
@@ -84,7 +84,6 @@ class NoteSkinManager {
             gridHoldHeight: 6
         };
 
-        // Standard Fallback Mappings
         for (i in 0...4) {
             config.tapAnims.set(i, noteColors[i]);
             config.strumAnims.set(i, {
@@ -102,7 +101,6 @@ class NoteSkinManager {
         if (access == null) access = XMSoul.parse('data/noteskins/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('ui/game/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('data/ui/game/notes/$cleanSkin');
-        if (access == null) access = XMSoul.parse('notes/$cleanSkin');
 
         if (access != null) {
             config.type = XMSoul.getAttr(access, "type", "sparrow");
@@ -111,43 +109,9 @@ class NoteSkinManager {
             config.scale = XMSoul.getFloatAttr(access, "scale", config.type == "grid" ? 6.0 : 0.7);
             config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", config.type != "grid");
 
-            // Parse <receptors>
-            if (access.hasNode.resolve("receptors")) {
-                for (strumNode in access.node.resolve("receptors").nodes.resolve("strum")) {
-                    var lane = XMSoul.getIntAttr(strumNode, "lane", 0);
-                    config.strumAnims.set(lane, {
-                        staticAnim: XMSoul.getAttr(strumNode, "static", 'arrow' + noteDirections[lane % 4].toUpperCase()),
-                        pressedAnim: XMSoul.getAttr(strumNode, "pressed", noteDirections[lane % 4] + ' press'),
-                        confirmAnim: XMSoul.getAttr(strumNode, "confirm", noteDirections[lane % 4] + ' confirm')
-                    });
-                }
-            }
-
-            // Parse <tapNotes>
-            if (access.hasNode.resolve("tapNotes")) {
-                for (noteNode in access.node.resolve("tapNotes").nodes.resolve("note")) {
-                    var lane = XMSoul.getIntAttr(noteNode, "lane", 0);
-                    config.tapAnims.set(lane, XMSoul.getAttr(noteNode, "anim", noteColors[lane % 4]));
-                }
-            }
-
-            // Parse <sustains>
             if (access.hasNode.resolve("sustains")) {
                 var susNode = access.node.resolve("sustains");
                 config.sustainAlpha = XMSoul.getFloatAttr(susNode, "alpha", 0.6);
-
-                for (holdNode in susNode.nodes.resolve("hold")) {
-                    var lane = XMSoul.getIntAttr(holdNode, "lane", 0);
-                    var endAnim = XMSoul.getAttr(holdNode, "end", (lane == 0 ? "pruple end hold" : noteColors[lane % 4] + " hold end"));
-                    
-                    // Safety normalize any leftover XML typos
-                    if (endAnim == "purlpe end hold") endAnim = "pruple end hold";
-
-                    config.holdAnims.set(lane, {
-                        bodyAnim: XMSoul.getAttr(holdNode, "body", noteColors[lane % 4] + " hold piece"),
-                        endAnim: endAnim
-                    });
-                }
             }
         }
 
@@ -169,8 +133,6 @@ class NoteSkinManager {
 
         var access:Access = XMSoul.parse('noteskins/splashes/$cleanSplash');
         if (access == null) access = XMSoul.parse('data/noteskins/splashes/$cleanSplash');
-        if (access == null) access = XMSoul.parse('data/splashes/$cleanSplash');
-        if (access == null) access = XMSoul.parse('splashes/$cleanSplash');
 
         if (access != null) {
             config.atlasPath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", 'ui/game/splashes/$cleanSplash'));
@@ -184,8 +146,7 @@ class NoteSkinManager {
     }
 
     public static function getSkinAtlas(?skinName:String):Null<FlxAtlasFrames> {
-        var conf = getSkinConfig(skinName);
-        var cleanSkin = conf.atlasPath;
+        var cleanSkin = (skinName != null && skinName.trim().length > 0 && skinName != "default") ? skinName.trim() : "NOTE_assets";
 
         if (_skinCache.exists(cleanSkin)) {
             var cached = _skinCache.get(cleanSkin);
@@ -195,12 +156,13 @@ class NoteSkinManager {
 
         var lookups:Array<String> = [
             cleanSkin,
-            'ui/game/notes/$cleanSkin',
-            'noteskins/notes/$cleanSkin',
-            'images/ui/game/notes/$cleanSkin',
-            'ui/game/notes/NOTE_assets',
             'NOTE_assets',
-            'default'
+            'ui/game/notes/NOTE_assets',
+            'images/ui/game/notes/NOTE_assets',
+            'images/NOTE_assets',
+            'noteskins/notes/NOTE_assets',
+            'ui/game/notes/$cleanSkin',
+            'noteskins/notes/$cleanSkin'
         ];
 
         for (path in lookups) {
@@ -228,7 +190,6 @@ class NoteSkinManager {
             cleanSkin,
             'ui/game/splashes/$cleanSkin',
             'noteskins/splashes/$cleanSkin',
-            'data/splashes/$cleanSkin',
             'ui/game/notes/noteSplashes',
             'noteSplashes'
         ];
