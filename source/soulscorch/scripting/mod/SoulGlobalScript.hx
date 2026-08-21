@@ -4,7 +4,6 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
-import soulscorch.scripting.mod.SoulModData;
 
 #if sys
 import sys.FileSystem;
@@ -13,99 +12,112 @@ import sys.FileSystem;
 using StringTools;
 
 class SoulGlobalScript {
-    public static var activeScripts:ScriptManager = new ScriptManager();
+    public static var scripts:Array<ScriptManager> = [];
     public static var stateRedirects:Map<String, String> = new Map<String, String>();
 
     public static function init():Void {
-        activeScripts.clear();
-        clearRedirects();
+        clear();
 
-        if (ModManager.activeMods == null) return;
+        // 1. Gather all global script paths across active mods and base assets
+        var scriptPaths:Array<String> = [];
 
+        #if sys
         for (mod in ModManager.activeMods) {
-            var config:Null<SoulModData> = ModManager.modConfigs.get(mod);
-
-            // 1. Explicit global scripts declared in config.json
-            if (config != null && config.global_scripts != null) {
-                for (scriptFile in config.global_scripts) {
-                    var scriptPath = 'mods/$mod/$scriptFile';
-                    var resolved = AssetResolver.resolveFile(scriptPath, [".soul", ".hx", ".lua"]);
-                    if (resolved != null) {
-                        loadGlobalScript(resolved);
-                    }
-                }
-            }
-
-            // 2. Auto-scan mods/<mod>/scripts/ and mods/<mod>/data/scripts/
-            #if sys
-            var scanDirs = ['mods/$mod/scripts', 'mods/$mod/data/scripts'];
-            for (dir in scanDirs) {
-                if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
-                    for (file in FileSystem.readDirectory(dir)) {
-                        if (file.endsWith(".soul") || file.endsWith(".hx") || file.endsWith(".lua")) {
-                            var fullPath = '$dir/$file';
-                            loadGlobalScript(fullPath);
+            if (ModManager.modConfigs.exists(mod)) {
+                var config = ModManager.modConfigs.get(mod);
+                if (config != null && config.global_scripts != null) {
+                    for (s in config.global_scripts) {
+                        var fullPath = 'mods/$mod/$s';
+                        if (FileSystem.exists(fullPath) && !scriptPaths.contains(fullPath)) {
+                            scriptPaths.push(fullPath);
                         }
                     }
                 }
             }
-            #end
+
+            // Also check standard global script entry points in mod directories
+            var defaultModGlobals = [
+                'mods/$mod/scripts/global.soul',
+                'mods/$mod/scripts/global.hx',
+                'mods/$mod/data/scripts/global.soul',
+                'mods/$mod/data/global.soul'
+            ];
+            for (p in defaultModGlobals) {
+                if (FileSystem.exists(p) && !scriptPaths.contains(p)) {
+                    scriptPaths.push(p);
+                }
+            }
+        }
+        #end
+
+        // Base assets global script fallback
+        var baseGlobals = [
+            "data/scripts/global.soul",
+            "scripts/global.soul",
+            "data/global.soul"
+        ];
+        for (bg in baseGlobals) {
+            var resolved = AssetResolver.resolveFile(bg, [".soul", ".hx", ""]);
+            if (resolved != null && !scriptPaths.contains(resolved)) {
+                scriptPaths.push(resolved);
+            }
         }
 
-        activeScripts.setAll("redirectState", redirectState);
-        activeScripts.setAll("getRedirect", getRedirect);
-        activeScripts.setAll("clearRedirects", clearRedirects);
+        // 2. Instantiate and register functions for each script
+        for (path in scriptPaths) {
+            var script = new ScriptManager();
+            if (script.loadScript(path)) {
+                registerScriptGlobals(script);
+                script.callAll("onCreate", []);
+                scripts.push(script);
+            }
+        }
 
-        activeScripts.callAll("onGlobalInit");
-        Logger.info('Global scripts initialized (${activeScripts.scripts.length} active, ${Lambda.count(stateRedirects)} state redirect(s)).', "scripts");
+        var redirectCount = 0;
+        for (_ in stateRedirects) redirectCount++;
+
+        Logger.info('Global scripts initialized (${scripts.length} active, ${redirectCount} state redirect(s)).', "scripts");
     }
 
-    private static function loadGlobalScript(path:String):Void {
-        var script = activeScripts.loadScript(path);
-        if (script != null) {
-            script.set("redirectState", redirectState);
-            script.set("getRedirect", getRedirect);
-            script.set("clearRedirects", clearRedirects);
-        }
+    private static function registerScriptGlobals(script:ScriptManager):Void {
+        script.setAll("redirectState", redirectState);
+        script.setAll("getRedirect", getRedirect);
+        script.setAll("clearRedirects", clearRedirects);
+        script.setAll("addStateRedirect", redirectState);
     }
 
     public static function redirectState(fromState:String, toState:String):Void {
         if (fromState == null || toState == null) return;
-        var cleanFrom = fromState.trim();
-        var cleanTo = toState.trim();
-
-        stateRedirects.set(cleanFrom.toLowerCase(), cleanTo);
-        Logger.info('Registered state redirect: [$cleanFrom -> $cleanTo]', "scripts");
+        stateRedirects.set(fromState.trim(), toState.trim());
+        Logger.info('Registered state redirect: $fromState -> $toState', "scripts");
     }
 
-    public static function getRedirect(stateName:String):Null<String> {
+    public static function getRedirect(stateName:String):String {
         if (stateName == null) return null;
-        var clean = stateName.trim().toLowerCase();
-
-        if (stateRedirects.exists(clean)) {
-            return stateRedirects.get(clean);
-        }
-        return null;
-    }
-
-    public static function hasRedirect(stateName:String):Bool {
-        if (stateName == null) return false;
-        return stateRedirects.exists(stateName.trim().toLowerCase());
+        var clean = stateName.trim();
+        return stateRedirects.exists(clean) ? stateRedirects.get(clean) : clean;
     }
 
     public static function clearRedirects():Void {
         stateRedirects.clear();
     }
 
-    public static inline function call(func:String, ?args:Array<Dynamic>):Void {
-        if (activeScripts != null) {
-            activeScripts.callAll(func, args);
+    public static function call(func:String, ?args:Array<Dynamic>):Void {
+        for (script in scripts) {
+            if (script != null && script.isValid) {
+                script.callAll(func, args);
+            }
         }
     }
 
-    public static inline function set(variable:String, value:Dynamic):Void {
-        if (activeScripts != null) {
-            activeScripts.setAll(variable, value);
+    public static function clear():Void {
+        for (script in scripts) {
+            if (script != null) {
+                script.callAll("onDestroy", []);
+                script.clear();
+            }
         }
+        scripts = [];
+        stateRedirects.clear();
     }
 }
