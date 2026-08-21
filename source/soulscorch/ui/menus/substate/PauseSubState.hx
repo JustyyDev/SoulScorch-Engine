@@ -19,6 +19,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.MainMenuState;
@@ -28,7 +29,7 @@ using StringTools;
 class PauseSubState extends MusicBeatSubstate {
     public static var curSelected:Int = 0;
 
-    private var menuItems:Array<String> = [
+    public var menuItems:Array<String> = [
         "Resume",
         "Restart Song",
         "Toggle Practice Mode",
@@ -47,6 +48,7 @@ class PauseSubState extends MusicBeatSubstate {
     private var statsCard:FlxSpriteGroup;
     private var subCamera:FlxCamera;
     private var isLeaving:Bool = false;
+    private var scripts:ScriptManager;
 
     public function new() {
         super();
@@ -58,6 +60,9 @@ class PauseSubState extends MusicBeatSubstate {
         subCamera.bgColor = FlxColor.TRANSPARENT;
         FlxG.cameras.add(subCamera, false);
         cameras = [subCamera];
+
+        scripts = new ScriptManager();
+        initPauseScripts();
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
@@ -83,6 +88,22 @@ class PauseSubState extends MusicBeatSubstate {
         }
 
         changeSelection(0);
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initPauseScripts():Void {
+        var paths = [
+            "data/scripts/substates/pause",
+            "scripts/substates/pause",
+            "data/scripts/pauseMenu"
+        ];
+        for (p in paths) {
+            var file = soulscorch.backend.assets.AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("substate", this);
+        scripts.callAll("onCreate");
     }
 
     private function setupHeaderCard():Void {
@@ -172,6 +193,8 @@ class PauseSubState extends MusicBeatSubstate {
         super.update(elapsed);
         if (isLeaving) return;
 
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
+
         if (pauseMusic != null && pauseMusic.playing && pauseMusic.volume < 0.65) {
             pauseMusic.volume = FlxMath.lerp(pauseMusic.volume, 0.65, FlxMath.bound(elapsed * 3.0, 0, 1));
         }
@@ -200,17 +223,21 @@ class PauseSubState extends MusicBeatSubstate {
     private function changeSelection(change:Int = 0):Void {
         curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
         if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.6);
+        if (scripts != null) scripts.callAll("onChangeSelection", [curSelected]);
     }
 
     private function resumeGame():Void {
         isLeaving = true;
         stopPauseMusic();
         if (PlayState.instance != null) PlayState.instance.resumeSong();
+        if (scripts != null) scripts.callAll("onResume");
         cleanupCamera();
         close();
     }
 
     private function selectOption(option:String):Void {
+        if (scripts != null) scripts.callAll("onSelectOption", [option]);
+
         switch (option) {
             case "Resume":
                 resumeGame();
@@ -281,6 +308,10 @@ class PauseSubState extends MusicBeatSubstate {
     override public function destroy():Void {
         stopPauseMusic();
         cleanupCamera();
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
         super.destroy();
     }
 }

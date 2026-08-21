@@ -27,6 +27,7 @@ import soulscorch.gameplay.actors.HealthIcon;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.gameplay.song.SongRegistry;
 import soulscorch.gameplay.song.SongRegistry.RegisteredSong;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
@@ -41,7 +42,6 @@ class FreeplayState extends MusicBeatState {
     private var grpSongs:FlxTypedGroup<Alphabet>;
     private var iconArray:Array<HealthIcon> = [];
 
-    // Chart Metadata In-Memory Cache (Avoids Disk I/O Lag on Scroll)
     private static var _chartMetaCache:Map<String, {bpm:Float, speed:Float}> = new Map<String, {bpm:Float, speed:Float}>();
 
     private var bg:FlxSprite;
@@ -51,6 +51,7 @@ class FreeplayState extends MusicBeatState {
     private var bpmText:FlxText;
     private var speedText:FlxText;
     private var mobileControls:MobilePad;
+    private var scripts:ScriptManager;
 
     private var lerpScore:Int = 0;
     private var intendedScore:Int = 0;
@@ -60,7 +61,6 @@ class FreeplayState extends MusicBeatState {
     private var curBpm:Float = 100.0;
     private var curSpeed:Float = 2.0;
 
-    // --- Safe Custom Audio Engine (Zero FlxTween Dependencies) ---
     private var instPreview:FlxSound;
     private var previewTimer:FlxTimer;
     private var curPlayingSong:String = "";
@@ -78,10 +78,12 @@ class FreeplayState extends MusicBeatState {
         DiscordRPC.changePresence("Freeplay Library", "Selecting Track");
         #end
 
+        scripts = new ScriptManager();
+        initFreeplayScripts();
+
         SongRegistry.scanAll();
         songs = (SongRegistry.songs != null) ? SongRegistry.songs : [];
 
-        // 1. Background Setup
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
             if (!AssetHelper.loadGraphicSafely(bg, "menuDesat")) {
@@ -92,7 +94,6 @@ class FreeplayState extends MusicBeatState {
         bg.antialiasing = true;
         add(bg);
 
-        // 2. Optimized Cyber Grid Texture
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 50)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 50, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -137,6 +138,23 @@ class FreeplayState extends MusicBeatState {
         add(mobileControls);
         Controls.instance.bindMobilePad(mobileControls);
         #end
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initFreeplayScripts():Void {
+        var paths = [
+            "data/scripts/menus/freeplay",
+            "scripts/menus/freeplay",
+            "data/scripts/freeplayState"
+        ];
+        for (p in paths) {
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("state", this);
+        scripts.setAll("songs", songs);
+        scripts.callAll("onCreate");
     }
 
     private function setupScorePanel():Void {
@@ -172,6 +190,7 @@ class FreeplayState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         updateAudioFades(elapsed);
 
@@ -184,7 +203,6 @@ class FreeplayState extends MusicBeatState {
             return;
         }
 
-        // Smooth score interpolation
         lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24.0)));
         if (scoreText != null) {
             scoreText.text = 'PERSONAL BEST: $lerpScore  •  ${Math.round(intendedAccuracy * 10) / 10}% [$intendedRating]';
@@ -211,16 +229,16 @@ class FreeplayState extends MusicBeatState {
             var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
             PlayState.curSong = selected.id;
             PlayState.curDifficulty = diffs[curDifficulty];
+            PlayState.isStoryMode = false;
+            if (scripts != null) scripts.callAll("onSelectSong", [selected]);
             MusicBeatState.switchState(new PlayState());
         }
 
-        // Virtual Culling for smooth 120+ FPS rendering
         for (i in 0...grpSongs.members.length) {
             var item = grpSongs.members[i];
             var isSelected = (i == curSelected);
             item.alpha = (isSelected ? 1.0 : 0.35);
 
-            // Hide off-screen entries to eliminate render pipeline strain
             var isOffscreen = (item.y < -150 || item.y > FlxG.height + 150);
             item.visible = !isOffscreen;
 
@@ -289,6 +307,7 @@ class FreeplayState extends MusicBeatState {
         curDifficulty = 0;
         changeDiff(0);
         scheduleSongPreview(false);
+        if (scripts != null) scripts.callAll("onChangeSelection", [curSelected]);
     }
 
     private function changeDiff(change:Int = 0):Void {
@@ -303,7 +322,6 @@ class FreeplayState extends MusicBeatState {
             diffText.color = Difficulty.getColor(diffs[curDifficulty]);
         }
 
-        // Fast In-Memory Metadata Extraction (Zero Lag)
         var meta = getCachedChartMeta(selected.id, diffs[curDifficulty], selected.bpm, selected.speed);
         curBpm = meta.bpm;
         curSpeed = meta.speed;
@@ -323,6 +341,7 @@ class FreeplayState extends MusicBeatState {
             intendedAccuracy = 0.0;
             intendedRating = "N/A";
         }
+        if (scripts != null) scripts.callAll("onChangeDifficulty", [curDifficulty, diffs[curDifficulty]]);
     }
 
     private function getCachedChartMeta(songId:String, diff:String, fallbackBpm:Float, fallbackSpeed:Float):{bpm:Float, speed:Float} {
@@ -337,27 +356,34 @@ class FreeplayState extends MusicBeatState {
 
         var possibleChartPaths = [
             'songs/$cleanSong/charts/$cleanDiff.json',
+            'songs/$cleanSong/charts/$cleanDiff.xmsoul',
             'songs/$cleanSong/chart$diffSuffix.json',
             'songs/$cleanSong/$cleanSong$diffSuffix.json',
             'data/$cleanSong/$cleanSong$diffSuffix.json',
-            'assets/preload/songs/$cleanSong/charts/$cleanDiff.json',
-            'assets/preload/songs/$cleanSong/charts/$cleanSong$diffSuffix.json'
+            'assets/preload/songs/$cleanSong/charts/$cleanDiff.json'
         ];
 
         var bpmVal:Float = fallbackBpm > 0 ? fallbackBpm : 100.0;
         var speedVal:Float = fallbackSpeed > 0 ? fallbackSpeed : 2.0;
 
         for (path in possibleChartPaths) {
-            var resolved = AssetResolver.resolveFile(path, [".json", ""]);
+            var resolved = AssetResolver.resolveFile(path, [".json", ".xmsoul", ""]);
             if (resolved != null) {
                 var content = AssetResolver.getText(resolved);
                 if (content != null && content.length > 0) {
                     try {
-                        var parsed:Dynamic = Json.parse(content);
-                        var sObj:Dynamic = Reflect.hasField(parsed, "song") ? Reflect.field(parsed, "song") : parsed;
-                        if (Reflect.hasField(sObj, "bpm")) bpmVal = Std.parseFloat(Reflect.field(sObj, "bpm"));
-                        if (Reflect.hasField(sObj, "speed")) speedVal = Std.parseFloat(Reflect.field(sObj, "speed"));
-                        else if (Reflect.hasField(sObj, "scrollSpeed")) speedVal = Std.parseFloat(Reflect.field(sObj, "scrollSpeed"));
+                        if (resolved.endsWith(".xmsoul") || content.trim().startsWith("<")) {
+                            var xml = Xml.parse(content);
+                            var root = xml.firstElement();
+                            if (root.exists("speed")) speedVal = Std.parseFloat(root.get("speed"));
+                            if (root.exists("bpm")) bpmVal = Std.parseFloat(root.get("bpm"));
+                        } else {
+                            var parsed:Dynamic = Json.parse(content);
+                            var sObj:Dynamic = Reflect.hasField(parsed, "song") ? Reflect.field(parsed, "song") : parsed;
+                            if (Reflect.hasField(sObj, "bpm")) bpmVal = Std.parseFloat(Reflect.field(sObj, "bpm"));
+                            if (Reflect.hasField(sObj, "speed")) speedVal = Std.parseFloat(Reflect.field(sObj, "speed"));
+                            else if (Reflect.hasField(sObj, "scrollSpeed")) speedVal = Std.parseFloat(Reflect.field(sObj, "scrollSpeed"));
+                        }
                         break;
                     } catch (e:Dynamic) {}
                 }
@@ -428,6 +454,7 @@ class FreeplayState extends MusicBeatState {
 
     override public function beatHit(beat:Int):Void {
         super.beatHit(beat);
+        if (scripts != null) scripts.callAll("onBeatHit", [beat]);
 
         if (iconArray.length > curSelected && iconArray[curSelected] != null) {
             iconArray[curSelected].scale.set(1.2, 1.2);
@@ -440,6 +467,10 @@ class FreeplayState extends MusicBeatState {
         cancelPreviewTimer();
         stopPreview();
         if (colorTween != null) colorTween.cancel();
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
         Controls.instance.unbindMobilePad();
         super.destroy();
     }

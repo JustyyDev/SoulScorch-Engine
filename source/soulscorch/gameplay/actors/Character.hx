@@ -63,6 +63,7 @@ class Character extends FlxSprite {
         var paths = [
             'characters/$char.xmsoul',
             'data/characters/$char.xmsoul',
+            'characters/$char/$char.xmsoul',
             'assets/preload/characters/$char.xmsoul',
             'assets/preload/data/characters/$char.xmsoul'
         ];
@@ -85,6 +86,8 @@ class Character extends FlxSprite {
                     if (access.has.scale) {
                         var sc = Std.parseFloat(access.att.scale);
                         scale.set(sc, sc);
+                    } else {
+                        scale.set(1.0, 1.0);
                     }
 
                     if (access.has.camOffsetX && access.has.camOffsetY) {

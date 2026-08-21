@@ -315,7 +315,17 @@ class PlayState extends MusicBeatState {
             Conductor.changeBPM(songData.bpm);
             Conductor.mapBpmChanges(songData.chart);
             prepareChartNotes();
+
             audio.loadSong(songId);
+            var clean = songId.toLowerCase().trim();
+            var bfVocals = 'songs/$clean/Voices-bf';
+            var oppVocals = 'songs/$clean/Voices-puff';
+            if (AssetResolver.resolveFile(bfVocals, [".ogg", ".mp3"]) != null) {
+                audio.loadVocalStem(bfVocals, true);
+            }
+            if (AssetResolver.resolveFile(oppVocals, [".ogg", ".mp3"]) != null) {
+                audio.loadVocalStem(oppVocals, false);
+            }
 
             if (audio.inst != null && audio.inst.length > 0) {
                 songLength = audio.inst.length;
@@ -459,6 +469,11 @@ class PlayState extends MusicBeatState {
 
     private function generateStrumLines():Void {
         var strumY:Float = downscroll ? FlxG.height - 155 : 50;
+        var noteSkinToUse:String = NoteSkinManager.getNoteSkinName();
+
+        if (Runtime.config != null && Runtime.config.defaultNoteSkin != null && Runtime.config.defaultNoteSkin != "default") {
+            noteSkinToUse = Runtime.config.defaultNoteSkin;
+        }
 
         if (middlescroll) {
             playerStrumline = new Strumline((FlxG.width * 0.5) - (Strumline.STRUM_SPACING * 2), strumY, true, downscroll);
@@ -474,6 +489,11 @@ class PlayState extends MusicBeatState {
             var playerX = FlxG.width - (Strumline.STRUM_SPACING * 4) - 90;
             playerStrumline = new Strumline(playerX, strumY, true, downscroll);
             playerStrumline.cameras = [camHUD];
+        }
+
+        if (NoteSkinManager.getSkinAtlas(noteSkinToUse) != null) {
+            NoteSkinManager.applySkin(playerStrumline, noteSkinToUse);
+            NoteSkinManager.applySkin(opponentStrumline, noteSkinToUse);
         }
 
         modcharts = new ModchartManager(playerStrumline, opponentStrumline);
@@ -605,7 +625,7 @@ class PlayState extends MusicBeatState {
         ];
 
         for (s in singleScripts) {
-            var file = AssetResolver.resolveFile(s, [".hx", ".soul", ".lua"]);
+            var file = AssetResolver.resolveFile(s, [".hx", ".soul", ".lua", ".py", ".js"]);
             if (file != null) scripts.loadScript(file);
         }
 
@@ -619,7 +639,7 @@ class PlayState extends MusicBeatState {
         for (d in scriptDirs) {
             if (FileSystem.exists(d) && FileSystem.isDirectory(d)) {
                 for (f in FileSystem.readDirectory(d)) {
-                    if (f.endsWith(".hx") || f.endsWith(".soul") || f.endsWith(".lua")) {
+                    if (f.endsWith(".hx") || f.endsWith(".soul") || f.endsWith(".lua") || f.endsWith(".py") || f.endsWith(".js")) {
                         scripts.loadScript('$d/$f');
                     }
                 }

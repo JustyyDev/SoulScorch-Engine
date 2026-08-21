@@ -85,7 +85,7 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     }
 
     public function changeSkin(newSkin:String):Void {
-        if (newSkin == null || newSkin.trim().length == 0 || newSkin == currentSkin) return;
+        if (newSkin == null || newSkin.trim().length == 0) return;
         currentSkin = newSkin.trim();
 
         for (r in receptors) {

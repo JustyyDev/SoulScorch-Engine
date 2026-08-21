@@ -32,7 +32,6 @@ class SongParser {
         var cleanSong = (songId != null && songId.trim().length > 0) ? songId.toLowerCase().trim() : "tutorial";
         var diff = (difficulty != null && difficulty.trim().length > 0) ? difficulty.toLowerCase().trim() : "normal";
 
-        // 1. Try .xmsoul chart
         var chartXml:Access = XMSoul.parse('songs/$cleanSong/charts/$diff');
         if (chartXml == null) chartXml = XMSoul.parse('songs/$cleanSong/$diff');
         if (chartXml == null) chartXml = XMSoul.parse('data/$cleanSong/charts/$diff');
@@ -52,14 +51,16 @@ class SongParser {
                 var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player"
                     || XMSoul.getAttr(strumNode, "position", "").toLowerCase() == "boyfriend";
 
+                var skinName = XMSoul.getAttr(strumNode, "noteSkin", "NOTE_assets");
+
                 for (noteNode in strumNode.nodes.note) {
                     var t = XMSoul.getFloatAttr(noteNode, "time", 0.0);
                     var lane = XMSoul.getIntAttr(noteNode, "lane", XMSoul.getIntAttr(noteNode, "id", 0));
                     var len = XMSoul.getFloatAttr(noteNode, "len", XMSoul.getFloatAttr(noteNode, "sLen", 0.0));
                     var type = XMSoul.getAttr(noteNode, "type", "normal");
 
-                    var n = new Note(t, lane, len, null, false, false, isPlayer, type);
-                    chart.addNote(t, lane, len, isPlayer, type);
+                    var n = new Note(t, lane, len, null, false, false, isPlayer, type, skinName);
+                    chart.addNote(t, lane, len, type, isPlayer);
                     allNotes.push(n);
 
                     if (len > 0) {
@@ -67,7 +68,7 @@ class SongParser {
                         for (s in 0...holdSteps) {
                             var isEnd:Bool = (s == holdSteps - 1);
                             var susTime:Float = t + (s * stepCrochet) + stepCrochet;
-                            var sustainNode = new Note(susTime, lane, len, n, true, isEnd, isPlayer, type);
+                            var sustainNode = new Note(susTime, lane, len, n, true, isEnd, isPlayer, type, skinName);
                             n.tail.push(sustainNode);
                             allNotes.push(sustainNode);
                         }
@@ -86,7 +87,6 @@ class SongParser {
             };
         }
 
-        // 2. JSON Fallback
         var diffSuffix = (diff == "normal") ? "" : '-$diff';
         var possiblePaths = [
             'songs/$cleanSong/charts/$diff.json',
@@ -146,7 +146,7 @@ class SongParser {
                     for (rawNote in (cast noteArray : Array<Dynamic>)) {
                         var parsed:Note = parseNote(rawNote, mustHit);
                         if (parsed != null) {
-                            chart.addNote(parsed.strumTime, parsed.noteData, parsed.sustainLength, parsed.mustPress, parsed.noteType);
+                            chart.addNote(parsed.strumTime, parsed.noteData, parsed.sustainLength, parsed.noteType, parsed.mustPress);
                             sectionNotes.push(parsed);
 
                             if (parsed.sustainLength > 0) {

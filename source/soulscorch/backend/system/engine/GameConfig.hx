@@ -18,6 +18,7 @@ class GameConfig {
     public var vocalVolume:Float = 1.0;
     public var shadersEnabled:Bool = true;
     public var lowQualityShaders:Bool = false;
+    public var defaultNoteSkin:String = "default";
 
     public function new() {
         load();
@@ -39,6 +40,7 @@ class GameConfig {
                 if (FlxG.save.data.vocalVolume != null) vocalVolume = FlxG.save.data.vocalVolume;
                 if (FlxG.save.data.shadersEnabled != null) shadersEnabled = FlxG.save.data.shadersEnabled;
                 if (FlxG.save.data.lowQualityShaders != null) lowQualityShaders = FlxG.save.data.lowQualityShaders;
+                if (FlxG.save.data.defaultNoteSkin != null) defaultNoteSkin = FlxG.save.data.defaultNoteSkin;
             }
 
             EngineUtils.setFramerate(framerate);
@@ -66,6 +68,7 @@ class GameConfig {
                 FlxG.save.data.vocalVolume = vocalVolume;
                 FlxG.save.data.shadersEnabled = shadersEnabled;
                 FlxG.save.data.lowQualityShaders = lowQualityShaders;
+                FlxG.save.data.defaultNoteSkin = defaultNoteSkin;
                 FlxG.save.flush();
             }
 
@@ -92,6 +95,7 @@ class GameConfig {
         vocalVolume = 1.0;
         shadersEnabled = true;
         lowQualityShaders = false;
+        defaultNoteSkin = "default";
         save();
     }
 

@@ -17,6 +17,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.replays.ReplayManager;
 import soulscorch.gameplay.replays.SoulVidEncoder;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.editors.editorui.EditorToast;
 
@@ -34,6 +35,7 @@ class ReplayGallerySubState extends MusicBeatSubstate {
     private var itemBgs:Array<FlxSprite> = [];
     private var headerText:FlxText;
     private var infoText:FlxText;
+    private var scripts:ScriptManager;
 
     public function new() {
         super();
@@ -42,6 +44,9 @@ class ReplayGallerySubState extends MusicBeatSubstate {
         subCam.bgColor = 0xAA000000;
         FlxG.cameras.add(subCam, false);
         cameras = [subCam];
+
+        scripts = new ScriptManager();
+        initReplayScripts();
 
         replays = scanReplayFiles();
 
@@ -64,6 +69,22 @@ class ReplayGallerySubState extends MusicBeatSubstate {
 
         rebuildList();
         changeSelection(0);
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initReplayScripts():Void {
+        var paths = [
+            "data/scripts/substates/replays",
+            "scripts/substates/replays",
+            "data/scripts/replayGallery"
+        ];
+        for (p in paths) {
+            var file = soulscorch.backend.assets.AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("substate", this);
+        scripts.callAll("onCreate");
     }
 
     private function scanReplayFiles():Array<String> {
@@ -119,6 +140,7 @@ class ReplayGallerySubState extends MusicBeatSubstate {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
@@ -133,7 +155,6 @@ class ReplayGallerySubState extends MusicBeatSubstate {
             #end
         }
 
-        // Convert .srpy to ultra-compact embeddable .soulvid
         if (FlxG.keys.justPressed.S && replays.length > 0) {
             var target = replays[curSelected];
             if (target.endsWith(".srpy")) {
@@ -189,5 +210,14 @@ class ReplayGallerySubState extends MusicBeatSubstate {
         if (replays.length == 0) return;
         curSelected = FlxMath.wrap(curSelected + change, 0, replays.length - 1);
         if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.6);
+        if (scripts != null) scripts.callAll("onChangeReplaySelection", [curSelected]);
+    }
+
+    override public function destroy():Void {
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
+        super.destroy();
     }
 }

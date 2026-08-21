@@ -200,7 +200,6 @@ class GameplayFlags {
 
     public static function loadModFlags(modDirectory:String):Void {
         #if sys
-        // 1. Try .xmsoul mod flags
         var xmlPaths = [
             '$modDirectory/config/flags.xmsoul',
             '$modDirectory/flags.xmsoul',
@@ -225,7 +224,6 @@ class GameplayFlags {
             }
         }
 
-        // 2. Legacy JSON Mod Flags Fallback
         var manifestCandidates = [
             '$modDirectory/soulmod.json',
             '$modDirectory/mod.json',

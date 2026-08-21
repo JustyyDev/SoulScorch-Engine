@@ -99,8 +99,9 @@ class NoteSkinManager {
 
         var access:Access = XMSoul.parse('noteskins/notes/$cleanSkin');
         if (access == null) access = XMSoul.parse('data/noteskins/notes/$cleanSkin');
+        if (access == null) access = XMSoul.parse('data/config/noteskins/$cleanSkin');
+        if (access == null) access = XMSoul.parse('data/noteskins/$cleanSkin');
         if (access == null) access = XMSoul.parse('ui/game/notes/$cleanSkin');
-        if (access == null) access = XMSoul.parse('data/ui/game/notes/$cleanSkin');
 
         if (access != null) {
             config.type = XMSoul.getAttr(access, "type", "sparrow");
@@ -133,6 +134,7 @@ class NoteSkinManager {
 
         var access:Access = XMSoul.parse('noteskins/splashes/$cleanSplash');
         if (access == null) access = XMSoul.parse('data/noteskins/splashes/$cleanSplash');
+        if (access == null) access = XMSoul.parse('data/config/noteskins/splashes/$cleanSplash');
 
         if (access != null) {
             config.atlasPath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", 'ui/game/splashes/$cleanSplash'));
@@ -159,9 +161,10 @@ class NoteSkinManager {
             'NOTE_assets',
             'ui/game/notes/NOTE_assets',
             'images/ui/game/notes/NOTE_assets',
-            'images/NOTE_assets',
-            'noteskins/notes/NOTE_assets',
+            'ui/game/noteskins/$cleanSkin',
+            'images/ui/game/noteskins/$cleanSkin',
             'ui/game/notes/$cleanSkin',
+            'images/ui/game/notes/$cleanSkin',
             'noteskins/notes/$cleanSkin'
         ];
 
@@ -189,7 +192,11 @@ class NoteSkinManager {
         var lookups:Array<String> = [
             cleanSkin,
             'ui/game/splashes/$cleanSkin',
-            'noteskins/splashes/$cleanSkin',
+            'images/ui/game/splashes/$cleanSkin',
+            'ui/game/noteskins/splashes/$cleanSkin',
+            'images/ui/game/noteskins/splashes/$cleanSkin',
+            'ui/game/splashes/default',
+            'images/ui/game/splashes/default',
             'ui/game/notes/noteSplashes',
             'noteSplashes'
         ];
@@ -203,6 +210,12 @@ class NoteSkinManager {
         }
 
         return null;
+    }
+
+    public static function applySkin(strumline:Strumline, skinName:String):Void {
+        if (strumline != null && skinName != null) {
+            strumline.changeSkin(skinName);
+        }
     }
 
     public static function getNoteSkinName():String {

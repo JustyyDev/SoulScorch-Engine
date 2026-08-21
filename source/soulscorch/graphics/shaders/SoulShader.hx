@@ -46,7 +46,8 @@ class SoulShader extends FlxShader {
             var pathCandidates = [
                 'shaders/$rawFrag.frag',
                 '$rawFrag.frag',
-                'assets/shaders/$rawFrag.frag'
+                'assets/shaders/$rawFrag.frag',
+                'data/shaders/$rawFrag.frag'
             ];
 
             for (p in pathCandidates) {
@@ -66,7 +67,8 @@ class SoulShader extends FlxShader {
             var pathCandidates = [
                 'shaders/$rawVert.vert',
                 '$rawVert.vert',
-                'assets/shaders/$rawVert.vert'
+                'assets/shaders/$rawVert.vert',
+                'data/shaders/$rawVert.vert'
             ];
 
             for (p in pathCandidates) {

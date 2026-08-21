@@ -19,6 +19,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
@@ -40,6 +41,7 @@ class GameOverSubState extends MusicBeatSubstate {
     private var isEnding:Bool = false;
     private var isStartedLoop:Bool = false;
     private var targetCamFollow:FlxPoint;
+    private var scripts:ScriptManager;
 
     public function new(x:Float, y:Float) {
         super();
@@ -50,6 +52,9 @@ class GameOverSubState extends MusicBeatSubstate {
         #if desktop
         DiscordRPC.changePresence("Game Over", PlayState.curSong != null ? 'Fallen in ${PlayState.curSong.toUpperCase()}' : "Defeated");
         #end
+
+        scripts = new ScriptManager();
+        initGameOverScripts();
 
         targetCamFollow = FlxPoint.get(x + 50, y + 50);
 
@@ -95,6 +100,22 @@ class GameOverSubState extends MusicBeatSubstate {
 
         FlxG.camera.target = null;
         FlxG.camera.follow(bfDead, LOCKON, 0.04);
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initGameOverScripts():Void {
+        var paths = [
+            "data/scripts/substates/gameover",
+            "scripts/substates/gameover",
+            "data/scripts/gameOver"
+        ];
+        for (p in paths) {
+            var file = soulscorch.backend.assets.AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("substate", this);
+        scripts.callAll("onCreate");
     }
 
     private function createRunStatsCard():Void {
@@ -130,12 +151,14 @@ class GameOverSubState extends MusicBeatSubstate {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         if (!isStartedLoop && bfDead.animation != null && bfDead.animation.curAnim != null) {
             if (bfDead.animation.curAnim.name == "firstDeath" && bfDead.animation.curAnim.finished) {
                 bfDead.animation.play("deathLoop");
                 isStartedLoop = true;
                 FlxG.sound.playMusic(Paths.music(loopMusicName), 0.75);
+                if (scripts != null) scripts.callAll("onStartDeathLoop");
             }
         }
 
@@ -151,6 +174,7 @@ class GameOverSubState extends MusicBeatSubstate {
             AssetHelper.playSoundSafely(endSoundName, 0.85);
 
             FlxTween.tween(statsCard, {y: -200, alpha: 0}, 0.5, {ease: FlxEase.cubeIn});
+            if (scripts != null) scripts.callAll("onConfirmRetry");
 
             new FlxTimer().start(2.0, function(_) {
                 if (PlayState.instance != null) PlayState.instance.paused = false;
@@ -167,6 +191,7 @@ class GameOverSubState extends MusicBeatSubstate {
             if (PlayState.instance != null && PlayState.instance.audio != null) {
                 PlayState.instance.audio.stop();
             }
+            if (scripts != null) scripts.callAll("onExitToMenu");
             MusicBeatState.switchState(new MainMenuState());
         }
     }
@@ -175,6 +200,10 @@ class GameOverSubState extends MusicBeatSubstate {
         if (targetCamFollow != null) {
             targetCamFollow.put();
             targetCamFollow = null;
+        }
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
         }
         super.destroy();
     }

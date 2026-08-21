@@ -60,6 +60,25 @@ class AudioManager {
         return true;
     }
 
+    public function loadVocalStem(path:String, isPlayer:Bool):Void {
+        var sound = Paths.sound(path);
+        if (sound == null) sound = AssetResolver.resolveFile(path, [".ogg", ".mp3", ".wav"]);
+
+        if (sound != null) {
+            if (isPlayer) {
+                if (vocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(vocals, true);
+                vocals = new FlxSound().loadEmbedded(sound);
+                vocals.volume = 1.0;
+                FlxG.sound.list.add(vocals);
+            } else {
+                if (opponentVocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(opponentVocals, true);
+                opponentVocals = new FlxSound().loadEmbedded(sound);
+                opponentVocals.volume = 1.0;
+                FlxG.sound.list.add(opponentVocals);
+            }
+        }
+    }
+
     public function play():Void {
         if (inst != null) {
             FlxTween.cancelTweensOf(inst);

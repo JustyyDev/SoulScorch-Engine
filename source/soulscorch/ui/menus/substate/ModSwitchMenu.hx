@@ -17,6 +17,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.system.modules.workshop.HomeSoulDBModule;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulGlobalScript;
@@ -50,6 +51,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
     private var hasChanges:Bool = false;
     private var targetListY:Float = 0.0;
     private var curListY:Float = 0.0;
+    private var scripts:ScriptManager;
 
     override public function create():Void {
         super.create();
@@ -60,6 +62,9 @@ class ModSwitchMenu extends MusicBeatSubstate {
         #if desktop
         DiscordRPC.changePresence("Mod Manager", "Configuring Mod Loadout");
         #end
+
+        scripts = new ScriptManager();
+        initModManagerScripts();
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         bg.alpha = 0.0;
@@ -99,6 +104,22 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
         rebuildList();
         changeSelection(0);
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initModManagerScripts():Void {
+        var paths = [
+            "data/scripts/substates/modmanager",
+            "scripts/substates/modmanager",
+            "data/scripts/modManagerSubstate"
+        ];
+        for (p in paths) {
+            var file = soulscorch.backend.assets.AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("substate", this);
+        scripts.callAll("onCreate");
     }
 
     private function setupInspectorPanel():Void {
@@ -195,6 +216,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
@@ -207,6 +229,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
             AssetHelper.playSoundSafely("scrollMenu", 0.7);
             rebuildList();
             changeSelection(0);
+            if (scripts != null) scripts.callAll("onToggleMod", [targetMod, nowActive]);
         }
 
         if (FlxG.keys.justPressed.W && curSelected > 0) {
@@ -311,5 +334,15 @@ class ModSwitchMenu extends MusicBeatSubstate {
         priorityText.text = 'LOAD PRIORITY: #${curSelected + 1}  •  STATUS: ${isEnabled ? "ENABLED" : "DISABLED"}';
         descText.text = (config != null && config.description != null) ? config.description : "Standard SoulScorch module package.";
         pathText.text = 'Path: mods/$curMod/';
+
+        if (scripts != null) scripts.callAll("onChangeModSelection", [curSelected, curMod]);
+    }
+
+    override public function destroy():Void {
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
+        super.destroy();
     }
 }

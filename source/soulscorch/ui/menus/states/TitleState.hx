@@ -16,6 +16,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -34,6 +35,7 @@ class TitleState extends MusicBeatState {
     private var curWacky:Array<String> = [];
     private var skippedIntro:Bool = false;
     private var transitioning:Bool = false;
+    private var scripts:ScriptManager;
 
     override public function create():Void {
         super.create();
@@ -41,6 +43,9 @@ class TitleState extends MusicBeatState {
         #if desktop
         DiscordRPC.changePresence("Title Screen", "Igniting Engine");
         #end
+
+        scripts = new ScriptManager();
+        initTitleScripts();
 
         curWacky = FlxG.random.getObject(getIntroText());
         Conductor.changeBPM(102.0);
@@ -126,6 +131,22 @@ class TitleState extends MusicBeatState {
         } else {
             initialized = true;
         }
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initTitleScripts():Void {
+        var paths = [
+            "data/scripts/menus/title",
+            "scripts/menus/title",
+            "data/scripts/titleState"
+        ];
+        for (p in paths) {
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("state", this);
+        scripts.callAll("onCreate");
     }
 
     private function getIntroText():Array<Array<String>> {
@@ -194,6 +215,7 @@ class TitleState extends MusicBeatState {
             titleText.visible = true;
 
             skippedIntro = true;
+            if (scripts != null) scripts.callAll("onSkipIntro");
         }
     }
 
@@ -219,6 +241,7 @@ class TitleState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         if (FlxG.sound.music != null) Conductor.songPosition = FlxG.sound.music.time;
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         if (Controls.instance.ACCEPT) {
             if (!skippedIntro) {
@@ -232,6 +255,7 @@ class TitleState extends MusicBeatState {
                 }
 
                 FlxG.camera.flash(FlxColor.WHITE, 1.0);
+                if (scripts != null) scripts.callAll("onTitleConfirm");
 
                 new FlxTimer().start(1.2, function(_) {
                     MusicBeatState.switchState(new MainMenuState());
@@ -257,6 +281,8 @@ class TitleState extends MusicBeatState {
                 gfDance.animation.play("danceRight", true);
             }
         }
+
+        if (scripts != null) scripts.callAll("onBeatHit", [beat]);
 
         if (!skippedIntro) {
             switch (beat) {
@@ -290,5 +316,13 @@ class TitleState extends MusicBeatState {
                     skipIntro();
             }
         }
+    }
+
+    override public function destroy():Void {
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
+        super.destroy();
     }
 }

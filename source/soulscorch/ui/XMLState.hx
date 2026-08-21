@@ -11,8 +11,7 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ScriptInstance;
-import soulscorch.scripting.backends.ScriptBackendType;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 
 using StringTools;
@@ -20,7 +19,7 @@ using StringTools;
 class XMLState extends Scene {
     public var xmlPath:String;
     public var uiElements:Map<String, Dynamic> = new Map<String, Dynamic>();
-    public var script:ScriptInstance;
+    public var scripts:ScriptManager;
 
     public function new(xmlFile:String) {
         super();
@@ -29,9 +28,10 @@ class XMLState extends Scene {
 
     override public function create():Void {
         super.create();
+        scripts = new ScriptManager();
         initScript();
         parseXML();
-        callScript("onCreatePost");
+        if (scripts != null) scripts.callAll("onCreatePost");
     }
 
     private function initScript():Void {
@@ -45,18 +45,15 @@ class XMLState extends Scene {
         ];
 
         for (candidate in scriptCandidates) {
-            var resolved = AssetResolver.resolveFile(candidate, [".soul", ".hx", ".lua"]);
+            var resolved = AssetResolver.resolveFile(candidate, [".soul", ".hx", ".lua", ".py", ".js"]);
             if (resolved != null) {
-                script = ScriptBackendType.createInstance(resolved);
-                if (script != null) {
-                    script.set("state", this);
-                    script.set("ui", this);
-                    script.set("getElement", getElement);
-                    script.call("onCreate");
-                }
-                break;
+                scripts.loadScript(resolved);
             }
         }
+        scripts.setAll("state", this);
+        scripts.setAll("ui", this);
+        scripts.setAll("getElement", getElement);
+        scripts.callAll("onCreate");
     }
 
     private function parseXML():Void {
@@ -71,7 +68,7 @@ class XMLState extends Scene {
 
         var resolvedPath:String = null;
         for (candidate in xmlCandidates) {
-            resolvedPath = AssetResolver.resolveFile(candidate, [".xml", ""]);
+            resolvedPath = AssetResolver.resolveFile(candidate, [".xml", ".xmsoul", ""]);
             if (resolvedPath != null) break;
         }
 
@@ -194,9 +191,7 @@ class XMLState extends Scene {
     }
 
     public function callScript(func:String, ?args:Array<Dynamic>):Dynamic {
-        if (script != null && script.active) {
-            return script.call(func, args);
-        }
+        if (scripts != null) return scripts.callAll(func, args);
         return null;
     }
 
@@ -208,9 +203,9 @@ class XMLState extends Scene {
 
     override public function destroy():Void {
         callScript("onDestroy");
-        if (script != null) {
-            script.destroy();
-            script = null;
+        if (scripts != null) {
+            scripts.clear();
+            scripts = null;
         }
         uiElements.clear();
         super.destroy();

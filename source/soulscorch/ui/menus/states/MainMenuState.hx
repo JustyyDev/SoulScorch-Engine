@@ -19,6 +19,7 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
@@ -42,6 +43,7 @@ class MainMenuState extends MusicBeatState {
     private var camFollowPos:FlxObject;
     private var versionText:FlxText;
     private var mobileControls:MobilePad;
+    private var scripts:ScriptManager;
 
     private var selectedSomethin:Bool = false;
 
@@ -56,6 +58,9 @@ class MainMenuState extends MusicBeatState {
         if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
             FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
         }
+
+        scripts = new ScriptManager();
+        initMenuScripts();
 
         loadMenuItems();
 
@@ -148,6 +153,21 @@ class MainMenuState extends MusicBeatState {
         #end
 
         changeItem();
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initMenuScripts():Void {
+        var paths = [
+            "data/scripts/menus/main",
+            "scripts/menus/main",
+            "data/scripts/mainMenu"
+        ];
+        for (p in paths) {
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("state", this);
+        scripts.callAll("onCreate");
     }
 
     private function loadMenuItems():Void {
@@ -176,6 +196,8 @@ class MainMenuState extends MusicBeatState {
         camFollowPos.x = FlxMath.lerp(camFollowPos.x, camFollow.x, lerpFactor);
         camFollowPos.y = FlxMath.lerp(camFollowPos.y, camFollow.y, lerpFactor);
 
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
+
         if (!selectedSomethin) {
             if (Controls.instance.UI_UP_P) {
                 AssetHelper.playSoundSafely("scrollMenu", 0.7);
@@ -202,6 +224,8 @@ class MainMenuState extends MusicBeatState {
                 if (magenta != null) {
                     FlxFlicker.flicker(magenta, 1.1, 0.15, false);
                 }
+
+                if (scripts != null) scripts.callAll("onSelectOption", [menuItems[curSelected]]);
 
                 grpMenuItems.forEach(function(spr:FlxSprite) {
                     if (curSelected != spr.ID) {
@@ -253,6 +277,8 @@ class MainMenuState extends MusicBeatState {
                 }
             }
         });
+
+        if (scripts != null) scripts.callAll("onChangeItem", [curSelected]);
     }
 
     private function goToState(choice:String):Void {
@@ -275,6 +301,10 @@ class MainMenuState extends MusicBeatState {
 
     override public function destroy():Void {
         Controls.instance.unbindMobilePad();
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
         super.destroy();
     }
 }

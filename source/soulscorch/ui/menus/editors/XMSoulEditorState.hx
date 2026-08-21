@@ -13,6 +13,7 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
@@ -215,5 +216,13 @@ class XMSoulEditorState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
         if (script != null) script.callAll("onUpdate", [elapsed]);
+    }
+
+    override public function destroy():Void {
+        if (script != null) {
+            script.callAll("onDestroy");
+            script.clear();
+        }
+        super.destroy();
     }
 }

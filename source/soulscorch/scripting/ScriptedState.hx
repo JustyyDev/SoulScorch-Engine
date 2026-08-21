@@ -67,10 +67,14 @@ class ScriptedState extends Scene {
 
             if (this.script != null && this.script.active) {
                 script.set("state", this);
+                script.set("game", this);
+                script.set("camera", FlxG.camera);
                 script.set("add", add);
                 script.set("remove", remove);
                 script.set("insert", insert);
                 script.set("members", members);
+                script.set("Paths", soulscorch.backend.assets.Paths);
+                script.set("Conductor", soulscorch.backend.audio.Conductor);
                 
                 script.set("getElement", function(id:String):Dynamic {
                     if (!uiElements.exists(id)) {

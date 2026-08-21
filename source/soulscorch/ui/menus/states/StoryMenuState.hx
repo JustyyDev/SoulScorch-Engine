@@ -22,6 +22,7 @@ import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
@@ -56,6 +57,9 @@ class StoryMenuState extends MusicBeatState {
     private var weekNameText:FlxText;
     private var stageBanner:FlxSprite;
     private var mobileControls:MobilePad;
+    private var scripts:ScriptManager;
+    private var movedBack:Bool = false;
+    private var selectedWeek:Bool = false;
 
     override public function create():Void {
         super.create();
@@ -67,6 +71,9 @@ class StoryMenuState extends MusicBeatState {
         if (FlxG.sound.music == null || !FlxG.sound.music.playing) {
             FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
         }
+
+        scripts = new ScriptManager();
+        initStoryScripts();
 
         loadWeeks();
 
@@ -81,7 +88,6 @@ class StoryMenuState extends MusicBeatState {
         grpWeekPortraits = new FlxTypedGroup<FlxSprite>();
         add(grpWeekPortraits);
 
-        // Top Banner Header
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
         topBar.scrollFactor.set(0, 0);
         add(topBar);
@@ -148,6 +154,23 @@ class StoryMenuState extends MusicBeatState {
 
         changeWeek(0);
         changeDifficulty(0);
+
+        if (scripts != null) scripts.callAll("onPostCreate");
+    }
+
+    private function initStoryScripts():Void {
+        var paths = [
+            "data/scripts/menus/story",
+            "scripts/menus/story",
+            "data/scripts/storyMenu"
+        ];
+        for (p in paths) {
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            if (file != null) scripts.loadScript(file);
+        }
+        scripts.setAll("state", this);
+        scripts.setAll("weeks", weeks);
+        scripts.callAll("onCreate");
     }
 
     private function loadWeeks():Void {
@@ -181,8 +204,7 @@ class StoryMenuState extends MusicBeatState {
                     var fileId = file.substr(0, file.lastIndexOf("."));
                     if (loadedWeekIds.contains(fileId)) continue;
 
-                    // 1. Parse Codename Engine XML format (<week name="..." chars="..." sprite="...">)
-                    if (file.endsWith(".xml")) {
+                    if (file.endsWith(".xmsoul") || file.endsWith(".xml")) {
                         try {
                             var rawXml = File.getContent(fullPath);
                             var parsed = Xml.parse(rawXml);
@@ -196,9 +218,7 @@ class StoryMenuState extends MusicBeatState {
                             var songsList:Array<String> = [];
                             for (s in access.nodes.song) {
                                 var songName = s.innerData.trim();
-                                if (songName.length > 0) {
-                                    songsList.push(songName);
-                                }
+                                if (songName.length > 0) songsList.push(songName);
                             }
 
                             weeks.push({
@@ -213,11 +233,9 @@ class StoryMenuState extends MusicBeatState {
 
                             loadedWeekIds.push(fileId);
                         } catch (e:Dynamic) {
-                            Logger.warn('Failed parsing Codename XML week $file: $e', "weeks");
+                            Logger.warn('Failed parsing XML week $file: $e', "weeks");
                         }
-                    }
-                    // 2. Parse Standard/Psych JSON format
-                    else if (file.endsWith(".json")) {
+                    } else if (file.endsWith(".json")) {
                         try {
                             var content = File.getContent(fullPath);
                             var data:WeekData = Json.parse(content);
@@ -234,7 +252,6 @@ class StoryMenuState extends MusicBeatState {
         }
         #end
 
-        // Fallback default
         if (weeks.length == 0) {
             weeks = [
                 {
@@ -257,30 +274,40 @@ class StoryMenuState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
-        if (Controls.instance.UI_UP_P) changeWeek(-1);
-        if (Controls.instance.UI_DOWN_P) changeWeek(1);
-        if (Controls.instance.UI_LEFT_P) changeDifficulty(-1);
-        if (Controls.instance.UI_RIGHT_P) changeDifficulty(1);
+        if (!selectedWeek && !movedBack) {
+            if (Controls.instance.UI_UP_P) changeWeek(-1);
+            if (Controls.instance.UI_DOWN_P) changeWeek(1);
+            if (Controls.instance.UI_LEFT_P) changeDifficulty(-1);
+            if (Controls.instance.UI_RIGHT_P) changeDifficulty(1);
 
-        if (Controls.instance.BACK) {
-            AssetHelper.playSoundSafely("cancelMenu", 0.7);
-            MusicBeatState.switchState(new MainMenuState());
-        }
-
-        if (Controls.instance.ACCEPT && weeks.length > 0) {
-            if (FlxG.sound.music != null) {
-                FlxTween.cancelTweensOf(FlxG.sound.music);
-                FlxG.sound.music.stop();
+            if (Controls.instance.BACK) {
+                movedBack = true;
+                AssetHelper.playSoundSafely("cancelMenu", 0.7);
+                MusicBeatState.switchState(new MainMenuState());
             }
 
-            var currentWeek = weeks[curWeek];
-            if (currentWeek.songs != null && currentWeek.songs.length > 0) {
-                PlayState.curSong = currentWeek.songs[0].toLowerCase().trim();
+            if (Controls.instance.ACCEPT && weeks.length > 0) {
+                selectedWeek = true;
+                AssetHelper.playSoundSafely("confirmMenu", 0.7);
+
+                if (FlxG.sound.music != null) {
+                    FlxTween.cancelTweensOf(FlxG.sound.music);
+                    FlxG.sound.music.stop();
+                }
+
+                var currentWeek = weeks[curWeek];
+                if (currentWeek.songs != null && currentWeek.songs.length > 0) {
+                    PlayState.curSong = currentWeek.songs[0].toLowerCase().trim();
+                }
+                var diffs = (currentWeek.difficulties != null && currentWeek.difficulties.length > 0) ? currentWeek.difficulties : Difficulty.defaultList;
+                PlayState.curDifficulty = diffs[curDifficulty];
+                PlayState.isStoryMode = true;
+
+                if (scripts != null) scripts.callAll("onSelectWeek", [currentWeek]);
+                MusicBeatState.switchState(new PlayState());
             }
-            var diffs = (currentWeek.difficulties != null && currentWeek.difficulties.length > 0) ? currentWeek.difficulties : Difficulty.defaultList;
-            PlayState.curDifficulty = diffs[curDifficulty];
-            MusicBeatState.switchState(new PlayState());
         }
     }
 
@@ -303,9 +330,7 @@ class StoryMenuState extends MusicBeatState {
         var trackStr = "TRACKLIST:\n\n";
         var currentSongs = week.songs;
         if (currentSongs != null) {
-            for (song in currentSongs) {
-                trackStr += '• ' + song.toUpperCase() + "\n";
-            }
+            for (song in currentSongs) trackStr += '• ' + song.toUpperCase() + "\n";
         }
         tracklistText.text = trackStr;
 
@@ -317,6 +342,7 @@ class StoryMenuState extends MusicBeatState {
 
         curDifficulty = 0;
         changeDifficulty(0);
+        if (scripts != null) scripts.callAll("onChangeWeek", [curWeek]);
     }
 
     private function changeDifficulty(change:Int = 0):Void {
@@ -325,10 +351,15 @@ class StoryMenuState extends MusicBeatState {
         var diff = diffs[curDifficulty];
         diffText.text = '< ${diff.toUpperCase()} >';
         diffText.color = Difficulty.getColor(diff);
+        if (scripts != null) scripts.callAll("onChangeDifficulty", [curDifficulty, diff]);
     }
 
     override public function destroy():Void {
         Controls.instance.unbindMobilePad();
+        if (scripts != null) {
+            scripts.callAll("onDestroy");
+            scripts.clear();
+        }
         super.destroy();
     }
 }

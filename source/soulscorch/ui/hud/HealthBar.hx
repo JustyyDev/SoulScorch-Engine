@@ -20,8 +20,10 @@ class HealthBar extends FlxSpriteGroup {
         super(x, y);
 
         bg = new FlxSprite(0, 0);
-        if (!AssetHelper.loadGraphicSafely(bg, "ui/healthBar")) {
-            bg.makeGraphic(604, 19, FlxColor.BLACK);
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/game/healthBar")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/healthBar")) {
+                bg.makeGraphic(604, 19, FlxColor.BLACK);
+            }
         }
         bg.antialiasing = true;
         add(bg);
@@ -51,7 +53,7 @@ class HealthBar extends FlxSpriteGroup {
     }
 
     public function setColors(leftColor:FlxColor, rightColor:FlxColor):Void {
-        bar.createFilledBar(leftColor, rightColor);
+        if (bar != null) bar.createFilledBar(leftColor, rightColor);
     }
 
     private function set_percent(value:Float):Float {

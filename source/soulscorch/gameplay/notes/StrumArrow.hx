@@ -53,9 +53,9 @@ class StrumArrow extends FlxSprite {
 
         var dirName = NoteSkinManager.noteDirections[direction % 4];
 
-        tryAddAnim("static", ['arrow' + dirName.toUpperCase(), 'arrow ' + dirName.toUpperCase()]);
-        tryAddAnim("pressed", [dirName + ' press', dirName + 'press']);
-        tryAddAnim("confirm", [dirName + ' confirm', dirName + 'confirm']);
+        tryAddAnim("static", ['arrow' + dirName.toUpperCase(), 'arrow ' + dirName.toUpperCase(), dirName + ' static']);
+        tryAddAnim("pressed", [dirName + ' press', dirName + 'press', 'press ' + dirName]);
+        tryAddAnim("confirm", [dirName + ' confirm', dirName + 'confirm', 'confirm ' + dirName]);
     }
 
     private function tryAddAnim(animName:String, prefixes:Array<String>):Bool {
@@ -79,6 +79,8 @@ class StrumArrow extends FlxSprite {
         centerOrigin();
 
         if (animName == "confirm") {
+            centerOffsets();
+            centerOrigin();
             offset.x -= 13;
             offset.y -= 13;
         }

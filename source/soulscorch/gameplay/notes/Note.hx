@@ -40,6 +40,8 @@ class Note extends FlxSprite {
     public var offsetY:Float = 0.0;
     public var multAlpha:Float = 1.0;
     public var multSpeed:Float = 1.0;
+    public var copyAngle:Bool = true;
+    public var copyAlpha:Bool = true;
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -102,6 +104,7 @@ class Note extends FlxSprite {
 
         var access:Access = XMSoul.parse('data/notes/$cleanType');
         if (access == null) access = XMSoul.parse('notes/$cleanType');
+        if (access == null) access = XMSoul.parse('data/config/notes/$cleanType');
 
         if (access != null) {
             hitHealth = XMSoul.getFloatAttr(access, "hitHealth", 0.023);
@@ -145,7 +148,7 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (isSustainEnd) {
                 var endPrefix = (noteData == 0) ? "pruple end hold" : (colorName + " hold end");
-                tryAddAnimation("holdend", [endPrefix, "purlpe end hold", "purple hold end", colorName + " end hold", colorName + " hold end"]);
+                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end"]);
             } else {
                 var bodyPrefix = (noteData == 0) ? "purple hold piece" : (colorName + " hold piece");
                 tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece"]);
@@ -180,7 +183,7 @@ class Note extends FlxSprite {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(DEFAULT_SCALE, (stepHeight + 1.2) / baseH);
+                scale.set(DEFAULT_SCALE, (stepHeight + 1.5) / baseH);
                 updateHitbox();
             }
         } else {
@@ -194,7 +197,6 @@ class Note extends FlxSprite {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
         var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
 
-        // Exact horizontal centering aligned to receptor centerline
         var strumCenterX:Float = strumX + (STRUM_WIDTH * 0.5);
         var strumCenterY:Float = strumY + (STRUM_WIDTH * 0.5);
 
@@ -209,7 +211,6 @@ class Note extends FlxSprite {
                 y = strumCenterY + distance - stepHeight + offsetY;
             }
 
-            // High-precision sustain clipping as notes enter receptors
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
                 if (downscroll) {
                     var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);

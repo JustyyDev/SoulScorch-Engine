@@ -14,6 +14,7 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
@@ -63,12 +64,8 @@ class XMSoulState extends MusicBeatState {
             script.setAll("FlxText", FlxText);
             script.setAll("FlxMath", FlxMath);
             script.setAll("FlxPoint", {
-                get: function(?x:Float = 0, ?y:Float = 0) {
-                    return FlxPoint.get(x, y);
-                },
-                weak: function(?x:Float = 0, ?y:Float = 0) {
-                    return FlxPoint.weak(x, y);
-                }
+                get: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.get(x, y),
+                weak: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.weak(x, y)
             });
             script.setAll("FlxTween", FlxTween);
             script.setAll("FlxEase", FlxEase);
@@ -215,5 +212,13 @@ class XMSoulState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
         if (script != null) script.callAll("onUpdate", [elapsed]);
+    }
+
+    override public function destroy():Void {
+        if (script != null) {
+            script.callAll("onDestroy");
+            script.clear();
+        }
+        super.destroy();
     }
 }

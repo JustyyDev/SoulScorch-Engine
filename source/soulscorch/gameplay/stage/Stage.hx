@@ -58,16 +58,12 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     public function load():Void {
         clearStage();
 
-        // 1. Try loading custom .xmsoul format first
         var xmsoulLoaded = loadXMSoulStage(stageId);
         if (!xmsoulLoaded) {
-            // 2. Fall back to Codename Engine XMLs
             var xmlLoaded = loadCodenameXMLStage(stageId);
             if (!xmlLoaded) {
-                // 3. Fall back to JSON stages
                 var jsonLoaded = loadJSONStage(stageId);
                 if (!jsonLoaded) {
-                    // 4. Default fallback stage
                     loadDefaultFallbackStage();
                 }
             }
@@ -319,8 +315,8 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
     private function initStageScript():Void {
         stageScript = new ScriptManager();
-        var scriptPath = AssetResolver.resolveFile('stages/$stageId/$stageId', [".hx", ".soul", ".lua"]);
-        if (scriptPath == null) scriptPath = AssetResolver.resolveFile('stages/$stageId', [".hx", ".soul", ".lua"]);
+        var scriptPath = AssetResolver.resolveFile('stages/$stageId/$stageId', [".hx", ".soul", ".lua", ".py", ".js"]);
+        if (scriptPath == null) scriptPath = AssetResolver.resolveFile('stages/$stageId', [".hx", ".soul", ".lua", ".py", ".js"]);
 
         if (scriptPath != null) {
             stageScript.loadScript(scriptPath);

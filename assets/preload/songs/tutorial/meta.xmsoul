@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <songMeta displayName="Tutorial" bpm="100.0" icon="gf" color="0xFF9271FD" needsVoices="false" coopAllowed="true" opponentModeAllowed="true">
     <stage name="stage" defaultZoom="0.9" />
-    <characters player1="bf" player2="dad" gfVersion="gf" />
+    <characters player1="bf" player2="gf" gfVersion="" />
 </songMeta>
