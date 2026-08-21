@@ -164,7 +164,7 @@ class PlayState extends MusicBeatState {
     public var noteOffset:Float = 0.0;
     public var mustHitSection:Bool = false;
     public var passiveHealthDrain:Float = 0.0;
-    public var healthDrainFloor:Float = 0.1; // Default floor: Drain stops at 5% HP
+    public var healthDrainFloor:Float = 0.1;
 
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
@@ -213,6 +213,11 @@ class PlayState extends MusicBeatState {
         setupHUD();
         setupMobileControls();
         setupScriptRuntime();
+
+        // Fire post-create script hooks safely after all elements are added
+        if (scripts != null) {
+            scripts.callAll("onPostCreate", []);
+        }
 
         checkAndRunCutscenes(function() {
             startCountdown();
@@ -619,30 +624,39 @@ class PlayState extends MusicBeatState {
     }
 
     private function setupScriptRuntime():Void {
-        var singleScripts = [
-            'songs/$curSong/script',
-            'data/$curSong/script',
-            'songs/$curSong/events',
-            'data/$curSong/events'
+        scripts = new ScriptManager();
+        var cleanSong = curSong.toLowerCase().trim();
+
+        // Robust path checks targeting song root folders directly
+        var scriptPaths = [
+            'songs/$cleanSong/script',
+            'data/$cleanSong/script',
+            'songs/$cleanSong/events',
+            'data/$cleanSong/events'
         ];
 
-        for (s in singleScripts) {
+        for (s in scriptPaths) {
             var file = AssetResolver.resolveFile(s, [".hx", ".soul", ".lua", ".py", ".js"]);
-            if (file != null) scripts.loadScript(file);
+            if (file != null) {
+                scripts.loadScript(file);
+                Logger.info('Loaded song script: $file', "script");
+            }
         }
 
         #if sys
         var scriptDirs = [
-            'songs/$curSong/scripts',
-            'data/$curSong/scripts',
-            'assets/preload/songs/$curSong/scripts'
+            'songs/$cleanSong',
+            'data/$cleanSong',
+            'assets/preload/songs/$cleanSong'
         ];
 
         for (d in scriptDirs) {
             if (FileSystem.exists(d) && FileSystem.isDirectory(d)) {
                 for (f in FileSystem.readDirectory(d)) {
                     if (f.endsWith(".hx") || f.endsWith(".soul") || f.endsWith(".lua") || f.endsWith(".py") || f.endsWith(".js")) {
-                        scripts.loadScript('$d/$f');
+                        var fullPath = '$d/$f';
+                        scripts.loadScript(fullPath);
+                        Logger.info('Loaded directory script: $fullPath', "script");
                     }
                 }
             }
@@ -660,7 +674,8 @@ class PlayState extends MusicBeatState {
         scripts.setAll("camHUD", camHUD);
         scripts.setAll("camOther", camOther);
 
-        scripts.callAll("onCreate");
+        scripts.callAll("create", []);
+        scripts.callAll("onCreate", []);
     }
 
     private function prepareChartNotes():Void {
@@ -755,7 +770,6 @@ class PlayState extends MusicBeatState {
         audio.update(elapsed);
         ShaderManager.instance.update(elapsed);
 
-        // Passive health drain bounded by the floor limit
         if (passiveHealthDrain > 0 && countdownEnded) {
             if (health > healthDrainFloor) {
                 health = Math.max(healthDrainFloor, health - (passiveHealthDrain * elapsed));
@@ -858,13 +872,11 @@ class PlayState extends MusicBeatState {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
                 }
 
-                // Autoplay / Botplay execution
                 if (daNote.mustPress && botplay && daNote.strumTime <= Conductor.songPosition) {
                     goodNoteHit(daNote);
                     return;
                 }
 
-                // Opponent Note Hit
                 if (!daNote.mustPress && daNote.strumTime <= Conductor.songPosition) {
                     targetStrum.playAnim("confirm", true);
                     targetStrum.resetAnim = 0.15;
@@ -884,7 +896,6 @@ class PlayState extends MusicBeatState {
                 }
             }
 
-            // Miss handling on late note pass
             if (daNote.mustPress && !botplay && daNote.strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !daNote.wasGoodHit) {
                 daNote.tooLate = true;
                 noteMiss(daNote.noteData);
@@ -904,7 +915,6 @@ class PlayState extends MusicBeatState {
             return;
         }
 
-        // When botplay is enabled, input handling is bypassed
         if (botplay) return;
 
         var keyPressed:Array<Bool> = [
@@ -940,7 +950,6 @@ class PlayState extends MusicBeatState {
                 ReplayManager.recordInput(i, false);
             }
 
-            // Sustain hold note registration
             if (keysHeld[i]) {
                 notes.forEachAlive(function(daNote:Note) {
                     if (daNote.mustPress && daNote.noteData == i && daNote.isSustainNote && daNote.canBeHit && !daNote.wasGoodHit) {
@@ -994,7 +1003,6 @@ class PlayState extends MusicBeatState {
 
         var result:Judgment = judgementManager.judge(note, Conductor.songPosition - noteOffset);
 
-        // Increase health safely bounded by maxHealth
         if (health < maxHealth) {
             health = Math.min(maxHealth, health + note.hitHealth);
         }
@@ -1207,7 +1215,6 @@ class PlayState extends MusicBeatState {
     public function resumeSong():Void {
         if (paused) {
             paused = false;
-            // Clear held key states so receptors don't stick on unpause
             keysHeld = [false, false, false, false];
             if (audio != null) audio.resume();
             scripts.callAll("onResume", []);
@@ -1218,8 +1225,11 @@ class PlayState extends MusicBeatState {
         paused = true;
         if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
-        openSubState(new GameOverSubState(boyfriend != null ? boyfriend.x : 100, boyfriend != null ? boyfriend.y : 100));
+        openSubState(new GameOverSubState(boyfriend != lineGetX(), boyfriend != lineGetY()));
     }
+
+    private inline function lineGetX():Float return boyfriend != null ? boyfriend.x : 100;
+    private inline function lineGetY():Float return boyfriend != null ? boyfriend.y : 100;
 
     private function onSongFinished():Void {
         if (paused || isEnding) return;
@@ -1254,7 +1264,7 @@ class PlayState extends MusicBeatState {
         Controls.instance.unbindMobilePad();
         if (countdownTimer != null) countdownTimer.cancel();
         if (scripts != null) {
-            scripts.callAll("onDestroy");
+            scripts.callAll("onDestroy", []);
             scripts.clear();
         }
         if (audio != null) {
