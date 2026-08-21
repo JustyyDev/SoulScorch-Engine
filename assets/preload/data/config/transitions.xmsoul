@@ -1,4 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<transitions type="wipe" duration="0.35" ease="quartOut" color="0xFF000000" sound="scrollMenu">
-    <!-- Options: fade, wipe, diamond, curtain, circle, none -->
-</transitions>
+<transitions type="wipe" duration="0.35" ease="quartOut" color="0xFF000000" sound="scrollMenu" />

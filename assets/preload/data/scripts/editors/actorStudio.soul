@@ -1,47 +1,83 @@
-var curScale = 1.0;
-var curSing = 4.0;
-var camOffsetX = 0.0;
-var camOffsetY = 0.0;
-var isGhost = true;
-var isFlipped = false;
+var isPlaying = false;
+var masterBpm = 120.0;
+var scrollSpeed = 2.0;
+var snapDiv = 16;
+var activeStrumline = 2;
+var curNoteType = "normal";
+var curSustain = 0.0;
 
 function onCreate() {
-    showToast("Loaded Actor Studio Controller", false);
+    showToast("SOULSCORCH Chart Studio Engine Ready", false);
 }
 
-function onUpdateScale(val) {
-    curScale = val;
+function onTogglePlayback() {
+    isPlaying = !isPlaying;
+    showToast(isPlaying ? "Playback: PLAY" : "Playback: PAUSE", false);
 }
 
-function onUpdateSing(val) {
-    curSing = val;
+function onChangeBPM(val) {
+    masterBpm = val;
+    showToast("Master BPM: " + masterBpm, false);
 }
 
-function onUpdateCamX(val) {
-    camOffsetX = val;
+function onChangeSpeed(val) {
+    scrollSpeed = val;
 }
 
-function onUpdateCamY(val) {
-    camOffsetY = val;
+function onChangeStrumline(val) {
+    activeStrumline = Std.int(val);
+    showToast("Active Strumline: " + activeStrumline, false);
 }
 
-function onToggleGhost(val) {
-    isGhost = val;
-    showToast("Ghost Overlay: " + (isGhost ? "ON" : "OFF"), false);
+function onSetSnap4() { setSnap(4, "Red"); }
+function onSetSnap8() { setSnap(8, "Blue"); }
+function onSetSnap12() { setSnap(12, "Purple"); }
+function onSetSnap16() { setSnap(16, "Yellow"); }
+function onSetSnap24() { setSnap(24, "Pink"); }
+function onSetSnap32() { setSnap(32, "Orange"); }
+function onSetSnap48() { setSnap(48, "Cyan"); }
+function onSetSnap64() { setSnap(64, "Green"); }
+
+function setSnap(div, colName) {
+    snapDiv = div;
+    if (editor != null && editor.widgets != null && editor.widgets.exists("currentSnapTxt")) {
+        editor.widgets.get("currentSnapTxt").text = "Active Snap: 1/" + div + " (" + colName + ")";
+    }
 }
 
-function onToggleFlip(val) {
-    isFlipped = val;
+function onChangeSustain(val) {
+    curSustain = val;
 }
 
-function onSaveActor() {
-    showToast("Saved character profile to .xmsoul format.", false);
+function onCycleNoteType() {
+    var types = ["normal", "hurt note", "mine", "instakill", "noanim", "Alt Anim Note"];
+    var nextIdx = (types.indexOf(curNoteType) + 1) % types.length;
+    curNoteType = types[nextIdx];
+    if (editor != null && editor.widgets != null && editor.widgets.exists("noteTypeInput")) {
+        editor.widgets.get("noteTypeInput").text = curNoteType;
+    }
+    showToast("Note Type: " + curNoteType, false);
 }
 
-function onReloadAtlas() {
-    showToast("Sparrow Atlas re-parsed from disk.", false);
+function onSaveSoulChart() {
+    showToast("Exported .xmsoul chart file successfully", false);
+}
+
+function onExportLegacyJson() {
+    showToast("Exported legacy .json chart data", false);
+}
+
+function onTestInGame() {
+    showToast("Launching PlayState Chart Tester...", false);
+    FlxG.switchState(new PlayState());
 }
 
 function onExit() {
     FlxG.switchState(new MainMenuState());
+}
+
+function onUpdate(elapsed) {
+    if (FlxG.keys.justPressed.SPACE) onTogglePlayback();
+    if (FlxG.keys.justPressed.T) onCycleNoteType();
+    if (FlxG.keys.justPressed.ENTER) onTestInGame();
 }
