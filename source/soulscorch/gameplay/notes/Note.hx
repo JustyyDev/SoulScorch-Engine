@@ -40,8 +40,7 @@ class Note extends FlxSprite {
     public var offsetY:Float = 0.0;
     public var multAlpha:Float = 1.0;
     public var multSpeed:Float = 1.0;
-    public var copyAngle:Bool = true;
-    public var copyAlpha:Bool = true;
+    public var skinScale:Float = 0.7;
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -68,16 +67,19 @@ class Note extends FlxSprite {
         this.mustPress = mustPress;
         this.noteType = (noteType != null && noteType.trim().length > 0) ? noteType.trim() : "normal";
 
+        var skinConf = NoteSkinManager.getSkinConfig(skin);
+        this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : DEFAULT_SCALE;
+
         loadNoteSkin(skin);
         setupAnimation();
         applyNoteTypeConfig(this.noteType);
 
-        antialiasing = true;
+        antialiasing = (skinConf != null) ? skinConf.antialiasing : true;
         scrollFactor.set(0, 0);
 
         if (isSustainNote) {
-            alpha = 0.6;
-            multAlpha = 0.6;
+            alpha = (skinConf != null) ? skinConf.sustainAlpha : 0.6;
+            multAlpha = alpha;
         }
 
         playAnim();
@@ -104,7 +106,6 @@ class Note extends FlxSprite {
 
         var access:Access = XMSoul.parse('data/notes/$cleanType');
         if (access == null) access = XMSoul.parse('notes/$cleanType');
-        if (access == null) access = XMSoul.parse('data/config/notes/$cleanType');
 
         if (access != null) {
             hitHealth = XMSoul.getFloatAttr(access, "hitHealth", 0.023);
@@ -172,24 +173,22 @@ class Note extends FlxSprite {
     }
 
     public function playAnim(?songSpeed:Float = 2.0):Void {
-        scale.set(DEFAULT_SCALE, DEFAULT_SCALE);
-        updateHitbox();
-
         if (isSustainNote) {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") != null) animation.play("holdend");
+                scale.set(skinScale, skinScale);
                 updateHitbox();
             } else {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(DEFAULT_SCALE, (stepHeight + 1.5) / baseH);
+                scale.set(skinScale, (stepHeight + 1.0) / baseH);
                 updateHitbox();
             }
         } else {
             if (animation.getByName("scroll") != null) animation.play("scroll");
-            centerOffsets();
-            centerOrigin();
+            scale.set(skinScale, skinScale);
+            updateHitbox();
         }
     }
 
@@ -197,21 +196,22 @@ class Note extends FlxSprite {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
         var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
 
-        var strumCenterX:Float = strumX + (STRUM_WIDTH * 0.5);
-        var strumCenterY:Float = strumY + (STRUM_WIDTH * 0.5);
-
-        x = strumCenterX - (width * 0.5) + offsetX;
+        // Horizontal alignment centered directly with the StrumArrow receptor
+        x = strumX + ((STRUM_WIDTH - width) * 0.5) + offsetX;
 
         if (isSustainNote) {
             flipY = downscroll;
 
             if (downscroll) {
-                y = strumCenterY - distance + stepHeight - height + offsetY;
+                // Correct vertical downscroll anchor attached cleanly to receptor center
+                y = strumY + (STRUM_WIDTH * 0.5) - distance - height + stepHeight + offsetY;
             } else {
-                y = strumCenterY + distance - stepHeight + offsetY;
+                y = strumY + (STRUM_WIDTH * 0.5) + distance - stepHeight + offsetY;
             }
 
+            // High-precision hold clipping as note crosses strumline
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
+                var strumCenterY = strumY + (STRUM_WIDTH * 0.5);
                 if (downscroll) {
                     var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);
                     clipRect = new FlxRect(0, 0, frameWidth, clipHeight);
@@ -224,9 +224,9 @@ class Note extends FlxSprite {
             }
         } else {
             if (downscroll) {
-                y = strumCenterY - distance - (height * 0.5) + offsetY;
+                y = strumY + (STRUM_WIDTH * 0.5) - distance - (height * 0.5) + offsetY;
             } else {
-                y = strumCenterY + distance - (height * 0.5) + offsetY;
+                y = strumY + (STRUM_WIDTH * 0.5) + distance - (height * 0.5) + offsetY;
             }
         }
 

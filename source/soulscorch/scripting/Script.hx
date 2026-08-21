@@ -47,9 +47,17 @@ class Script implements ScriptInstance {
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
+        set("Reflect", Reflect);
+        set("Type", Type);
         #if sys set("Sys", Sys); #end
 
-        set("FlxG", FlxG);
+        // OpenFL & Windowing
+        set("openfl", {Lib: openfl.Lib});
+        set("Lib", openfl.Lib);
+        set("Application", openfl.Lib.application);
+
+        // Flixel Core
+        set("FlxG", flixel.FlxG);
         set("FlxSprite", flixel.FlxSprite);
         set("FlxCamera", flixel.FlxCamera);
         set("FlxText", flixel.text.FlxText);
@@ -67,20 +75,23 @@ class Script implements ScriptInstance {
             MAGENTA: 0xFFFF00FF,
             YELLOW: 0xFFFFFF00,
             TRANSPARENT: 0x00000000,
-            fromRGB: FlxColor.fromRGB,
-            fromHSL: FlxColor.fromHSL,
-            fromString: FlxColor.fromString
+            fromRGB: flixel.util.FlxColor.fromRGB,
+            fromHSL: flixel.util.FlxColor.fromHSL,
+            fromString: flixel.util.FlxColor.fromString
         });
 
+        // Engine Systems
         set("Runtime", Runtime);
         set("Conductor", Conductor);
         set("Paths", Paths);
         set("EventBus", EventBus);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
+        set("JuiceManager", soulscorch.graphics.JuiceManager);
+        set("SoulShader", soulscorch.graphics.shaders.SoulShader);
 
-        set("game", FlxG.state);
-        set("state", FlxG.state);
+        set("game", flixel.FlxG.state);
+        set("state", flixel.FlxG.state);
     }
 
     public function load():Bool {

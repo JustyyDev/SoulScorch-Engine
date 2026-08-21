@@ -14,7 +14,7 @@ class StrumArrow extends FlxSprite {
 
     public var baseX:Float = 0.0;
     public var baseY:Float = 0.0;
-    public var baseScale:Float = 0.7;
+    public var skinScale:Float = 0.7;
 
     public static inline var STRUM_SIZE:Float = 112.0 * 0.7;
 
@@ -25,15 +25,17 @@ class StrumArrow extends FlxSprite {
         this.downscroll = downscroll;
         this.baseX = x;
         this.baseY = y;
-        this.baseScale = 0.7;
+
+        var skinConf = NoteSkinManager.getSkinConfig(skin);
+        this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : 0.7;
 
         loadReceptorSkin(skin);
         setupAnimations();
 
-        antialiasing = true;
+        antialiasing = (skinConf != null) ? skinConf.antialiasing : true;
         scrollFactor.set(0, 0);
 
-        scale.set(baseScale, baseScale);
+        scale.set(skinScale, skinScale);
         updateHitbox();
 
         playAnim("static");
@@ -75,14 +77,14 @@ class StrumArrow extends FlxSprite {
         if (animation.getByName(animName) == null) return;
 
         animation.play(animName, force);
-        centerOffsets();
-        centerOrigin();
+        scale.set(skinScale, skinScale);
+        updateHitbox();
 
         if (animName == "confirm") {
-            centerOffsets();
-            centerOrigin();
             offset.x -= 13;
             offset.y -= 13;
+        } else {
+            centerOffsets();
         }
     }
 
