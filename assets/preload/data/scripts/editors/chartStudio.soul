@@ -1,14 +1,20 @@
-var isPlaying = false;
-var curBpm = 120.0;
-var curSpeed = 2.0;
-var curSnap = 16;
-var activeStrumline = 2;
-var isMetronome = false;
-var isHitsounds = true;
-var curSustain = 0.0;
-var curNoteType = "normal";
+// SOULSCORCH Chart Studio Controller
+
+var isPlaying;
+var curBpm;
+var curSpeed;
+var curSnap;
+var activeStrumline;
+var curNoteType;
 
 function onCreate() {
+    isPlaying = false;
+    curBpm = 120;
+    curSpeed = 2;
+    curSnap = 16;
+    activeStrumline = 2;
+    curNoteType = "normal";
+
     showToast("SOULSCORCH Chart Studio Engine Ready", false);
 }
 
@@ -42,20 +48,20 @@ function onSetSnap64() { setSnap(64, "Green"); }
 
 function setSnap(div, colName) {
     curSnap = div;
-    if (editor.widgets.exists("currentSnapTxt")) {
+    if (editor != null && editor.widgets != null && editor.widgets.exists("currentSnapTxt")) {
         editor.widgets.get("currentSnapTxt").text = "Active Snap: 1/" + div + " (" + colName + ")";
     }
 }
 
 function onChangeSustain(val) {
-    curSustain = val;
+    // Hold step update
 }
 
 function onCycleNoteType() {
     var types = ["normal", "hurt note", "mine", "instakill", "noanim", "Alt Anim Note"];
     var nextIdx = (types.indexOf(curNoteType) + 1) % types.length;
     curNoteType = types[nextIdx];
-    if (editor.widgets.exists("noteTypeInput")) {
+    if (editor != null && editor.widgets != null && editor.widgets.exists("noteTypeInput")) {
         editor.widgets.get("noteTypeInput").text = curNoteType;
     }
     showToast("Note Type: " + curNoteType, false);
