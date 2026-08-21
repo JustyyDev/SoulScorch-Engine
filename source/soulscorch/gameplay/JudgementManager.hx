@@ -14,6 +14,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
 
@@ -24,6 +25,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public static var BAD_WINDOW:Float = 135.0;
     public static var SHIT_WINDOW:Float = 160.0;
 
+    public var score:Int = 0;
     public var combo:Int = 0;
     public var misses:Int = 0;
     public var totalNotesHit:Int = 0;
@@ -63,10 +65,11 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         if (access == null) access = XMSoul.parse("data/config/judgments");
 
         if (access != null) {
-            for (node in access.nodes.judgment) {
+            for (node in access.nodes.resolve("judgment")) {
                 var name = XMSoul.getAttr(node, "name", "").toLowerCase();
                 var thresh = XMSoul.getFloatAttr(node, "threshold", 45.0);
                 switch (name) {
+                    case "marvelous": MARVELOUS_WINDOW = thresh;
                     case "sick": SICK_WINDOW = thresh;
                     case "good": GOOD_WINDOW = thresh;
                     case "bad": BAD_WINDOW = thresh;
@@ -86,8 +89,8 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
             popupScale = XMSoul.getFloatAttr(comboAccess, "scale", 0.7);
             popupFadeDuration = XMSoul.getFloatAttr(comboAccess, "alphaFadeDuration", 0.2);
 
-            if (comboAccess.hasNode.numberVelocity) {
-                var numNode = comboAccess.node.numberVelocity;
+            if (comboAccess.hasNode.resolve("numberVelocity")) {
+                var numNode = comboAccess.node.resolve("numberVelocity");
                 numSpacing = XMSoul.getFloatAttr(numNode, "spacing", 24.0);
                 numScale = XMSoul.getFloatAttr(numNode, "scale", 0.5);
                 popupGravity = XMSoul.getFloatAttr(numNode, "gravity", 550.0);
@@ -108,7 +111,8 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         if (note == null || note.wasGoodHit) return MISS;
 
         var difference:Float = Math.abs(songPosition - note.strumTime);
-        var result:Judgment = if (difference <= SICK_WINDOW) SICK
+        var result:Judgment = if (difference <= MARVELOUS_WINDOW) MARVELOUS
+            else if (difference <= SICK_WINDOW) SICK
             else if (difference <= GOOD_WINDOW) GOOD
             else if (difference <= BAD_WINDOW) BAD
             else if (difference <= SHIT_WINDOW) SHIT
@@ -131,6 +135,17 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         combo++;
         totalNotesHit++;
         totalNotesJudged++;
+
+        // Add dynamic score per hit based on timing precision
+        var scoreAdd:Int = switch (result) {
+            case MARVELOUS: 400;
+            case SICK: 350;
+            case GOOD: 200;
+            case BAD: 100;
+            case SHIT: 50;
+            default: 0;
+        };
+        score += scoreAdd;
 
         var weight:Float = Judgment.accuracyWeight(result);
         totalWeight += weight;
@@ -156,6 +171,9 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         totalNotesJudged++;
         accuracy = totalNotesJudged > 0 ? (totalWeight / totalNotesJudged) * 100.0 : 0.0;
 
+        // Apply penalty and deduct score slightly on miss
+        score = Std.int(Math.max(0, score - 10));
+
         var penalty:Float = GameplayFlags.getFloat("missPenalty", 0.085);
         health = Math.max(0.0, health - penalty);
         if (onHealthChange != null) onHealthChange(health);
@@ -168,7 +186,14 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
 
     private function showPopup(result:Judgment, currentCombo:Int):Void {
         var ratingSpr:FlxSprite = recycle(FlxSprite);
-        var ratingName:String = (result == MISS ? "bad" : Std.string(result)).toLowerCase();
+        var ratingName:String = switch (result) {
+            case MARVELOUS: "marvelous";
+            case SICK: "sick";
+            case GOOD: "good";
+            case BAD: "bad";
+            case SHIT: "shit";
+            case MISS: "bad";
+        };
 
         var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/ratings/$ratingName');
         if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
@@ -180,7 +205,6 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         ratingSpr.scale.set(popupScale, popupScale);
         ratingSpr.updateHitbox();
 
-        // Exact HUD-relative placement
         var startX:Float = (FlxG.width * baseOffsetX) - (ratingSpr.width * 0.5);
         var startY:Float = (FlxG.height * 0.5) + baseOffsetY - (ratingSpr.height * 0.5);
 
@@ -257,35 +281,22 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     }
 
     private function dispatchHit(result:Judgment, difference:Float):Void {
-        try {
-            var bus:Dynamic = EventBus;
-            if (Reflect.hasField(bus, "instance") && Reflect.field(bus, "instance") != null) {
-                var inst = Reflect.field(bus, "instance");
-                if (Reflect.hasField(inst, "emit")) {
-                    inst.emit("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
-                } else if (Reflect.hasField(inst, "publish")) {
-                    inst.publish("judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy});
-                }
-            } else if (Reflect.hasField(bus, "emit")) {
-                Reflect.callMethod(bus, Reflect.field(bus, "emit"), ["judgement/hit", {judgement: result, difference: difference, combo: combo, accuracy: accuracy}]);
-            }
-        } catch (e:Dynamic) {}
+        EventBus.publish("judgement/hit", {
+            judgement: result,
+            difference: difference,
+            combo: combo,
+            score: score,
+            accuracy: accuracy
+        });
     }
 
     private function dispatchMiss():Void {
-        try {
-            var bus:Dynamic = EventBus;
-            if (Reflect.hasField(bus, "instance") && Reflect.field(bus, "instance") != null) {
-                var inst = Reflect.field(bus, "instance");
-                if (Reflect.hasField(inst, "emit")) {
-                    inst.emit("judgement/miss", {misses: misses, accuracy: accuracy});
-                } else if (Reflect.hasField(inst, "publish")) {
-                    inst.publish("judgement/miss", {misses: misses, accuracy: accuracy});
-                }
-            } else if (Reflect.hasField(bus, "emit")) {
-                Reflect.callMethod(bus, Reflect.field(bus, "emit"), ["judgement/miss", {misses: misses, accuracy: accuracy}]);
-            }
-        } catch (e:Dynamic) {}
+        EventBus.publish("judgement/miss", {
+            misses: misses,
+            combo: combo,
+            score: score,
+            accuracy: accuracy
+        });
     }
 
     public function reset():Void {
@@ -295,6 +306,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         activeTweens.clear();
         forEach(function(spr:FlxSprite) spr.kill());
 
+        score = 0;
         combo = 0;
         misses = 0;
         totalNotesHit = 0;
