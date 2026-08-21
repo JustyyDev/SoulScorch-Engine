@@ -1,7 +1,7 @@
 package soulscorch.scripting.mod;
 
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.SoulGlobalScript;
+import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.scripting.mod.SoulModParser;
