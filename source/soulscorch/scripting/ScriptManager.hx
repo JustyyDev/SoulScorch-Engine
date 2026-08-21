@@ -25,14 +25,28 @@ using StringTools;
 class ScriptManager {
     public static var instance:ScriptManager;
     public var scripts:Array<ScriptInstance> = [];
+    public var scriptPath:String = "";
+
+    // Compatibility getters for legacy / module checks
+    public var isValid(get, never):Bool;
+    public var active(get, never):Bool;
+
+    inline function get_isValid():Bool {
+        return scripts.length > 0 && scripts[0].active;
+    }
+
+    inline function get_active():Bool {
+        return isValid;
+    }
 
     public function new() {
         instance = this;
     }
 
     public function loadScript(path:String):Bool {
+        this.scriptPath = path;
         var resolved = AssetResolver.resolveFile(path, [".soul", ".hx", ".hscript", ".lua", ".py", ".js", ""]);
-        var finalPath = resolved != null ? resolved : path;
+        var finalPath = (resolved != null) ? resolved : path;
 
         var inst = ScriptBackendType.createInstance(finalPath);
         if (inst != null && inst.active) {
@@ -51,13 +65,13 @@ class ScriptManager {
 
     public function setAll(key:String, val:Dynamic):Void {
         for (s in scripts) {
-            if (s.active) s.set(key, val);
+            if (s != null && s.active) s.set(key, val);
         }
     }
 
     public function get(key:String):Dynamic {
         for (s in scripts) {
-            if (s.active) {
+            if (s != null && s.active) {
                 var v = s.get(key);
                 if (v != null) return v;
             }
@@ -69,7 +83,7 @@ class ScriptManager {
         if (args == null) args = [];
         var lastResult:Dynamic = null;
         for (s in scripts) {
-            if (s.active) {
+            if (s != null && s.active) {
                 var res = s.call(func, args);
                 if (res != null) lastResult = res;
             }
@@ -79,7 +93,7 @@ class ScriptManager {
 
     public function clear():Void {
         for (s in scripts) {
-            s.destroy();
+            if (s != null) s.destroy();
         }
         scripts = [];
     }

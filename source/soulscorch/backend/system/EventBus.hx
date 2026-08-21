@@ -51,7 +51,7 @@ class EventBus {
 
         var list = handlers.get(norm);
         list.push({fn: handler, priority: priority, target: target});
-        list.sort((a, b) -> b.priority - a.priority); // Higher priority fires first
+        list.sort((a, b) -> b.priority - a.priority);
     }
 
     public function off(event:String, handler:Dynamic->Void):Void {
@@ -129,6 +129,7 @@ class EventBus {
         handlers.clear();
     }
 
+    // --- Static Convenience Aliases (Eliminates Static/Instance Ambiguity) ---
     public static inline function subscribe(event:String, handler:Dynamic->Void, priority:Int = 0, ?target:Dynamic):Void {
         instance.on(event, handler, priority, target);
     }
@@ -139,5 +140,13 @@ class EventBus {
 
     public static inline function publish(event:String, ?data:Dynamic):Bool {
         return instance.emit(event, data);
+    }
+
+    public static inline function emitEvent(event:String, ?data:Dynamic):Bool {
+        return instance.emit(event, data);
+    }
+
+    public static inline function onEvent(event:String, handler:Dynamic->Void, priority:Int = 0, ?target:Dynamic):Void {
+        instance.on(event, handler, priority, target);
     }
 }

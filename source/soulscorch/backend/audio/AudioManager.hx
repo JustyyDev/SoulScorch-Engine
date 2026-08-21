@@ -4,6 +4,7 @@ import flixel.FlxG;
 import flixel.sound.FlxSound;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import openfl.media.Sound;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
@@ -61,18 +62,28 @@ class AudioManager {
     }
 
     public function loadVocalStem(path:String, isPlayer:Bool):Void {
-        var sound = Paths.sound(path);
-        if (sound == null) sound = AssetResolver.resolveFile(path, [".ogg", ".mp3", ".wav"]);
+        var soundObj:Sound = Paths.sound(path);
 
-        if (sound != null) {
+        if (soundObj == null) {
+            var resolved = AssetResolver.resolveFile(path, [".ogg", ".mp3", ".wav"]);
+            if (resolved != null) {
+                #if sys
+                soundObj = Sound.fromFile(resolved);
+                #else
+                soundObj = openfl.utils.Assets.getSound(resolved);
+                #end
+            }
+        }
+
+        if (soundObj != null) {
             if (isPlayer) {
                 if (vocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(vocals, true);
-                vocals = new FlxSound().loadEmbedded(sound);
+                vocals = new FlxSound().loadEmbedded(soundObj);
                 vocals.volume = 1.0;
                 FlxG.sound.list.add(vocals);
             } else {
                 if (opponentVocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(opponentVocals, true);
-                opponentVocals = new FlxSound().loadEmbedded(sound);
+                opponentVocals = new FlxSound().loadEmbedded(soundObj);
                 opponentVocals.volume = 1.0;
                 FlxG.sound.list.add(opponentVocals);
             }

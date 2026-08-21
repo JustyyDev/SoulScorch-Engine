@@ -32,7 +32,7 @@ class ShaderManager {
             cam.setFilters(currentFilters);
         }
 
-        EventBus.emit("shader/added", {name: shader.shaderName});
+        EventBus.publish("shader/added", {name: shader.shaderName});
         Logger.info('Added shader filter (${shader.shaderName})', "shader");
     }
 
@@ -48,7 +48,7 @@ class ShaderManager {
             cam.setFilters(currentFilters);
         }
 
-        EventBus.emit("shader/removed", {name: shader.shaderName});
+        EventBus.publish("shader/removed", {name: shader.shaderName});
     }
 
     public function update(elapsed:Float):Void {
@@ -64,7 +64,7 @@ class ShaderManager {
         }
         filters = [];
         shaders = [];
-        EventBus.emit("shader/cleared", {});
+        EventBus.publish("shader/cleared", {});
     }
 
     public function destroy():Void {

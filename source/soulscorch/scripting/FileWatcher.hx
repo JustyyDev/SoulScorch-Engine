@@ -81,7 +81,7 @@ class FileWatcher {
 
     private function onFileModified(filePath:String):Void {
         Logger.info('HotReload detected change in: $filePath', "watcher");
-        EventBus.emit("script/modified", {path: filePath});
+        EventBus.publish("script/modified", {path: filePath});
     }
     #end
 }

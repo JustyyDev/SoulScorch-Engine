@@ -96,7 +96,7 @@ class Main extends Sprite {
             FlxG.mouse.useSystemCursor = false;
 
             #if (cpp && windows)
-            cpp.vm.ExecutionTrace.setLevel(0);
+            //cpp.vm.ExecutionTrace.setLevel(0);
             #end
 
             setupStateSwitchOptimization();
