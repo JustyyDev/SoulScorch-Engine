@@ -261,6 +261,7 @@ class PauseSubState extends MusicBeatSubstate {
             case "Toggle Botplay":
                 if (PlayState.instance != null) {
                     PlayState.instance.botplay = !PlayState.instance.botplay;
+                    GameplayFlags.set("botplay", PlayState.instance.botplay);
                     if (PlayState.instance.botplayTxt != null) {
                         PlayState.instance.botplayTxt.visible = PlayState.instance.botplay;
                     }

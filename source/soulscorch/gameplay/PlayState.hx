@@ -123,7 +123,7 @@ class PlayState extends MusicBeatState {
 
     public var maxHealth:Float = 2.0;
     public var songScore(get, never):Int;
-    inline function get_songScore():Int return judgementManager != null ? judgementManager.combo * 100 : 0;
+    inline function get_songScore():Int return judgementManager != null ? judgementManager.score : 0;
     public var songMisses(get, never):Int;
     inline function get_songMisses():Int return judgementManager != null ? judgementManager.misses : 0;
     public var songHits(get, never):Int;
@@ -164,6 +164,7 @@ class PlayState extends MusicBeatState {
     public var noteOffset:Float = 0.0;
     public var mustHitSection:Bool = false;
     public var passiveHealthDrain:Float = 0.0;
+    public var healthDrainFloor:Float = 0.1; // Default floor: Drain stops at 5% HP
 
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
@@ -255,8 +256,9 @@ class PlayState extends MusicBeatState {
                     songSpeed *= XMSoul.getFloatAttr(access, "scrollSpeedMultiplier", 1.0);
                     ghostTapping = XMSoul.getBoolAttr(access, "ghostTapping", ghostTapping);
                     passiveHealthDrain = XMSoul.getFloatAttr(access, "healthDrain", 0.0);
+                    healthDrainFloor = XMSoul.getFloatAttr(access, "drainFloor", XMSoul.getFloatAttr(access, "minHealthDrainLimit", 0.1));
                     maxHealth = XMSoul.getFloatAttr(access, "maxHealth", maxHealth);
-                    Logger.info('Successfully loaded .xmsoul modifiers for $clean', "modifiers");
+                    Logger.info('Successfully loaded .xmsoul modifiers for $clean (Drain: $passiveHealthDrain, Floor: $healthDrainFloor)', "modifiers");
                     break;
                 } catch (e:Dynamic) {
                     Logger.warn('Failed parsing modifiers.xmsoul for $clean: $e', "modifiers");
@@ -297,7 +299,9 @@ class PlayState extends MusicBeatState {
 
         judgementManager = new JudgementManager(camHUD);
         judgementManager.onHealthChange = function(newHealth:Float) {
-            if (newHealth <= 0 && !isEnding) gameOver();
+            if (newHealth <= 0 && !isEnding && !GameplayFlags.getBool("practiceMode", false)) {
+                gameOver();
+            }
             updateScoreText();
         };
 
@@ -491,10 +495,8 @@ class PlayState extends MusicBeatState {
             playerStrumline.cameras = [camHUD];
         }
 
-        if (NoteSkinManager.getSkinAtlas(noteSkinToUse) != null) {
-            NoteSkinManager.applySkin(playerStrumline, noteSkinToUse);
-            NoteSkinManager.applySkin(opponentStrumline, noteSkinToUse);
-        }
+        playerStrumline.changeSkin(noteSkinToUse);
+        opponentStrumline.changeSkin(noteSkinToUse);
 
         modcharts = new ModchartManager(playerStrumline, opponentStrumline);
     }
@@ -753,9 +755,11 @@ class PlayState extends MusicBeatState {
         audio.update(elapsed);
         ShaderManager.instance.update(elapsed);
 
+        // Passive health drain bounded by the floor limit
         if (passiveHealthDrain > 0 && countdownEnded) {
-            health = Math.max(0.0, health - (passiveHealthDrain * elapsed));
-            if (health <= 0) gameOver();
+            if (health > healthDrainFloor) {
+                health = Math.max(healthDrainFloor, health - (passiveHealthDrain * elapsed));
+            }
         }
 
         if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
@@ -854,29 +858,33 @@ class PlayState extends MusicBeatState {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
                 }
 
-                if ((!daNote.mustPress || botplay) && daNote.strumTime <= Conductor.songPosition) {
-                    if (daNote.mustPress) {
-                        goodNoteHit(daNote);
-                    } else {
-                        targetStrum.playAnim("confirm", true);
-                        targetStrum.resetAnim = 0.15;
+                // Autoplay / Botplay execution
+                if (daNote.mustPress && botplay && daNote.strumTime <= Conductor.songPosition) {
+                    goodNoteHit(daNote);
+                    return;
+                }
 
-                        if (dad != null && daNote.playSingAnim) {
-                            dad.playSingAnim(daNote.noteData);
-                            setCamDisplacement(daNote.noteData);
-                            centerCameraOnDad();
-                        }
+                // Opponent Note Hit
+                if (!daNote.mustPress && daNote.strumTime <= Conductor.songPosition) {
+                    targetStrum.playAnim("confirm", true);
+                    targetStrum.resetAnim = 0.15;
 
-                        if (audio != null) audio.muteVocal(false, false);
-                        scripts.callAll("onOpponentHit", [daNote]);
-                        daNote.kill();
-                        notes.remove(daNote, false);
-                        daNote.destroy();
+                    if (dad != null && daNote.playSingAnim) {
+                        dad.playSingAnim(daNote.noteData);
+                        setCamDisplacement(daNote.noteData);
+                        centerCameraOnDad();
                     }
+
+                    if (audio != null) audio.muteVocal(false, false);
+                    scripts.callAll("onOpponentHit", [daNote]);
+                    daNote.kill();
+                    notes.remove(daNote, false);
+                    daNote.destroy();
                     return;
                 }
             }
 
+            // Miss handling on late note pass
             if (daNote.mustPress && !botplay && daNote.strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !daNote.wasGoodHit) {
                 daNote.tooLate = true;
                 noteMiss(daNote.noteData);
@@ -896,6 +904,7 @@ class PlayState extends MusicBeatState {
             return;
         }
 
+        // When botplay is enabled, input handling is bypassed
         if (botplay) return;
 
         var keyPressed:Array<Bool> = [
@@ -931,6 +940,7 @@ class PlayState extends MusicBeatState {
                 ReplayManager.recordInput(i, false);
             }
 
+            // Sustain hold note registration
             if (keysHeld[i]) {
                 notes.forEachAlive(function(daNote:Note) {
                     if (daNote.mustPress && daNote.noteData == i && daNote.isSustainNote && daNote.canBeHit && !daNote.wasGoodHit) {
@@ -982,8 +992,12 @@ class PlayState extends MusicBeatState {
             return;
         }
 
-        var diff:Float = Math.abs(note.strumTime - (Conductor.songPosition - noteOffset));
         var result:Judgment = judgementManager.judge(note, Conductor.songPosition - noteOffset);
+
+        // Increase health safely bounded by maxHealth
+        if (health < maxHealth) {
+            health = Math.min(maxHealth, health + note.hitHealth);
+        }
 
         if (!note.isSustainNote) {
             if (Judgment.triggersSplash(result) && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
@@ -1021,6 +1035,10 @@ class PlayState extends MusicBeatState {
 
     private function noteMiss(dir:Int):Void {
         judgementManager.miss(null);
+        if (health > 0) {
+            health = Math.max(0.0, health - 0.0475);
+        }
+
         if (audio != null) audio.muteVocal(true, true);
 
         if (boyfriend != null) {
@@ -1189,6 +1207,8 @@ class PlayState extends MusicBeatState {
     public function resumeSong():Void {
         if (paused) {
             paused = false;
+            // Clear held key states so receptors don't stick on unpause
+            keysHeld = [false, false, false, false];
             if (audio != null) audio.resume();
             scripts.callAll("onResume", []);
         }
