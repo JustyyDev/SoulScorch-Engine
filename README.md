@@ -1,227 +1,136 @@
 # SoulScorch Engine: Comprehensive Architecture & Modding Guide
 
-This guide details how every subsystem, directory structure, modding pipeline, and custom scripting language operates within **SoulScorch Engine**.
+
+
+SoulScorch Engine is a high-performance, modular rhythm game framework designed for deep XML layout customization, dynamic multi-language scripting, 3D hardware-accelerated rendering, and total-conversion modding.
 
 ---
 
 ## 1. Directory Structure
 
-SoulScorch Engine organizes assets, source code, and user modifications into a strict directory tree. Understanding this structure is essential for building custom content and packages.
+Assets, core engine systems, and user modifications follow a strict resolution hierarchy:
 
 ```text
 SoulScorch-Engine/
 ├── assets/
-│   ├── data/                 # Global song charts, weeks, scripts, and configs
-│   │   ├── characters/       # Character offset and property JSONs
-│   │   ├── stages/           # Stage architectural layout JSONs
-│   │   ├── weeks/            # Campaign week structure JSONs
-│   │   └── config/           # Engine configuration and menu item lists
-│   ├── images/               # Global textures, UI atlases, and graphic assets
-│   │   ├── ui/               # Main menus, title screens, HUDs, and alphabet sprites
-│   │   └── characters/       # Global character sprite sheets and Sparrow XMLs
-│   ├── music/                # Instrumental files, menu loops, and jingles
-│   ├── sounds/               # Sound effects (hitsounds, menu clicks, UI clicks)
-│   └── songs/                # Individual song folders (Inst.ogg, Voices.ogg, charts)
-├── mods/                     # User modification packages (Hot-swappable)
+│   ├── preload/
+│   │   ├── data/
+│   │   │   ├── characters/       # Character offset & properties (.json / .xmsoul)
+│   │   │   ├── stages/           # Multi-layered stage architecture definitions
+│   │   │   ├── noteskins/        # Lane receptor & tap note XML specifications
+│   │   │   └── config/           # Engine UI, judgments, credits & window settings
+│   │   ├── images/               # Textures, sprite atlases, and UI elements
+│   │   ├── music/                # Menu music, instrumental stems, and loops
+│   │   ├── sounds/               # Sound effects and feedback audio
+│   │   └── songs/                # Base song charts and audio tracks
+├── mods/                         # Dynamic modification packages (Hot-swappable)
 │   └── [ModFolderName]/
-│       ├── data/             # Mod-specific charts, stages, and characters
-│       ├── images/           # Custom textures overriding base assets
-│       ├── scripts/          # Global HScript/Lua mod scripts and custom states
-│       └── mod.json          # Mod metadata descriptor (Name, author, version)
-└── source/                   # Core Haxe engine source files
-    ├── soulscorch/
-    │   ├── backend/          # Audio, asset loaders, saving, input, and memory
-    │   ├── gameplay/         # Notes, strumlines, scoring, and play state logic
-    │   ├── scripting/        # HScript and mod execution managers
-    │   └── ui/               # Menus, HUDs, substates, and in-engine editors
-    └── Main.hx               # Engine entry point and optimization pipeline
+│       ├── data/                 # Mod-specific charts, stages, and characters
+│       ├── images/               # Custom UI atlases and sprites overriding base assets
+│       ├── scripts/              # Mod-scoped SoulScript (.soul), HScript (.hx), and Lua (.lua)
+│       └── soulmod.json          # Mod descriptor (or soulmod.xmsoul / mod.json)
+├── source/                       # Core Haxe engine source files
+│   ├── Main.hx                   # Engine bootstrap, high-performance timing & garbage sweep
+│   └── soulscorch/
+│       ├── backend/              # Audio Conductor, XMSoul parser, AssetResolver, and RPC
+│       ├── gameplay/             # PlayState, note systems, receptors, and stage engines
+│       ├── graphics/             # 3D Away3D manager and custom GPU shader pipelines
+│       ├── scripting/            # SoulScript transpiler, HScript runtime, and ModManager
+│       └── ui/                   # Menus, HUD elements, and in-engine visual editors
+└── build.bat                     # Multi-target compilation suite (MSVC, MinGW, HL, CPPIA)
 
 ```
 
 ---
 
-## 2. SoulScript Specification & Syntax
+## 2. SoulScript & Scripting Specification
 
-**SoulScript** is SoulScorch Engine's custom, human-readable domain-specific scripting language (DSL) designed specifically for declarative modcharts, receptor transformation timelines, and event automation. Instead of writing complex raw HScript or Lua boilerplate for basic wave movements, creators use SoulScript to define smooth property transitions, easing curves, and timed event triggers.
+SoulScorch features **SoulScript**, a transpiled domain-specific language (DSL) combining concise timeline headers and animation tweens with standard HScript execution.
 
-### Structure and Syntax Rules
+### Core Syntax & Shorthand Features
 
-* **Comments:** Lines starting with `#` or `//` are treated as comments.
-* **Event Blocks:** Modchart triggers are wrapped inside `on event("Name")` and `end` blocks.
-* **Property Interpolation:** Modifiers are modified using the arrow operator (`->`), targeting properties, specifying target intensities, durations, and easing curves.
+* **Event Headers:** Clean lifecycle blocks translated directly into functions:
+* `on create:` $\rightarrow$ `function create() {`
 
-### Supported Properties and Modifiers
+* `on update(elapsed):` $\rightarrow$ `function update(elapsed) {`
 
-* `drunk`: Horizontal sine wave oscillation across receptor lanes.
-* `tipsy`: Vertical wave motion.
-* `beat`: Quarter-note snappy scaling and position pulse.
-* `confusion`: Receptor rotation angle in degrees.
-* `stealth`: Receptor transparency and opacity control.
-* `reverse`: Flips receptor layout to downscroll positioning.
-* `cross`: Swaps inner lane positioning.
-* `bumpy`: Simulates 3D perspective distortion.
-* `invert`: Mirrors strumline layouts.
+* `on beatHit(curBeat):` $\rightarrow$ `function onBeatHit(curBeat) {`
 
-### Example SoulScript File (`wave_event.soul`)
+* `on preStateSwitch:` $\rightarrow$ `function preStateSwitch() {`
 
-```soul
-# SoulScript Modchart Event Trigger Script
-on event("Modchart Wave Matrix"):
-    modchart.drunk -> 1.5 in 0.5s (cubeOut)
-    modchart.tipsy -> 0.8 in 0.5s (cubeOut)
-    modchart.confusion -> 180.0 in 0.8s (elasticOut)
-    modchart.bumpy -> 1.2 in 0.4s (bounceOut)
-end
+* `on postStateSwitch:` $\rightarrow$ `function postStateSwitch() {`
 
-on event("Stealth Fade"):
-    modchart.stealth -> 1.0 in 0.3s (quadOut)
-end
+* `at beat <N>:` $\rightarrow$ `if (curBeat == <N>) {`
 
-```
+* `every <N> beats:` $\rightarrow$ `if (curBeat % <N> == 0) {`
 
----
 
-## 3. How Mods Work & Mod Structure (`mods/`)
 
-SoulScorch features a dynamic mod loader managed by `ModManager.hx` and `ModRegistry.hx`. Every folder placed inside the `mods/` directory is treated as an independent modification package.
+* **Property & Tween Shorthand:** `target.property -> value in duration(ease)` converts automatically into Flixel tweens.
 
-### The `mod.json` Metadata File
 
-Every mod should include a `mod.json` descriptor in its root directory to define its identity and metadata:
+* **Strumline & 3D Tweens:** `strumline.player[0].x -> 412 in 0.5s (cubeOut)` and `model.position -> [0, 5, 10] in 1.2s (quartOut)`.
 
-```json
-{
-    "name": "My Custom Mod",
-    "description": "An incredible total-conversion mod featuring custom songs and stages.",
-    "author": "YourName",
-    "version": "1.0.0",
-    "api_version": "1.0"
-}
 
-```
 
-### Asset Overriding Hierarchy
+### Available Injections in Script Runtime
 
-When the engine loads assets via `Paths.hx` or `AssetResolver.hx`, it checks directories in the following priority order:
+Every script (`.soul` or `.hx`) automatically receives global bindings:
 
-1. **Active Mods (`mods/[ActiveMod]/`)**: If a file exists here, it overrides all base assets.
-2. **Preload Assets (`assets/preload/`)**: Core game files.
-3. **Core Library Assets (`assets/`)**: Fallback assets.
+* **Flixel Core:** `FlxG`, `FlxSprite`, `FlxCamera`, `FlxText`, `FlxMath`, `FlxTween`, `FlxEase`, `FlxTimer`, `FlxColor`.
+
+
+* **Engine Internals:** `Runtime`, `Conductor`, `Paths`, `EventBus`, `Logger`, `ModLoader`, `DiscordRPC`, `ScriptManager`, `ScriptedState`, `ScriptedSubState`.
+
+
+* **Active State Access:** `game` and `state` pointing directly to `FlxG.state`.
+
+
 
 ---
 
-## 4. Modding Examples & Subsystem Breakdown
+## 3. Mod Configuration & Metadata
 
-### A. Custom Characters (`assets/data/characters/` or `mods/[Mod]/data/characters/`)
-
-Characters define animations, offsets, health bar colors, and camera focus points.
-
-**Example Character JSON (`dad.json`):**
+Mods are loaded dynamically from the `mods/` directory. Every mod package declares metadata using `soulmod.json` or `soulmod.xmsoul`:
 
 ```json
 {
-    "image": "characters/DAD_assets",
-    "scale": 1.0,
-    "sing_duration": 4.0,
-    "healthicon": "dad",
-    "position": [0, 0],
-    "camera_position": [150, -100],
-    "flip_x": false,
-    "no_antialiasing": false,
-    "healthbar_colors": [175, 102, 206],
-    "animations": [
-        {
-            "anim": "idle",
-            "name": "Dad idle dance",
-            "fps": 24,
-            "loop": true,
-            "offsets": [0, 0]
-        },
-        {
-            "anim": "singUP",
-            "name": "Dad Sing Note UP",
-            "fps": 24,
-            "loop": false,
-            "offsets": [-6, 50]
-        }
-    ]
+  "name": "examplemod",
+  "title": "example mod",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "author": "SoulScorch Team",
+  "description": "hi",
+  "color": "#9d5ebd",
+  "icon": "windowicon.png",
+  "global_scripts": [
+    "scripts/global.soul"
+  ],
+  "dependencies": [],
+  "load_priority": 0
 }
 
 ```
 
-### B. Custom Stages (`assets/data/stages/` or `mods/[Mod]/data/stages/`)
+### Global Script Redirection (`global.soul` / `global.hx`)
 
-Stages define camera zoom levels, character spawn coordinates, and multi-layer background art pieces.
-
-**Example Stage JSON (`stage.json`):**
-
-```json
-{
-    "name": "stage",
-    "defaultZoom": 0.9,
-    "cameraSpeed": 1.0,
-    "hideGirlfriend": false,
-    "boyfriend": [770, 450],
-    "dad": [100, 100],
-    "girlfriend": [400, 130],
-    "pieces": [
-        {
-            "name": "stageback",
-            "image": "stages/default/stageback",
-            "position": [-600, -200],
-            "scroll": [0.9, 0.9],
-            "scale": [1.0, 1.0],
-            "layer": "background"
-        },
-        {
-            "name": "stagefront",
-            "image": "stages/default/stagefront",
-            "position": [-650, 600],
-            "scroll": [1.0, 1.0],
-            "scale": [1.1, 1.1],
-            "layer": "behindDad"
-        }
-    ]
-}
-
-```
-
-### C. Campaign Weeks (`assets/data/weeks/` or `mods/[Mod]/data/weeks/`)
-
-Weeks group songs together for Story Mode campaigns.
-
-**Example Week JSON (`week1.json`):**
-
-```json
-{
-    "id": "week1",
-    "name": "SCORCHED CAMPAIGN",
-    "songs": ["Bopeebo", "Fresh", "Dad Battle"],
-    "characters": ["dad", "bf", "gf"],
-    "color": "#F9CF51",
-    "difficulties": ["easy", "normal", "hard"]
-}
-
-```
-
-### D. HScript Mod Scripting (`mods/[Mod]/scripts/`)
-
-Global scripts or song-specific scripts run via HScript-Iris, letting you manipulate gameplay events, camera movement, and note behavior dynamically.
-
-**Example Mod Script (`my_script.hx`):**
+Global scripts run across state switches to hook into transitions, hot-reloading, or state overrides:
 
 ```haxe
-function onCreate() {
-    trace("Custom script loaded successfully!");
+function preStateSwitch() {
+    // Intercept default menus and redirect to scripted mod states
+    if (Type.getClassName(Type.getClass(FlxG.game._requestedState)).indexOf("TitleState") != -1) {
+        FlxG.game._requestedState = new ScriptedState("TitleState");
+    }
 }
 
-function onUpdate(elapsed:Float) {
-    // Custom logic executed every frame
+function postStateSwitch() {
+    lime.app.Application.current.window.title = "SoulScorch // Active Mod";
 }
 
-function onBeatHit(beat:Int) {
-    if (beat % 4 == 0) {
-        // Triggered every 4th beat
+function update(elapsed) {
+    if (FlxG.keys.justPressed.F5) {
+        ScriptManager.instance.updateHotReload();
     }
 }
 
@@ -229,10 +138,76 @@ function onBeatHit(beat:Int) {
 
 ---
 
-## 5. Engine Architecture & Core Subsystems
+## 4. XMSoul XML Specification
 
-* **`Main.hx` & `EngineOptimizer.hx`**: Bootstraps the engine, configures high-performance Flixel timing (`FlxG.fixedTimestep = false`), manages VRAM asset purging **every 15 seconds**, and executes emergency garbage collection sweeps *when frame rates dip below 50 FPS*.
-* **`ChartingState.hx`**: An Etterna-grade chart editor featuring multi-division quantization snaps (`1/4` to `1/64`), real-time hitsound audio feedback, section lane inversion, and event automator integration.
-* **`ModchartWorkspaceState.hx`**: A visual modchart matrix suite that calculates receptor transformations (`Drunk`, `Tipsy`, `Beat Pulse`, `Confusion`, `Reverse`, `Cross`, `Invert`, `Bumpy`, `Stealth`) in real time and exports clean **SoulScript** event triggers.
-* **`CharacterEditorState.hx` & `StageEditorState.hx`**: In-engine visual IDE studios allowing creators to live-inject XML animations, calibrate offsets, test character trajectories, and drag-and-drop stage props without touching external code editors.
-* **`HomeSoulDBModule.hx`**: A native package manager connecting directly to **online community repositories**, allowing users to **browse, bump, download,** and **install community mods** securely inside the game.
+SoulScorch uses XML-driven architecture (`XMSoul`) for engine settings, layouts, and noteskins.
+
+### Noteskin XML (`assets/preload/data/noteskins/notes/default.xmsoul`)
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<noteskin name="Default" sprite="ui/game/notes/NOTE_assets" scale="0.7" antialiasing="true">
+    <receptors>
+        <strum lane="0" static="arrowLEFT" pressed="left press" confirm="left confirm" />
+        <strum lane="1" static="arrowDOWN" pressed="down press" confirm="down confirm" />
+        <strum lane="2" static="arrowUP" pressed="up press" confirm="up confirm" />
+        <strum lane="3" static="arrowRIGHT" pressed="right press" confirm="right confirm" />
+    </receptors>
+    <tapNotes>
+        <note lane="0" anim="purple" />
+        <note lane="1" anim="blue" />
+        <note lane="2" anim="green" />
+        <note lane="3" anim="red" />
+    </tapNotes>
+    <sustains alpha="0.6" width="50">
+        <hold lane="0" body="purple hold piece" end="pruple end hold" />
+        <hold lane="1" body="blue hold piece" end="blue hold end" />
+        <hold lane="2" body="green hold piece" end="green hold end" />
+        <hold lane="3" body="red hold piece" end="red hold end" />
+    </sustains>
+</noteskin>
+
+```
+
+### Engine Configuration (`assets/preload/data/config/window.xmsoul`)
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<windowConfig darkMode="true" alpha="1.0" topmost="false" preventSleep="true">
+    <titleBar color="20, 20, 30" borderColor="120, 60, 255" textColor="255, 255, 255" />
+    <performance maxMemoryMB="2048" alertOnLowMemory="true" />
+</windowConfig>
+
+```
+
+---
+
+## 5. In-Engine Studio Suites
+
+* **Chart Studio (`chartStudio.xmsoul` / `.soul`):** High-precision chart editor featuring multi-beat quantization snaps (`1/4` through `1/192`), split instrumental/vocal waveforms, hitsounds, hold duration transformers, and dynamic event tracks.
+
+
+* **Actor Studio (`actorStudio.xmsoul` / `.soul`):** Character calibration studio for live animation playback, offset calculation, sprite scaling, sing hold duration tuning, and camera anchor offsets.
+
+
+* **Stage Architect (`stageArchitect.xmsoul` / `.soul`):** Visual scene editor for assembling multi-layered parallax backgrounds, prop scaling, z-indexing, and real-time alpha/antialiasing controls.
+
+
+
+---
+
+## 6. Building from Source
+
+The project includes an automated multi-target compiler suite (`build.bat`):
+
+```cmd
+# Windows 64-bit (Portable MinGW GCC - No admin rights required)
+build.bat (Option 1)
+
+# Windows 64-bit (Visual Studio MSVC Release)
+build.bat (Option 2)
+
+# Fast HashLink 64-Bit Bytecode Test
+lime test hl
+
+```

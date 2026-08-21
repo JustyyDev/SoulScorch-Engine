@@ -49,6 +49,8 @@ class SoulScript implements ScriptInstance {
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
+        set("Type", Type);
+        set("Reflect", Reflect);
         #if sys set("Sys", Sys); #end
 
         set("FlxG", FlxG);
@@ -81,6 +83,9 @@ class SoulScript implements ScriptInstance {
         set("EventBus", EventBus.instance);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
+        set("ScriptedState", soulscorch.scripting.ScriptedState);
+        set("ScriptedSubState", soulscorch.scripting.ScriptedSubState);
+        set("ScriptManager", soulscorch.scripting.ScriptManager);
 
         set("DiscordRPC", DiscordRPC);
         set("changeDiscordPresence", DiscordRPC.changePresence);

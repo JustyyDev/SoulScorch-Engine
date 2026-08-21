@@ -8,6 +8,9 @@ import flixel.math.FlxRect;
 import openfl.display.BitmapData;
 import openfl.media.Sound;
 import openfl.utils.Assets;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.scripting.mod.ModManager;
+
 #if cpp
 import cpp.vm.Gc;
 #elseif hl
@@ -21,29 +24,39 @@ using StringTools;
 class Paths {
     public static var currentTrackedAssets:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
     public static var currentTrackedSounds:Map<String, Sound> = new Map<String, Sound>();
+    public static var localTrackedAssets:Array<String> = [];
 
     public static inline function file(file:String):String {
-        return 'assets/$file';
+        return ModManager.getPath(file);
+    }
+
+    public static inline function getPath(file:String, ?type:Dynamic, ?library:String):String {
+        return ModManager.getPath(file);
     }
 
     public static inline function txt(key:String):String {
         var resolved = AssetResolver.resolveFile('data/$key', [".txt", ""]);
-        return (resolved != null) ? resolved : 'assets/data/$key.txt';
+        return (resolved != null) ? resolved : file('data/$key.txt');
     }
 
     public static inline function xml(key:String):String {
         var resolved = AssetResolver.resolveFile('images/$key', [".xml", ""]);
-        return (resolved != null) ? resolved : 'assets/images/$key.xml';
+        return (resolved != null) ? resolved : file('images/$key.xml');
     }
 
     public static inline function json(key:String):String {
         var resolved = AssetResolver.resolveFile('data/$key', [".json", ""]);
-        return (resolved != null) ? resolved : 'assets/data/$key.json';
+        return (resolved != null) ? resolved : file('data/$key.json');
+    }
+
+    public static inline function xmsoul(key:String):String {
+        var resolved = AssetResolver.resolveFile('data/$key', [".xmsoul", ".xml", ""]);
+        return (resolved != null) ? resolved : file('data/$key.xmsoul');
     }
 
     public static inline function config(key:String):String {
-        var resolved = AssetResolver.resolveFile('data/config/$key', [".txt", ".json", ""]);
-        return (resolved != null) ? resolved : 'assets/data/config/$key.txt';
+        var resolved = AssetResolver.resolveFile('data/config/$key', [".xmsoul", ".xml", ".json", ".txt", ""]);
+        return (resolved != null) ? resolved : file('data/config/$key.xmsoul');
     }
 
     public static inline function exists(path:String):Bool {
@@ -53,6 +66,10 @@ class Paths {
     public static function sound(key:String):Null<Sound> {
         if (key == null) return null;
         var clean = key.trim();
+
+        if (currentTrackedSounds.exists(clean)) {
+            return currentTrackedSounds.get(clean);
+        }
 
         var variants = switch (clean) {
             case "scrollMenu", "scroll":
@@ -68,7 +85,7 @@ class Paths {
         for (v in variants) {
             var snd = AssetResolver.getSound(v);
             if (snd != null) {
-                currentTrackedSounds.set(v, snd);
+                currentTrackedSounds.set(clean, snd);
                 return snd;
             }
         }
@@ -83,12 +100,17 @@ class Paths {
     public static function music(key:String):Null<Sound> {
         if (key == null) return null;
         var clean = key.trim();
+
+        if (currentTrackedSounds.exists(clean)) {
+            return currentTrackedSounds.get(clean);
+        }
+
         var tries = ['music/$clean', 'songs/$clean', 'music/menu/$clean', 'sounds/music/$clean', '$clean'];
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
             if (snd != null) {
-                currentTrackedSounds.set(t, snd);
+                currentTrackedSounds.set(clean, snd);
                 return snd;
             }
         }
@@ -102,20 +124,18 @@ class Paths {
         var dashes = clean.replace(" ", "-");
         var stripped = clean.replace(" ", "").replace("-", "");
 
+        var cacheKey = 'inst-$clean';
+        if (currentTrackedSounds.exists(cacheKey)) {
+            return currentTrackedSounds.get(cacheKey);
+        }
+
         var tries = [
             'songs/$clean/song/Inst',
             'songs/$dashes/song/Inst',
             'songs/$stripped/song/Inst',
-            'assets/preload/songs/$clean/song/Inst',
-            'assets/preload/songs/$dashes/song/Inst',
-            'assets/songs/$clean/song/Inst',
-            'music/$clean/song/Inst',
             'songs/$clean/Inst',
             'songs/$dashes/Inst',
             'songs/$stripped/Inst',
-            'assets/preload/songs/$clean/Inst',
-            'assets/preload/songs/$dashes/Inst',
-            'assets/songs/$clean/Inst',
             'music/$clean/Inst',
             'music/$dashes/Inst',
             'data/$clean/Inst',
@@ -126,7 +146,7 @@ class Paths {
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
             if (snd != null) {
-                currentTrackedSounds.set(t, snd);
+                currentTrackedSounds.set(cacheKey, snd);
                 return snd;
             }
         }
@@ -141,33 +161,28 @@ class Paths {
         var stripped = clean.replace(" ", "").replace("-", "");
 
         var fileNames = (suffix != null && suffix.length > 0) ? ['Voices-$suffix', 'Voices_$suffix', 'Voices'] : ['Voices'];
+        var cacheKey = 'voices-$clean-$suffix';
+        if (currentTrackedSounds.exists(cacheKey)) {
+            return currentTrackedSounds.get(cacheKey);
+        }
 
         var tries:Array<String> = [];
         for (fName in fileNames) {
             tries.push('songs/$clean/song/$fName');
             tries.push('songs/$dashes/song/$fName');
             tries.push('songs/$stripped/song/$fName');
-            tries.push('assets/preload/songs/$clean/song/$fName');
-            tries.push('assets/preload/songs/$dashes/song/$fName');
-            tries.push('assets/songs/$clean/song/$fName');
-            tries.push('music/$clean/song/$fName');
             tries.push('songs/$clean/$fName');
             tries.push('songs/$dashes/$fName');
             tries.push('songs/$stripped/$fName');
-            tries.push('assets/preload/songs/$clean/$fName');
-            tries.push('assets/preload/songs/$dashes/$fName');
-            tries.push('assets/songs/$clean/$fName');
             tries.push('music/$clean/$fName');
-            tries.push('music/$dashes/$fName');
             tries.push('data/$clean/$fName');
             tries.push('$clean/$fName');
-            tries.push('$dashes/$fName');
         }
 
         for (t in tries) {
             var snd = AssetResolver.getSound(t);
             if (snd != null) {
-                currentTrackedSounds.set(t, snd);
+                currentTrackedSounds.set(cacheKey, snd);
                 return snd;
             }
         }
@@ -179,12 +194,22 @@ class Paths {
         return AssetResolver.getBitmapData('images/$key');
     }
 
-    public static inline function graphic(key:String):Null<FlxGraphic> {
-        var graph = AssetResolver.getGraphic('images/$key');
-        if (graph == null) graph = AssetResolver.getGraphic(key);
+    public static function graphic(key:String):Null<FlxGraphic> {
+        if (key == null || key.trim().length == 0) return null;
+        var clean = key.trim();
+
+        if (currentTrackedAssets.exists(clean)) {
+            return currentTrackedAssets.get(clean);
+        }
+
+        var graph = AssetResolver.getGraphic('images/$clean');
+        if (graph == null) graph = AssetResolver.getGraphic(clean);
 
         if (graph != null) {
-            currentTrackedAssets.set(key, graph);
+            graph.persist = true;
+            graph.destroyOnNoUse = false;
+            currentTrackedAssets.set(clean, graph);
+            localTrackedAssets.push(clean);
         }
         return graph;
     }
@@ -193,13 +218,13 @@ class Paths {
         var clean = (key != null && key.trim().length > 0) ? key.trim() : "vcr";
         var resolved = AssetResolver.resolveFile('fonts/$clean', [".ttf", ".otf", ""]);
         if (resolved == null) resolved = AssetResolver.resolveFile('$clean', [".ttf", ".otf", ""]);
-        return (resolved != null) ? resolved : 'assets/fonts/$clean.ttf';
+        return (resolved != null) ? resolved : file('fonts/$clean.ttf');
     }
 
     public static function getSparrowAtlas(key:String):Null<FlxAtlasFrames> {
         if (key == null || key.trim().length == 0) return null;
         var clean = key.trim().replace("\\", "/");
-        if (clean.startsWith("/")) clean = clean.substr(1);
+        while (clean.startsWith("/")) clean = clean.substr(1);
 
         var graph = graphic(clean);
         var xmlContent = AssetResolver.getText('images/$clean.xml');
@@ -214,7 +239,7 @@ class Paths {
     public static function getTextureAtlas(key:String):Null<FlxAtlasFrames> {
         if (key == null || key.trim().length == 0) return null;
         var clean = key.trim().replace("\\", "/");
-        if (clean.startsWith("/")) clean = clean.substr(1);
+        while (clean.startsWith("/")) clean = clean.substr(1);
 
         var graph = graphic(clean);
         if (graph == null) graph = graphic('ui/game/cutscenes/$clean');
@@ -232,11 +257,12 @@ class Paths {
 
         #if sys
         for (jp in jsonPaths) {
-            if (sys.FileSystem.exists(jp)) {
+            var p = ModManager.getPath(jp);
+            if (sys.FileSystem.exists(p)) {
                 try {
-                    jsonStr = sys.io.File.getContent(jp);
+                    jsonStr = sys.io.File.getContent(p);
                     break;
-                } catch(e:Dynamic) {}
+                } catch (e:Dynamic) {}
             }
         }
         #end
@@ -280,7 +306,7 @@ class Paths {
                 if (frameCollection.frames.length > 0) {
                     return frameCollection;
                 }
-            } catch(e:Dynamic) {}
+            } catch (e:Dynamic) {}
         }
         return null;
     }
@@ -298,7 +324,7 @@ class Paths {
 
         currentTrackedAssets.clear();
         currentTrackedSounds.clear();
-        AssetHelper.clearAtlasCache();
+        localTrackedAssets = [];
 
         runGarbageCollector();
     }
@@ -315,7 +341,7 @@ class Paths {
         runGarbageCollector();
     }
 
-    private static function runGarbageCollector():Void {
+    public static function runGarbageCollector():Void {
         #if cpp
         Gc.run(true);
         Gc.compact();

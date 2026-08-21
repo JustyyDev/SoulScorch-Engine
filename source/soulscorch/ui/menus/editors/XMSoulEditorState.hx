@@ -5,11 +5,12 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
+import flixel.math.FlxPoint;
 import flixel.text.FlxText;
-import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.Paths;
@@ -49,29 +50,30 @@ class XMSoulEditorState extends MusicBeatState {
         FlxG.cameras.add(camUI, false);
         FlxG.cameras.setDefaultDrawTarget(camWorld, true);
 
-        // Resilient Path Resolver for Editor Layouts
         var resolvedXml:Access = null;
         var cleanPath = layoutFile;
-        
+
         var trialPaths = [
             cleanPath,
             'data/$cleanPath',
             'config/$cleanPath',
             'data/config/$cleanPath',
             'config/ui/menus/$cleanPath',
-            'data/ui/menus/$cleanPath'
+            'data/ui/menus/$cleanPath',
+            'assets/preload/data/config/$cleanPath',
+            'assets/preload/data/config/ui/menus/$cleanPath'
         ];
 
         for (p in trialPaths) {
             resolvedXml = XMSoul.parse(p);
             if (resolvedXml != null) {
-                Logger.info('Successfully resolved editor layout at: $p', "editor");
+                Logger.info('Resolved editor layout at: $p', "editor");
                 break;
             }
         }
 
         if (resolvedXml == null) {
-            Logger.error('Failed parsing editor layout across all probe paths: $layoutFile', "editor");
+            Logger.error('Failed parsing editor layout across all paths: $layoutFile', "editor");
             showToast("Error: Layout file not found!", true);
             return;
         }
@@ -82,23 +84,25 @@ class XMSoulEditorState extends MusicBeatState {
         if (scriptPath != "") {
             script = new ScriptManager();
             script.loadScript(scriptPath);
-            
-            // Inject complete scope variables for HScript interpreters (prevents EUnknownVariable)
+
+            // Complete global injection scope
             script.setAll("editor", this);
             script.setAll("game", this);
+            script.setAll("state", this);
             script.setAll("camWorld", camWorld);
             script.setAll("camUI", camUI);
             script.setAll("FlxG", FlxG);
             script.setAll("FlxSprite", FlxSprite);
             script.setAll("FlxText", FlxText);
             script.setAll("FlxMath", FlxMath);
+            script.setAll("FlxPoint", FlxPoint);
             script.setAll("FlxTween", FlxTween);
             script.setAll("FlxEase", FlxEase);
             script.setAll("FlxTimer", FlxTimer);
             script.setAll("Paths", Paths);
             script.setAll("showToast", showToast);
             script.setAll("widgets", widgets);
-            
+
             script.callAll("onCreate", []);
         }
 

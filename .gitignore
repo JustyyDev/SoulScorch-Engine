@@ -8,3 +8,4 @@ build/
 dist/
 dump/
 bin/
+.build_temp/

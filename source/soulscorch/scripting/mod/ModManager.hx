@@ -1,12 +1,14 @@
 package soulscorch.scripting.mod;
 
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.SoulGlobalScript;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.scripting.mod.SoulModParser;
 
 #if sys
 import sys.FileSystem;
+import sys.io.File;
 #end
 
 using StringTools;
@@ -38,7 +40,15 @@ class ModManager {
         ModRegistry.instance.loadConfig();
         activeMods = ModRegistry.instance.enabledMods.copy();
 
+        // Sort active mods by load priority (highest to lowest)
+        activeMods.sort(function(a:String, b:String):Int {
+            var pA = modConfigs.exists(a) ? modConfigs.get(a).load_priority : 0;
+            var pB = modConfigs.exists(b) ? modConfigs.get(b).load_priority : 0;
+            return pB - pA;
+        });
+
         Logger.info('Discovered ${allMods.length} mod(s), ${activeMods.length} active.', "mods");
+        SoulGlobalScript.init();
     }
 
     public static function getPath(filePath:String):String {
@@ -49,23 +59,20 @@ class ModManager {
         #if sys
         for (mod in activeMods) {
             var modPath = 'mods/$mod/$clean';
-            if (FileSystem.exists(modPath)) {
-                return modPath;
-            }
+            if (FileSystem.exists(modPath)) return modPath;
 
-            // Route standard asset folder prefixes
-            if (clean.startsWith("assets/")) {
-                var stripped = clean.substr(7);
-                var subModPath = 'mods/$mod/$stripped';
-                if (FileSystem.exists(subModPath)) {
-                    return subModPath;
-                }
+            if (clean.startsWith("assets/preload/")) {
+                var sub = clean.substr(15);
+                var subPath = 'mods/$mod/$sub';
+                if (FileSystem.exists(subPath)) return subPath;
+            } else if (clean.startsWith("assets/")) {
+                var sub = clean.substr(7);
+                var subPath = 'mods/$mod/$sub';
+                if (FileSystem.exists(subPath)) return subPath;
             }
         }
 
-        if (FileSystem.exists(clean)) {
-            return clean;
-        }
+        if (FileSystem.exists(clean)) return clean;
         #end
 
         return 'assets/$clean';
@@ -79,28 +86,27 @@ class ModManager {
         #if sys
         for (mod in activeMods) {
             var modPath = 'mods/$mod/$clean';
-            if (FileSystem.exists(modPath) && !FileSystem.isDirectory(modPath)) {
-                return modPath;
-            }
+            if (FileSystem.exists(modPath) && !FileSystem.isDirectory(modPath)) return modPath;
+            
             if (extensions != null) {
                 for (ext in extensions) {
                     var probe = modPath + (ext.startsWith(".") ? ext : "." + ext);
-                    if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) {
-                        return probe;
-                    }
+                    if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) return probe;
                 }
+            }
+
+            if (clean.startsWith("assets/preload/")) {
+                var stripped = clean.substr(15);
+                var sPath = 'mods/$mod/$stripped';
+                if (FileSystem.exists(sPath) && !FileSystem.isDirectory(sPath)) return sPath;
             }
         }
 
-        if (FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) {
-            return clean;
-        }
+        if (FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) return clean;
         if (extensions != null) {
             for (ext in extensions) {
                 var probe = clean + (ext.startsWith(".") ? ext : "." + ext);
-                if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) {
-                    return probe;
-                }
+                if (FileSystem.exists(probe) && !FileSystem.isDirectory(probe)) return probe;
             }
         }
         #end
