@@ -11,19 +11,15 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
-import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
-import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
-import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.MainMenuState;
 
@@ -58,13 +54,6 @@ class PauseSubState extends MusicBeatSubstate {
         this.persistentUpdate = false;
         this.persistentDraw = true;
 
-        #if desktop
-        DiscordRPC.changePresence(
-            'Paused: ${PlayState.curSong.toUpperCase()}',
-            'Score: ${(PlayState.instance != null ? PlayState.instance.songScore : 0)} | Difficulty: ${PlayState.curDifficulty.toUpperCase()}'
-        );
-        #end
-
         subCamera = new FlxCamera();
         subCamera.bgColor = FlxColor.TRANSPARENT;
         FlxG.cameras.add(subCamera, false);
@@ -91,8 +80,6 @@ class PauseSubState extends MusicBeatSubstate {
             pauseMusic.volume = 0;
             pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
             FlxG.sound.list.add(pauseMusic);
-            FlxTween.cancelTweensOf(pauseMusic);
-            pauseMusic.fadeIn(1.2, 0, 0.65);
         }
 
         changeSelection(0);
@@ -142,7 +129,7 @@ class PauseSubState extends MusicBeatSubstate {
         statsCard.add(statsTxt);
     }
 
-    private function rebuildMenu():Void {
+    public function rebuildMenu():Void {
         grpMenu.clear();
         itemBgs = [];
         itemIndicators = [];
@@ -185,6 +172,10 @@ class PauseSubState extends MusicBeatSubstate {
         super.update(elapsed);
         if (isLeaving) return;
 
+        if (pauseMusic != null && pauseMusic.playing && pauseMusic.volume < 0.65) {
+            pauseMusic.volume = FlxMath.lerp(pauseMusic.volume, 0.65, FlxMath.bound(elapsed * 3.0, 0, 1));
+        }
+
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
@@ -199,8 +190,8 @@ class PauseSubState extends MusicBeatSubstate {
         for (i in 0...grpMenu.members.length) {
             var item = grpMenu.members[i];
             var isCur = (i == curSelected);
-            itemBgs[i].color = isCur ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
-            itemIndicators[i].alpha = isCur ? 1.0 : 0.0;
+            if (itemBgs[i] != null) itemBgs[i].color = isCur ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
+            if (itemIndicators[i] != null) itemIndicators[i].alpha = isCur ? 1.0 : 0.0;
             item.x = FlxMath.lerp(item.x, isCur ? 75 : 60, FlxMath.bound(elapsed * 15, 0, 1));
             item.alpha = isCur ? 1.0 : 0.6;
         }
@@ -231,7 +222,7 @@ class PauseSubState extends MusicBeatSubstate {
                 if (PlayState.instance != null) {
                     PlayState.instance.paused = false;
                 }
-                MusicBeatState.resetState();
+                flixel.FlxG.resetState();
 
             case "Toggle Practice Mode":
                 var current = GameplayFlags.getBool("practiceMode", false);
@@ -258,7 +249,7 @@ class PauseSubState extends MusicBeatSubstate {
                 if (PlayState.instance != null && PlayState.instance.audio != null) {
                     PlayState.instance.audio.stop();
                 }
-                MusicBeatState.switchState(new OptionsMenuState());
+                flixel.FlxG.switchState(new OptionsMenuState());
 
             case "Exit to Main Menu":
                 isLeaving = true;
@@ -267,13 +258,12 @@ class PauseSubState extends MusicBeatSubstate {
                 if (PlayState.instance != null && PlayState.instance.audio != null) {
                     PlayState.instance.audio.stop();
                 }
-                MusicBeatState.switchState(new MainMenuState());
+                flixel.FlxG.switchState(new MainMenuState());
         }
     }
 
     private function stopPauseMusic():Void {
         if (pauseMusic != null) {
-            FlxTween.cancelTweensOf(pauseMusic);
             pauseMusic.stop();
             if (FlxG.sound.list != null) FlxG.sound.list.remove(pauseMusic, true);
             pauseMusic.destroy();

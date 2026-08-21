@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<titleScreen music="freakyMenu" bpm="102" flashColor="0xFFFFFFFF">
+<titleScreen music="freakyMenu" bpm="102.0" flashColor="0xFFFFFFFF">
     <logo x="-150" y="-100" scale="1.0" bounceOnBeat="true" />
     <gf x="510" y="40" scale="1.0" danceInterval="2" />
     <enterButton x="100" y="576" defaultAnim="press enter" pressedAnim="enter confirmed" />

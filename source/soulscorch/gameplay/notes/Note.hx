@@ -177,7 +177,7 @@ class Note extends FlxSprite {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(0.7, (stepHeight + 1.0) / baseH);
+                scale.set(0.7, (stepHeight + 1.2) / baseH);
                 updateHitbox();
             }
         } else {
@@ -189,17 +189,15 @@ class Note extends FlxSprite {
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
 
-        // Precision horizontal alignment matching receptor bounding box
-        x = strumX + offsetX;
-
         if (isSustainNote) {
-            x = strumX + (STRUM_SPACING * 0.35) - (width * 0.5) + offsetX;
+            // Anchor sustain directly to receptor center
+            x = strumX + (STRUM_SPACING * 0.7 * 0.5) - (width * 0.5) + offsetX;
             flipY = downscroll;
 
             if (downscroll) {
-                y = strumY - distance - height + offsetY + 35.0;
+                y = (strumY + 38.0) - distance - height + offsetY;
             } else {
-                y = strumY + distance + offsetY + 35.0;
+                y = (strumY + 38.0) + distance + offsetY;
             }
 
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition) {
@@ -216,6 +214,9 @@ class Note extends FlxSprite {
                 clipRect = null;
             }
         } else {
+            // Centered cleanly on the receptor bounds
+            x = strumX + (STRUM_SPACING * 0.7 * 0.5) - (width * 0.5) + offsetX;
+
             if (downscroll) {
                 y = strumY - distance + offsetY;
             } else {

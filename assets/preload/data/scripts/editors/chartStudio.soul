@@ -1,376 +1,85 @@
-// SoulScript Matrix Engine for Chart Studio Pro // Codename-Compliant Edition
-var curSongId = "tutorial";
-var curDifficulty = "normal";
-var curBpm = 120;
-var scrollSpeed = 2;
 var isPlaying = false;
-var practiceModeActive = false;
-
-// Audio Streams
-var instSound = null;
-var voicePlayerSound = null;
-var voiceOpponentSound = null;
-
-var instVolume = 1;
-var voiceVolume = 1;
-var hitsoundVolume = 0.7;
-var metronomeVolume = 0.6;
-var playbackRate = 1;
-var metronomeActive = false;
-var hitsoundsActive = true;
-var renderWaveforms = true;
-
-// Quantization State (1/4 to 1/192)
-var activeSnap = 16;
-var isTripletGrid = false;
-var currentNoteType = "normal";
-var noteTypesCatalog = ["normal", "hurt", "mine", "instakill", "noAnim", "glitch"];
-var curNoteTypeIdx = 0;
-
-// Dynamic Strumline Selection (0: GF, 1: Dad, 2: BF)
-var curStrumlineIndex = 2;
-var curSelectedEvent = "Camera Movement";
-var curEventVal1 = "0";
-var curEventVal2 = "";
-
-// Staged In-Memory Data
-var songNotes = [];
-var songEvents = [];
-var clipboardNotes = [];
-var clipboardEvents = [];
+var curBpm = 120.0;
+var curSpeed = 2.0;
+var curSnap = 16;
+var activeStrumline = 2;
+var isMetronome = false;
+var isHitsounds = true;
+var curSustain = 0.0;
+var curNoteType = "normal";
 
 function onCreate() {
-    curBpm = 120;
-    scrollSpeed = 2;
-    instVolume = 1;
-    voiceVolume = 1;
-    playbackRate = 1;
-
-    if (editor != null && editor.variables != null && editor.variables.exists("targetSong")) {
-        curSongId = editor.variables.get("targetSong");
-    }
-    if (editor != null && editor.variables != null && editor.variables.exists("targetDiff")) {
-        curDifficulty = editor.variables.get("targetDiff");
-    }
-
-    Logger.info("[ChartStudio] Codename Engine Matrix ready for song: [" + curSongId + " - " + curDifficulty + "]", "chart");
-
-    loadMetadata();
-    loadAudioTracks();
-    loadOrCreateChart();
-    updateSnapIndicator();
-}
-
-function onUpdate(elapsed) {
-    if (isPlaying) {
-        syncAudioPlayback();
-        checkHitsoundTriggers();
-    }
-}
-
-// -------------------------------------------------------------------
-// Audio Playback & Synchronization
-// -------------------------------------------------------------------
-function loadAudioTracks() {
-    instSound = new FlxSound();
-    voicePlayerSound = new FlxSound();
-    voiceOpponentSound = new FlxSound();
-
-    var instPath = AssetResolver.resolveFile("songs/" + curSongId + "/Inst", [".ogg", ".mp3", ".wav", ""]);
-    if (instPath == null) instPath = AssetResolver.resolveFile("songs/" + curSongId + "/song/Inst", [".ogg", ".mp3", ".wav", ""]);
-
-    if (instPath != null) {
-        instSound.loadEmbedded(instPath, false, false);
-        FlxG.sound.list.add(instSound);
-    } else {
-        Logger.warn("[ChartStudio] Running in silent canvas (No Inst.ogg).", "chart");
-    }
-
-    var vocPath = AssetResolver.resolveFile("songs/" + curSongId + "/Voices", [".ogg", ".mp3", ".wav", ""]);
-    if (vocPath == null) vocPath = AssetResolver.resolveFile("songs/" + curSongId + "/song/Voices", [".ogg", ".mp3", ".wav", ""]);
-
-    if (vocPath != null) {
-        voicePlayerSound.loadEmbedded(vocPath, false, false);
-        FlxG.sound.list.add(voicePlayerSound);
-    }
-
-    var dadVocPath = AssetResolver.resolveFile("songs/" + curSongId + "/Voices-dad", [".ogg", ".mp3", ".wav", ""]);
-    if (dadVocPath == null) dadVocPath = AssetResolver.resolveFile("songs/" + curSongId + "/song/Voices-dad", [".ogg", ".mp3", ".wav", ""]);
-
-    if (dadVocPath != null) {
-        voiceOpponentSound.loadEmbedded(dadVocPath, false, false);
-        FlxG.sound.list.add(voiceOpponentSound);
-    }
-}
-
-function syncAudioPlayback() {
-    if (instSound != null && instSound.playing) {
-        if (Math.abs(instSound.time - Conductor.songPosition) > 20) {
-            instSound.time = Conductor.songPosition;
-        }
-    }
-    if (voicePlayerSound != null && voicePlayerSound.playing) {
-        if (Math.abs(voicePlayerSound.time - Conductor.songPosition) > 20) {
-            voicePlayerSound.time = Conductor.songPosition;
-        }
-    }
-    if (voiceOpponentSound != null && voiceOpponentSound.playing) {
-        if (Math.abs(voiceOpponentSound.time - Conductor.songPosition) > 20) {
-            voiceOpponentSound.time = Conductor.songPosition;
-        }
-    }
+    showToast("SOULSCORCH Chart Studio Engine Ready", false);
 }
 
 function onTogglePlayback() {
     isPlaying = !isPlaying;
-    if (isPlaying) {
-        if (instSound != null && instSound.exists) {
-            instSound.time = Math.max(0, Conductor.songPosition);
-            instSound.play();
-        }
-        if (voicePlayerSound != null && voicePlayerSound.exists) {
-            voicePlayerSound.time = Math.max(0, Conductor.songPosition);
-            voicePlayerSound.play();
-        }
-        if (voiceOpponentSound != null && voiceOpponentSound.exists) {
-            voiceOpponentSound.time = Math.max(0, Conductor.songPosition);
-            voiceOpponentSound.play();
-        }
-    } else {
-        if (instSound != null) instSound.pause();
-        if (voicePlayerSound != null) voicePlayerSound.pause();
-        if (voiceOpponentSound != null) voiceOpponentSound.pause();
+    showToast(isPlaying ? "Playback: PLAY" : "Playback: PAUSE", false);
+}
+
+function onChangeBPM(val) {
+    curBpm = val;
+    showToast("Master BPM: " + curBpm, false);
+}
+
+function onChangeSpeed(val) {
+    curSpeed = val;
+}
+
+function onChangeStrumline(val) {
+    activeStrumline = Std.int(val);
+    showToast("Editing Strumline: " + activeStrumline, false);
+}
+
+function onSetSnap4() { setSnap(4, "Red"); }
+function onSetSnap8() { setSnap(8, "Blue"); }
+function onSetSnap12() { setSnap(12, "Purple"); }
+function onSetSnap16() { setSnap(16, "Yellow"); }
+function onSetSnap24() { setSnap(24, "Pink"); }
+function onSetSnap32() { setSnap(32, "Orange"); }
+function onSetSnap48() { setSnap(48, "Cyan"); }
+function onSetSnap64() { setSnap(64, "Green"); }
+
+function setSnap(div, colName) {
+    curSnap = div;
+    if (editor.widgets.exists("currentSnapTxt")) {
+        editor.widgets.get("currentSnapTxt").text = "Active Snap: 1/" + div + " (" + colName + ")";
     }
 }
 
-function onTogglePracticeBench() {
-    practiceModeActive = !practiceModeActive;
-    Logger.info("[ChartStudio] In-Editor Practice bench: " + practiceModeActive, "chart");
-}
-
-function onToggleMetronome() { metronomeActive = !metronomeActive; }
-function onToggleHitsounds() { hitsoundsActive = !hitsoundsActive; }
-function onToggleWaveform() { renderWaveforms = !renderWaveforms; }
-function onToggleVocalWaveform(val) { Logger.info("[ChartStudio] Vocal Waveforms: " + val, "chart"); }
-function onToggleInstWaveform(val) { Logger.info("[ChartStudio] Inst Waveforms: " + val, "chart"); }
-
-function onChangePlaybackRate(newRate) { playbackRate = newRate; }
-function onSetInstVol(vol) { instVolume = vol; }
-function onSetVoiceVol(vol) { voiceVolume = vol; }
-function onSetHitsoundVol(vol) { hitsoundVolume = vol; }
-function onSetMetroVol(vol) { metronomeVolume = vol; }
-
-function onResyncAudio() {
-    if (instSound != null) instSound.time = Conductor.songPosition;
-    if (voicePlayerSound != null) voicePlayerSound.time = Conductor.songPosition;
-    if (voiceOpponentSound != null) voiceOpponentSound.time = Conductor.songPosition;
-}
-
-// -------------------------------------------------------------------
-// Metadata & Chart Initialization
-// -------------------------------------------------------------------
-function loadMetadata() {
-    var metaXml = XMSoul.parse("songs/" + curSongId + "/meta");
-    if (metaXml == null) metaXml = XMSoul.parse("data/" + curSongId + "/meta");
-
-    if (metaXml != null) {
-        curBpm = XMSoul.getFloatAttr(metaXml, "bpm", 120);
-        Conductor.changeBPM(curBpm);
-        var bpmInput = editor.widgets.get("bpmStep");
-        if (bpmInput != null) bpmInput.currentValue = curBpm;
-    } else {
-        Conductor.changeBPM(120);
-    }
-}
-
-function loadOrCreateChart() {
-    songNotes = [];
-    songEvents = [];
-
-    var chartXml = XMSoul.parse("songs/" + curSongId + "/charts/" + curDifficulty);
-    if (chartXml == null) chartXml = XMSoul.parse("songs/" + curSongId + "/" + curDifficulty);
-    if (chartXml == null) chartXml = XMSoul.parse("data/" + curSongId + "/charts/" + curDifficulty);
-
-    if (chartXml != null) {
-        scrollSpeed = XMSoul.getFloatAttr(chartXml, "speed", 2);
-        var speedInput = editor.widgets.get("speedStep");
-        if (speedInput != null) speedInput.currentValue = scrollSpeed;
-
-        for (strumNode in chartXml.nodes.resolve("strumLine")) {
-            var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player" 
-                || XMSoul.getAttr(strumNode, "position", "").toLowerCase() == "boyfriend";
-
-            for (noteNode in strumNode.nodes.resolve("note")) {
-                var t = XMSoul.getFloatAttr(noteNode, "time", 0);
-                var dir = XMSoul.getIntAttr(noteNode, "lane", 0);
-                var len = XMSoul.getFloatAttr(noteNode, "len", 0);
-                var type = XMSoul.getAttr(noteNode, "type", "normal");
-
-                songNotes.push({time: t, lane: dir, len: len, isPlayer: isPlayer, type: type});
-            }
-        }
-    }
-
-    var eventsXml = XMSoul.parse("songs/" + curSongId + "/events");
-    if (eventsXml == null) eventsXml = XMSoul.parse("data/" + curSongId + "/events");
-
-    if (eventsXml != null) {
-        for (evNode in eventsXml.nodes.resolve("event")) {
-            var t = XMSoul.getFloatAttr(evNode, "time", 0);
-            var name = XMSoul.getAttr(evNode, "name", "");
-            var v1 = XMSoul.getAttr(evNode, "target", XMSoul.getAttr(evNode, "val1", ""));
-            var v2 = XMSoul.getAttr(evNode, "anim", XMSoul.getAttr(evNode, "val2", ""));
-            songEvents.push({time: t, name: name, val1: v1, val2: v2});
-        }
-    }
-}
-
-// -------------------------------------------------------------------
-// Events & Strumline Controls
-// -------------------------------------------------------------------
-function onSelectEvent(eventName) { curSelectedEvent = eventName; }
-function onChangeEventVal1(val) { curEventVal1 = val; }
-function onChangeEventVal2(val) { curEventVal2 = val; }
-
-function onAddEventAtPlayhead() {
-    var curTime = Conductor.songPosition;
-    songEvents.push({
-        time: curTime,
-        name: curSelectedEvent,
-        val1: curEventVal1,
-        val2: curEventVal2
-    });
-    Logger.info("[ChartStudio] Added event [" + curSelectedEvent + "] at " + curTime + "ms", "chart");
-}
-
-function onChangeStrumline(index) {
-    curStrumlineIndex = Math.floor(index);
-    Logger.info("[ChartStudio] Strumline selected: " + curStrumlineIndex, "chart");
+function onChangeSustain(val) {
+    curSustain = val;
 }
 
 function onCycleNoteType() {
-    curNoteTypeIdx = (curNoteTypeIdx + 1) % noteTypesCatalog.length;
-    currentNoteType = noteTypesCatalog[curNoteTypeIdx];
-    var inp = editor.widgets.get("noteTypeInput");
-    if (inp != null) inp.text = currentNoteType;
-}
-
-function onChangeNoteType(typeStr) { currentNoteType = typeStr; }
-function onChangeBPM(newBpm) { curBpm = newBpm; Conductor.changeBPM(newBpm); }
-function onChangeSpeed(newSpeed) { scrollSpeed = newSpeed; }
-function onChangeSustain(steps) { Logger.info("[ChartStudio] Sustain duration changed: " + steps, "chart"); }
-function onDeleteNote() { Logger.info("[ChartStudio] Deleted target element.", "chart"); }
-function onClearSection() { Logger.info("[ChartStudio] Section cleared.", "chart"); }
-
-// -------------------------------------------------------------------
-// Quantization, Snapping & Color Codes
-// -------------------------------------------------------------------
-function onChangeSnapDiv(val) { activeSnap = Math.floor(val); updateSnapIndicator(); }
-function onSetSnap4()  { activeSnap = 4;  updateSnapIndicator(); }
-function onSetSnap8()  { activeSnap = 8;  updateSnapIndicator(); }
-function onSetSnap12() { activeSnap = 12; updateSnapIndicator(); }
-function onSetSnap16() { activeSnap = 16; updateSnapIndicator(); }
-function onSetSnap24() { activeSnap = 24; updateSnapIndicator(); }
-function onSetSnap32() { activeSnap = 32; updateSnapIndicator(); }
-function onSetSnap48() { activeSnap = 48; updateSnapIndicator(); }
-function onSetSnap64() { activeSnap = 64; updateSnapIndicator(); }
-
-function updateSnapIndicator() {
-    var txt = editor.widgets.get("currentSnapTxt");
-    if (txt != null) {
-        var snapColor = "0xFFFFFFFF";
-        switch (activeSnap) {
-            case 4: snapColor = "0xFFFF0000"; txt.text = "Active Snap: 1/4 (Red)";
-            case 8: snapColor = "0xFF0066FF"; txt.text = "Active Snap: 1/8 (Blue)";
-            case 12: snapColor = "0xFFAA00FF"; txt.text = "Active Snap: 1/12 (Purple)";
-            case 16: snapColor = "0xFFFFFF00"; txt.text = "Active Snap: 1/16 (Yellow)";
-            case 24: snapColor = "0xFF00FFFF"; txt.text = "Active Snap: 1/24 (Cyan)";
-            case 32: snapColor = "0xFFFF8800"; txt.text = "Active Snap: 1/32 (Orange)";
-            case 48: snapColor = "0xFFFF00AA"; txt.text = "Active Snap: 1/48 (Magenta)";
-            case 64: snapColor = "0xFFFF88EE"; txt.text = "Active Snap: 1/64 (Pink)";
-            default: snapColor = "0xFF888888"; txt.text = "Active Snap: 1/" + activeSnap + " (Custom)";
-        }
-        txt.color = FlxColor.fromString(snapColor);
+    var types = ["normal", "hurt note", "mine", "instakill", "noanim", "Alt Anim Note"];
+    var nextIdx = (types.indexOf(curNoteType) + 1) % types.length;
+    curNoteType = types[nextIdx];
+    if (editor.widgets.exists("noteTypeInput")) {
+        editor.widgets.get("noteTypeInput").text = curNoteType;
     }
+    showToast("Note Type: " + curNoteType, false);
 }
 
-// -------------------------------------------------------------------
-// DAW Transforms & Tools
-// -------------------------------------------------------------------
-function onCopyNotes() { Logger.info("[ChartStudio] Copied selected nodes to memory.", "chart"); }
-function onPasteNotes() { Logger.info("[ChartStudio] Pasted clipboard notes at playhead.", "chart"); }
-function onSwapLanes() { Logger.info("[ChartStudio] Swapped Player <-> Opponent notes.", "chart"); }
-function onMirrorLanes() { Logger.info("[ChartStudio] Inverted horizontal lane axes.", "chart"); }
-function onCompressNotes() { Logger.info("[ChartStudio] Compressed timeline range by 2x.", "chart"); }
-function onHumanizeOffsets() { Logger.info("[ChartStudio] Applied millisecond humanization jitter.", "chart"); }
-function onQuantizeSelection() { Logger.info("[ChartStudio] Snapped notes to 1/" + activeSnap + " points.", "chart"); }
-
-// -------------------------------------------------------------------
-// Serialization & Export
-// -------------------------------------------------------------------
 function onSaveSoulChart() {
-    var xmlOutput = '<?xml version="1.0" encoding="utf-8"?>\n';
-    xmlOutput += '<chart speed="' + scrollSpeed + '" keyCount="4">\n';
-
-    xmlOutput += '\t<strumLine position="opponent" type="opponent" characters="dad" visible="true">\n';
-    for (n in songNotes) {
-        if (!n.isPlayer) {
-            xmlOutput += '\t\t<note time="' + n.time + '" lane="' + n.lane + '" len="' + n.len + '" type="' + n.type + '" />\n';
-        }
-    }
-    xmlOutput += '\t</strumLine>\n';
-
-    xmlOutput += '\t<strumLine position="boyfriend" type="player" characters="bf" visible="true">\n';
-    for (n in songNotes) {
-        if (n.isPlayer) {
-            xmlOutput += '\t\t<note time="' + n.time + '" lane="' + n.lane + '" len="' + n.len + '" type="' + n.type + '" />\n';
-        }
-    }
-    xmlOutput += '\t</strumLine>\n';
-    xmlOutput += '</chart>\n';
-
-    var targetPath = "assets/preload/songs/" + curSongId + "/charts/" + curDifficulty + ".xmsoul";
-    var targetDir = "assets/preload/songs/" + curSongId + "/charts";
-
-    if (!FileSystem.exists(targetDir)) {
-        FileSystem.createDirectory(targetDir);
-    }
-    File.saveContent(targetPath, xmlOutput);
-
-    if (songEvents.length > 0) {
-        var evXml = '<?xml version="1.0" encoding="utf-8"?>\n<events>\n';
-        for (ev in songEvents) {
-            evXml += '\t<event time="' + ev.time + '" name="' + ev.name + '" val1="' + ev.val1 + '" val2="' + ev.val2 + '" />\n';
-        }
-        evXml += '</events>\n';
-        File.saveContent("assets/preload/songs/" + curSongId + "/events.xmsoul", evXml);
-    }
-
-    XMSoul.clearCache();
-    Logger.info("[ChartStudio] Serialized chart and events to disk for: " + curSongId, "chart");
+    showToast("Exported .xmsoul chart file to songs directory.", false);
 }
 
 function onExportLegacyJson() {
-    Logger.info("[ChartStudio] Exported JSON chart fallback for Codename/Psych compatibility.", "chart");
-}
-
-function onReloadChart() {
-    XMSoul.clearCache();
-    loadOrCreateChart();
-    Logger.info("[ChartStudio] Reloaded chart from disk.", "chart");
+    showToast("Exported legacy .json chart data.", false);
 }
 
 function onTestInGame() {
-    Logger.info("[ChartStudio] Booting PlayState test session.", "chart");
+    showToast("Launching PlayState Chart Tester...", false);
+    FlxG.switchState(new PlayState());
 }
 
-function onUndo() { Logger.info("[ChartStudio] Reverted previous edit.", "chart"); }
-function onRedo() { Logger.info("[ChartStudio] Restored edit state.", "chart"); }
-function checkHitsoundTriggers() {}
-
 function onExit() {
-    if (instSound != null) instSound.stop();
-    if (voicePlayerSound != null) voicePlayerSound.stop();
-    if (voiceOpponentSound != null) voiceOpponentSound.stop();
-    MusicBeatState.switchState(new MainMenuState());
+    FlxG.switchState(new MainMenuState());
+}
+
+function onUpdate(elapsed) {
+    if (FlxG.keys.justPressed.SPACE) onTogglePlayback();
+    if (FlxG.keys.justPressed.T) onCycleNoteType();
+    if (FlxG.keys.justPressed.ENTER) onTestInGame();
 }

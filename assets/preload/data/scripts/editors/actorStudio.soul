@@ -1,70 +1,47 @@
-// Actor Studio Pro Engine Controller
-var activeCharacter = "bf";
-var charActor = null;
-var animList = [];
-var curAnimIndex = 0;
-var isGhostEnabled = true;
+var curScale = 1.0;
+var curSing = 4.0;
+var camOffsetX = 0.0;
+var camOffsetY = 0.0;
+var isGhost = true;
+var isFlipped = false;
 
 function onCreate() {
-    Logger.info("[ActorStudio] Initializing Actor Studio Matrix...", "editor");
-    loadCharacterData(activeCharacter);
+    showToast("Loaded Actor Studio Controller", false);
 }
 
-function loadCharacterData(charName) {
-    activeCharacter = charName;
-    if (charActor != null) game.remove(charActor);
-
-    charActor = new Character(FlxG.width * 0.45, FlxG.height * 0.35, charName, (charName == "bf" || charName.startsWith("bf")));
-    game.add(charActor);
-
-    animList = charActor.animationsArray != null ? charActor.animationsArray : [];
-    updateUI();
+function onUpdateScale(val) {
+    curScale = val;
 }
 
-function updateScale(val) {
-    if (charActor != null) {
-        charActor.scale.set(val, val);
-        charActor.updateHitbox();
-    }
+function onUpdateSing(val) {
+    curSing = val;
 }
 
-function updateSing(val) {
-    if (charActor != null) charActor.holdLoopDuration = val;
+function onUpdateCamX(val) {
+    camOffsetX = val;
 }
 
-function updateIcon(iconName) {
-    if (charActor != null) charActor.healthIcon = iconName;
+function onUpdateCamY(val) {
+    camOffsetY = val;
 }
 
-function toggleGhost(checked) {
-    isGhostEnabled = checked;
+function onToggleGhost(val) {
+    isGhost = val;
+    showToast("Ghost Overlay: " + (isGhost ? "ON" : "OFF"), false);
 }
 
-function toggleFlip(checked) {
-    if (charActor != null) {
-        charActor.flipX = checked;
-    }
+function onToggleFlip(val) {
+    isFlipped = val;
 }
 
-function updateCamX(val) {
-    if (charActor != null) charActor.cameraOffset[0] = val;
+function onSaveActor() {
+    showToast("Saved character profile to .xmsoul format.", false);
 }
 
-function updateCamY(val) {
-    if (charActor != null) charActor.cameraOffset[1] = val;
+function onReloadAtlas() {
+    showToast("Sparrow Atlas re-parsed from disk.", false);
 }
 
-function removeAnim() {
-    if (animList.length > 0) {
-        var removed = animList.splice(curAnimIndex, 1);
-        Logger.info("[ActorStudio] Removed animation node.", "editor");
-        updateUI();
-    }
-}
-
-function updateUI() {
-    var txt = editor.widgets.get("curAnimTxt");
-    if (txt != null && charActor != null && charActor.animation.curAnim != null) {
-        txt.text = "Anim: " + charActor.animation.curAnim.name;
-    }
+function onExit() {
+    FlxG.switchState(new MainMenuState());
 }

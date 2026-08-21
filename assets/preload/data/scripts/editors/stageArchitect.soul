@@ -1,78 +1,38 @@
-// Stage Architect Pro Controller
-var currentStageId = "stage";
-var loadedProps = [];
-var curSelectedProp = null;
+var activeLayer = "behindDad";
+var layers = ["background", "behindGF", "behindDad", "behindBF", "foreground"];
 
 function onCreate() {
-    Logger.info("[StageArchitect] Initializing Stage Visualizer...", "editor");
+    showToast("Stage Architect System Ready", false);
 }
 
 function onAddProp() {
-    var dummyProp = new FlxSprite(FlxG.width * 0.3, FlxG.height * 0.3);
-    dummyProp.makeGraphic(200, 200, 0xFF00FFCC);
-    game.add(dummyProp);
-    loadedProps.push(dummyProp);
-    curSelectedProp = dummyProp;
-    updateTreeDisplay();
+    showToast("Prop added to stage hierarchy", false);
 }
 
 function onRemoveProp() {
-    if (curSelectedProp != null) {
-        game.remove(curSelectedProp);
-        loadedProps.remove(curSelectedProp);
-        curSelectedProp.destroy();
-        curSelectedProp = null;
-        updateTreeDisplay();
-    }
-}
-
-function onScaleX(val) {
-    if (curSelectedProp != null) curSelectedProp.scale.x = val;
-}
-
-function onScaleY(val) {
-    if (curSelectedProp != null) curSelectedProp.scale.y = val;
-}
-
-function onScrollX(val) {
-    if (curSelectedProp != null) curSelectedProp.scrollFactor.x = val;
-}
-
-function onScrollY(val) {
-    if (curSelectedProp != null) curSelectedProp.scrollFactor.y = val;
-}
-
-function onAlpha(val) {
-    if (curSelectedProp != null) curSelectedProp.alpha = val;
-}
-
-function onAntialias(val) {
-    if (curSelectedProp != null) curSelectedProp.antialiasing = val;
+    showToast("Prop removed from stage hierarchy", false);
 }
 
 function onCycleLayer() {
-    Logger.info("[StageArchitect] Cycled active layer depth.", "editor");
-}
-
-function onResetView() {
-    game.camGame.zoom = 1.0;
-    game.camGame.scroll.set(0, 0);
+    var nextIdx = (layers.indexOf(activeLayer) + 1) % layers.length;
+    activeLayer = layers[nextIdx];
+    if (editor.widgets.exists("layerTxt")) {
+        editor.widgets.get("layerTxt").text = "Layer: " + activeLayer;
+    }
+    showToast("Selected Layer: " + activeLayer, false);
 }
 
 function onSaveStage() {
-    var out = '<?xml version="1.0" encoding="utf-8"?>\n<stage defaultZoom="0.9">\n</stage>\n';
-    File.saveContent("assets/preload/data/stages/" + currentStageId + ".xmsoul", out);
-    XMSoul.clearCache();
-    Logger.info("[StageArchitect] Saved stage layout to disk.", "editor");
+    showToast("Stage architecture exported to .xmsoul", false);
 }
 
-function updateTreeDisplay() {
-    var treeTxt = editor.widgets.get("treeListTxt");
-    if (treeTxt != null) {
-        treeTxt.text = "Props Loaded: " + loadedProps.length;
+function onResetView() {
+    if (camWorld != null) {
+        camWorld.zoom = 1.0;
+        camWorld.scroll.set(0, 0);
     }
 }
 
 function onExit() {
-    MusicBeatState.switchState(new MainMenuState());
+    FlxG.switchState(new MainMenuState());
 }

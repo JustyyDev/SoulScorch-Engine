@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pauseMenu bgColor="0x99000000" music="breakfast" blur="true" font="vcr" itemSpacing="64" menuX="60" menuY="160">
+    <items>
+        <item label="Resume" action="resume" />
+        <item label="Restart Song" action="restart" />
+        <item label="Toggle Practice Mode" action="togglePractice" />
+        <item label="Toggle Botplay" action="toggleBotplay" />
+        <item label="Options" action="options" />
+        <item label="Exit to Main Menu" action="exit" />
+    </items>
+</pauseMenu>

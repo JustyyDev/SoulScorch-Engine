@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <editor title="SOULSCORCH CHART STUDIO // [CODENAME HYBRID MATRIX]" script="data/scripts/editors/chartStudio.soul">
-    <!-- Global Actions -->
     <action label="Play/Pause (Space)" onTrigger="onTogglePlayback" />
     <action label="Practice Mode (Tab)" onTrigger="onTogglePracticeBench" />
-    <action label="Save .soulchart (Ctrl+S)" onTrigger="onSaveSoulChart" />
+    <action label="Save .xmsoul (Ctrl+S)" onTrigger="onSaveSoulChart" />
     <action label="Undo (Ctrl+Z)" onTrigger="onUndo" />
     <action label="Redo (Ctrl+Y)" onTrigger="onRedo" />
     <action label="Metronome (M)" onTrigger="onToggleMetronome" />
@@ -12,7 +11,6 @@
     <action label="Test in Game (Enter)" onTrigger="onTestInGame" />
     <action label="Exit" onTrigger="onExit" />
 
-    <!-- 1. Song & Strumline Properties (Top-Left) -->
     <window id="songProps" title="Song &amp; Strumline Setup" x="15" y="45" width="290" height="340">
         <stepper id="bpmStep" label="Master BPM" default="120" min="30" max="500" step="1" precision="1" x="10" y="8" width="270" action="onChangeBPM" />
         <stepper id="speedStep" label="Scroll Speed" default="2" min="0.5" max="8" step="0.05" precision="2" x="10" y="44" width="270" action="onChangeSpeed" />
@@ -20,12 +18,11 @@
         <stepper id="strumlineSelect" label="Active Strumline (0:GF, 1:Dad, 2:BF)" default="2" min="0" max="8" step="1" precision="0" x="10" y="122" width="270" action="onChangeStrumline" />
         <input id="inputPlayer" label="Player 1 (BF)" text="bf" x="10" y="164" width="130" action="onChangePlayer" />
         <input id="inputOpponent" label="Player 2 (Opponent)" text="dad" x="150" y="164" width="130" action="onChangeOpponent" />
-        <button id="exportSoulChartBtn" text="Export as .soulchart XML" x="10" y="220" width="270" height="26" action="onSaveSoulChart" />
-        <button id="exportJsonBtn" text="Export Codename / Psych JSON" x="10" y="252" width="270" height="26" action="onExportLegacyJson" />
+        <button id="exportSoulChartBtn" text="Export as .xmsoul Chart" x="10" y="220" width="270" height="26" action="onSaveSoulChart" />
+        <button id="exportJsonBtn" text="Export Legacy JSON" x="10" y="252" width="270" height="26" action="onExportLegacyJson" />
         <button id="reloadChartBtn" text="Reload from Disk" x="10" y="284" width="270" height="26" action="onReloadChart" />
     </window>
 
-    <!-- 2. Master Audio Mixer & Waveforms (Bottom-Left) -->
     <window id="audioMixer" title="Multi-Track Audio &amp; Waveforms" x="15" y="395" width="290" height="260">
         <stepper id="instVolStep" label="Instrumental Volume" default="1" min="0" max="1.5" step="0.05" precision="2" x="10" y="8" width="130" action="onSetInstVol" />
         <stepper id="voiceVolStep" label="Vocal Volume" default="1" min="0" max="1.5" step="0.05" precision="2" x="150" y="8" width="130" action="onSetVoiceVol" />
@@ -37,7 +34,6 @@
         <button id="resyncAudioBtn" text="Force Audio Re-sync (S)" x="10" y="210" width="270" height="26" action="onResyncAudio" />
     </window>
 
-    <!-- 3. Quantization & Grid Snaps (Top-Right) -->
     <window id="quantizationWin" title="Quantization &amp; Snaps" x="975" y="45" width="290" height="190">
         <text id="currentSnapTxt" text="Active Snap: 1/16 (Yellow)" x="10" y="6" size="13" color="0xFFFFFF00" />
         <stepper id="snapDivStep" label="Snap Division (1/X)" default="16" min="1" max="192" step="1" precision="0" x="10" y="28" width="270" action="onChangeSnapDiv" />
@@ -52,7 +48,6 @@
         <button id="quantizeSelectionBtn" text="Snap Notes to Active Grid" x="10" y="145" width="270" height="26" action="onQuantizeSelection" />
     </window>
 
-    <!-- 4. Codename Event Track & Note Inspector (Middle-Right) -->
     <window id="eventInspector" title="Events &amp; Note Inspector" x="975" y="245" width="290" height="235">
         <stepper id="sustainStep" label="Hold Duration (Steps)" default="0" min="0" max="128" step="0.5" precision="1" x="10" y="6" width="270" action="onChangeSustain" />
         <input id="noteTypeInput" label="Active Note Type" text="normal" x="10" y="44" width="270" action="onChangeNoteType" />
@@ -64,7 +59,6 @@
         <button id="delNoteBtn" text="Delete Note / Event (Del)" x="150" y="188" width="130" height="24" action="onDeleteNote" />
     </window>
 
-    <!-- 5. Advanced DAW Clipboard & Transformers (Bottom-Right) -->
     <window id="patternTools" title="DAW Pattern Transformer" x="975" y="490" width="290" height="165">
         <button id="copyBtn" text="Copy (Ctrl+C)" x="10" y="6" width="130" height="24" action="onCopyNotes" />
         <button id="pasteBtn" text="Paste (Ctrl+V)" x="150" y="6" width="130" height="24" action="onPasteNotes" />
