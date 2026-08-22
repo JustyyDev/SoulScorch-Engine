@@ -244,6 +244,19 @@ class PythonScript implements ScriptInstance {
         variables.set(key, value);
     }
 
+    public function importClass(className:String):Bool {
+        if (className == null) return false;
+        var resolvedClass:Dynamic = Type.resolveClass(className);
+        if (resolvedClass == null) resolvedClass = Type.resolveEnum(className);
+
+        if (resolvedClass != null) {
+            var shortName:String = className.substr(className.lastIndexOf(".") + 1);
+            set(shortName, resolvedClass);
+            return true;
+        }
+        return false;
+    }
+
     public function get(key:String):Dynamic {
         if (variables.exists(key)) return variables.get(key);
         if (pySprites.exists(key)) return pySprites.get(key);

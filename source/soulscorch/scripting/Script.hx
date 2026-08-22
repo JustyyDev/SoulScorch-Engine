@@ -250,6 +250,19 @@ class Script implements ScriptInstance {
         return (interp != null) ? interp.variables.get(key) : null;
     }
 
+    public function importClass(className:String):Bool {
+        if (className == null) return false;
+        var resolvedClass:Dynamic = Type.resolveClass(className);
+        if (resolvedClass == null) resolvedClass = Type.resolveEnum(className);
+
+        if (resolvedClass != null) {
+            var shortName:String = className.substr(className.lastIndexOf(".") + 1);
+            set(shortName, resolvedClass);
+            return true;
+        }
+        return false;
+    }
+
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
         if (!active || interp == null || !interp.variables.exists(func)) return null;
 

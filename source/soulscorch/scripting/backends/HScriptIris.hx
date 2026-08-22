@@ -1,6 +1,12 @@
 package soulscorch.scripting.backends;
 
+#if SOULSCORCH_IRIS
 import crowplexus.iris.Iris;
+#else
+import hscript.Interp;
+import hscript.Parser;
+#end
+
 import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
@@ -106,7 +112,11 @@ class HScriptIris implements ScriptInstance {
     public var activeTweens:Map<String, FlxTween> = new Map<String, FlxTween>();
     public var activeTimers:Map<String, FlxTimer> = new Map<String, FlxTimer>();
 
+    #if SOULSCORCH_IRIS
     private var iris:Iris;
+    #else
+    private var interp:Interp;
+    #end
 
     public function new(scriptPath:String, ?customCode:String) {
         this.path = (scriptPath == null) ? "" : scriptPath;
@@ -119,13 +129,28 @@ class HScriptIris implements ScriptInstance {
         #end
 
         if (code != null) {
+            #if SOULSCORCH_IRIS
             this.iris = new Iris(code, {name: path, autoRun: false});
+            #else
+            var parser = new Parser();
+            parser.allowTypes = false;
+            parser.allowJSON = true;
+            var program = parser.parseString(code);
+            this.interp = new Interp();
+            #end
+
             presetEnvironment();
+
+            #if (!SOULSCORCH_IRIS)
+            interp.execute(program);
+            #end
+
             load();
         }
     }
 
     public function load():Bool {
+        #if SOULSCORCH_IRIS
         if (iris == null) return false;
         try {
             iris.execute();
@@ -135,82 +160,81 @@ class HScriptIris implements ScriptInstance {
             active = false;
         }
         return active;
+        #else
+        active = (interp != null);
+        return active;
+        #end
     }
 
     private function presetEnvironment():Void {
-        if (iris == null) return;
+        set("curBeat", Conductor.curBeat);
+        set("curStep", Conductor.curStep);
+        set("curDecBeat", Conductor.curDecBeat);
+        set("curDecStep", Conductor.curDecStep);
+        set("bpm", Conductor.bpm);
+        set("crochet", Conductor.crochet);
+        set("stepCrochet", Conductor.stepCrochet);
+        set("songPosition", Conductor.songPosition);
 
-        // Conductor & Song Timing
-        iris.set("curBeat", Conductor.curBeat);
-        iris.set("curStep", Conductor.curStep);
-        iris.set("curDecBeat", Conductor.curDecBeat);
-        iris.set("curDecStep", Conductor.curDecStep);
-        iris.set("bpm", Conductor.bpm);
-        iris.set("crochet", Conductor.crochet);
-        iris.set("stepCrochet", Conductor.stepCrochet);
-        iris.set("songPosition", Conductor.songPosition);
-
-        // Core Types & Reflection
-        iris.set("Std", Std);
-        iris.set("Math", Math);
-        iris.set("StringTools", StringTools);
-        iris.set("Reflect", Reflect);
-        iris.set("Type", Type);
-        iris.set("Date", Date);
-        iris.set("DateTools", DateTools);
-        iris.set("Xml", Xml);
-        iris.set("Json", haxe.Json);
+        set("Std", Std);
+        set("Math", Math);
+        set("StringTools", StringTools);
+        set("Reflect", Reflect);
+        set("Type", Type);
+        set("Date", Date);
+        set("DateTools", DateTools);
+        set("Xml", Xml);
+        set("Json", haxe.Json);
 
         #if sys
-        iris.set("Sys", Sys);
-        iris.set("File", sys.io.File);
-        iris.set("FileSystem", sys.FileSystem);
-        iris.set("Process", sys.io.Process);
+        set("Sys", Sys);
+        set("File", sys.io.File);
+        set("FileSystem", sys.FileSystem);
+        set("Process", sys.io.Process);
         #end
 
-        iris.set("NativeAPI", NativeAPI);
-        iris.set("FileSystemAPI", FileSystemAPI);
-        iris.set("openfl", {Lib: openfl.Lib});
-        iris.set("Lib", openfl.Lib);
-        iris.set("Application", lime.app.Application);
-        iris.set("window", (openfl.Lib.application != null) ? openfl.Lib.application.window : null);
-        iris.set("stage", openfl.Lib.current.stage);
-        iris.set("Controls", Controls.instance);
-        iris.set("controls", Controls.instance);
+        set("NativeAPI", NativeAPI);
+        set("FileSystemAPI", FileSystemAPI);
+        set("openfl", {Lib: openfl.Lib});
+        set("Lib", openfl.Lib);
+        set("Application", lime.app.Application);
+        set("window", (openfl.Lib.application != null) ? openfl.Lib.application.window : null);
+        set("stage", openfl.Lib.current.stage);
+        set("Controls", Controls.instance);
+        set("controls", Controls.instance);
 
-        // Flixel Display & Containers
-        iris.set("FlxG", FlxG);
-        iris.set("FlxSprite", FlxSprite);
-        iris.set("FlxCamera", FlxCamera);
-        iris.set("FlxText", FlxText);
-        iris.set("FlxObject", FlxObject);
-        iris.set("FlxState", FlxState);
-        iris.set("FlxSubState", FlxSubState);
-        iris.set("FlxBasic", FlxBasic);
-        iris.set("FlxBar", FlxBar);
-        iris.set("FlxButton", FlxButton);
-        iris.set("FlxBackdrop", FlxBackdrop);
-        iris.set("FlxGridOverlay", FlxGridOverlay);
-        iris.set("FlxPoint", {get: FlxPoint.get, weak: FlxPoint.weak});
-        iris.set("FlxRect", {get: FlxRect.get});
+        set("FlxG", FlxG);
+        set("FlxSprite", FlxSprite);
+        set("FlxCamera", FlxCamera);
+        set("FlxText", FlxText);
+        set("FlxObject", FlxObject);
+        set("FlxState", FlxState);
+        set("FlxSubState", FlxSubState);
+        set("FlxBasic", FlxBasic);
+        set("FlxBar", FlxBar);
+        set("FlxButton", FlxButton);
+        set("FlxBackdrop", FlxBackdrop);
+        set("FlxGridOverlay", FlxGridOverlay);
+        set("FlxPoint", {get: FlxPoint.get, weak: FlxPoint.weak});
+        set("FlxRect", {get: FlxRect.get});
 
-        iris.set("FlxGroup", FlxGroup);
-        iris.set("FlxTypedGroup", FlxTypedGroup);
-        iris.set("FlxSpriteGroup", FlxSpriteGroup);
+        set("FlxGroup", FlxGroup);
+        set("FlxTypedGroup", FlxTypedGroup);
+        set("FlxSpriteGroup", FlxSpriteGroup);
 
-        iris.set("FlxTween", FlxTween);
-        iris.set("FlxEase", FlxEase);
-        iris.set("FlxTimer", FlxTimer);
-        iris.set("FlxSort", FlxSort);
+        set("FlxTween", FlxTween);
+        set("FlxEase", FlxEase);
+        set("FlxTimer", FlxTimer);
+        set("FlxSort", FlxSort);
 
-        iris.set("FlxMath", FlxMath);
-        iris.set("FlxVelocity", FlxVelocity);
-        iris.set("FlxAngle", FlxAngle);
+        set("FlxMath", FlxMath);
+        set("FlxVelocity", FlxVelocity);
+        set("FlxAngle", FlxAngle);
 
-        iris.set("FlxSound", FlxSound);
-        iris.set("FlxTrail", FlxTrail);
+        set("FlxSound", FlxSound);
+        set("FlxTrail", FlxTrail);
 
-        iris.set("FlxColor", {
+        set("FlxColor", {
             BLACK: 0xFF000000,
             WHITE: 0xFFFFFFFF,
             RED: 0xFFFF0000,
@@ -225,7 +249,7 @@ class HScriptIris implements ScriptInstance {
             fromString: FlxColor.fromString
         });
 
-        iris.set("BlendMode", {
+        set("BlendMode", {
             NORMAL: BlendMode.NORMAL,
             ADD: BlendMode.ADD,
             MULTIPLY: BlendMode.MULTIPLY,
@@ -242,42 +266,41 @@ class HScriptIris implements ScriptInstance {
             LAYER: BlendMode.LAYER
         });
 
-        iris.set("Matrix", Matrix);
-        iris.set("URLRequest", URLRequest);
+        set("Matrix", Matrix);
+        set("URLRequest", URLRequest);
 
-        // Architecture & Subsystems
-        iris.set("Runtime", Runtime);
-        iris.set("Engine", Engine);
-        iris.set("Version", Version);
-        iris.set("Conductor", Conductor);
-        iris.set("Paths", Paths);
-        iris.set("EventBus", EventBus);
-        iris.set("Logger", Logger);
-        iris.set("ModLoader", ModLoader);
-        iris.set("ModManager", ModManager);
-        iris.set("XMSoul", XMSoul);
-        iris.set("SaveData", SaveData.instance);
-        iris.set("EngineOptimizer", EngineOptimizer);
-        iris.set("HotReloader", HotReloader);
-        iris.set("DevConsole", DevConsole);
-        iris.set("AssetResolver", AssetResolver);
-        iris.set("AssetHelper", AssetHelper);
-        iris.set("AudioManager", AudioManager);
-        iris.set("Framerate", Framerate);
-        iris.set("GameConfig", GameConfig);
-        iris.set("CrashHandler", CrashHandler);
+        set("Runtime", Runtime);
+        set("Engine", Engine);
+        set("Version", Version);
+        set("Conductor", Conductor);
+        set("Paths", Paths);
+        set("EventBus", EventBus);
+        set("Logger", Logger);
+        set("ModLoader", ModLoader);
+        set("ModManager", ModManager);
+        set("XMSoul", XMSoul);
+        set("SaveData", SaveData.instance);
+        set("EngineOptimizer", EngineOptimizer);
+        set("HotReloader", HotReloader);
+        set("DevConsole", DevConsole);
+        set("AssetResolver", AssetResolver);
+        set("AssetHelper", AssetHelper);
+        set("AudioManager", AudioManager);
+        set("Framerate", Framerate);
+        set("GameConfig", GameConfig);
+        set("CrashHandler", CrashHandler);
 
         #if desktop
-        iris.set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
+        set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
         #end
 
-        iris.set("Away3DManager", Away3DManager);
-        iris.set("ModelAPI", ModelAPI);
-        iris.set("JuiceManager", JuiceManager);
-        iris.set("SoulShader", SoulShader);
-        iris.set("ShaderManager", ShaderManager.instance);
+        set("Away3DManager", Away3DManager);
+        set("ModelAPI", ModelAPI);
+        set("JuiceManager", JuiceManager);
+        set("SoulShader", SoulShader);
+        set("ShaderManager", ShaderManager.instance);
 
-        iris.set("ShaderFilter", function(shaderOrFilter:Dynamic) {
+        set("ShaderFilter", function(shaderOrFilter:Dynamic) {
             if (Std.isOfType(shaderOrFilter, ShaderFilter)) {
                 return shaderOrFilter;
             } else if (Std.isOfType(shaderOrFilter, SoulShader)) {
@@ -289,45 +312,43 @@ class HScriptIris implements ScriptInstance {
             return null;
         });
 
-        // Gameplay Elements
-        iris.set("Character", Character);
-        iris.set("HealthIcon", HealthIcon);
-        iris.set("Note", Note);
-        iris.set("Strumline", Strumline);
-        iris.set("StrumArrow", StrumArrow);
-        iris.set("NoteSplash", NoteSplash);
-        iris.set("NoteSkinManager", NoteSkinManager);
-        iris.set("Stage", Stage);
-        iris.set("GameplayFlags", GameplayFlags);
-        iris.set("JudgementManager", JudgementManager);
-        iris.set("ModchartManager", ModchartManager);
+        set("Character", Character);
+        set("HealthIcon", HealthIcon);
+        set("Note", Note);
+        set("Strumline", Strumline);
+        set("StrumArrow", StrumArrow);
+        set("NoteSplash", NoteSplash);
+        set("NoteSkinManager", NoteSkinManager);
+        set("Stage", Stage);
+        set("GameplayFlags", GameplayFlags);
+        set("JudgementManager", JudgementManager);
+        set("ModchartManager", ModchartManager);
 
-        iris.set("MusicBeatState", MusicBeatState);
-        iris.set("ResultsState", ResultsState);
-        iris.set("GameOverSubState", GameOverSubState);
-        iris.set("PauseSubState", PauseSubState);
-        iris.set("MainMenuState", MainMenuState);
-        iris.set("TitleState", TitleState);
-        iris.set("FreeplayState", FreeplayState);
-        iris.set("StoryMenuState", StoryMenuState);
-        iris.set("OptionsMenuState", OptionsMenuState);
-        iris.set("CreditsState", CreditsState);
-        iris.set("ModCustomState", ModCustomState);
-        iris.set("ScriptedState", ScriptedState);
-        iris.set("ScriptedSubState", ScriptedSubState);
+        set("MusicBeatState", MusicBeatState);
+        set("ResultsState", ResultsState);
+        set("GameOverSubState", GameOverSubState);
+        set("PauseSubState", PauseSubState);
+        set("MainMenuState", MainMenuState);
+        set("TitleState", TitleState);
+        set("FreeplayState", FreeplayState);
+        set("StoryMenuState", StoryMenuState);
+        set("OptionsMenuState", OptionsMenuState);
+        set("CreditsState", CreditsState);
+        set("ModCustomState", ModCustomState);
+        set("ScriptedState", ScriptedState);
+        set("ScriptedSubState", ScriptedSubState);
 
-        iris.set("game", FlxG.state);
-        iris.set("state", FlxG.state);
-        iris.set("camera", FlxG.camera);
-        iris.set("cameras", FlxG.cameras);
-        iris.set("sound", FlxG.sound);
-        iris.set("keys", FlxG.keys);
-        iris.set("mouse", FlxG.mouse);
-        iris.set("defaultCamZoom", 1.0);
-        iris.set("PlayState", PlayState);
+        set("game", FlxG.state);
+        set("state", FlxG.state);
+        set("camera", FlxG.camera);
+        set("cameras", FlxG.cameras);
+        set("sound", FlxG.sound);
+        set("keys", FlxG.keys);
+        set("mouse", FlxG.mouse);
+        set("defaultCamZoom", 1.0);
+        set("PlayState", PlayState);
 
-        // --- Custom Sprite & Text Helpers ---
-        iris.set("makeSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
+        set("makeSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
             var spr = new FlxSprite(x, y);
             if (image != null && image.trim().length > 0) {
                 AssetHelper.loadGraphicSafely(spr, image);
@@ -341,7 +362,7 @@ class HScriptIris implements ScriptInstance {
             return spr;
         });
 
-        iris.set("makeAnimatedSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
+        set("makeAnimatedSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
             var spr = new FlxSprite(x, y);
             AssetHelper.loadSparrowSafely(spr, image);
             customSprites.set(tag, spr);
@@ -351,7 +372,7 @@ class HScriptIris implements ScriptInstance {
             return spr;
         });
 
-        iris.set("makeText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0, size:Int = 16, ?inFront:Bool = true) {
+        set("makeText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0, size:Int = 16, ?inFront:Bool = true) {
             var txt = new FlxText(x, y, width, text, size);
             txt.setFormat(Paths.font("vcr"), size, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
             txt.borderSize = 1.2;
@@ -362,10 +383,10 @@ class HScriptIris implements ScriptInstance {
             return txt;
         });
 
-        iris.set("getSprite", function(tag:String):Null<FlxSprite> return customSprites.get(tag));
-        iris.set("getText", function(tag:String):Null<FlxText> return customTexts.get(tag));
+        set("getSprite", function(tag:String):Null<FlxSprite> return customSprites.get(tag));
+        set("getText", function(tag:String):Null<FlxText> return customTexts.get(tag));
 
-        iris.set("removeObject", function(tag:String, destroy:Bool = true) {
+        set("removeObject", function(tag:String, destroy:Bool = true) {
             var spr = customSprites.get(tag);
             if (spr != null) {
                 if (FlxG.state != null) FlxG.state.remove(spr, true);
@@ -385,8 +406,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        // --- Note & Receptor Tweens ---
-        iris.set("noteTweenX", function(tag:String, lane:Int, targetX:Float, duration:Float, ?ease:String = "linear") {
+        set("noteTweenX", function(tag:String, lane:Int, targetX:Float, duration:Float, ?ease:String = "linear") {
             var receptor = getReceptorByLane(lane);
             if (receptor != null) {
                 cancelScriptTween(tag);
@@ -397,7 +417,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("noteTweenY", function(tag:String, lane:Int, targetY:Float, duration:Float, ?ease:String = "linear") {
+        set("noteTweenY", function(tag:String, lane:Int, targetY:Float, duration:Float, ?ease:String = "linear") {
             var receptor = getReceptorByLane(lane);
             if (receptor != null) {
                 cancelScriptTween(tag);
@@ -408,7 +428,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("noteTweenAngle", function(tag:String, lane:Int, targetAngle:Float, duration:Float, ?ease:String = "linear") {
+        set("noteTweenAngle", function(tag:String, lane:Int, targetAngle:Float, duration:Float, ?ease:String = "linear") {
             var receptor = getReceptorByLane(lane);
             if (receptor != null) {
                 cancelScriptTween(tag);
@@ -419,7 +439,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("noteTweenAlpha", function(tag:String, lane:Int, targetAlpha:Float, duration:Float, ?ease:String = "linear") {
+        set("noteTweenAlpha", function(tag:String, lane:Int, targetAlpha:Float, duration:Float, ?ease:String = "linear") {
             var receptor = getReceptorByLane(lane);
             if (receptor != null) {
                 cancelScriptTween(tag);
@@ -430,8 +450,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        // --- Character Actions & Cameras ---
-        iris.set("characterPlayAnim", function(character:String, animName:String, force:Bool = true) {
+        set("characterPlayAnim", function(character:String, animName:String, force:Bool = true) {
             if (PlayState.instance == null) return;
             switch (character.toLowerCase().trim()) {
                 case "dad" | "opponent": if (PlayState.instance.dad != null) PlayState.instance.dad.playAnim(animName, force);
@@ -440,7 +459,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("characterDance", function(character:String) {
+        set("characterDance", function(character:String) {
             if (PlayState.instance == null) return;
             switch (character.toLowerCase().trim()) {
                 case "dad" | "opponent": if (PlayState.instance.dad != null) PlayState.instance.dad.dance();
@@ -449,7 +468,7 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("cameraFocus", function(character:String) {
+        set("cameraFocus", function(character:String) {
             if (PlayState.instance == null) return;
             switch (character.toLowerCase().trim()) {
                 case "dad" | "opponent":
@@ -476,42 +495,39 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        // --- Song Events & Health ---
-        iris.set("triggerEvent", function(eventName:String, val1:Dynamic, val2:Dynamic) {
+        set("triggerEvent", function(eventName:String, val1:Dynamic, val2:Dynamic) {
             if (PlayState.instance != null) PlayState.instance.triggerEvent(eventName, val1, val2);
         });
 
-        iris.set("setHealth", function(value:Float) {
+        set("setHealth", function(value:Float) {
             if (PlayState.instance != null) PlayState.instance.health = value;
         });
 
-        iris.set("getHealth", function():Float {
+        set("getHealth", function():Float {
             return (PlayState.instance != null) ? PlayState.instance.health : 1.0;
         });
 
-        // --- Shaders & FX ---
-        iris.set("setShaderFloat", function(shaderName:String, uniform:String, value:Float) {
+        set("setShaderFloat", function(shaderName:String, uniform:String, value:Float) {
             var s = ShaderManager.instance.getShader(shaderName);
             if (s != null) s.setFloat(uniform, value);
         });
 
-        iris.set("setShaderBool", function(shaderName:String, uniform:String, value:Bool) {
+        set("setShaderBool", function(shaderName:String, uniform:String, value:Bool) {
             var s = ShaderManager.instance.getShader(shaderName);
             if (s != null) s.setBool(uniform, value);
         });
 
-        iris.set("cameraShake", function(camName:String, intensity:Float, duration:Float) {
+        set("cameraShake", function(camName:String, intensity:Float, duration:Float) {
             var cam = resolveCamera(camName);
             if (cam != null) cam.shake(intensity, duration);
         });
 
-        iris.set("cameraFlash", function(camName:String, colorStr:String, duration:Float) {
+        set("cameraFlash", function(camName:String, colorStr:String, duration:Float) {
             var cam = resolveCamera(camName);
             if (cam != null) cam.flash(FlxColor.fromString(colorStr), duration);
         });
 
-        // --- Tweens & Timers ---
-        iris.set("tweenProperty", function(tag:String, target:Dynamic, property:String, toValue:Float, duration:Float, ?ease:String = "linear") {
+        set("tweenProperty", function(tag:String, target:Dynamic, property:String, toValue:Float, duration:Float, ?ease:String = "linear") {
             if (target == null) return;
             cancelScriptTween(tag);
             var tweenProps:Dynamic = {};
@@ -522,9 +538,9 @@ class HScriptIris implements ScriptInstance {
             }));
         });
 
-        iris.set("cancelTween", cancelScriptTween);
+        set("cancelTween", cancelScriptTween);
 
-        iris.set("startTimer", function(tag:String, duration:Float, callback:Void->Void, ?loops:Int = 1) {
+        set("startTimer", function(tag:String, duration:Float, callback:Void->Void, ?loops:Int = 1) {
             if (activeTimers.exists(tag)) {
                 activeTimers.get(tag).cancel();
                 activeTimers.remove(tag);
@@ -534,41 +550,39 @@ class HScriptIris implements ScriptInstance {
             }, loops));
         });
 
-        iris.set("cancelTimer", function(tag:String) {
+        set("cancelTimer", function(tag:String) {
             if (activeTimers.exists(tag)) {
                 activeTimers.get(tag).cancel();
                 activeTimers.remove(tag);
             }
         });
 
-        // --- Sound & Music ---
-        iris.set("playSound", function(soundPath:String, volume:Float = 1.0) {
+        set("playSound", function(soundPath:String, volume:Float = 1.0) {
             AssetHelper.playSoundSafely(soundPath, volume);
         });
 
-        iris.set("playMusic", function(musicPath:String, volume:Float = 1.0, loop:Bool = true) {
+        set("playMusic", function(musicPath:String, volume:Float = 1.0, loop:Bool = true) {
             FlxG.sound.playMusic(Paths.music(musicPath), volume, loop);
         });
 
-        // --- Helpers ---
-        iris.set("lerp", function(a:Float, b:Float, ratio:Float):Float return FlxMath.lerp(a, b, ratio));
-        iris.set("trace", function(v:Dynamic):Void Logger.info(Std.string(v), "iris"));
-        iris.set("log", function(v:Dynamic):Void Logger.info(Std.string(v), "iris"));
+        set("lerp", function(a:Float, b:Float, ratio:Float):Float return FlxMath.lerp(a, b, ratio));
+        set("trace", function(v:Dynamic):Void Logger.info(Std.string(v), "hscript"));
+        set("log", function(v:Dynamic):Void Logger.info(Std.string(v), "hscript"));
 
-        iris.set("add", function(obj:Dynamic):Void {
+        set("add", function(obj:Dynamic):Void {
             if (FlxG.state != null) FlxG.state.add(obj);
         });
 
-        iris.set("remove", function(obj:Dynamic):Void {
+        set("remove", function(obj:Dynamic):Void {
             if (FlxG.state != null) FlxG.state.remove(obj);
         });
 
-        iris.set("openURL", function(url:String):Void {
+        set("openURL", function(url:String):Void {
             #if linux Sys.command("xdg-open", [url]);
             #else Lib.getURL(new URLRequest(url)); #end
         });
 
-        iris.set("switchState", function(target:Dynamic):Void {
+        set("switchState", function(target:Dynamic):Void {
             if (Std.isOfType(target, String)) {
                 var targetName:String = cast target;
                 var redirect = SoulGlobalScript.getRedirect(targetName);
@@ -590,11 +604,11 @@ class HScriptIris implements ScriptInstance {
             }
         });
 
-        iris.set("importClass", function(className:String):Bool {
+        set("importClass", function(className:String):Bool {
             return importClass(className);
         });
 
-        iris.set("createInstance", function(className:String, args:Array<Dynamic>):Dynamic {
+        set("createInstance", function(className:String, args:Array<Dynamic>):Dynamic {
             var cl = Type.resolveClass(className);
             if (cl != null) return Type.createInstance(cl, args != null ? args : []);
             return null;
@@ -665,37 +679,57 @@ class HScriptIris implements ScriptInstance {
     }
 
     public function importClass(className:String):Bool {
-        if (iris == null || className == null) return false;
+        if (className == null) return false;
         var resolvedClass:Dynamic = Type.resolveClass(className);
         if (resolvedClass == null) resolvedClass = Type.resolveEnum(className);
 
         if (resolvedClass != null) {
             var shortName:String = className.substr(className.lastIndexOf(".") + 1);
-            iris.set(shortName, resolvedClass);
+            set(shortName, resolvedClass);
             return true;
         }
         return false;
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
-        if (iris != null && active) {
-            iris.set("game", FlxG.state);
-            iris.set("state", FlxG.state);
-            iris.set("curBeat", Conductor.curBeat);
-            iris.set("curStep", Conductor.curStep);
-            iris.set("songPosition", Conductor.songPosition);
-            var result = iris.call(func, args != null ? args : []);
-            return result != null ? result.val : null;
+        if (active) {
+            set("game", FlxG.state);
+            set("state", FlxG.state);
+            set("curBeat", Conductor.curBeat);
+            set("curStep", Conductor.curStep);
+            set("songPosition", Conductor.songPosition);
+
+            #if SOULSCORCH_IRIS
+            if (iris != null) {
+                var result = iris.call(func, args != null ? args : []);
+                return result != null ? result.val : null;
+            }
+            #else
+            if (interp != null && interp.variables.exists(func)) {
+                var fn = interp.variables.get(func);
+                if (Reflect.isFunction(fn)) {
+                    return Reflect.callMethod(null, fn, (args != null) ? args : []);
+                }
+            }
+            #end
         }
         return null;
     }
 
     public function set(key:String, value:Dynamic):Void {
+        #if SOULSCORCH_IRIS
         if (iris != null) iris.set(key, value);
+        #else
+        if (interp != null) interp.variables.set(key, value);
+        #end
     }
 
     public function get(key:String):Dynamic {
-        if (iris != null) return iris.get(key);
+        #if SOULSCORCH_IRIS
+        if (iris != null && iris.get(key) != null) return iris.get(key);
+        #else
+        if (interp != null && interp.variables.exists(key)) return interp.variables.get(key);
+        #end
         if (customSprites.exists(key)) return customSprites.get(key);
         if (customTexts.exists(key)) return customTexts.get(key);
         return null;
@@ -713,9 +747,16 @@ class HScriptIris implements ScriptInstance {
         customSprites.clear();
         customTexts.clear();
 
+        #if SOULSCORCH_IRIS
         if (iris != null) {
             iris.destroy();
             iris = null;
         }
+        #else
+        if (interp != null) {
+            interp.variables.clear();
+            interp = null;
+        }
+        #end
     }
 }

@@ -8,6 +8,8 @@ import soulscorch.backend.system.EventBus;
 import soulscorch.backend.utils.Logger;
 import soulscorch.graphics.shaders.SoulShader;
 
+using StringTools;
+
 class ShaderManager {
     public static var instance:ShaderManager = new ShaderManager();
 
