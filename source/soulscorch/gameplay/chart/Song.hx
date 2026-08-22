@@ -56,38 +56,51 @@ class Song {
     }
 
     public static function load(songId:String, difficulty:String = "normal"):Song {
-            var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
-            var diffName = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
-            var diffSuffix = (diffName == "normal") ? "" : '-$diffName';
+        var cleanSong = (songId == null || songId.trim().length == 0) ? "tutorial" : songId.toLowerCase().trim();
+        var diffName = (difficulty == null || difficulty.trim().length == 0) ? "normal" : difficulty.toLowerCase().trim();
+        var diffSuffix = (diffName == "normal") ? "" : '-$diffName';
 
-            // Updated paths checking for .soulchart first!
-            var pathsToTry = [
-                'songs/$cleanSong/charts/$diffName',
-                'songs/$cleanSong/chart$diffSuffix',
-                'songs/$cleanSong/$cleanSong$diffSuffix',
-                'data/$cleanSong/$diffName'
-            ];
+        var pathsToTry = [
+            'songs/$cleanSong/charts/$diffName',
+            'songs/$cleanSong/chart$diffSuffix',
+            'songs/$cleanSong/$cleanSong$diffSuffix',
+            'songs/$cleanSong/$diffName',
+            'data/$cleanSong/charts/$diffName',
+            'data/$cleanSong/$cleanSong$diffSuffix',
+            'data/$cleanSong/$diffName',
+            'assets/preload/songs/$cleanSong/charts/$diffName'
+        ];
 
-            var finalPath:String = null;
-            for (p in pathsToTry) {
-                // Check for modern .soulchart first, then fallback to .json
-                var resolved = AssetResolver.resolveFile(p, [".soulchart", ".json", ""]);
-                if (resolved != null) {
-                    finalPath = resolved;
-                    break;
-                }
-            }
-
-            if (finalPath == null) {
-                Logger.warn('Chart file not found for "$cleanSong" [$diffName]', "chart");
-                return new Song(cleanSong, cleanSong);
-            }
-
-            var rawText = AssetResolver.getText(finalPath);
-            var songInstance = ChartParser.parse(rawText, cleanSong);
-            songInstance.difficulty = diffName;
-            return songInstance;
+        if (diffName == "normal") {
+            pathsToTry.push('songs/$cleanSong/chart');
+            pathsToTry.push('songs/$cleanSong/$cleanSong');
+            pathsToTry.push('data/$cleanSong/$cleanSong');
         }
+
+        var finalPath:String = null;
+        for (p in pathsToTry) {
+            var resolved = AssetResolver.resolveFile(p, [".soulchart", ".xmsoul", ".xml", ".json", ""]);
+            if (resolved != null) {
+                finalPath = resolved;
+                break;
+            }
+        }
+
+        if (finalPath == null) {
+            Logger.warn('Chart file not found for "$cleanSong" [$diffName]', "chart");
+            var fallback = new Song(cleanSong, cleanSong);
+            fallback.difficulty = diffName;
+            return fallback;
+        }
+
+        var rawText = AssetResolver.getText(finalPath);
+        var songInstance = ChartParser.parse(rawText, cleanSong);
+        if (songInstance == null) {
+            songInstance = new Song(cleanSong, cleanSong);
+        }
+        songInstance.difficulty = diffName;
+        return songInstance;
+    }
 
     public static function loadFromJson(songId:String, difficulty:String = "normal"):Null<SwagSong> {
         var songObj = load(songId, difficulty);

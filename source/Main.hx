@@ -83,14 +83,6 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-            FlxG.fixedTimestep = false;
-            FlxG.autoPause = false;
-            FlxG.mouse.useSystemCursor = false;
-
-            FlxG.cameras.bgColor = FlxColor.BLACK;
-
-            setupStateSwitchOptimization();
-
             var devConsole = DevConsole.instance;
             if (devConsole != null && devConsole.parent == null) {
                 addChild(devConsole);
@@ -100,16 +92,14 @@ class Main extends Sprite {
             fpsCounter.visible = true;
             addChild(fpsCounter);
 
+            // Core Backend Engine Initialization
             var config = new GameConfig();
             config.framerate = framerate;
             Runtime.bootstrap(config);
-            Runtime.setupFlixel();
 
             EngineOptimizer.init(framerate);
-
             ModManager.reloadMods();
             SongRegistry.scanAll();
-            SoulGlobalScript.init();
 
             applyWindowConfiguration();
 
@@ -126,6 +116,8 @@ class Main extends Sprite {
 
             fileWatcher = new FileWatcher();
 
+            setupStateSwitchOptimization();
+
             Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
             addEventListener(Event.ENTER_FRAME, onEnterFrame);
 
@@ -137,8 +129,8 @@ class Main extends Sprite {
 
     private function applyWindowConfiguration():Void {
         #if windows
-        var access = XMSoul.parse("config/window");
-        if (access == null) access = XMSoul.parse("data/config/window");
+        var access = XMSoul.parse("config/window", true, false);
+        if (access == null) access = XMSoul.parse("data/config/window", true, false);
 
         if (access != null) {
             var darkMode = XMSoul.getBoolAttr(access, "darkMode", true);

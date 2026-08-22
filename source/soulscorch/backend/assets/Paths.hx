@@ -197,19 +197,39 @@ class Paths {
     }
 
     public static inline function image(key:String):Null<BitmapData> {
-        return AssetResolver.getBitmapData('images/$key');
+        var graph = graphic(key);
+        return (graph != null) ? graph.bitmap : null;
     }
 
     public static function graphic(key:String):Null<FlxGraphic> {
         if (key == null || key.trim().length == 0) return null;
-        var clean = key.trim();
+        var clean = key.trim().replace("\\", "/");
+        while (clean.startsWith("/")) clean = clean.substr(1);
 
         if (currentTrackedAssets.exists(clean)) {
             return currentTrackedAssets.get(clean);
         }
 
-        var graph = AssetResolver.getGraphic('images/$clean');
-        if (graph == null) graph = AssetResolver.getGraphic(clean);
+        var bareName = clean.indexOf("/") != -1 ? clean.substring(clean.lastIndexOf("/") + 1) : clean;
+
+        var candidatePaths = [
+            clean,
+            'images/$clean',
+            'ui/game/notes/$clean',
+            'images/ui/game/notes/$clean',
+            'ui/game/notes/$bareName',
+            'images/ui/game/notes/$bareName',
+            'characters/$clean',
+            'images/characters/$clean',
+            'characters/$bareName',
+            'images/characters/$bareName'
+        ];
+
+        var graph:FlxGraphic = null;
+        for (cand in candidatePaths) {
+            graph = AssetResolver.getGraphic(cand);
+            if (graph != null) break;
+        }
 
         if (graph != null) {
             graph.persist = true;
@@ -233,74 +253,46 @@ class Paths {
         while (clean.startsWith("/")) clean = clean.substr(1);
 
         var graph:FlxGraphic = graphic(clean);
-        if (graph == null && !clean.startsWith("images/")) {
-            graph = graphic('images/$clean');
-        }
         if (graph == null) return null;
 
+        var bareName = clean.indexOf("/") != -1 ? clean.substring(clean.lastIndexOf("/") + 1) : clean;
         var rawXml:String = null;
 
-        var xmlPath:String = xml(clean);
-        #if sys
-        if (FileSystem.exists(xmlPath)) {
-            try {
-                rawXml = File.getContent(xmlPath);
-            } catch (e:Dynamic) {}
-        }
-        #end
+        var candidateXmls = [
+            clean,
+            'images/$clean',
+            'ui/game/notes/$clean',
+            'images/ui/game/notes/$clean',
+            'ui/game/notes/$bareName',
+            'images/ui/game/notes/$bareName',
+            'characters/$clean',
+            'images/characters/$clean',
+            'characters/$bareName',
+            'images/characters/$bareName'
+        ];
 
-        if (rawXml == null) {
-            var resolved = AssetResolver.resolveFile('images/$clean', [".xml"]);
-            if (resolved == null) resolved = AssetResolver.resolveFile(clean, [".xml"]);
+        for (cand in candidateXmls) {
+            var resolved = AssetResolver.resolveFile(cand, [".xml"]);
             if (resolved != null) {
                 rawXml = AssetResolver.getText(resolved);
+                if (rawXml != null && rawXml.trim().length > 0) break;
             }
         }
 
         if (rawXml != null && rawXml.length > 0) {
             try {
+                var atlas = FlxAtlasFrames.fromSparrow(graph, rawXml);
+                if (atlas != null && atlas.frames != null && atlas.frames.length > 0) return atlas;
+            } catch (e:Dynamic) {}
+
+            try {
                 var cleanXml = sanitizeDuplicateXmlAttributes(rawXml);
-                return FlxAtlasFrames.fromSparrow(graph, cleanXml);
-            } catch (e:Dynamic) {
-                try {
-                    return FlxAtlasFrames.fromSparrow(graph, rawXml);
-                } catch (err:Dynamic) {}
-            }
+                var atlas = FlxAtlasFrames.fromSparrow(graph, cleanXml);
+                if (atlas != null && atlas.frames != null && atlas.frames.length > 0) return atlas;
+            } catch (err:Dynamic) {}
         }
 
         return null;
-    }
-
-    /**
-     * Cleans duplicate attributes within single XML tags to prevent XmlParserException crashes.
-     */
-    private static function sanitizeDuplicateXmlAttributes(xmlContent:String):String {
-        if (xmlContent == null || xmlContent.length == 0) return xmlContent;
-
-        var tagRegex = ~/<([a-zA-Z0-9_:]+)(\s+[^>]+?)(\/?)>/g;
-        return tagRegex.map(xmlContent, function(r:EReg) {
-            var tagName = r.matched(1);
-            var rawAttrs = r.matched(2);
-            var closingSlash = r.matched(3);
-
-            var attrRegex = ~/([a-zA-Z0-9_:]+)\s*=\s*(['"])(.*?)\2/g;
-            var seenAttrs:Map<String, Bool> = new Map<String, Bool>();
-            var cleanedAttrs:Array<String> = [];
-
-            while (attrRegex.match(rawAttrs)) {
-                var attrName = attrRegex.matched(1);
-                var fullAttr = attrRegex.matched(0);
-
-                if (!seenAttrs.exists(attrName)) {
-                    seenAttrs.set(attrName, true);
-                    cleanedAttrs.push(fullAttr);
-                }
-
-                rawAttrs = attrRegex.matchedRight();
-            }
-
-            return '<$tagName ${cleanedAttrs.join(" ")}$closingSlash>';
-        });
     }
 
     public static function getTextureAtlas(key:String):Null<FlxAtlasFrames> {
@@ -309,32 +301,25 @@ class Paths {
         while (clean.startsWith("/")) clean = clean.substr(1);
 
         var graph = graphic(clean);
-        if (graph == null) graph = graphic('ui/game/cutscenes/$clean');
-        if (graph == null) graph = graphic('characters/$clean');
+        if (graph == null) return null;
 
         var jsonStr:String = null;
-        var jsonPaths = [
-            'images/$clean.json',
-            'assets/preload/images/$clean.json',
-            'assets/images/$clean.json',
-            'ui/game/cutscenes/$clean.json',
-            'assets/preload/images/ui/game/cutscenes/$clean.json',
-            '$clean.json'
+        var jsonLookups = [
+            clean,
+            'ui/game/cutscenes/$clean',
+            'characters/$clean',
+            'images/$clean'
         ];
 
-        #if sys
-        for (jp in jsonPaths) {
-            var p = ModManager.getPath(jp);
-            if (sys.FileSystem.exists(p)) {
-                try {
-                    jsonStr = sys.io.File.getContent(p);
-                    break;
-                } catch (e:Dynamic) {}
+        for (cand in jsonLookups) {
+            var resolved = AssetResolver.resolveFile(cand, [".json"]);
+            if (resolved != null) {
+                jsonStr = AssetResolver.getText(resolved);
+                if (jsonStr != null && jsonStr.trim().length > 0) break;
             }
         }
-        #end
 
-        if (graph != null && jsonStr != null) {
+        if (jsonStr != null && jsonStr.length > 0) {
             try {
                 var parsed:Dynamic = haxe.Json.parse(jsonStr);
                 var frameCollection = new FlxAtlasFrames(graph);
@@ -350,22 +335,19 @@ class Paths {
                         var h:Float = Std.parseFloat(Std.string(sprData.h));
                         var rotated:Bool = sprData.rotated == true || Std.string(sprData.rotated) == "true";
 
-                        var rect = FlxRect.get(x, y, w, h);
-                        var size = FlxPoint.get(w, h);
-                        var offset = FlxPoint.get(0, 0);
-
-                        frameCollection.addAtlasFrame(rect, size, offset, name, rotated ? 90 : 0);
+                        frameCollection.addAtlasFrame(FlxRect.get(x, y, w, h), FlxPoint.get(w, h), FlxPoint.get(0, 0), name, rotated ? 90 : 0);
                     }
                 } else if (Reflect.hasField(parsed, "frames")) {
                     var framesField = parsed.frames;
                     if (Std.isOfType(framesField, Array)) {
                         for (f in (cast framesField : Array<Dynamic>)) {
-                            var fName = Std.string(f.filename);
-                            var fRect = f.frame;
-                            var rect = FlxRect.get(fRect.x, fRect.y, fRect.w, fRect.h);
-                            var size = FlxPoint.get(f.sourceSize.w, f.sourceSize.h);
-                            var offset = FlxPoint.get(f.spriteSourceSize.x, f.spriteSourceSize.y);
-                            frameCollection.addAtlasFrame(rect, size, offset, fName, f.rotated ? 90 : 0);
+                            frameCollection.addAtlasFrame(
+                                FlxRect.get(f.frame.x, f.frame.y, f.frame.w, f.frame.h),
+                                FlxPoint.get(f.sourceSize.w, f.sourceSize.h),
+                                FlxPoint.get(f.spriteSourceSize.x, f.spriteSourceSize.y),
+                                Std.string(f.filename),
+                                f.rotated ? 90 : 0
+                            );
                         }
                     }
                 }
@@ -376,6 +358,49 @@ class Paths {
             } catch (e:Dynamic) {}
         }
         return null;
+    }
+
+    private static function sanitizeDuplicateXmlAttributes(xmlContent:String):String {
+        if (xmlContent == null || xmlContent.length == 0) return xmlContent;
+
+        var lines:Array<String> = xmlContent.split("\n");
+        var outputLines:Array<String> = [];
+        var attrRegex = ~/([a-zA-Z0-9_:]+)\s*=\s*(['"])(.*?)\2/g;
+
+        for (line in lines) {
+            var trimmed = line.trim();
+            if (!trimmed.startsWith("<SubTexture") && !trimmed.startsWith("<TextureAtlas")) {
+                outputLines.push(line);
+                continue;
+            }
+
+            var seenAttrs = new Map<String, Bool>();
+            var cleanedAttrs:Array<String> = [];
+            var textToScan = trimmed;
+
+            while (attrRegex.match(textToScan)) {
+                var attrName = attrRegex.matched(1);
+                var fullAttr = attrRegex.matched(0);
+
+                if (!seenAttrs.exists(attrName)) {
+                    seenAttrs.set(attrName, true);
+                    cleanedAttrs.push(fullAttr);
+                }
+
+                textToScan = attrRegex.matchedRight();
+            }
+
+            if (cleanedAttrs.length > 0) {
+                var isAtlas = trimmed.startsWith("<TextureAtlas");
+                var tagName = isAtlas ? "TextureAtlas" : "SubTexture";
+                var isSelfClosing = trimmed.endsWith("/>");
+                outputLines.push('\t<$tagName ' + cleanedAttrs.join(" ") + (isSelfClosing ? "/>" : ">"));
+            } else {
+                outputLines.push(line);
+            }
+        }
+
+        return outputLines.join("\n");
     }
 
     public static function clearStoredMemory():Void {

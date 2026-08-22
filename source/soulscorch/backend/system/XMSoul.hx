@@ -188,7 +188,7 @@ typedef XMSoulSongModifiers = {
 class XMSoul {
     private static var cache:Map<String, Access> = new Map<String, Access>();
 
-    public static function parse(path:String, useCache:Bool = true):Null<Access> {
+    public static function parse(path:String, useCache:Bool = true, warnOnFail:Bool = true):Null<Access> {
         if (path == null || path.trim().length == 0) return null;
         var clean = path.trim().replace("\\", "/");
         while (clean.startsWith("/")) clean = clean.substr(1);
@@ -200,7 +200,7 @@ class XMSoul {
         var rawText:String = null;
 
         #if sys
-        if (FileSystem.exists(clean)) {
+        if (FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) {
             try { rawText = File.getContent(clean); } catch (e:Dynamic) {}
         }
         #end
@@ -214,15 +214,17 @@ class XMSoul {
 
         if (rawText != null && rawText.trim().length > 0) {
             try {
-                var rawXml = Xml.parse(rawText.trim());
+                var sanitizedXml = sanitizeXml(rawText.trim());
+                var rawXml = Xml.parse(sanitizedXml);
                 var firstElem:Xml = null;
+
                 for (elem in rawXml.elements()) {
                     firstElem = elem;
                     break;
                 }
 
                 if (firstElem == null) {
-                    Logger.warn('XMSoul parser found empty XML structure in: $clean', "xmsoul");
+                    if (warnOnFail) Logger.warn('XMSoul parser found empty XML structure in: $clean', "xmsoul");
                     return null;
                 }
 
@@ -230,11 +232,78 @@ class XMSoul {
                 if (useCache) cache.set(clean, access);
                 return access;
             } catch (e:Dynamic) {
-                Logger.error('XMSoul Parse Failure [$clean]: $e', "xmsoul");
+                // Secondary recovery attempt with raw text
+                try {
+                    var fallbackXml = Xml.parse(rawText.trim());
+                    var firstElem:Xml = null;
+                    for (elem in fallbackXml.elements()) {
+                        firstElem = elem;
+                        break;
+                    }
+                    if (firstElem != null) {
+                        var access = new Access(firstElem);
+                        if (useCache) cache.set(clean, access);
+                        return access;
+                    }
+                } catch (err:Dynamic) {
+                    if (warnOnFail) {
+                        Logger.warn('XMSoul Parse Failure [$clean]: $err', "xmsoul");
+                    }
+                }
             }
         }
 
         return null;
+    }
+
+    public static function sanitizeXml(xmlContent:String):String {
+        if (xmlContent == null || xmlContent.length == 0) return xmlContent;
+
+        var lines = xmlContent.split("\n");
+        var output:Array<String> = [];
+        var attrRegex = ~/([a-zA-Z0-9_:]+)\s*=\s*(['"])(.*?)\2/g;
+
+        for (line in lines) {
+            var trimmed = line.trim();
+            if (!trimmed.startsWith("<") || trimmed.startsWith("<!--") || trimmed.startsWith("<?")) {
+                output.push(line);
+                continue;
+            }
+
+            var tagEnd = trimmed.indexOf(" ");
+            if (tagEnd == -1) tagEnd = trimmed.indexOf(">");
+            if (tagEnd == -1) {
+                output.push(line);
+                continue;
+            }
+
+            var tagName = trimmed.substring(1, tagEnd);
+            var isSelfClosing = trimmed.endsWith("/>");
+
+            var seenAttrs:Map<String, Bool> = new Map<String, Bool>();
+            var cleanedAttrs:Array<String> = [];
+            var textToScan = trimmed;
+
+            while (attrRegex.match(textToScan)) {
+                var attrName = attrRegex.matched(1);
+                var fullAttr = attrRegex.matched(0);
+
+                if (!seenAttrs.exists(attrName)) {
+                    seenAttrs.set(attrName, true);
+                    cleanedAttrs.push(fullAttr);
+                }
+
+                textToScan = attrRegex.matchedRight();
+            }
+
+            if (cleanedAttrs.length > 0) {
+                output.push('\t<$tagName ' + cleanedAttrs.join(" ") + (isSelfClosing ? "/>" : ">"));
+            } else {
+                output.push(line);
+            }
+        }
+
+        return output.join("\n");
     }
 
     // ==========================================
@@ -299,7 +368,7 @@ class XMSoul {
     // ==========================================
 
     public static function loadWindowConfig(path:String = "window.xmsoul"):XMSoulWindowConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             title: getAttr(doc, "title", "SoulScorch Engine"),
             width: getIntAttr(doc, "width", 1280),
@@ -335,7 +404,7 @@ class XMSoul {
             FlxG.drawFramerate = conf.fps;
         }
 
-        Logger.info('Applied native window settings from $path: "${conf.title}" (${conf.width}x${conf.height}, ${conf.fps} FPS)', "main");
+        Logger.info('Applied native window settings: "${conf.title}" (${conf.width}x${conf.height}, ${conf.fps} FPS)', "main");
     }
 
     // ==========================================
@@ -343,7 +412,7 @@ class XMSoul {
     // ==========================================
 
     public static function loadModConfig(path:String):Null<XMSoulModConfig> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return null;
 
         var config:XMSoulModConfig = {
@@ -395,12 +464,12 @@ class XMSoul {
     // ==========================================
 
     public static function loadNoteSkin(path:String):Null<XMSoulNoteSkinConfig> {
-        var doc = parse(path);
-        if (doc == null) return null;
+        var doc = parse(path, true, false);
+        if (doc == null || doc.name != "noteSkin") return null;
 
         var skin:XMSoulNoteSkinConfig = {
             name: getAttr(doc, "name", "default"),
-            sprite: getAttr(doc, "sprite", "ui/game/notes/NOTE_assets"),
+            sprite: getAttr(doc, "sprite", "NOTE_assets"),
             scale: getFloatAttr(doc, "scale", 0.7),
             antialiasing: getBoolAttr(doc, "antialiasing", true),
             receptors: [],
@@ -408,19 +477,19 @@ class XMSoul {
             sustains: {alpha: 0.7, width: 50, holds: []}
         };
 
-        if (doc.hasNode.resolve("receptors")) {
-            for (r in doc.node.resolve("receptors").nodes.resolve("strum")) {
+        if (doc.hasNode.resolve("strums")) {
+            for (r in doc.node.resolve("strums").nodes.resolve("strum")) {
                 skin.receptors.push({
                     lane: getIntAttr(r, "lane", 0),
                     staticAnim: getAttr(r, "static", ""),
-                    pressedAnim: getAttr(r, "pressed", ""),
+                    pressedAnim: getAttr(r, "press", getAttr(r, "pressed", "")),
                     confirmAnim: getAttr(r, "confirm", "")
                 });
             }
         }
 
-        if (doc.hasNode.resolve("tapNotes")) {
-            for (t in doc.node.resolve("tapNotes").nodes.resolve("note")) {
+        if (doc.hasNode.resolve("notes")) {
+            for (t in doc.node.resolve("notes").nodes.resolve("note")) {
                 skin.tapNotes.push({
                     lane: getIntAttr(t, "lane", 0),
                     anim: getAttr(t, "anim", "")
@@ -436,7 +505,7 @@ class XMSoul {
             for (h in sus.nodes.resolve("hold")) {
                 skin.sustains.holds.push({
                     lane: getIntAttr(h, "lane", 0),
-                    body: getAttr(h, "body", ""),
+                    body: getAttr(h, "piece", getAttr(h, "body", "")),
                     end: getAttr(h, "end", "")
                 });
             }
@@ -446,7 +515,7 @@ class XMSoul {
     }
 
     public static function loadSplashSkin(path:String):Null<XMSoulSplashSkinConfig> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return null;
 
         var splash:XMSoulSplashSkinConfig = {
@@ -482,12 +551,8 @@ class XMSoul {
         return splash;
     }
 
-    // ==========================================
-    // Freeplay & Gameplay Metadata
-    // ==========================================
-
     public static function loadFreeplayList(path:String = "data/freeplayList.xmsoul"):Array<XMSoulFreeplaySong> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return [];
 
         var list:Array<XMSoulFreeplaySong> = [];
@@ -507,7 +572,7 @@ class XMSoul {
     }
 
     public static function loadJudgments(path:String = "data/judgments.xmsoul"):XMSoulJudgmentConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         var list:Array<XMSoulJudgment> = [];
         var safeOffset = getFloatAttr(doc, "safeZoneOffset", 166.6);
 
@@ -528,7 +593,7 @@ class XMSoul {
     }
 
     public static function loadComboPopup(path:String = "data/comboPopup.xmsoul"):XMSoulComboPopup {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         var def:XMSoulComboPopup = {
             offsetX: getFloatAttr(doc, "offsetX", 0.55),
             offsetY: getFloatAttr(doc, "offsetY", -40),
@@ -566,12 +631,8 @@ class XMSoul {
         return def;
     }
 
-    // ==========================================
-    // Integration & Social Configurations
-    // ==========================================
-
     public static function loadDiscordConfig(path:String = "data/discord.xmsoul"):XMSoulDiscordConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             enabled: getBoolAttr(doc, "enabled", true),
             clientID: getAttr(doc, "clientID", ""),
@@ -581,7 +642,7 @@ class XMSoul {
     }
 
     public static function loadGithubConfig(path:String = "data/github.xmsoul"):XMSoulGithubConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             owner: getAttr(doc, "owner", "JustyyDev"),
             repo: getAttr(doc, "repo", "SoulScorch-Engine"),
@@ -590,7 +651,7 @@ class XMSoul {
     }
 
     public static function loadTransitions(path:String = "data/transitions.xmsoul"):XMSoulTransitionConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             type: getAttr(doc, "type", "fade"),
             duration: getFloatAttr(doc, "duration", 0.35),
@@ -601,7 +662,7 @@ class XMSoul {
     }
 
     public static function loadScene(path:String = "data/scene.xmsoul"):XMSoulSceneConfig {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             defaultZoom: getFloatAttr(doc, "defaultZoom", 1.0),
             antialiasing: getBoolAttr(doc, "antialiasing", true),
@@ -611,7 +672,7 @@ class XMSoul {
     }
 
     public static function loadIntroLines(path:String = "data/intros.xmsoul"):Array<String> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         var lines:Array<String> = [];
         if (doc != null) {
             for (line in doc.nodes.resolve("line")) {
@@ -627,7 +688,7 @@ class XMSoul {
     }
 
     public static function loadStageConfig(path:String):Null<XMSoulStageConfig> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return null;
 
         var stageConf:XMSoulStageConfig = {
@@ -674,7 +735,7 @@ class XMSoul {
     }
 
     public static function loadCharacter(path:String):Null<XMSoulCharacterConfig> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return null;
 
         var char:XMSoulCharacterConfig = {
@@ -720,7 +781,7 @@ class XMSoul {
     }
 
     public static function loadDialogue(path:String):Array<XMSoulDialogueLine> {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         if (doc == null) return [];
 
         var lines:Array<XMSoulDialogueLine> = [];
@@ -738,7 +799,7 @@ class XMSoul {
     }
 
     public static function loadModifiers(path:String):XMSoulSongModifiers {
-        var doc = parse(path);
+        var doc = parse(path, true, false);
         return {
             scrollSpeedMultiplier: getFloatAttr(doc, "scrollSpeedMultiplier", 1.0),
             ghostTapping: getBoolAttr(doc, "ghostTapping", true),

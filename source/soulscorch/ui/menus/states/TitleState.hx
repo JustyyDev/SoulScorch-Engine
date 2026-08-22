@@ -44,6 +44,8 @@ class TitleState extends MusicBeatState {
         DiscordRPC.changePresence("Title Screen", "Igniting Engine");
         #end
 
+        FlxG.camera.bgColor = FlxColor.BLACK;
+
         scripts = new ScriptManager();
         initTitleScripts();
 
@@ -54,6 +56,7 @@ class TitleState extends MusicBeatState {
             FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
         }
 
+        // 1. GF Title Character
         gfDance = new FlxSprite(FlxG.width * 0.4, FlxG.height * 0.07);
         var gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/titlescreen/gf");
         if (!gfLoaded) gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/menus/title/gfDanceTitle");
@@ -71,13 +74,12 @@ class TitleState extends MusicBeatState {
                 gfDance.animation.addByPrefix("danceLeft", "danceLeft", 24, false);
                 gfDance.animation.addByPrefix("danceRight", "danceRight", 24, false);
             }
-        } else {
-            gfDance.makeGraphic(250, 400, 0xFFFF0055);
         }
         gfDance.antialiasing = true;
         gfDance.visible = false;
         add(gfDance);
 
+        // 2. Title Logo
         logoBl = new FlxSprite(-150, -100);
         var logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "ui/titlescreen/logo");
         if (!logoLoaded) logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "ui/menus/title/logoBumpin");
@@ -94,6 +96,7 @@ class TitleState extends MusicBeatState {
         logoBl.visible = false;
         add(logoBl);
 
+        // 3. Newgrounds Logo
         ngLogo = new FlxSprite(0, FlxG.height * 0.52);
         if (!AssetHelper.loadGraphicSafely(ngLogo, "ui/titlescreen/newgrounds_logo")) {
             AssetHelper.loadGraphicSafely(ngLogo, "newgrounds_logo");
@@ -104,6 +107,7 @@ class TitleState extends MusicBeatState {
         ngLogo.visible = false;
         add(ngLogo);
 
+        // 4. "Press Enter" Button
         titleText = new FlxSprite(100, FlxG.height * 0.8);
         var enterLoaded = AssetHelper.loadSparrowSafely(titleText, "ui/titlescreen/titleEnter");
         if (!enterLoaded) enterLoaded = AssetHelper.loadSparrowSafely(titleText, "ui/menus/title/titleEnter");
@@ -242,10 +246,17 @@ class TitleState extends MusicBeatState {
     }
 
     override public function update(elapsed:Float):Void {
-        if (FlxG.sound.music != null) Conductor.songPosition = FlxG.sound.music.time;
+        if (FlxG.sound.music != null && FlxG.sound.music.playing) {
+            Conductor.songPosition = FlxG.sound.music.time;
+        } else {
+            Conductor.songPosition += elapsed * 1000.0;
+        }
+        
+        Conductor.update(elapsed);
+
         if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
-        if (Controls.instance.ACCEPT) {
+        if (Controls.instance.ACCEPT || FlxG.keys.justPressed.ENTER) {
             if (!skippedIntro) {
                 skipIntro();
             } else if (!transitioning) {

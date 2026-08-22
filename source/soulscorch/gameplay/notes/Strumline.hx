@@ -90,7 +90,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
             var r = receptors[i];
             if (r != null) {
                 r.loadReceptorSkin(currentSkin);
-                r.setupAnimations(NoteSkinManager.getSkinConfig(currentSkin));
                 r.playAnim("static", true);
             }
         }

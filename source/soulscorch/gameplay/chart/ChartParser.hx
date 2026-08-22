@@ -2,221 +2,183 @@ package soulscorch.gameplay.chart;
 
 import haxe.Json;
 import haxe.xml.Access;
-import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.chart.Chart;
+import soulscorch.gameplay.chart.Song;
 
 using StringTools;
 
 class ChartParser {
-    public static function parse(rawText:String, ?songNameFallback:String = "tutorial"):Song {
-        if (rawText == null || rawText.trim().length == 0) {
-            return new Song(songNameFallback, songNameFallback);
+    public static function parse(rawContent:String, ?songId:String = "song"):Null<Song> {
+        if (rawContent == null || rawContent.trim().length == 0) return null;
+
+        var clean = rawContent.trim();
+
+        // 1. Parse XML / .soulchart / .xmsoul Formats
+        if (clean.startsWith("<")) {
+            return parseXmlChart(clean, songId);
         }
 
-        // Auto-detect .soulchart XML format by looking for opening tag
-        if (rawText.trim().startsWith("<")) {
-            return parseSoulChartXML(rawText, songNameFallback);
-        }
-
-        // Otherwise, fall back to parsing legacy JSON format
-        return parseLegacyJSON(rawText, songNameFallback);
+        // 2. Parse JSON Formats (Codename, Psych, Legacy FNF)
+        return parseJsonChart(clean, songId);
     }
 
-    private static function parseSoulChartXML(rawXml:String, fallback:String):Song {
+    private static function parseXmlChart(xmlString:String, songId:String):Null<Song> {
         try {
-            var xml = Xml.parse(rawXml);
-            var root = new Access(xml.firstElement());
+            var xml = Xml.parse(xmlString);
+            var access = new Access(xml.firstElement());
 
-            var songName = XMSoul.getAttr(root, "song", fallback);
-            var parsed = new Song(songName, songName);
+            var speed = XMSoul.getFloatAttr(access, "speed", 2.0);
+            var bpm = XMSoul.getFloatAttr(access, "bpm", 100.0);
+            var player1 = XMSoul.getAttr(access, "player1", "bf");
+            var player2 = XMSoul.getAttr(access, "player2", "dad");
+            var gf = XMSoul.getAttr(access, "gfVersion", "gf");
+            var stage = XMSoul.getAttr(access, "stage", "stage");
 
-            parsed.bpm = XMSoul.getFloatAttr(root, "bpm", 100.0);
-            parsed.scrollSpeed = XMSoul.getFloatAttr(root, "speed", 2.0);
-            parsed.player1 = XMSoul.getAttr(root, "player1", "bf");
-            parsed.player2 = XMSoul.getAttr(root, "player2", "dad");
-            parsed.gfVersion = XMSoul.getAttr(root, "gfVersion", "gf");
-            parsed.stage = XMSoul.getAttr(root, "stage", "stage");
-            parsed.needsVoices = XMSoul.getBoolAttr(root, "needsVoices", true);
+            var songInstance = new Song(songId, songId);
+            songInstance.bpm = bpm;
+            songInstance.scrollSpeed = speed;
+            songInstance.player1 = player1;
+            songInstance.player2 = player2;
+            songInstance.gfVersion = gf;
+            songInstance.stage = stage;
 
-            parsed.chart = new Chart(parsed.bpm, parsed.scrollSpeed);
+            var chart = new Chart(bpm, speed);
 
-            for (node in root.elements) {
-                switch (node.name.toLowerCase()) {
-                    case "note":
-                        var time = XMSoul.getFloatAttr(node, "time", 0.0);
-                        var dir = XMSoul.getIntAttr(node, "dir", 0);
-                        var len = XMSoul.getFloatAttr(node, "len", 0.0);
-                        var type = XMSoul.getAttr(node, "type", "Default");
-                        var player = XMSoul.getBoolAttr(node, "player", true);
-                        parsed.chart.addNote(time, dir, len, type, player);
+            for (strumLine in access.nodes.resolve("strumLine")) {
+                var isPlayer = XMSoul.getAttr(strumLine, "type", "opponent").toLowerCase() == "player"
+                    || XMSoul.getAttr(strumLine, "position", "").toLowerCase() == "boyfriend";
 
-                    case "event":
-                        var time = XMSoul.getFloatAttr(node, "time", 0.0);
-                        var name = XMSoul.getAttr(node, "name", "");
-                        var val1 = XMSoul.getAttr(node, "val1", "");
-                        var val2 = XMSoul.getAttr(node, "val2", "");
-                        parsed.chart.addEvent(time, name, val1, val2);
+                for (noteNode in strumLine.nodes.resolve("note")) {
+                    var t = XMSoul.getFloatAttr(noteNode, "time", 0.0);
+                    var lane = XMSoul.getIntAttr(noteNode, "lane", XMSoul.getIntAttr(noteNode, "id", 0));
+                    var len = XMSoul.getFloatAttr(noteNode, "len", XMSoul.getFloatAttr(noteNode, "sLen", 0.0));
+                    var type = XMSoul.getAttr(noteNode, "type", "normal");
+                    var alt = XMSoul.getBoolAttr(noteNode, "alt", false);
+
+                    chart.addNote(t, lane % 4, len, type, isPlayer, alt);
                 }
             }
 
-            loadExternalEvents(songName, parsed.chart);
+            if (access.hasNode.resolve("events")) {
+                for (ev in access.node.resolve("events").nodes.resolve("event")) {
+                    var evTime = XMSoul.getFloatAttr(ev, "time", 0.0);
+                    var evName = XMSoul.getAttr(ev, "name", "");
+                    var val1 = XMSoul.getAttr(ev, "val1", XMSoul.getAttr(ev, "target", ""));
+                    var val2 = XMSoul.getAttr(ev, "val2", XMSoul.getAttr(ev, "anim", ""));
+                    chart.addEvent(evTime, evName, val1, val2);
+                }
+            }
 
-            parsed.chart.sortNotes();
-            parsed.chart.sortEvents();
-            return parsed;
-
+            chart.sortNotes();
+            chart.sortEvents();
+            songInstance.chart = chart;
+            return songInstance;
         } catch (e:Dynamic) {
-            Logger.error('Failed parsing .soulchart XML: $e', "chart");
-            return new Song(fallback, fallback);
+            Logger.error('Failed parsing XML chart for $songId: $e', "chart");
+            return null;
         }
     }
 
-    private static function parseLegacyJSON(rawJson:String, fallback:String):Song {
+    private static function parseJsonChart(jsonString:String, songId:String):Null<Song> {
         try {
-            var raw:Dynamic = Json.parse(rawJson);
-            var songData:Dynamic = raw;
+            var root:Dynamic = Json.parse(jsonString);
+            var songObj:Dynamic = Reflect.hasField(root, "song") ? Reflect.field(root, "song") : root;
 
-            if (raw != null && Reflect.hasField(raw, "song")) {
-                var innerSong = Reflect.field(raw, "song");
-                if (Reflect.isObject(innerSong)) songData = innerSong;
-            }
+            var songName:String = Reflect.hasField(songObj, "song") ? Std.string(Reflect.field(songObj, "song")) : songId;
+            var bpmVal:Float = Reflect.hasField(songObj, "bpm") ? Std.parseFloat(Std.string(Reflect.field(songObj, "bpm"))) : 120.0;
+            var speedVal:Float = Reflect.hasField(songObj, "speed") ? Std.parseFloat(Std.string(Reflect.field(songObj, "speed"))) : (Reflect.hasField(root, "scrollSpeed") ? Std.parseFloat(Std.string(Reflect.field(root, "scrollSpeed"))) : 2.0);
+            var player1:String = Reflect.hasField(songObj, "player1") ? Std.string(Reflect.field(songObj, "player1")) : "bf";
+            var player2:String = Reflect.hasField(songObj, "player2") ? Std.string(Reflect.field(songObj, "player2")) : "dad";
+            var gfVersion:String = Reflect.hasField(songObj, "gfVersion") ? Std.string(Reflect.field(songObj, "gfVersion")) : "gf";
+            var stage:String = Reflect.hasField(songObj, "stage") ? Std.string(Reflect.field(songObj, "stage")) : "stage";
+            var needsVoices:Bool = Reflect.hasField(songObj, "needsVoices") ? Reflect.field(songObj, "needsVoices") == true : true;
 
-            var songName:String = Reflect.hasField(songData, "song") ? Std.string(Reflect.field(songData, "song")) : fallback;
-            var parsed = new Song(songName, songName);
+            var songInstance = new Song(songId, songName);
+            songInstance.bpm = bpmVal;
+            songInstance.scrollSpeed = speedVal;
+            songInstance.player1 = player1;
+            songInstance.player2 = player2;
+            songInstance.gfVersion = gfVersion;
+            songInstance.stage = stage;
+            songInstance.needsVoices = needsVoices;
 
-            if (Reflect.hasField(songData, "bpm")) parsed.bpm = Std.parseFloat(Std.string(Reflect.field(songData, "bpm")));
-            if (Reflect.hasField(songData, "scrollSpeed")) parsed.scrollSpeed = Std.parseFloat(Std.string(Reflect.field(songData, "scrollSpeed")));
-            else if (Reflect.hasField(songData, "speed")) parsed.scrollSpeed = Std.parseFloat(Std.string(Reflect.field(songData, "speed")));
+            var chart = new Chart(bpmVal, speedVal);
 
-            if (Reflect.hasField(songData, "player1")) parsed.player1 = Std.string(Reflect.field(songData, "player1"));
-            if (Reflect.hasField(songData, "player2")) parsed.player2 = Std.string(Reflect.field(songData, "player2"));
-            if (Reflect.hasField(songData, "gfVersion")) parsed.gfVersion = Std.string(Reflect.field(songData, "gfVersion"));
-            if (Reflect.hasField(songData, "stage")) parsed.stage = Std.string(Reflect.field(songData, "stage"));
-            if (Reflect.hasField(songData, "needsVoices")) parsed.needsVoices = Reflect.field(songData, "needsVoices") == true;
+            // A. Codename Engine Format ("strumLines")
+            if (Reflect.hasField(root, "strumLines") || Reflect.hasField(songObj, "strumLines")) {
+                var sLines:Array<Dynamic> = Reflect.hasField(root, "strumLines") ? Reflect.field(root, "strumLines") : Reflect.field(songObj, "strumLines");
+                for (sLine in sLines) {
+                    var isPlayer = (sLine.position == "boyfriend" || sLine.type == 1 || sLine.type == "player");
+                    if (sLine.notes != null && Std.isOfType(sLine.notes, Array)) {
+                        for (rawNote in (cast sLine.notes : Array<Dynamic>)) {
+                            var t:Float = rawNote.time != null ? rawNote.time : 0.0;
+                            var lane:Int = rawNote.id != null ? rawNote.id : (rawNote.lane != null ? rawNote.lane : 0);
+                            var sLen:Float = rawNote.sLen != null ? rawNote.sLen : (rawNote.length != null ? rawNote.length : 0.0);
+                            var type:String = rawNote.type != null ? Std.string(rawNote.type) : "normal";
 
-            parsed.chart = new Chart(parsed.bpm, parsed.scrollSpeed);
-
-            var curBpm:Float = parsed.bpm;
-            var runningTime:Float = 0.0;
-            var totalSteps:Int = 0;
-
-            // Handle legacy Psych array notes format...
-            if (Reflect.hasField(songData, "notes") && songData.notes != null) {
-                var sections:Array<Dynamic> = cast Reflect.field(songData, "notes");
-                if (sections != null) {
-                    for (sec in sections) {
-                        if (sec == null) continue;
-                        var mustHitSection:Bool = Reflect.hasField(sec, "mustHitSection") ? (sec.mustHitSection == true) : true;
-
-                        if (Reflect.hasField(sec, "changeBPM") && sec.changeBPM == true && Reflect.hasField(sec, "bpm")) {
-                            curBpm = Std.parseFloat(Std.string(sec.bpm));
-                            parsed.chart.addEvent(runningTime, "BPM Change", Std.string(curBpm), "");
-                            parsed.chart.addBpmChange(totalSteps, runningTime, curBpm);
+                            chart.addNote(t, lane % 4, sLen, type, isPlayer);
                         }
+                    }
+                }
 
-                        if (Reflect.hasField(sec, "sectionNotes") && sec.sectionNotes != null) {
-                            var rawNotes:Array<Dynamic> = cast sec.sectionNotes;
-                            for (n in rawNotes) {
-                                if (n != null && n.length >= 2) {
-                                    var time:Float = Std.parseFloat(Std.string(n[0]));
-                                    var rawData:Int = Std.parseInt(Std.string(n[1]));
-                                    var susLen:Float = (n.length > 2 && n[2] != null) ? Std.parseFloat(Std.string(n[2])) : 0.0;
-                                    var type:String = (n.length > 3 && n[3] != null && Std.string(n[3]).trim().length > 0) ? Std.string(n[3]) : "Default";
+                if (Reflect.hasField(root, "events") && Std.isOfType(Reflect.field(root, "events"), Array)) {
+                    for (ev in (cast Reflect.field(root, "events") : Array<Dynamic>)) {
+                        var evTime:Float = ev.time != null ? ev.time : 0.0;
+                        var evName:String = ev.name != null ? Std.string(ev.name) : Std.string(ev.type);
+                        var params:Array<Dynamic> = ev.params != null ? cast ev.params : [];
+                        chart.addEvent(evTime, evName, params.length > 0 ? params[0] : "", params.length > 1 ? params[1] : "");
+                    }
+                }
+            }
+            // B. Base Game & Psych Format ("notes" / "sections")
+            else {
+                var sections:Array<Dynamic> = Reflect.hasField(songObj, "notes") ? Reflect.field(songObj, "notes") : (Reflect.hasField(songObj, "sections") ? Reflect.field(songObj, "sections") : []);
 
-                                    var direction:Int = rawData % 4;
-                                    var mustPress:Bool = (rawData < 4) ? mustHitSection : !mustHitSection;
+                for (section in sections) {
+                    if (section == null) continue;
+                    var mustHit:Bool = Reflect.hasField(section, "mustHitSection") ? Reflect.field(section, "mustHitSection") == true : true;
+                    var altAnim:Bool = Reflect.hasField(section, "altAnim") ? Reflect.field(section, "altAnim") == true : false;
+                    var sectionNotes:Array<Dynamic> = Reflect.hasField(section, "sectionNotes") ? Reflect.field(section, "sectionNotes") : [];
 
-                                    parsed.chart.addNote(time, direction, susLen, type, mustPress);
+                    for (rawNote in sectionNotes) {
+                        if (rawNote != null && Std.isOfType(rawNote, Array)) {
+                            var arr:Array<Dynamic> = cast rawNote;
+                            var strumTime:Float = arr[0];
+                            var noteData:Int = Std.int(arr[1]);
+                            var sustainLength:Float = (arr.length > 2) ? arr[2] : 0.0;
+                            var noteType:String = (arr.length > 3 && arr[3] != null) ? Std.string(arr[3]) : "normal";
+
+                            var isPlayerNote:Bool = (noteData >= 4) ? !mustHit : mustHit;
+                            chart.addNote(strumTime, noteData % 4, sustainLength, noteType, isPlayerNote, altAnim);
+                        }
+                    }
+                }
+
+                if (Reflect.hasField(songObj, "events") && Std.isOfType(Reflect.field(songObj, "events"), Array)) {
+                    for (evRow in (cast Reflect.field(songObj, "events") : Array<Dynamic>)) {
+                        if (evRow != null && Std.isOfType(evRow, Array) && evRow.length >= 2) {
+                            var evTime:Float = evRow[0];
+                            var evList:Array<Dynamic> = cast evRow[1];
+                            for (singleEv in evList) {
+                                if (singleEv != null && Std.isOfType(singleEv, Array) && singleEv.length >= 3) {
+                                    chart.addEvent(evTime, Std.string(singleEv[0]), singleEv[1], singleEv[2]);
                                 }
                             }
                         }
-
-                        var lengthInSteps:Int = Reflect.hasField(sec, "lengthInSteps") ? Std.parseInt(Std.string(sec.lengthInSteps)) : 16;
-                        var stepCrochet:Float = ((60.0 / curBpm) * 1000.0) / 4.0;
-                        
-                        runningTime += stepCrochet * lengthInSteps;
-                        totalSteps += lengthInSteps;
                     }
                 }
             }
 
-            if (Reflect.hasField(songData, "events") && songData.events != null) {
-                var rawEvents:Array<Dynamic> = cast Reflect.field(songData, "events");
-                if (rawEvents != null) parseEventsArray(rawEvents, parsed.chart);
-            }
-
-            loadExternalEvents(songName, parsed.chart);
-
-            parsed.chart.sortNotes();
-            parsed.chart.sortEvents();
-            return parsed;
-
+            chart.sortNotes();
+            chart.sortEvents();
+            songInstance.chart = chart;
+            return songInstance;
         } catch (e:Dynamic) {
-            Logger.error('Failed parsing legacy chart JSON: $e', "chart");
-            return new Song(fallback, fallback);
-        }
-    }
-
-    private static function parseEventsArray(rawEvents:Array<Dynamic>, chart:Chart):Void {
-        for (e in rawEvents) {
-            if (e == null) continue;
-            if (Reflect.hasField(e, "time") && Reflect.hasField(e, "name")) {
-                var time:Float = Std.parseFloat(Std.string(e.time));
-                var name:String = Std.string(e.name);
-                var params:Array<Dynamic> = Reflect.hasField(e, "params") ? cast e.params : [];
-                var val1:String = (params.length > 0 && params[0] != null) ? Std.string(params[0]) : "";
-                var val2:String = (params.length > 1 && params[1] != null) ? Std.string(params[1]) : "";
-                chart.addEvent(time, name, val1, val2);
-            } else if (e.length >= 2) {
-                var time:Float = Std.parseFloat(Std.string(e[0]));
-                var subEvents:Array<Dynamic> = cast e[1];
-                if (subEvents != null) {
-                    for (sub in subEvents) {
-                        if (sub != null && sub.length >= 3) {
-                            var eventName:String = Std.string(sub[0]);
-                            var val1:String = (sub[1] != null) ? Std.string(sub[1]) : "";
-                            var val2:String = (sub[2] != null) ? Std.string(sub[2]) : "";
-                            chart.addEvent(time, eventName, val1, val2);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private static function loadExternalEvents(songId:String, chart:Chart):Void {
-        var clean = songId.toLowerCase().trim();
-        var candidates = [
-            'songs/$clean/events',
-            'data/$clean/events',
-            'assets/preload/songs/$clean/events'
-        ];
-
-        for (path in candidates) {
-            var resolved = AssetResolver.resolveFile(path, [".soulchart", ".json", ""]);
-            if (resolved != null) {
-                try {
-                    var raw = AssetResolver.getText(resolved);
-                    // Check if the event file is a modern .soulchart xml
-                    if (raw.trim().startsWith("<")) {
-                        var xml = Xml.parse(raw);
-                        var root = new Access(xml.firstElement());
-                        for (node in root.elements) {
-                            if (node.name.toLowerCase() == "event") {
-                                chart.addEvent(XMSoul.getFloatAttr(node, "time", 0.0), XMSoul.getAttr(node, "name", ""), XMSoul.getAttr(node, "val1", ""), XMSoul.getAttr(node, "val2", ""));
-                            }
-                        }
-                    } else {
-                        var parsedJson = Json.parse(raw);
-                        if (parsedJson != null && Reflect.hasField(parsedJson, "events")) {
-                            var evList:Array<Dynamic> = cast Reflect.field(parsedJson, "events");
-                            if (evList != null) parseEventsArray(evList, chart);
-                        }
-                    }
-                } catch (e:Dynamic) {}
-                break;
-            }
+            Logger.error('Failed parsing JSON chart for $songId: $e', "chart");
+            return null;
         }
     }
 }

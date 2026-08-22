@@ -15,9 +15,9 @@ using StringTools;
 
 class AssetHelper {
     public static function loadGraphicSafely(spr:FlxSprite, key:String):Bool {
-        if (spr == null || key == null) return false;
+        if (spr == null || key == null || key.trim().length == 0) return false;
 
-        var graphic = Paths.image(key);
+        var graphic = Paths.graphic(key.trim());
         if (graphic != null) {
             spr.loadGraphic(graphic);
             return true;
@@ -30,11 +30,11 @@ class AssetHelper {
     }
 
     public static function clearAtlasCache():Void {
-        // Clears cached graphic frames if tracked
+        // Handled via Paths memory sweeping
     }
 
     public static function loadSparrowSafely(spr:FlxSprite, key:String):Bool {
-        if (spr == null || key == null) return false;
+        if (spr == null || key == null || key.trim().length == 0) return false;
 
         var clean = key.trim();
 
@@ -45,33 +45,11 @@ class AssetHelper {
             return true;
         }
 
-        // 2. Try loading as Sparrow XML Atlas (.xml)
-        var xmlLookups = [
-            'images/$clean.xml',
-            'assets/preload/images/$clean.xml',
-            'assets/images/$clean.xml',
-            'ui/game/cutscenes/$clean.xml',
-            '$clean.xml'
-        ];
-
-        var hasXml = false;
-        #if sys
-        for (xp in xmlLookups) {
-            if (FileSystem.exists(xp)) {
-                hasXml = true;
-                break;
-            }
-        }
-        #else
-        hasXml = true;
-        #end
-
-        if (hasXml) {
-            var atlas:FlxAtlasFrames = Paths.getSparrowAtlas(clean);
-            if (atlas != null && atlas.frames != null && atlas.frames.length > 0) {
-                spr.frames = atlas;
-                return true;
-            }
+        // 2. Load directly via Paths.getSparrowAtlas (which uses full AssetResolver probing)
+        var atlas:FlxAtlasFrames = Paths.getSparrowAtlas(clean);
+        if (atlas != null && atlas.frames != null && atlas.frames.length > 0) {
+            spr.frames = atlas;
+            return true;
         }
 
         return false;

@@ -1,5 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <freeplayList>
-    <song id="tutorial" name="Tutorial" icon="gf" color="0xFFA5004D" difficulties="normal, hard" />
-    <song id="ugh" name="Ugh" icon="tankman" color="0xFFF6B604" difficulties="hard" />
+    <!-- Tutorial -->
+    <song id="tutorial" name="Tutorial" icon="gf" color="0xFFA5004D" difficulties="easy, normal, hard" />
+
+    <!-- Week 1: Daddy Dearest -->
+    <song id="bopeebo" name="Bopeebo" icon="dad" color="0xFFAF66CE" difficulties="easy, normal, hard" />
+    <song id="fresh" name="Fresh" icon="dad" color="0xFFAF66CE" difficulties="easy, normal, hard" />
+    <song id="dadbattle" name="Dad Battle" icon="dad" color="0xFFAF66CE" difficulties="easy, normal, hard" />
+
+    <!-- Week 2: Spooky Month & Monster -->
+    <song id="spookeez" name="Spookeez" icon="spooky" color="0xFF223344" difficulties="easy, normal, hard" />
+    <song id="south" name="South" icon="spooky" color="0xFF223344" difficulties="easy, normal, hard" />
+    <song id="monster" name="Monster" icon="monster" color="0xFFF3FF6E" difficulties="easy, normal, hard" />
+
+    <!-- Week 3: Pico -->
+    <song id="pico" name="Pico" icon="pico" color="0xFFB7D855" difficulties="easy, normal, hard" />
+    <song id="philly nice" name="Philly Nice" icon="pico" color="0xFFB7D855" difficulties="easy, normal, hard" />
+    <song id="blammed" name="Blammed" icon="pico" color="0xFFB7D855" difficulties="easy, normal, hard" />
+
+    <!-- Week 4: Mommy Mearest -->
+    <song id="satin panties" name="Satin Panties" icon="mom" color="0xFFD8558E" difficulties="easy, normal, hard" />
+    <song id="high" name="High" icon="mom" color="0xFFD8558E" difficulties="easy, normal, hard" />
+    <song id="milf" name="M.I.L.F" icon="mom" color="0xFFD8558E" difficulties="easy, normal, hard" />
+
+    <!-- Week 5: Red Snow & Parents -->
+    <song id="cocoa" name="Cocoa" icon="parents" color="0xFFAEC5E8" difficulties="easy, normal, hard" />
+    <song id="eggnog" name="Eggnog" icon="parents" color="0xFFAEC5E8" difficulties="easy, normal, hard" />
+    <song id="winter horrorland" name="Winter Horrorland" icon="monster-christmas" color="0xFFF3FF6E" difficulties="easy, normal, hard" />
+
+    <!-- Week 6: Hating Simulator -->
+    <song id="senpai" name="Senpai" icon="senpai" color="0xFFFF78B9" difficulties="easy, normal, hard" />
+    <song id="roses" name="Roses" icon="senpai-angry" color="0xFFFF78B9" difficulties="easy, normal, hard" />
+    <song id="thorns" name="Thorns" icon="spirit" color="0xFFFF3C6E" difficulties="easy, normal, hard" />
+
+    <!-- Week 7: Tankman -->
+    <song id="ugh" name="Ugh" icon="tankman" color="0xFFF6B604" difficulties="easy, normal, hard" />
+    <song id="guns" name="Guns" icon="tankman" color="0xFFF6B604" difficulties="easy, normal, hard" />
+    <song id="stress" name="Stress" icon="tankman" color="0xFFF6B604" difficulties="easy, normal, hard" />
 </freeplayList>

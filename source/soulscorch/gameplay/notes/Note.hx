@@ -76,7 +76,6 @@ class Note extends FlxSprite {
         this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : DEFAULT_SCALE;
 
         loadNoteSkin(this.skinName);
-        setupAnimation(skinConf);
         applyColorTint();
         applyNoteTypeConfig(this.noteType);
 
@@ -96,9 +95,11 @@ class Note extends FlxSprite {
     }
 
     public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
+        var skinConf = NoteSkinManager.getSkinConfig(skin);
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
         if (atlas != null) {
             frames = atlas;
+            setupAnimation(skinConf);
         } else {
             makeGraphic(Std.int(STRUM_WIDTH), isSustainNote ? 30 : Std.int(STRUM_WIDTH), NoteSkinManager.getLaneColor(this.noteData));
         }
@@ -107,8 +108,8 @@ class Note extends FlxSprite {
     public function applyNoteTypeConfig(typeId:String):Void {
         var cleanType = (typeId == null || typeId.trim().length == 0) ? "normal" : typeId.trim();
 
-        var access:Access = XMSoul.parse('data/notes/$cleanType');
-        if (access == null) access = XMSoul.parse('notes/$cleanType');
+        var access:Access = XMSoul.parse('data/notes/$cleanType', true, false);
+        if (access == null) access = XMSoul.parse('notes/$cleanType', true, false);
 
         if (access != null) {
             hitHealth = XMSoul.getFloatAttr(access, "hitHealth", 0.023);
@@ -121,7 +122,6 @@ class Note extends FlxSprite {
             if (customTexture != "NOTE_assets" && customTexture != "default") {
                 this.skinName = customTexture;
                 loadNoteSkin(customTexture);
-                setupAnimation(NoteSkinManager.getSkinConfig(customTexture));
             }
             return;
         }
@@ -148,28 +148,42 @@ class Note extends FlxSprite {
     private function setupAnimation(?conf:NoteSkinConfig):Void {
         if (frames == null || frames.frames == null || frames.frames.length == 0) return;
 
+        animation.destroyAnimations();
         var colorName = NoteSkinManager.noteColors[noteData % 4];
 
         if (isSustainNote) {
-            var holdConf = (conf != null && conf.holdAnims.exists(noteData)) ? conf.holdAnims.get(noteData) : null;
             if (isSustainEnd) {
-                var endAnim = (holdConf != null) ? holdConf.endAnim : colorName + " hold end";
-                animation.addByPrefix("holdend", endAnim, 24, false);
-                if (animation.getByName("holdend") == null) {
-                    animation.addByPrefix("holdend", colorName + " hold end", 24, false);
+                var endPrefixes = [
+                    (noteData == 0 ? "pruple end hold" : colorName + " hold end"),
+                    colorName + " hold end",
+                    colorName + " tail",
+                    colorName + " hold piece"
+                ];
+                for (p in endPrefixes) {
+                    animation.addByPrefix("holdend", p, 24, false);
+                    if (animation.getByName("holdend") != null) break;
                 }
             } else {
-                var bodyAnim = (holdConf != null) ? holdConf.bodyAnim : colorName + " hold piece";
-                animation.addByPrefix("hold", bodyAnim, 24, false);
-                if (animation.getByName("hold") == null) {
-                    animation.addByPrefix("hold", colorName + " hold piece", 24, false);
+                var bodyPrefixes = [
+                    colorName + " hold piece",
+                    colorName + " hold",
+                    colorName + " piece"
+                ];
+                for (p in bodyPrefixes) {
+                    animation.addByPrefix("hold", p, 24, false);
+                    if (animation.getByName("hold") != null) break;
                 }
             }
         } else {
-            var tapAnim = (conf != null && conf.tapAnims.exists(noteData)) ? conf.tapAnims.get(noteData) : colorName;
-            animation.addByPrefix("scroll", tapAnim + "0", 24, false);
-            if (animation.getByName("scroll") == null) {
-                animation.addByPrefix("scroll", colorName + "0", 24, false);
+            var tapPrefixes = [
+                colorName + "0",
+                colorName,
+                colorName + " note",
+                colorName + " tap"
+            ];
+            for (p in tapPrefixes) {
+                animation.addByPrefix("scroll", p, 24, false);
+                if (animation.getByName("scroll") != null) break;
             }
         }
     }
@@ -177,10 +191,12 @@ class Note extends FlxSprite {
     public function playAnim(?songSpeed:Float = 2.0):Void {
         if (isSustainNote) {
             if (isSustainEnd) {
+                if (animation.getByName("holdend") == null) setupAnimation();
                 if (animation.getByName("holdend") != null) animation.play("holdend");
                 scale.set(skinScale, skinScale);
                 updateHitbox();
             } else {
+                if (animation.getByName("hold") == null) setupAnimation();
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
@@ -188,6 +204,7 @@ class Note extends FlxSprite {
                 updateHitbox();
             }
         } else {
+            if (animation.getByName("scroll") == null) setupAnimation();
             if (animation.getByName("scroll") != null) animation.play("scroll");
             scale.set(skinScale, skinScale);
             updateHitbox();
@@ -199,20 +216,19 @@ class Note extends FlxSprite {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * currentSpeed);
         var stepHeight:Float = (Conductor.stepCrochet * 0.45 * currentSpeed);
 
-        // Center perfectly onto the receptor
-        x = strumX + ((STRUM_WIDTH - width) * 0.5) + offsetX;
+        x = strumX + ((StrumArrow.STRUM_SIZE - width) * 0.5) + offsetX;
 
         if (isSustainNote) {
             flipY = downscroll;
 
             if (downscroll) {
-                y = strumY + (STRUM_WIDTH * 0.5) - distance - height + stepHeight + offsetY;
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) - distance - height + stepHeight + offsetY;
             } else {
-                y = strumY + (STRUM_WIDTH * 0.5) + distance - stepHeight + offsetY;
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) + distance - stepHeight + offsetY;
             }
 
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
-                var strumCenterY = strumY + (STRUM_WIDTH * 0.5);
+                var strumCenterY = strumY + (StrumArrow.STRUM_SIZE * 0.5);
                 if (downscroll) {
                     var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);
                     _sharedClipRect.set(0, 0, frameWidth, clipHeight);
@@ -227,9 +243,9 @@ class Note extends FlxSprite {
             }
         } else {
             if (downscroll) {
-                y = strumY + (STRUM_WIDTH * 0.5) - distance - (height * 0.5) + offsetY;
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) - distance - (height * 0.5) + offsetY;
             } else {
-                y = strumY + (STRUM_WIDTH * 0.5) + distance - (height * 0.5) + offsetY;
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) + distance - (height * 0.5) + offsetY;
             }
         }
 

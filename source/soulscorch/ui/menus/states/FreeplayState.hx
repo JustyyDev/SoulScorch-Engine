@@ -37,6 +37,7 @@ using StringTools;
 class FreeplayState extends MusicBeatState {
     public static var curSelected:Int = 0;
     public static var curDifficulty:Int = 1;
+    public static var lastSelectedDifficultyName:String = "normal";
 
     private var songs:Array<RegisteredSong> = [];
     private var grpSongs:FlxTypedGroup<Alphabet>;
@@ -227,6 +228,8 @@ class FreeplayState extends MusicBeatState {
             stopPreview();
             var selected = songs[curSelected];
             var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
+            curDifficulty = FlxMath.wrap(curDifficulty, 0, diffs.length - 1);
+
             PlayState.curSong = selected.id;
             PlayState.curDifficulty = diffs[curDifficulty];
             PlayState.isStoryMode = false;
@@ -304,7 +307,26 @@ class FreeplayState extends MusicBeatState {
             bullShit++;
         }
 
-        curDifficulty = 0;
+        // Retain previous difficulty name if available in the new song
+        var selected = songs[curSelected];
+        var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
+        
+        var matchingIndex:Int = -1;
+        for (i in 0...diffs.length) {
+            if (diffs[i].toLowerCase().trim() == lastSelectedDifficultyName.toLowerCase().trim()) {
+                matchingIndex = i;
+                break;
+            }
+        }
+
+        if (matchingIndex != -1) {
+            curDifficulty = matchingIndex;
+        } else {
+            // Default to normal or highest available index
+            var normalIdx = diffs.indexOf("normal");
+            curDifficulty = (normalIdx != -1) ? normalIdx : (diffs.length > 1 ? 1 : 0);
+        }
+
         changeDiff(0);
         scheduleSongPreview(false);
         if (scripts != null) scripts.callAll("onChangeSelection", [curSelected]);
@@ -315,6 +337,7 @@ class FreeplayState extends MusicBeatState {
         var selected = songs[curSelected];
         var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
         curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
+        lastSelectedDifficultyName = diffs[curDifficulty].toLowerCase().trim();
 
         var diffName = diffs[curDifficulty].toUpperCase();
         if (diffText != null) {

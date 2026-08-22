@@ -1,6 +1,7 @@
 package soulscorch.backend.localization;
 
 import haxe.Json;
+import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
@@ -38,21 +39,18 @@ class LanguageManager {
 
     private function loadFallback():Void {
         fallbackStrings.clear();
-        loadTableIntoMap(fallbackLanguage, fallbackStrings);
+        loadLanguageIntoMap(fallbackLanguage, fallbackStrings);
     }
 
-    /**
-     * Loads a locale file, falling back to the default language table if missing.
-     */
     public function load(?lang:String):Bool {
         var target:String = (lang != null && lang.trim().length > 0) ? lang.trim().toLowerCase() : currentLanguage;
         
         strings.clear();
-        var success:Bool = loadTableIntoMap(target, strings);
+        var success:Bool = loadLanguageIntoMap(target, strings);
 
         if (!success && target != fallbackLanguage) {
             Logger.warn('Locale "$target" not found. Falling back to "$fallbackLanguage".', "i18n");
-            success = loadTableIntoMap(fallbackLanguage, strings);
+            success = loadLanguageIntoMap(fallbackLanguage, strings);
         }
 
         if (success) {
@@ -61,9 +59,6 @@ class LanguageManager {
         return success;
     }
 
-    /**
-     * Changes the active language and notifies all registered subscribers.
-     */
     public function setLanguage(lang:String):Bool {
         var previous:String = currentLanguage;
         var loaded:Bool = load(lang);
@@ -79,9 +74,6 @@ class LanguageManager {
         return loaded;
     }
 
-    /**
-     * Resolves a key into translated text with token interpolation (e.g., {score}).
-     */
     public function get(key:String, ?tokens:Map<String, Dynamic>):String {
         var result:String = null;
 
@@ -121,69 +113,144 @@ class LanguageManager {
 
     public function getAvailableLanguages():Array<String> {
         var langs:Array<String> = [];
-        var candidates = ["locales", "languages", "data/locales"];
+        var searchFolders = [
+            "languages",
+            "locales",
+            "assets/languages",
+            "assets/preload/languages",
+            "assets/locales"
+        ];
 
         #if sys
-        for (dir in candidates) {
-            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
-                for (file in FileSystem.readDirectory(dir)) {
-                    if (file.endsWith(".json")) {
-                        var id = file.substr(0, file.length - 5).toLowerCase();
-                        if (!langs.contains(id)) langs.push(id);
+        var scanFolder = function(path:String) {
+            if (FileSystem.exists(path) && FileSystem.isDirectory(path)) {
+                for (item in FileSystem.readDirectory(path)) {
+                    var full = '$path/$item';
+                    if (FileSystem.isDirectory(full)) {
+                        if (!langs.contains(item.toLowerCase())) langs.push(item.toLowerCase());
+                    } else if (item.endsWith(".json") || item.endsWith(".xml")) {
+                        var cleanName = item.substring(0, item.lastIndexOf(".")).toLowerCase();
+                        if (!langs.contains(cleanName)) langs.push(cleanName);
                     }
                 }
             }
-        }
+        };
+
+        for (dir in searchFolders) scanFolder(dir);
 
         if (ModManager.activeMods != null) {
             for (mod in ModManager.activeMods) {
-                for (dir in candidates) {
-                    var full = 'mods/$mod/$dir';
-                    if (FileSystem.exists(full) && FileSystem.isDirectory(full)) {
-                        for (file in FileSystem.readDirectory(full)) {
-                            if (file.endsWith(".json")) {
-                                var id = file.substr(0, file.length - 5).toLowerCase();
-                                if (!langs.contains(id)) langs.push(id);
-                            }
-                        }
-                    }
+                for (dir in searchFolders) {
+                    scanFolder('mods/$mod/$dir');
                 }
             }
         }
         #end
 
-        if (langs.length == 0) langs = ["en"];
+        if (!langs.contains("en")) langs.push("en");
         return langs;
     }
 
-    private function loadTableIntoMap(lang:String, targetMap:Map<String, String>):Bool {
-        var candidates = [
-            'locales/$lang',
+    private function loadLanguageIntoMap(lang:String, targetMap:Map<String, String>):Bool {
+        var foundAny = false;
+        var langSearchRoots = [
             'languages/$lang',
-            'data/locales/$lang',
-            'assets/locales/$lang',
-            'assets/languages/$lang'
+            'locales/$lang',
+            'assets/languages/$lang',
+            'assets/preload/languages/$lang',
+            'data/languages/$lang',
+            'data/locales/$lang'
         ];
 
-        var resolved:String = null;
-        for (c in candidates) {
-            resolved = AssetResolver.resolveFile(c, [".json", ""]);
-            if (resolved != null) break;
+        #if sys
+        // Scan Mod Overrides First
+        if (ModManager.activeMods != null) {
+            for (mod in ModManager.activeMods) {
+                for (root in langSearchRoots) {
+                    var modDir = 'mods/$mod/$root';
+                    if (FileSystem.exists(modDir) && FileSystem.isDirectory(modDir)) {
+                        for (file in FileSystem.readDirectory(modDir)) {
+                            if (loadFileIntoMap('$modDir/$file', targetMap)) foundAny = true;
+                        }
+                    }
+                }
+            }
         }
 
-        if (resolved == null) return false;
+        // Scan Base Game Folders
+        for (root in langSearchRoots) {
+            if (FileSystem.exists(root) && FileSystem.isDirectory(root)) {
+                for (file in FileSystem.readDirectory(root)) {
+                    if (loadFileIntoMap('$root/$file', targetMap)) foundAny = true;
+                }
+            } else if (FileSystem.exists('$root.json') || FileSystem.exists('$root.xml')) {
+                if (loadFileIntoMap(FileSystem.exists('$root.json') ? '$root.json' : '$root.xml', targetMap)) foundAny = true;
+            }
+        }
+        #end
+
+        return foundAny;
+    }
+
+    private function loadFileIntoMap(filePath:String, targetMap:Map<String, String>):Bool {
+        #if sys
+        if (!FileSystem.exists(filePath)) return false;
 
         try {
-            var rawContent = AssetResolver.getText(resolved);
-            if (rawContent.length == 0) return false;
+            var raw = File.getContent(filePath);
+            if (raw == null || raw.trim().length == 0) return false;
 
-            var parsed:Dynamic = Json.parse(rawContent);
-            flattenJson(parsed, "", targetMap);
-            Logger.info('Loaded localization table: $resolved (${Lambda.count(targetMap)} keys)', "i18n");
-            return true;
+            if (filePath.endsWith(".json")) {
+                var parsed:Dynamic = Json.parse(raw);
+                flattenJson(parsed, "", targetMap);
+                return true;
+            } else if (filePath.endsWith(".xml")) {
+                var xmlObj = Xml.parse(raw);
+                parseXmlNode(xmlObj.firstElement(), "", targetMap);
+                return true;
+            } else if (filePath.endsWith(".ini") || filePath.endsWith(".txt")) {
+                var lines = raw.split("\n");
+                for (l in lines) {
+                    var line = l.trim();
+                    if (line.length == 0 || line.startsWith("#") || line.startsWith(";")) continue;
+                    var eq = line.indexOf("=");
+                    if (eq != -1) {
+                        targetMap.set(line.substr(0, eq).trim(), line.substr(eq + 1).trim());
+                    }
+                }
+                return true;
+            }
         } catch (e:Dynamic) {
-            Logger.error('Failed parsing localization file "$resolved": $e', "i18n");
-            return false;
+            Logger.error('Failed reading locale file "$filePath": $e', "i18n");
+        }
+        #end
+        return false;
+    }
+
+    private function parseXmlNode(node:Xml, prefix:String, targetMap:Map<String, String>):Void {
+        if (node == null) return;
+
+        for (elem in node.elements()) {
+            var keyName = elem.get("id");
+            if (keyName == null || keyName.length == 0) keyName = elem.get("name");
+            if (keyName == null || keyName.length == 0) keyName = elem.nodeName;
+
+            var fullKey = prefix.length > 0 ? '$prefix.$keyName' : keyName;
+
+            // Direct text inside tag
+            var text = elem.firstChild() != null ? elem.firstChild().nodeValue : "";
+            if (text != null && text.trim().length > 0) {
+                targetMap.set(fullKey, text.trim());
+            }
+
+            // Or attributes like <string id="play" text="Play" />
+            if (elem.exists("text")) {
+                targetMap.set(fullKey, elem.get("text"));
+            } else if (elem.exists("value")) {
+                targetMap.set(fullKey, elem.get("value"));
+            }
+
+            parseXmlNode(elem, fullKey, targetMap);
         }
     }
 

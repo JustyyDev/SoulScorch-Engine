@@ -1,5 +1,6 @@
 package soulscorch.gameplay;
 
+import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxObject;
@@ -15,6 +16,7 @@ import flixel.tweens.FlxTween;
 import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
 import flixel.util.FlxSort;
+import flixel.util.FlxStringUtil;
 import flixel.util.FlxTimer;
 import haxe.Json;
 import haxe.xml.Access;
@@ -110,6 +112,7 @@ class PlayState extends MusicBeatState {
     public var opponentStrumline:Strumline;
     public var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
     public var notes:FlxTypedGroup<Note>;
+    public var sustainsGroup:FlxTypedGroup<Note>;
     public var unspawnNotes:Array<Note> = [];
     public var eventNotes:Array<ParsedChartEvent> = [];
 
@@ -126,7 +129,6 @@ class PlayState extends MusicBeatState {
     }
 
     public var maxHealth:Float = 2.0;
-
     public var songScore:Int = 0;
     public var songMisses:Int = 0;
     public var songHits:Int = 0;
@@ -216,8 +218,9 @@ class PlayState extends MusicBeatState {
         add(currentStage);
         add(opponentStrumline);
         add(playerStrumline);
-        add(grpNoteSplashes);
+        add(sustainsGroup);
         add(notes);
+        add(grpNoteSplashes);
         add(judgementManager);
 
         setupHUD();
@@ -272,7 +275,7 @@ class PlayState extends MusicBeatState {
                 passiveHealthDrain = mods.healthDrain;
                 healthDrainFloor = mods.drainFloor;
                 maxHealth = mods.maxHealth;
-                Logger.info('Successfully loaded .xmsoul modifiers for $clean (Drain: $passiveHealthDrain, Floor: $healthDrainFloor)', "modifiers");
+                Logger.info('Loaded modifiers for $clean (Drain: $passiveHealthDrain, Floor: $healthDrainFloor)', "modifiers");
                 break;
             }
         }
@@ -317,9 +320,11 @@ class PlayState extends MusicBeatState {
         };
 
         grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
+        sustainsGroup = new FlxTypedGroup<Note>();
         notes = new FlxTypedGroup<Note>();
 
         grpNoteSplashes.cameras = [camHUD];
+        sustainsGroup.cameras = [camHUD];
         notes.cameras = [camHUD];
     }
 
@@ -402,9 +407,7 @@ class PlayState extends MusicBeatState {
                                 }
                             }
                         }
-                    } catch (e:Dynamic) {
-                        Logger.warn('Failed parsing events.json for $cleanSong: $e', "events");
-                    }
+                    } catch (e:Dynamic) {}
                 }
             }
         }
@@ -641,7 +644,7 @@ class PlayState extends MusicBeatState {
         scripts = new ScriptManager();
         var cleanSong = curSong.toLowerCase().trim();
 
-        // 1. Core State & Gameplay References
+        // Core State References
         scripts.setAll("game", this);
         scripts.setAll("state", this);
         scripts.setAll("PlayState", PlayState);
@@ -649,7 +652,7 @@ class PlayState extends MusicBeatState {
         scripts.setAll("curSong", curSong);
         scripts.setAll("curDifficulty", curDifficulty);
 
-        // 2. Audio & Conductor
+        // Audio & Time
         scripts.setAll("audio", audio);
         scripts.setAll("Conductor", Conductor);
         scripts.setAll("curBeat", Conductor.curBeat);
@@ -659,23 +662,24 @@ class PlayState extends MusicBeatState {
         scripts.setAll("stepCrochet", Conductor.stepCrochet);
         scripts.setAll("crochet", Conductor.crochet);
 
-        // 3. Strumlines, Receptors & Notes
+        // Strumlines & Notes
         scripts.setAll("playerStrumline", playerStrumline);
         scripts.setAll("opponentStrumline", opponentStrumline);
         scripts.setAll("playerStrums", playerStrumline.receptors);
         scripts.setAll("opponentStrums", opponentStrumline.receptors);
         scripts.setAll("notes", notes);
+        scripts.setAll("sustainsGroup", sustainsGroup);
         scripts.setAll("unspawnNotes", unspawnNotes);
         scripts.setAll("grpNoteSplashes", grpNoteSplashes);
 
-        // 4. Actors & Stage
+        // Characters & Stage
         scripts.setAll("boyfriend", boyfriend);
         scripts.setAll("dad", dad);
         scripts.setAll("gf", gf);
         scripts.setAll("stage", currentStage);
         scripts.setAll("currentStage", currentStage);
 
-        // 5. HUD Elements & Health/Score
+        // HUD Elements
         scripts.setAll("healthBar", healthBar);
         scripts.setAll("healthBarBG", healthBarBG);
         scripts.setAll("iconP1", iconP1);
@@ -686,7 +690,7 @@ class PlayState extends MusicBeatState {
         scripts.setAll("botplayTxt", botplayTxt);
         scripts.setAll("judgementManager", judgementManager);
 
-        // 6. Cameras & Zooms
+        // Cameras
         scripts.setAll("camGame", camGame);
         scripts.setAll("camHUD", camHUD);
         scripts.setAll("camOther", camOther);
@@ -696,12 +700,12 @@ class PlayState extends MusicBeatState {
         scripts.setAll("defaultCamZoom", defaultCamZoom);
         scripts.setAll("defaultHUDZoom", defaultHUDZoom);
 
-        // 7. Modchart & VFX Systems
+        // Modcharts & VFX
         scripts.setAll("modcharts", modcharts);
         scripts.setAll("ShaderManager", soulscorch.graphics.shaders.ShaderManager.instance);
         scripts.setAll("JuiceManager", soulscorch.graphics.JuiceManager);
 
-        // 8. Flixel Core Libraries
+        // Flixel Standard
         scripts.setAll("FlxG", flixel.FlxG);
         scripts.setAll("FlxSprite", flixel.FlxSprite);
         scripts.setAll("FlxText", flixel.text.FlxText);
@@ -727,42 +731,34 @@ class PlayState extends MusicBeatState {
         scripts.setAll("FlxEase", flixel.tweens.FlxEase);
         scripts.setAll("FlxTimer", flixel.util.FlxTimer);
 
-        // 9. Engine Backend Utilities
+        // Backend Utilities
         scripts.setAll("Paths", soulscorch.backend.assets.Paths);
         scripts.setAll("AssetHelper", soulscorch.backend.assets.AssetHelper);
         scripts.setAll("Logger", soulscorch.backend.utils.Logger);
 
-        // 10. Modchart Helper Functions (Built-in Shorthands)
-        scripts.setAll("tweenPlayerStrumX", function(lane:Int, value:Float, duration:Float, ?ease:Dynamic) {
-            if (playerStrumline != null && playerStrumline.receptors.length > lane) {
-                var r = playerStrumline.receptors[lane];
-                return flixel.tweens.FlxTween.tween(r, {x: r.baseX + value}, duration, {ease: ease != null ? ease : flixel.tweens.FlxEase.linear});
-            }
-            return null;
+        // Advanced Scripting Helpers
+        scripts.setAll("setCameraZoom", function(zoom:Float) {
+            defaultCamZoom = zoom;
+            camGame.zoom = zoom;
         });
 
-        scripts.setAll("tweenPlayerStrumY", function(lane:Int, value:Float, duration:Float, ?ease:Dynamic) {
-            if (playerStrumline != null && playerStrumline.receptors.length > lane) {
-                var r = playerStrumline.receptors[lane];
-                return flixel.tweens.FlxTween.tween(r, {y: r.baseY + value}, duration, {ease: ease != null ? ease : flixel.tweens.FlxEase.linear});
-            }
-            return null;
+        scripts.setAll("bumpCamera", function(?intensity:Float = 0.035, ?hudIntensity:Float = 0.02) {
+            JuiceManager.bumpCamera(camGame, intensity, hudIntensity);
         });
 
-        scripts.setAll("tweenOpponentStrumX", function(lane:Int, value:Float, duration:Float, ?ease:Dynamic) {
-            if (opponentStrumline != null && opponentStrumline.receptors.length > lane) {
-                var r = opponentStrumline.receptors[lane];
-                return flixel.tweens.FlxTween.tween(r, {x: r.baseX + value}, duration, {ease: ease != null ? ease : flixel.tweens.FlxEase.linear});
-            }
-            return null;
+        scripts.setAll("addBehindGF", function(obj:FlxBasic) {
+            var index = members.indexOf(gf);
+            if (index != -1) insert(index, obj); else add(obj);
         });
 
-        scripts.setAll("tweenOpponentStrumY", function(lane:Int, value:Float, duration:Float, ?ease:Dynamic) {
-            if (opponentStrumline != null && opponentStrumline.receptors.length > lane) {
-                var r = opponentStrumline.receptors[lane];
-                return flixel.tweens.FlxTween.tween(r, {y: r.baseY + value}, duration, {ease: ease != null ? ease : flixel.tweens.FlxEase.linear});
-            }
-            return null;
+        scripts.setAll("addBehindBF", function(obj:FlxBasic) {
+            var index = members.indexOf(boyfriend);
+            if (index != -1) insert(index, obj); else add(obj);
+        });
+
+        scripts.setAll("addBehindDad", function(obj:FlxBasic) {
+            var index = members.indexOf(dad);
+            if (index != -1) insert(index, obj); else add(obj);
         });
 
         scripts.setAll("resetStrumPositions", function(duration:Float = 0.5) {
@@ -778,7 +774,6 @@ class PlayState extends MusicBeatState {
             }
         });
 
-        // Load Script Files
         var scriptPaths = [
             'songs/$cleanSong/script',
             'data/$cleanSong/script',
@@ -984,18 +979,24 @@ class PlayState extends MusicBeatState {
         while (unspawnNotes.length > 0 && (unspawnNotes[0].strumTime - songPos) < spawnThreshold) {
             var note = unspawnNotes.shift();
             note.cameras = [camHUD];
-            notes.add(note);
+            if (note.isSustainNote) {
+                sustainsGroup.add(note);
+            } else {
+                notes.add(note);
+            }
         }
     }
 
     private function updateNotePositions():Void {
         var songPos = Conductor.songPosition;
         var safeZone = Conductor.safeZoneOffset;
-        notes.forEachAlive(function(daNote:Note) {
+
+        var processNote = function(daNote:Note) {
             var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
 
             if (targetStrum != null) {
                 daNote.updatePosition(targetStrum.x, targetStrum.y, songSpeed, downscroll);
+                daNote.angle = targetStrum.angle;
 
                 if (modcharts != null) {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
@@ -1018,7 +1019,7 @@ class PlayState extends MusicBeatState {
 
                     if (audio != null) audio.muteVocal(false, false);
                     daNote.kill();
-                    notes.remove(daNote, false);
+                    if (daNote.isSustainNote) sustainsGroup.remove(daNote, false); else notes.remove(daNote, false);
                     daNote.destroy();
                     return;
                 }
@@ -1028,10 +1029,13 @@ class PlayState extends MusicBeatState {
                 daNote.tooLate = true;
                 noteMiss(daNote.noteData);
                 daNote.kill();
-                notes.remove(daNote, false);
+                if (daNote.isSustainNote) sustainsGroup.remove(daNote, false); else notes.remove(daNote, false);
                 daNote.destroy();
             }
-        });
+        };
+
+        sustainsGroup.forEachAlive(processNote);
+        notes.forEachAlive(processNote);
     }
 
     private function handleInput(elapsed:Float):Void {
@@ -1079,7 +1083,7 @@ class PlayState extends MusicBeatState {
             }
 
             if (keysHeld[i]) {
-                notes.forEachAlive(function(daNote:Note) {
+                sustainsGroup.forEachAlive(function(daNote:Note) {
                     if (daNote.mustPress && daNote.noteData == i && daNote.isSustainNote && daNote.canBeHit && !daNote.wasGoodHit) {
                         if (daNote.strumTime <= Conductor.songPosition + (Conductor.stepCrochet * 0.75)) {
                             goodNoteHit(daNote);
@@ -1124,7 +1128,7 @@ class PlayState extends MusicBeatState {
         if (note.causesMiss) {
             noteMiss(note.noteData);
             note.kill();
-            notes.remove(note, false);
+            if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
             note.destroy();
             return;
         }
@@ -1190,7 +1194,7 @@ class PlayState extends MusicBeatState {
         scripts.callAll("onNoteHit", [note]);
 
         note.kill();
-        notes.remove(note, false);
+        if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
         note.destroy();
     }
 

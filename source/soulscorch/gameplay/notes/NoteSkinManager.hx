@@ -7,7 +7,6 @@ import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
-import soulscorch.gameplay.GameplayFlags;
 
 using StringTools;
 
@@ -35,14 +34,10 @@ typedef NoteSkinConfig = {
     var tapAnims:Map<Int, String>;
     var strumAnims:Map<Int, StrumAnimConfig>;
     var holdAnims:Map<Int, HoldAnimConfig>;
-    var gridNoteWidth:Int;
-    var gridNoteHeight:Int;
-    var gridHoldWidth:Int;
-    var gridHoldHeight:Int;
 }
 
 class NoteSkinManager {
-    public static var defaultSkin:String = "NOTE_assets";
+    public static var defaultSkin:String = "default";
     private static var _skinCache:Map<String, FlxAtlasFrames> = new Map<String, FlxAtlasFrames>();
     private static var _configCache:Map<String, NoteSkinConfig> = new Map<String, NoteSkinConfig>();
 
@@ -57,12 +52,11 @@ class NoteSkinManager {
     ];
 
     public static inline function getLaneColor(lane:Int):FlxColor {
-        var cleanLane = lane % 4;
-        return defaultLaneColors[cleanLane];
+        return defaultLaneColors[lane % 4];
     }
 
     public static function getSkinConfig(?skinName:String):NoteSkinConfig {
-        var cleanSkin = (skinName != null && skinName.trim().length > 0 && skinName != "default") ? skinName.trim() : getNoteSkinName();
+        var cleanSkin = (skinName != null && skinName.trim().length > 0) ? skinName.trim() : defaultSkin;
 
         if (_configCache.exists(cleanSkin)) {
             return _configCache.get(cleanSkin);
@@ -71,8 +65,8 @@ class NoteSkinManager {
         var config:NoteSkinConfig = {
             name: cleanSkin,
             type: "sparrow",
-            atlasPath: cleanSkin,
-            sustainPath: cleanSkin,
+            atlasPath: "ui/game/notes/NOTE_assets",
+            sustainPath: "ui/game/notes/NOTE_assets",
             scale: 0.7,
             antialiasing: true,
             sustainAlpha: 0.6,
@@ -80,11 +74,7 @@ class NoteSkinManager {
             directions: ["left", "down", "up", "right"],
             tapAnims: new Map<Int, String>(),
             strumAnims: new Map<Int, StrumAnimConfig>(),
-            holdAnims: new Map<Int, HoldAnimConfig>(),
-            gridNoteWidth: 17,
-            gridNoteHeight: 17,
-            gridHoldWidth: 7,
-            gridHoldHeight: 6
+            holdAnims: new Map<Int, HoldAnimConfig>()
         };
 
         for (i in 0...4) {
@@ -100,25 +90,76 @@ class NoteSkinManager {
             });
         }
 
+        var candidateXmls = [
+            'data/noteskins/$cleanSkin',
+            'noteskins/$cleanSkin',
+            'data/noteskins/default',
+            'noteskins/default'
+        ];
+
+        var access:Access = null;
+        for (p in candidateXmls) {
+            access = XMSoul.parse(p, true, false);
+            if (access != null && access.name == "noteSkin") break;
+            access = null;
+        }
+
+        if (access != null) {
+            config.scale = XMSoul.getFloatAttr(access, "scale", 0.7);
+            config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", true);
+            config.atlasPath = XMSoul.getAttr(access, "sprite", "ui/game/notes/NOTE_assets");
+
+            if (access.hasNode.resolve("strums")) {
+                for (stNode in access.node.resolve("strums").nodes.resolve("strum")) {
+                    var lane = XMSoul.getIntAttr(stNode, "lane", 0);
+                    config.strumAnims.set(lane, {
+                        staticAnim: XMSoul.getAttr(stNode, "static", 'arrow' + noteDirections[lane].toUpperCase()),
+                        pressedAnim: XMSoul.getAttr(stNode, "press", noteDirections[lane] + ' press'),
+                        confirmAnim: XMSoul.getAttr(stNode, "confirm", noteDirections[lane] + ' confirm')
+                    });
+                }
+            }
+
+            if (access.hasNode.resolve("notes")) {
+                for (nNode in access.node.resolve("notes").nodes.resolve("note")) {
+                    var lane = XMSoul.getIntAttr(nNode, "lane", 0);
+                    config.tapAnims.set(lane, XMSoul.getAttr(nNode, "anim", noteColors[lane]));
+                }
+            }
+
+            if (access.hasNode.resolve("sustains")) {
+                var susParent = access.node.resolve("sustains");
+                config.sustainAlpha = XMSoul.getFloatAttr(susParent, "alpha", 0.6);
+                for (hNode in susParent.nodes.resolve("hold")) {
+                    var lane = XMSoul.getIntAttr(hNode, "lane", 0);
+                    config.holdAnims.set(lane, {
+                        bodyAnim: XMSoul.getAttr(hNode, "piece", noteColors[lane] + ' hold piece'),
+                        endAnim: XMSoul.getAttr(hNode, "end", (lane == 0 ? "pruple end hold" : noteColors[lane] + ' hold end'))
+                    });
+                }
+            }
+        }
+
         _configCache.set(cleanSkin, config);
         return config;
     }
 
     public static function getSkinAtlas(?skinName:String):Null<FlxAtlasFrames> {
         var conf = getSkinConfig(skinName);
-        var cleanSkin = conf.atlasPath;
+        var targetSprite = conf.atlasPath;
 
-        if (_skinCache.exists(cleanSkin)) {
-            var cached = _skinCache.get(cleanSkin);
+        if (_skinCache.exists(targetSprite)) {
+            var cached = _skinCache.get(targetSprite);
             if (cached != null && cached.parent != null) return cached;
-            _skinCache.remove(cleanSkin);
+            _skinCache.remove(targetSprite);
         }
 
-        var atlas = Paths.getSparrowAtlas(cleanSkin);
+        var atlas = Paths.getSparrowAtlas(targetSprite);
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
         if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
 
         if (atlas != null) {
-            _skinCache.set(cleanSkin, atlas);
+            _skinCache.set(targetSprite, atlas);
         }
         return atlas;
     }

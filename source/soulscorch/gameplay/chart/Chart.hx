@@ -1,11 +1,15 @@
 package soulscorch.gameplay.chart;
 
+using StringTools;
+
 typedef NoteData = {
     var time:Float;
     var direction:Int;
     var sustainLength:Float;
     var type:String;
     var mustPress:Bool;
+    var ?altAnim:Bool;
+    var ?rawLane:Int;
 }
 
 typedef ChartBPMChange = {
@@ -18,8 +22,8 @@ typedef ChartBPMChange = {
 typedef ChartEvent = {
     var time:Float;
     var name:String;
-    var val1:String;
-    var val2:String;
+    var val1:Dynamic;
+    var val2:Dynamic;
 }
 
 class Chart {
@@ -37,22 +41,24 @@ class Chart {
         this.events = [];
     }
 
-    public function addNote(time:Float, direction:Int, sustainLength:Float = 0.0, type:String = "Default", mustPress:Bool = true):Void {
+    public function addNote(time:Float, direction:Int, sustainLength:Float = 0.0, type:String = "normal", mustPress:Bool = true, ?altAnim:Bool = false):Void {
         notes.push({
             time: time,
-            direction: direction,
-            sustainLength: sustainLength,
-            type: (type != null && type.length > 0) ? type : "Default",
-            mustPress: mustPress
+            direction: direction % 4,
+            sustainLength: sustainLength > 0 ? sustainLength : 0.0,
+            type: (type != null && type.trim().length > 0) ? type.trim() : "normal",
+            mustPress: mustPress,
+            altAnim: altAnim,
+            rawLane: direction
         });
     }
 
-    public function addEvent(time:Float, name:String, val1:String = "", val2:String = ""):Void {
+    public function addEvent(time:Float, name:String, val1:Dynamic = "", val2:Dynamic = ""):Void {
         events.push({
             time: time,
             name: (name != null) ? name : "",
-            val1: (val1 != null) ? val1 : "",
-            val2: (val2 != null) ? val2 : ""
+            val1: val1,
+            val2: val2
         });
     }
 
@@ -84,7 +90,7 @@ class Chart {
 
     public function clone():Chart {
         var copy = new Chart(this.bpm, this.scrollSpeed);
-        for (n in notes) copy.addNote(n.time, n.direction, n.sustainLength, n.type, n.mustPress);
+        for (n in notes) copy.addNote(n.time, n.direction, n.sustainLength, n.type, n.mustPress, n.altAnim);
         for (e in events) copy.addEvent(e.time, e.name, e.val1, e.val2);
         for (b in bpmChanges) copy.addBpmChange(b.stepTime, b.songTime, b.bpm);
         return copy;
