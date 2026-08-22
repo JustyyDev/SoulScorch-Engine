@@ -1,14 +1,11 @@
 package soulscorch.scripting.mod;
 
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.ModRegistry;
-import soulscorch.scripting.mod.SoulGlobalScript;
-import soulscorch.scripting.mod.SoulModData;
-import soulscorch.scripting.mod.SoulModParser;
 
 #if sys
 import sys.FileSystem;
-import sys.io.File;
 #end
 
 using StringTools;
@@ -16,10 +13,11 @@ using StringTools;
 class ModManager {
     public static var allMods:Array<String> = [];
     public static var activeMods:Array<String> = [];
-    public static var modConfigs:Map<String, SoulModData> = new Map<String, SoulModData>();
+    public static var modConfigs:Map<String, XMSoulModConfig> = new Map<String, XMSoulModConfig>();
 
     public static function reloadMods():Void {
         allMods = [];
+        activeMods = [];
         modConfigs.clear();
 
         #if sys
@@ -30,8 +28,14 @@ class ModManager {
                 var fullDir = '$modsDir/$folder';
                 if (FileSystem.isDirectory(fullDir) && !folder.startsWith(".") && !folder.startsWith("_")) {
                     allMods.push(folder);
-                    var data = SoulModParser.parseFolder(fullDir, folder);
-                    modConfigs.set(folder, data);
+
+                    var configPath = '$fullDir/mod.xmsoul';
+                    if (FileSystem.exists(configPath)) {
+                        var conf = XMSoul.loadModConfig(configPath);
+                        if (conf != null) {
+                            modConfigs.set(folder, conf);
+                        }
+                    }
                 }
             }
         }
@@ -41,13 +45,33 @@ class ModManager {
         activeMods = ModRegistry.instance.enabledMods.copy();
 
         activeMods.sort(function(a:String, b:String):Int {
-            var pA = modConfigs.exists(a) ? modConfigs.get(a).load_priority : 0;
-            var pB = modConfigs.exists(b) ? modConfigs.get(b).load_priority : 0;
-            return pB - pA;
+            var confA = modConfigs.get(a);
+            var confB = modConfigs.get(b);
+            var prioA = (confA != null && confA.flags.exists("priority")) ? cast(confA.flags.get("priority"), Float) : 0.0;
+            var prioB = (confB != null && confB.flags.exists("priority")) ? cast(confB.flags.get("priority"), Float) : 0.0;
+            return Std.int(prioB - prioA);
         });
 
         Logger.info('Discovered ${allMods.length} mod(s), ${activeMods.length} active.', "mods");
         SoulGlobalScript.init();
+    }
+
+    public static function getFlag(modId:String, flagName:String, defaultVal:Dynamic = null):Dynamic {
+        if (modConfigs.exists(modId)) {
+            var conf = modConfigs.get(modId);
+            if (conf != null && conf.flags.exists(flagName)) {
+                return conf.flags.get(flagName);
+            }
+        }
+        return defaultVal;
+    }
+
+    public static function getActiveFlag(flagName:String, defaultVal:Dynamic = null):Dynamic {
+        for (mod in activeMods) {
+            var val = getFlag(mod, flagName, null);
+            if (val != null) return val;
+        }
+        return defaultVal;
     }
 
     public static function getPath(filePath:String):String {
@@ -77,7 +101,7 @@ class ModManager {
         return 'assets/$clean';
     }
 
-    public static function resolveModAsset(filePath:String, extensions:Array<String>):String {
+    public static function resolveModAsset(filePath:String, ?extensions:Array<String>):String {
         if (filePath == null || filePath.trim().length == 0) return "";
         var clean = filePath.replace("\\", "/").trim();
         while (clean.startsWith("/")) clean = clean.substr(1);
@@ -86,7 +110,7 @@ class ModManager {
         for (mod in activeMods) {
             var modPath = 'mods/$mod/$clean';
             if (FileSystem.exists(modPath) && !FileSystem.isDirectory(modPath)) return modPath;
-            
+
             if (extensions != null) {
                 for (ext in extensions) {
                     var probe = modPath + (ext.startsWith(".") ? ext : "." + ext);
