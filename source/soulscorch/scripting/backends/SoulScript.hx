@@ -74,7 +74,6 @@ import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.ScriptInstance;
-import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.ScriptedSubState;
 import soulscorch.scripting.mod.ModCustomState;
@@ -148,7 +147,16 @@ class SoulScript implements ScriptInstance {
 
         interp = new Interp();
 
-        // Core Haxe & Reflection
+        // 1. Timing & Conductor Variables (Default setup to prevent EUnknownVariable on init)
+        set("curBeat", 0);
+        set("curStep", 0);
+        set("curDecBeat", 0.0);
+        set("curDecStep", 0.0);
+        set("bpm", Conductor.bpm);
+        set("crochet", Conductor.crochet);
+        set("stepCrochet", Conductor.stepCrochet);
+
+        // 2. Core Haxe & Reflection
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
@@ -159,7 +167,7 @@ class SoulScript implements ScriptInstance {
         set("Xml", Xml);
         set("Json", haxe.Json);
 
-        // Native System & I/O
+        // 3. Native System & I/O
         #if sys
         set("Sys", Sys);
         set("File", sys.io.File);
@@ -167,18 +175,18 @@ class SoulScript implements ScriptInstance {
         set("Process", sys.io.Process);
         #end
 
-        // Native OS API & Windowing
+        // 4. Native OS API & Windowing
         set("NativeAPI", NativeAPI);
         set("FileSystemAPI", FileSystemAPI);
         set("openfl", {Lib: openfl.Lib});
         set("Lib", openfl.Lib);
         set("Application", lime.app.Application);
-        set("window", openfl.Lib.application.window);
+        set("window", (openfl.Lib.application != null) ? openfl.Lib.application.window : null);
         set("stage", openfl.Lib.current.stage);
         set("Controls", Controls.instance);
         set("controls", Controls.instance);
 
-        // Flixel Core & Geometry
+        // 5. Flixel Core & Geometry
         set("FlxG", FlxG);
         set("FlxSprite", FlxSprite);
         set("FlxCamera", FlxCamera);
@@ -194,27 +202,26 @@ class SoulScript implements ScriptInstance {
         set("FlxPoint", {get: FlxPoint.get, weak: FlxPoint.weak});
         set("FlxRect", {get: FlxRect.get});
 
-        // Flx Groups & Containers
+        // 6. Flx Groups, Containers & Objects
         set("FlxGroup", FlxGroup);
         set("FlxTypedGroup", FlxTypedGroup);
         set("FlxSpriteGroup", FlxSpriteGroup);
 
-        // Flx Tweens, Eases & Timing
+        // 7. Flx Tweens, Eases & Timers
         set("FlxTween", FlxTween);
         set("FlxEase", FlxEase);
         set("FlxTimer", FlxTimer);
         set("FlxSort", FlxSort);
 
-        // Flx Math, Physics & Velocity
+        // 8. Flx Math & Physics
         set("FlxMath", FlxMath);
         set("FlxVelocity", FlxVelocity);
         set("FlxAngle", FlxAngle);
 
-        // Flx Sounds & Effects
+        // 9. Audio & Visuals
         set("FlxSound", FlxSound);
         set("FlxTrail", FlxTrail);
 
-        // Color Palettes & Blending
         set("FlxColor", {
             BLACK: 0xFF000000,
             WHITE: 0xFFFFFFFF,
@@ -250,7 +257,7 @@ class SoulScript implements ScriptInstance {
         set("Matrix", Matrix);
         set("URLRequest", URLRequest);
 
-        // Engine Architecture & Core Subsystems
+        // 10. Engine Subsystems
         set("Runtime", Runtime);
         set("Engine", Engine);
         set("Version", Version);
@@ -275,7 +282,7 @@ class SoulScript implements ScriptInstance {
         set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
         #end
 
-        // 3D Rendering & Shaders
+        // 11. 3D Rendering & Shaders
         set("Away3DManager", Away3DManager);
         set("ModelAPI", ModelAPI);
         set("JuiceManager", JuiceManager);
@@ -294,7 +301,7 @@ class SoulScript implements ScriptInstance {
             return null;
         });
 
-        // Gameplay Actors, Notes & Charting
+        // 12. Gameplay Actors, Notes & Charting
         set("Character", Character);
         set("HealthIcon", HealthIcon);
         set("Note", Note);
@@ -307,7 +314,7 @@ class SoulScript implements ScriptInstance {
         set("JudgementManager", JudgementManager);
         set("ModchartManager", ModchartManager);
 
-        // UI & Menus
+        // 13. UI & Menus
         set("MusicBeatState", MusicBeatState);
         set("ResultsState", ResultsState);
         set("GameOverSubState", GameOverSubState);
@@ -322,7 +329,7 @@ class SoulScript implements ScriptInstance {
         set("ScriptedState", ScriptedState);
         set("ScriptedSubState", ScriptedSubState);
 
-        // Live Context & Shorthand Hooks
+        // 14. Live Context Hooks
         set("game", FlxG.state);
         set("state", FlxG.state);
         set("camera", FlxG.camera);
@@ -333,7 +340,7 @@ class SoulScript implements ScriptInstance {
         set("defaultCamZoom", 1.0);
         set("PlayState", PlayState);
 
-        // Utility Methods
+        // 15. Utility Functions
         set("lerp", function(a:Float, b:Float, ratio:Float):Float return FlxMath.lerp(a, b, ratio));
         set("getElement", function(id:String):Null<FlxSprite> return uiElements.get(id));
         set("trace", function(v:Dynamic):Void Logger.info(Std.string(v), "soulscript"));
@@ -477,10 +484,21 @@ class SoulScript implements ScriptInstance {
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
-        if (interp != null && interp.variables.exists(func)) {
-            var fn = interp.variables.get(func);
-            if (Reflect.isFunction(fn)) {
-                return Reflect.callMethod(null, fn, (args != null) ? args : []);
+        if (interp != null) {
+            // Keep step and beat variables in sync with Conductor statically
+            set("curBeat", Conductor.curBeat);
+            set("curStep", Conductor.curStep);
+            set("curDecBeat", Conductor.curDecBeat);
+            set("curDecStep", Conductor.curDecStep);
+            set("bpm", Conductor.bpm);
+            set("crochet", Conductor.crochet);
+            set("stepCrochet", Conductor.stepCrochet);
+
+            if (interp.variables.exists(func)) {
+                var fn = interp.variables.get(func);
+                if (Reflect.isFunction(fn)) {
+                    return Reflect.callMethod(null, fn, (args != null) ? args : []);
+                }
             }
         }
         return null;
