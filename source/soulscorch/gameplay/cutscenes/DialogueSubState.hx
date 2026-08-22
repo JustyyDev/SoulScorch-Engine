@@ -5,6 +5,8 @@ import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 import haxe.xml.Access;
@@ -13,12 +15,15 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.graphics.FunkinSprite;
 
 using StringTools;
 
 typedef DialogueLine = {
     var char:String;
+    var expression:String;
+    var side:String; // "left", "right", or "center"
     var text:String;
     var speed:Float;
     var playSound:String;
@@ -31,64 +36,118 @@ class DialogueSubState extends MusicBeatSubstate {
     private var curLineIdx:Int = 0;
     private var onFinish:Void->Void;
 
-    private var boxSprite:FlxSprite;
+    private var bgShade:FlxSprite;
+    private var boxSprite:FunkinSprite;
     private var portraitLeft:FunkinSprite;
     private var portraitRight:FunkinSprite;
     private var textDisplay:FlxText;
+    private var nameDisplay:FlxText;
 
     private var curDisplayString:String = "";
     private var targetString:String = "";
     private var typingTimer:FlxTimer;
     private var isTyping:Bool = false;
+    
+    private var boxDialogueAnim:String = "normal";
+    private var isBoxVisible:Bool = false;
 
-    public function new(rawXml:String, onFinish:Void->Void) {
+    public function new(rawXmlOrSoul:String, onFinish:Void->Void) {
         super();
         this.onFinish = onFinish;
         this.persistentUpdate = true;
         this.persistentDraw = true;
 
-        parseDialogueXml(rawXml);
+        parseDialogueData(rawXmlOrSoul);
     }
 
-    private function parseDialogueXml(xmlStr:String):Void {
+    private function parseDialogueData(content:String):Void {
         try {
-            var xml = Xml.parse(xmlStr);
+            // Check if it's structured XMSoul or standard XML
+            var xml = Xml.parse(content);
             var root = new Access(xml.firstElement());
 
-            for (lineNode in root.nodes.line) {
-                var charName = lineNode.has.char ? lineNode.att.char : "senpai";
-                var speedVal = lineNode.has.speed ? Std.parseFloat(lineNode.att.speed) : 0.04;
-                var pSnd = lineNode.has.playSound ? lineNode.att.playSound : "";
-                var tSnd = lineNode.has.textSound ? lineNode.att.textSound : "";
-                var bubbleType = lineNode.has.bubble ? lineNode.att.bubble : "normal";
-                var textContent = lineNode.innerData.trim();
+            if (root.name.toLowerCase() == "dialogue" || root.name.toLowerCase() == "dialogues") {
+                if (root.has.box) {
+                    boxDialogueAnim = root.att.box;
+                }
 
-                lines.push({
-                    char: charName,
-                    text: textContent,
-                    speed: speedVal,
-                    playSound: pSnd,
-                    textSound: tSnd,
-                    bubble: bubbleType
-                });
+                for (lineNode in root.nodes.resolve("line")) {
+                    var charName = XMSoul.getAttr(lineNode, "char", XMSoul.getAttr(lineNode, "speaker", "senpai"));
+                    var expr = XMSoul.getAttr(lineNode, "expression", XMSoul.getAttr(lineNode, "anim", "talk"));
+                    var sidePos = XMSoul.getAttr(lineNode, "side", XMSoul.getAttr(lineNode, "position", "left"));
+                    var speedVal = XMSoul.getFloatAttr(lineNode, "speed", 0.04);
+                    var pSnd = XMSoul.getAttr(lineNode, "playSound", "");
+                    var tSnd = XMSoul.getAttr(lineNode, "textSound", XMSoul.getAttr(lineNode, "talkSound", ""));
+                    var bubbleType = XMSoul.getAttr(lineNode, "bubble", "normal");
+                    var textContent = lineNode.innerData != null ? lineNode.innerData.trim() : "";
+
+                    lines.push({
+                        char: charName,
+                        expression: expr,
+                        side: sidePos.toLowerCase(),
+                        text: textContent,
+                        speed: speedVal,
+                        playSound: pSnd,
+                        textSound: tSnd,
+                        bubble: bubbleType
+                    });
+                }
             }
-        } catch (e:Dynamic) {}
+        } catch (e:Dynamic) {
+            // Fallback plain string parsing if XML format fails
+            lines.push({
+                char: "dad",
+                expression: "talk",
+                side: "left",
+                text: content,
+                speed: 0.04,
+                playSound: "",
+                textSound: "",
+                bubble: "normal"
+            });
+        }
     }
 
     override public function create():Void {
         super.create();
 
-        portraitLeft = new FunkinSprite(120, FlxG.height * 0.3);
+        bgShade = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        bgShade.alpha = 0.0;
+        bgShade.scrollFactor.set();
+        add(bgShade);
+
+        FlxTween.tween(bgShade, {alpha: 0.55}, 0.5, {ease: FlxEase.quadOut});
+
+        portraitLeft = new FunkinSprite(80, FlxG.height * 0.25);
+        portraitLeft.alpha = 0.0;
         add(portraitLeft);
 
-        portraitRight = new FunkinSprite(FlxG.width - 350, FlxG.height * 0.3);
+        portraitRight = new FunkinSprite(FlxG.width - 450, FlxG.height * 0.25);
+        portraitRight.alpha = 0.0;
         add(portraitRight);
 
-        boxSprite = new FlxSprite(100, FlxG.height * 0.65).makeGraphic(FlxG.width - 200, 180, 0xDD000000);
+        // Dialogue Box Container
+        boxSprite = new FunkinSprite(90, FlxG.height * 0.58);
+        var boxLoaded = boxSprite.loadSprite('ui/game/dialogue/dialogueBox-$boxDialogueAnim');
+        if (!boxLoaded) {
+            boxLoaded = boxSprite.loadSprite('ui/game/dialogue/dialogueBox');
+        }
+        if (!boxLoaded) {
+            boxSprite.makeGraphic(FlxG.width - 180, 210, 0xEE000000);
+        }
+        boxSprite.alpha = 0.0;
+        boxSprite.scrollFactor.set();
         add(boxSprite);
 
-        textDisplay = new FlxText(140, FlxG.height * 0.68, FlxG.width - 280, "", 20);
+        nameDisplay = new FlxText(140, FlxG.height * 0.61, 400, "", 22);
+        nameDisplay.setFormat(Paths.font("vcr"), 22, 0xFFFF3366, LEFT, OUTLINE, FlxColor.BLACK);
+        nameDisplay.borderSize = 1.5;
+        nameDisplay.scrollFactor.set();
+        add(nameDisplay);
+
+        textDisplay = new FlxText(140, FlxG.height * 0.67, FlxG.width - 280, "", 20);
         textDisplay.setFormat(Paths.font("vcr"), 20, FlxColor.WHITE, LEFT);
+        textDisplay.scrollFactor.set();
         add(textDisplay);
 
         startNextLine();
@@ -96,15 +155,26 @@ class DialogueSubState extends MusicBeatSubstate {
 
     private function startNextLine():Void {
         if (curLineIdx >= lines.length) {
-            close();
-            if (onFinish != null) onFinish();
+            endDialogue();
             return;
         }
 
         var curLine = lines[curLineIdx];
+
+        // Fade in box if first line
+        if (!isBoxVisible) {
+            isBoxVisible = true;
+            FlxTween.tween(boxSprite, {alpha: 1.0}, 0.4, {ease: FlxEase.cubeOut});
+        }
+
+        nameDisplay.text = curLine.char.toUpperCase();
+
         if (curLine.playSound != null && curLine.playSound.length > 0) {
             AssetHelper.playSoundSafely(curLine.playSound, 0.85);
         }
+
+        // Handle Portraits based on side
+        updatePortraits(curLine);
 
         targetString = curLine.text;
         curDisplayString = "";
@@ -119,8 +189,8 @@ class DialogueSubState extends MusicBeatSubstate {
                 curDisplayString += targetString.charAt(charIndex);
                 textDisplay.text = curDisplayString;
 
-                if (curLine.textSound.length > 0 && charIndex % 2 == 0) {
-                    AssetHelper.playSoundSafely(curLine.textSound, 0.4);
+                if (curLine.textSound != null && curLine.textSound.length > 0 && charIndex % 2 == 0) {
+                    AssetHelper.playSoundSafely(curLine.textSound, 0.5);
                 }
                 charIndex++;
             } else {
@@ -128,6 +198,39 @@ class DialogueSubState extends MusicBeatSubstate {
                 tmr.cancel();
             }
         }, targetString.length);
+    }
+
+    private function updatePortraits(line:DialogueLine):Void {
+        var charKey = line.char.toLowerCase().trim();
+        var portraitPath = 'ui/game/dialogue/portraits/$charKey';
+
+        if (line.side == "right") {
+            portraitRight.visible = true;
+            portraitLeft.visible = false;
+            
+            var loaded = portraitRight.loadSprite(portraitPath);
+            if (loaded) {
+                portraitRight.playAnim(line.expression);
+                if (portraitRight.alpha == 0) {
+                    portraitRight.alpha = 1.0;
+                    portraitRight.x = FlxG.width - 350 + 30;
+                    FlxTween.tween(portraitRight, {x: FlxG.width - 350}, 0.3, {ease: FlxEase.backOut});
+                }
+            }
+        } else {
+            portraitLeft.visible = true;
+            portraitRight.visible = false;
+
+            var loaded = portraitLeft.loadSprite(portraitPath);
+            if (loaded) {
+                portraitLeft.playAnim(line.expression);
+                if (portraitLeft.alpha == 0) {
+                    portraitLeft.alpha = 1.0;
+                    portraitLeft.x = 120 - 30;
+                    FlxTween.tween(portraitLeft, {x: 120}, 0.3, {ease: FlxEase.backOut});
+                }
+            }
+        }
     }
 
     override public function update(elapsed:Float):Void {
@@ -143,5 +246,27 @@ class DialogueSubState extends MusicBeatSubstate {
                 startNextLine();
             }
         }
+    }
+
+    private function endDialogue():Void {
+        isTyping = false;
+        if (typingTimer != null) typingTimer.cancel();
+
+        FlxTween.tween(bgShade, {alpha: 0}, 0.4, {ease: FlxEase.quadOut});
+        FlxTween.tween(boxSprite, {alpha: 0}, 0.3, {ease: FlxEase.quadIn});
+        FlxTween.tween(portraitLeft, {alpha: 0}, 0.3);
+        FlxTween.tween(portraitRight, {alpha: 0}, 0.3);
+        FlxTween.tween(textDisplay, {alpha: 0}, 0.3);
+        FlxTween.tween(nameDisplay, {alpha: 0}, 0.3, {
+            onComplete: function(_) {
+                close();
+                if (onFinish != null) onFinish();
+            }
+        });
+    }
+
+    override public function destroy():Void {
+        if (typingTimer != null) typingTimer.cancel();
+        super.destroy();
     }
 }

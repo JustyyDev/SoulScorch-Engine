@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<splashskin name="default" sprite="ui/game/splashes/noteSplashes" scale="1.0" alpha="0.6" antialiasing="true">
+<splashskin name="default" sprite="ui/game/splashes/default" scale="1.0" alpha="0.6" antialiasing="true">
     <lanes fps="24">
         <!-- Lane 0: Purple / Left -->
         <lane id="0">

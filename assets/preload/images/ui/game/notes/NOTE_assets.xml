@@ -1,16 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TextureAtlas imagePath="NOTE_assets.png">
 	<!-- Receptors -->
-	<SubTexture name="arrowLEFT0000" x="1289" y="2" width="154" height="156"/>
-	<SubTexture name="arrowDOWN0000" x="862" y="600" width="157" height="154"/>
-	<SubTexture name="arrowUP0000" x="862" y="444" width="157" height="154"/>
-	<SubTexture name="arrowRIGHT0000" x="1289" y="160" width="154" height="156"/>
+	<SubTexture name="arrowLEFT0000" x="1289" y="2" width="154" height="156" frameX="0" frameY="0" frameWidth="154" frameHeight="156"/>
+	<SubTexture name="arrowDOWN0000" x="862" y="600" width="157" height="154" frameX="0" frameY="0" frameWidth="157" height="154"/>
+	<SubTexture name="arrowUP0000" x="862" y="444" width="157" height="154" frameX="0" frameY="0" frameWidth="157" frameHeight="154"/>
+	<SubTexture name="arrowRIGHT0000" x="1289" y="160" width="154" height="156" frameX="0" frameY="0" frameWidth="154" frameHeight="156"/>
 
 	<!-- Tap Notes -->
-	<SubTexture name="purple0000" x="1133" y="2" width="154" height="157"/>
-	<SubTexture name="blue0000" x="703" y="600" width="157" height="154"/>
-	<SubTexture name="green0000" x="703" y="444" width="157" height="154"/>
-	<SubTexture name="red0000" x="919" y="215" width="154" height="157"/>
+	<SubTexture name="purple0000" x="1133" y="2" width="154" height="157" frameX="0" frameY="0" frameWidth="154" frameHeight="157"/>
+	<SubTexture name="blue0000" x="703" y="600" width="157" height="154" frameX="0" frameY="0" frameWidth="157" frameHeight="154"/>
+	<SubTexture name="green0000" x="703" y="444" width="157" height="154" frameX="0" frameY="0" frameWidth="157" frameHeight="154"/>
+	<SubTexture name="red0000" x="919" y="215" width="154" height="157" frameX="0" frameY="0" frameWidth="154" frameHeight="157"/>
 
 	<!-- Holds & Tails -->
 	<SubTexture name="purple hold piece0000" x="1445" y="269" width="50" height="87"/>
@@ -50,7 +50,7 @@
 	<SubTexture name="up confirm0002" x="917" y="2" width="214" height="211" frameX="-11" frameY="-10" frameWidth="236" frameHeight="232"/>
 	<SubTexture name="up confirm0003" x="917" y="2" width="214" height="211" frameX="-11" frameY="-10" frameWidth="236" frameHeight="232"/>
 
-	<SubTexture name="right confirm0000" x="472" y="2" width="223" height="226" frameX="-1" frameY="-2" frameWidth="226" frameHeight="230"/>
+	<SubTexture name="right confirm0000" x="472" y="2" width="223" height="226" frameX="0" frameY="0" frameWidth="223" frameHeight="226"/>
 	<SubTexture name="right confirm0001" x="478" y="465" width="223" height="226" frameX="-1" frameY="-2" frameWidth="226" frameHeight="230"/>
 	<SubTexture name="right confirm0002" x="242" y="235" width="226" height="230"/>
 	<SubTexture name="right confirm0003" x="242" y="235" width="226" height="230"/>

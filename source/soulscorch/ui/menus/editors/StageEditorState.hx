@@ -8,6 +8,8 @@ import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.Json;
 import openfl.geom.Rectangle;
@@ -16,18 +18,12 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.stage.StageJson;
 import soulscorch.scripting.mod.ModManager;
-import soulscorch.ui.menus.editors.editorui.EditorButton;
-import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
-import soulscorch.ui.menus.editors.editorui.EditorInputText;
-import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
-import soulscorch.ui.menus.editors.editorui.EditorTheme;
-import soulscorch.ui.menus.editors.editorui.EditorToast;
-import soulscorch.ui.menus.editors.editorui.EditorTopBar;
-import soulscorch.ui.menus.editors.editorui.EditorWindow;
+import soulscorch.ui.menus.editors.editorui.*;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -48,6 +44,7 @@ class StageEditorState extends MusicBeatState {
     public static var curStage:String = "stage";
 
     private var camStage:FlxCamera;
+    private var camUI:FlxCamera;
     private var camFollow:FlxPoint;
 
     private var stageData:StageJson;
@@ -73,6 +70,10 @@ class StageEditorState extends MusicBeatState {
     private var selectedPieces:Array<String> = [];
     private var selectionOutline:FlxSprite;
 
+    // --- Parallax Testing Simulation ---
+    private var isParallaxTesting:Bool = false;
+    private var parallaxTimer:Float = 0.0;
+
     // --- Grid Snapping ---
     private var gridSnapEnabled:Bool = false;
     private var snapGridSize:Float = 20.0;
@@ -84,6 +85,7 @@ class StageEditorState extends MusicBeatState {
     private var stageSettingsWindow:EditorWindow;
     private var newPropWindow:EditorWindow;
     private var propExtrasWindow:EditorWindow;
+    private var stagePickerModal:EditorWindow;
 
     private var infoTxt:FlxText;
     private var listTxt:FlxText;
@@ -112,7 +114,7 @@ class StageEditorState extends MusicBeatState {
     // --- Undo / Redo History Stack ---
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
-    private static inline var MAX_UNDO_DEPTH:Int = 40;
+    private static inline var MAX_UNDO_DEPTH:Int = 50;
 
     public function new(?stageName:String = "stage") {
         super();
@@ -122,13 +124,11 @@ class StageEditorState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        camStage = new FlxCamera();
-        camHUD = new FlxCamera();
-        camHUD.bgColor.alpha = 0;
+        #if desktop
+        DiscordRPC.changePresence("Stage Architect Ultra", 'Constructing: ${curStage.toUpperCase()}');
+        #end
 
-        FlxG.cameras.reset(camStage);
-        FlxG.cameras.add(camHUD, false);
-        FlxG.cameras.setDefaultDrawTarget(camStage, true);
+        setupCameras();
 
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
         dragStartOffset = FlxPoint.get(0, 0);
@@ -140,7 +140,7 @@ class StageEditorState extends MusicBeatState {
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
 
-        var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(Std.int(FlxG.width * 4), 2, EditorTheme.ACCENT_PURPLE);
+        var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(Std.int(FlxG.width * 4), 3, EditorTheme.ACCENT_PURPLE);
         ground.screenCenter(X);
         ground.scrollFactor.set(1, 1);
         add(ground);
@@ -173,11 +173,22 @@ class StageEditorState extends MusicBeatState {
         add(selectionBox);
 
         setupWindows();
+        buildStagePickerModal();
         updateHUD();
 
         pushUndoSnapshot();
         add(new EditorToast());
         FlxG.mouse.visible = true;
+    }
+
+    override public function setupCameras():Void {
+        camStage = new FlxCamera();
+        camUI = new FlxCamera();
+        camUI.bgColor = FlxColor.TRANSPARENT;
+
+        FlxG.cameras.reset(camStage);
+        FlxG.cameras.add(camUI, false);
+        FlxG.cameras.setDefaultDrawTarget(camStage, true);
     }
 
     private function loadStageData():Void {
@@ -188,6 +199,12 @@ class StageEditorState extends MusicBeatState {
             'assets/preload/data/stages/$curStage.json',
             'assets/preload/stages/$curStage.json'
         ];
+        if (ModManager.activeMods != null) {
+            for (m in ModManager.activeMods) {
+                candidates.unshift('mods/$m/data/stages/$curStage.json');
+            }
+        }
+
         for (c in candidates) {
             var res = AssetResolver.resolveFile(c, [".json", ""]);
             if (res != null) {
@@ -360,91 +377,94 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function setupWindows():Void {
-        topBar = new EditorTopBar('STAGE ARCHITECT PRO // [${curStage.toUpperCase()}]');
-        topBar.cameras = [camHUD];
+        topBar = new EditorTopBar('STAGE ARCHITECT ULTRA // [${curStage.toUpperCase()}]');
+        topBar.cameras = [camUI];
         topBar.addAction("Save (Ctrl+S)", saveStageJson);
-        topBar.addAction("Undo (Ctrl+Z)", undo);
-        topBar.addAction("Redo (Ctrl+Y)", redo);
-        topBar.addAction("Cycle Stage", promptCycleStage);
-        topBar.addAction("Reset Camera", function() {
+        topBar.addAction("Save .xmsoul", saveStageXMSoul);
+        topBar.addAction("Stages", function() stagePickerModal.visible = !stagePickerModal.visible);
+        topBar.addAction("Parallax Test (P)", toggleParallaxTest);
+        topBar.addAction("Reset View", function() {
             if (dummyBF != null) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
             camStage.zoom = (stageData != null && stageData.defaultZoom != null) ? stageData.defaultZoom : 0.9;
         });
-        topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
+        topBar.addAction("Exit (Esc)", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        hierarchyWindow = new EditorWindow(15, 45, 300, 420, "Stage Tree & Pieces");
-        hierarchyWindow.cameras = [camHUD];
+        hierarchyWindow = new EditorWindow(15, 45, 290, 420, "Stage Tree & Props");
+        hierarchyWindow.cameras = [camUI];
         add(hierarchyWindow);
 
-        infoTxt = new FlxText(10, 4, 280, "", 14);
+        infoTxt = new FlxText(10, 4, 270, "", 14);
         infoTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.ACCENT_CYAN, LEFT);
         hierarchyWindow.addElement(infoTxt);
 
-        layerIndicatorTxt = new FlxText(10, 26, 280, "Layer: background", 12);
+        layerIndicatorTxt = new FlxText(10, 26, 270, "Layer: background", 12);
         layerIndicatorTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.ACCENT_YELLOW, LEFT);
         hierarchyWindow.addElement(layerIndicatorTxt);
 
-        listTxt = new FlxText(10, 50, 280, "", 12);
+        listTxt = new FlxText(10, 50, 270, "", 12);
         listTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         hierarchyWindow.addElement(listTxt);
 
-        var btnAddProp = new EditorButton(10, 345, 135, 26, "+ Add Prop", function() {
+        var btnAddProp = new EditorButton(10, 345, 130, 26, "+ Add Prop", function() {
             newPropWindow.visible = !newPropWindow.visible;
         });
         hierarchyWindow.addElement(btnAddProp);
 
-        var btnDelProp = new EditorButton(155, 345, 135, 26, "- Remove", removeCurrentPiece);
+        var btnDelProp = new EditorButton(150, 345, 130, 26, "- Remove", removeCurrentPiece);
         hierarchyWindow.addElement(btnDelProp);
 
-        transformWindow = new EditorWindow(FlxG.width - 325, 45, 310, 230, "Transform & Parallax");
-        transformWindow.cameras = [camHUD];
+        var btnDup = new EditorButton(10, 380, 270, 26, "Duplicate Prop (Ctrl+D)", duplicateCurrentProp);
+        hierarchyWindow.addElement(btnDup);
+
+        transformWindow = new EditorWindow(FlxG.width - 305, 45, 290, 240, "Transform & Parallax");
+        transformWindow.cameras = [camUI];
         add(transformWindow);
 
-        stepperPieceScaleX = new EditorNumericStepper(10, 8, 135, "Scale X", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
+        stepperPieceScaleX = new EditorNumericStepper(10, 8, 130, "Scale X", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             updateCurrentPieceScale(v, true);
         });
         transformWindow.addElement(stepperPieceScaleX);
 
-        stepperPieceScaleY = new EditorNumericStepper(160, 8, 135, "Scale Y", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
+        stepperPieceScaleY = new EditorNumericStepper(150, 8, 130, "Scale Y", 1.0, 0.05, 10.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             updateCurrentPieceScale(v, false);
         });
         transformWindow.addElement(stepperPieceScaleY);
 
-        stepperScrollX = new EditorNumericStepper(10, 44, 135, "Scroll X", 1.0, 0.0, 3.0, 0.05, 2, function(v) {
+        stepperScrollX = new EditorNumericStepper(10, 46, 130, "Scroll X", 1.0, 0.0, 3.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             updateCurrentPieceScroll(v, true);
         });
         transformWindow.addElement(stepperScrollX);
 
-        stepperScrollY = new EditorNumericStepper(160, 44, 135, "Scroll Y", 1.0, 0.0, 3.0, 0.05, 2, function(v) {
+        stepperScrollY = new EditorNumericStepper(150, 46, 130, "Scroll Y", 1.0, 0.0, 3.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             updateCurrentPieceScroll(v, false);
         });
         transformWindow.addElement(stepperScrollY);
 
-        stepperAlpha = new EditorNumericStepper(10, 80, 135, "Alpha", 1.0, 0.0, 1.0, 0.05, 2, function(v) {
+        stepperAlpha = new EditorNumericStepper(10, 84, 130, "Alpha", 1.0, 0.0, 1.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             updateCurrentPieceAlpha(v);
         });
         transformWindow.addElement(stepperAlpha);
 
-        checkAntialias = new EditorCheckbox(160, 95, "Antialiasing", true, function(c) {
+        checkAntialias = new EditorCheckbox(150, 98, "Antialiasing", true, function(c) {
             pushUndoSnapshot();
             updateCurrentPieceAntialiasing(c);
         });
         transformWindow.addElement(checkAntialias);
 
-        var btnChangeLayer = new EditorButton(10, 130, 280, 26, "Cycle Layer (L Key)", cyclePieceLayer);
+        var btnChangeLayer = new EditorButton(10, 135, 270, 26, "Cycle Layer (L Key)", cyclePieceLayer);
         transformWindow.addElement(btnChangeLayer);
 
-        stageSettingsWindow = new EditorWindow(FlxG.width - 325, 285, 310, 190, "Global Environment");
-        stageSettingsWindow.cameras = [camHUD];
+        stageSettingsWindow = new EditorWindow(FlxG.width - 305, 295, 290, 200, "Global Environment");
+        stageSettingsWindow.cameras = [camUI];
         add(stageSettingsWindow);
 
-        var stepperZoom = new EditorNumericStepper(10, 8, 290, "Default Camera Zoom", stageData.defaultZoom != null ? stageData.defaultZoom : 0.9, 0.2, 3.0, 0.05, 2, function(v) {
+        var stepperZoom = new EditorNumericStepper(10, 8, 270, "Default Camera Zoom", stageData.defaultZoom != null ? stageData.defaultZoom : 0.9, 0.2, 3.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             stageData.defaultZoom = v;
             camStage.zoom = v;
@@ -452,41 +472,41 @@ class StageEditorState extends MusicBeatState {
         });
         stageSettingsWindow.addElement(stepperZoom);
 
-        var stepperCamSpeed = new EditorNumericStepper(10, 44, 290, "Camera Pan Speed", stageData.cameraSpeed != null ? stageData.cameraSpeed : 1.0, 0.1, 5.0, 0.1, 2, function(v) {
+        var stepperCamSpeed = new EditorNumericStepper(10, 46, 270, "Camera Pan Speed", stageData.cameraSpeed != null ? stageData.cameraSpeed : 1.0, 0.1, 5.0, 0.1, 2, function(v) {
             pushUndoSnapshot();
             stageData.cameraSpeed = v;
         });
         stageSettingsWindow.addElement(stepperCamSpeed);
 
-        checkGridSnap = new EditorCheckbox(10, 84, "Enable Grid Snap (20px)", gridSnapEnabled, function(c) {
+        checkGridSnap = new EditorCheckbox(10, 88, "Grid Snap (20px)", gridSnapEnabled, function(c) {
             gridSnapEnabled = c;
         });
         stageSettingsWindow.addElement(checkGridSnap);
 
-        var checkGF = new EditorCheckbox(160, 84, "Hide Girlfriend", stageData.hideGirlfriend == true, function(c) {
+        var checkGF = new EditorCheckbox(150, 88, "Hide GF", stageData.hideGirlfriend == true, function(c) {
             pushUndoSnapshot();
             stageData.hideGirlfriend = c;
             if (dummyGF != null) dummyGF.visible = !c;
         });
         stageSettingsWindow.addElement(checkGF);
 
-        propExtrasWindow = new EditorWindow(15, 475, 300, 135, "2.5D & 3D Extensions");
-        propExtrasWindow.cameras = [camHUD];
+        propExtrasWindow = new EditorWindow(15, 475, 290, 135, "2.5D & 3D Extensions");
+        propExtrasWindow.cameras = [camUI];
         add(propExtrasWindow);
 
         checkIs3D = new EditorCheckbox(10, 8, "Render as 3D Mesh", false, function(c) {
             if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                 var p = pieceDataMap.get(pieceNames[curPieceIndex]);
                 if (p != null) p.is3D = c;
-                EditorToast.show('Set 3D Mode: $c');
+                EditorToast.show('3D Mode: $c');
             }
         });
         propExtrasWindow.addElement(checkIs3D);
 
-        input3DModel = new EditorInputText(10, 36, 280, "3D Model Path (.obj/.awd)", "arena.obj");
+        input3DModel = new EditorInputText(10, 36, 270, "3D Model Path (.obj/.awd)", "arena.obj");
         propExtrasWindow.addElement(input3DModel);
 
-        var btnApply3D = new EditorButton(10, 78, 280, 26, "Bind 3D Model Path", function() {
+        var btnApply3D = new EditorButton(10, 78, 270, 26, "Bind 3D Model Path", function() {
             if (currentMode == PIECE && pieceNames.length > 0 && curPieceIndex < pieceNames.length) {
                 var p = pieceDataMap.get(pieceNames[curPieceIndex]);
                 if (p != null) {
@@ -501,7 +521,7 @@ class StageEditorState extends MusicBeatState {
         propExtrasWindow.addElement(btnApply3D);
 
         newPropWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Inject Stage Prop");
-        newPropWindow.cameras = [camHUD];
+        newPropWindow.cameras = [camUI];
         newPropWindow.visible = false;
         add(newPropWindow);
 
@@ -545,15 +565,79 @@ class StageEditorState extends MusicBeatState {
         newPropWindow.addElement(btnSubmitProp);
     }
 
+    private function buildStagePickerModal():Void {
+        stagePickerModal = new EditorWindow((FlxG.width - 440) * 0.5, (FlxG.height - 480) * 0.5, 440, 480, "Stage Asset Library");
+        stagePickerModal.cameras = [camUI];
+        stagePickerModal.visible = false;
+        add(stagePickerModal);
+
+        var stagesFound:Array<String> = [];
+        #if sys
+        var stageDirs = ["assets/data/stages", "assets/preload/data/stages", "data/stages"];
+        if (ModManager.activeMods != null) {
+            for (m in ModManager.activeMods) stageDirs.unshift('mods/$m/data/stages');
+        }
+
+        for (dir in stageDirs) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".json")) {
+                        var id = file.substr(0, file.length - 5);
+                        if (!stagesFound.contains(id)) stagesFound.push(id);
+                    }
+                }
+            }
+        }
+        #end
+        if (!stagesFound.contains("stage")) stagesFound.push("stage");
+
+        var listTxt = new FlxText(10, 6, 420, "AVAILABLE STAGES:", 12);
+        listTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.ACCENT_CYAN, LEFT);
+        stagePickerModal.addElement(listTxt);
+
+        for (i in 0...Std.int(Math.min(8, stagesFound.length))) {
+            var st = stagesFound[i];
+            var btn = new EditorButton(10, 30 + (i * 34), 420, 28, st.toUpperCase(), function() {
+                curStage = st;
+                loadStageData();
+                buildStagePieces();
+                spawnDummies();
+                updateHUD();
+                stagePickerModal.visible = false;
+                EditorToast.show('Loaded stage: $st');
+            });
+            stagePickerModal.addElement(btn);
+        }
+
+        var btnClose = new EditorButton(10, 410, 420, 28, "Close Library", function() {
+            stagePickerModal.visible = false;
+        });
+        stagePickerModal.addElement(btnClose);
+    }
+
+    private function toggleParallaxTest():Void {
+        isParallaxTesting = !isParallaxTesting;
+        EditorToast.show(isParallaxTesting ? "Parallax Viewport Test Active" : "Parallax Test Stopped");
+    }
+
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        handleCameraControls(elapsed);
+        if (isParallaxTesting) {
+            parallaxTimer += elapsed * 1.5;
+            camFollow.x = (FlxG.width * 0.5) + (Math.sin(parallaxTimer) * 450.0);
+            camFollow.y = (FlxG.height * 0.5) + (Math.cos(parallaxTimer * 0.8) * 180.0);
+            camStage.focusOn(camFollow);
+        } else {
+            handleCameraControls(elapsed);
+        }
+
         handleSelectionInput();
         handleTransformInput();
         handleMouseDragControls();
         handleMarqueeSelection();
 
+        if (FlxG.keys.justPressed.P) toggleParallaxTest();
         if (FlxG.keys.justPressed.ONE && dummyBF != null) camFollow.set(dummyBF.getMidpoint().x, dummyBF.getMidpoint().y);
         if (FlxG.keys.justPressed.TWO && dummyDad != null) camFollow.set(dummyDad.getMidpoint().x, dummyDad.getMidpoint().y);
         if (FlxG.keys.justPressed.THREE && dummyGF != null) camFollow.set(dummyGF.getMidpoint().x, dummyGF.getMidpoint().y);
@@ -569,7 +653,9 @@ class StageEditorState extends MusicBeatState {
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveStageJson();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) undo();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Y) redo();
-        if (FlxG.keys.justPressed.ESCAPE && !newPropWindow.visible) MusicBeatState.switchState(new MainMenuState());
+        if (FlxG.keys.justPressed.ESCAPE && !newPropWindow.visible && !stagePickerModal.visible) {
+            MusicBeatState.switchState(new MainMenuState());
+        }
     }
 
     private function handleCameraControls(elapsed:Float):Void {
@@ -586,7 +672,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function handleSelectionInput():Void {
-        if (newPropWindow.visible) return;
+        if (newPropWindow.visible || stagePickerModal.visible) return;
 
         if (FlxG.keys.justPressed.TAB) {
             currentMode = switch (currentMode) {
@@ -611,7 +697,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function handleTransformInput():Void {
-        if (newPropWindow.visible) return;
+        if (newPropWindow.visible || stagePickerModal.visible) return;
 
         var mult = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
         var dx:Float = 0;
@@ -631,7 +717,7 @@ class StageEditorState extends MusicBeatState {
     private function handleMouseDragControls():Void {
         var worldMouse = FlxG.mouse.getWorldPosition(camStage);
 
-        if (FlxG.mouse.justPressed && !newPropWindow.visible && !FlxG.keys.pressed.SHIFT) {
+        if (FlxG.mouse.justPressed && !newPropWindow.visible && !stagePickerModal.visible && !FlxG.keys.pressed.SHIFT) {
             if (worldMouse.x >= targetMarker.x - 12 && worldMouse.x <= targetMarker.x + 36 &&
                 worldMouse.y >= targetMarker.y - 12 && worldMouse.y <= targetMarker.y + 36) {
                 isDraggingTarget = true;
@@ -654,7 +740,7 @@ class StageEditorState extends MusicBeatState {
             }
         }
 
-        if (FlxG.mouse.justPressedMiddle && !newPropWindow.visible) {
+        if (FlxG.mouse.justPressedMiddle && !newPropWindow.visible && !stagePickerModal.visible) {
             isMiddleDragging = true;
             pushUndoSnapshot();
             dragStartMouse.set(worldMouse.x, worldMouse.y);
@@ -680,7 +766,7 @@ class StageEditorState extends MusicBeatState {
     }
 
     private function handleMarqueeSelection():Void {
-        if (FlxG.keys.pressed.SHIFT && FlxG.mouse.justPressed && !newPropWindow.visible) {
+        if (FlxG.keys.pressed.SHIFT && FlxG.mouse.justPressed && !newPropWindow.visible && !stagePickerModal.visible) {
             isBoxSelecting = true;
             boxStartPoint.set(FlxG.mouse.x, FlxG.mouse.y);
             selectionBox.visible = true;
@@ -990,37 +1076,6 @@ class StageEditorState extends MusicBeatState {
         EditorToast.show("Redone action.");
     }
 
-    private function promptCycleStage():Void {
-        #if sys
-        var stagesFound:Array<String> = [];
-        var stageDirs = ["assets/data/stages", "assets/preload/data/stages", "data/stages"];
-        if (ModManager.activeMods != null) {
-            for (m in ModManager.activeMods) stageDirs.unshift('mods/$m/data/stages');
-        }
-
-        for (dir in stageDirs) {
-            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
-                for (file in FileSystem.readDirectory(dir)) {
-                    if (file.endsWith(".json")) {
-                        var id = file.substr(0, file.length - 5);
-                        if (!stagesFound.contains(id)) stagesFound.push(id);
-                    }
-                }
-            }
-        }
-
-        if (stagesFound.length > 0) {
-            var nextIdx = (stagesFound.indexOf(curStage) + 1) % stagesFound.length;
-            curStage = stagesFound[nextIdx];
-            loadStageData();
-            buildStagePieces();
-            spawnDummies();
-            updateHUD();
-            EditorToast.show('Switched stage to: $curStage');
-        }
-        #end
-    }
-
     private function updateHUD():Void {
         var targetName = switch (currentMode) {
             case PIECE: (pieceNames.length > 0 && curPieceIndex < pieceNames.length ? 'Prop: ${pieceNames[curPieceIndex]}' : "None");
@@ -1093,6 +1148,50 @@ class StageEditorState extends MusicBeatState {
             list += (currentMode == GF_SPAWN ? '> ' : '  ') + 'GF Spawn\n';
             listTxt.text = list;
         }
+    }
+
+    public function saveStageXMSoul():Void {
+        #if sys
+        var targetDir = 'assets/data/stages';
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            targetDir = 'mods/${ModManager.activeMods[0]}/data/stages';
+        }
+        var targetPath = '$targetDir/$curStage.xmsoul';
+
+        var zoomVal = stageData.defaultZoom != null ? stageData.defaultZoom : 0.9;
+        var camSpd = stageData.cameraSpeed != null ? stageData.cameraSpeed : 1.0;
+        var bf = getSpawnPos(stageData.boyfriend, [770.0, 450.0]);
+        var dad = getSpawnPos(stageData.dad, [100.0, 100.0]);
+        var gf = getSpawnPos(stageData.girlfriend, [400.0, 130.0]);
+
+        var xml = '<?xml version="1.0" encoding="utf-8"?>\n';
+        xml += '<stage name="$curStage" defaultZoom="$zoomVal" cameraSpeed="$camSpd" hideGirlfriend="${stageData.hideGirlfriend}">\n';
+        xml += '    <spawns>\n';
+        xml += '        <bf x="${bf[0]}" y="${bf[1]}" />\n';
+        xml += '        <dad x="${dad[0]}" y="${dad[1]}" />\n';
+        xml += '        <gf x="${gf[0]}" y="${gf[1]}" />\n';
+        xml += '    </spawns>\n';
+        xml += '    <pieces>\n';
+
+        for (pName in pieceNames) {
+            var p = pieceDataMap.get(pName);
+            var spr = pieceSprites.get(pName);
+            if (p != null && spr != null) {
+                xml += '        <piece id="$pName" image="${p.image}" layer="${p.layer}" x="${spr.x}" y="${spr.y}" scrollX="${spr.scrollFactor.x}" scrollY="${spr.scrollFactor.y}" scaleX="${spr.scale.x}" scaleY="${spr.scale.y}" alpha="${spr.alpha}" />\n';
+            }
+        }
+
+        xml += '    </pieces>\n</stage>';
+
+        try {
+            if (!FileSystem.exists(targetDir)) FileSystem.createDirectory(targetDir);
+            File.saveContent(targetPath, xml);
+            EditorToast.show('Saved .xmsoul manifest: $curStage.xmsoul');
+            AssetHelper.playSoundSafely("confirmMenu", 0.7);
+        } catch (e:Dynamic) {
+            EditorToast.show("Failed writing .xmsoul manifest", true);
+        }
+        #end
     }
 
     private function saveStageJson():Void {

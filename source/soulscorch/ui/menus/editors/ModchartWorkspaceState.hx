@@ -4,28 +4,25 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.Json;
+import openfl.geom.Rectangle;
 import openfl.system.System;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.gameplay.notes.Strumline;
-import soulscorch.ui.menus.editors.editorui.EditorButton;
-import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
-import soulscorch.ui.menus.editors.editorui.EditorInputText;
-import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
-import soulscorch.ui.menus.editors.editorui.EditorTheme;
-import soulscorch.ui.menus.editors.editorui.EditorToast;
-import soulscorch.ui.menus.editors.editorui.EditorTopBar;
-import soulscorch.ui.menus.editors.editorui.EditorWindow;
+import soulscorch.ui.menus.editors.editorui.*;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -46,6 +43,7 @@ typedef ModchartKeyframe = {
 
 class ModchartWorkspaceState extends MusicBeatState {
     private var camWorkspace:FlxCamera;
+    private var camUI:FlxCamera;
 
     private var playerStrumline:Strumline;
     private var opponentStrumline:Strumline;
@@ -53,7 +51,7 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var opponentDefaultPositions:Array<Array<Float>> = [];
     private var fallingNotesGroup:FlxTypedGroup<Note>;
 
-    // --- Math Matrix Modifiers (18 Core Modifiers) ---
+    // --- Math Matrix Modifiers (24 Extended Core Modifiers) ---
     private var drunkIntensity:Float = 0.0;
     private var tipsyIntensity:Float = 0.0;
     private var beatIntensity:Float = 0.0;
@@ -72,6 +70,12 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var dizzyIntensity:Float = 0.0;
     private var miniIntensity:Float = 0.0;
     private var scrollSpeed:Float = 2.2;
+    private var tornadoIntensity:Float = 0.0;
+    private var centeredIntensity:Float = 0.0;
+    private var flipIntensity:Float = 0.0;
+    private var spiralIntensity:Float = 0.0;
+    private var squishIntensity:Float = 0.0;
+    private var blackHoleIntensity:Float = 0.0;
 
     private var selectedModIndex:Int = 0;
     private var modNames:Array<String> = [
@@ -92,24 +96,29 @@ class ModchartWorkspaceState extends MusicBeatState {
         "Expand",
         "Dizzy Spin",
         "Mini Scale",
-        "Scroll Speed"
+        "Scroll Speed",
+        "Tornado Wave",
+        "Centered Focus",
+        "Flip Inversion",
+        "3D Spiral",
+        "Squish & Stretch",
+        "Black Hole Vortex"
     ];
 
-    // --- Timeline & Keyframe Sequencer ---
+    // --- Timeline & Sequencer ---
     private var keyframes:Array<ModchartKeyframe> = [];
     private var selectedKeyframeIdx:Int = 0;
     private var curCurvedTime:Float = 0.0;
     private var simSongTime:Float = 0.0;
     private var spawnTimer:Float = 0.0;
     private var isPlayingSequence:Bool = false;
-    private var curBpm:Float = 120.0;
 
     // --- Ease Curve Types ---
     private var easeOptions:Array<String> = [
         "linear", "quadOut", "quadInOut", "cubeOut", "cubeInOut",
         "sineOut", "sineInOut", "bounceOut", "elasticOut", "backOut", "circOut"
     ];
-    private var curEaseIdx:Int = 3; // cubeOut default
+    private var curEaseIdx:Int = 3;
 
     // --- UI Windows & Layout ---
     private var topBar:EditorTopBar;
@@ -123,7 +132,6 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var keyframeListTxt:FlxText;
     private var formulaTxt:FlxText;
     private var oscilloscopeGraph:FlxSprite;
-    private var playheadBar:FlxSprite;
 
     private var checkDualStrums:EditorCheckbox;
     private var affectOpponent:Bool = true;
@@ -131,21 +139,19 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var stepperKeyframeVal:EditorNumericStepper;
     private var stepperKeyframeDur:EditorNumericStepper;
 
-    // --- Undo / Redo History ---
+    // --- Undo / Redo Buffer ---
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
-    private static inline var MAX_UNDO_DEPTH:Int = 40;
+    private static inline var MAX_UNDO_DEPTH:Int = 50;
 
     override public function create():Void {
         super.create();
 
-        camWorkspace = new FlxCamera();
-        camHUD = new FlxCamera();
-        camHUD.bgColor.alpha = 0;
+        #if desktop
+        DiscordRPC.changePresence("Modchart Matrix Ultra", "Designing Real-time Shaders & Waves");
+        #end
 
-        FlxG.cameras.reset(camWorkspace);
-        FlxG.cameras.add(camHUD, false);
-        FlxG.cameras.setDefaultDrawTarget(camWorkspace, true);
+        setupCameras();
 
         var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
         bg.scrollFactor.set(0, 0);
@@ -166,6 +172,16 @@ class ModchartWorkspaceState extends MusicBeatState {
 
         add(new EditorToast());
         FlxG.mouse.visible = true;
+    }
+
+    override public function setupCameras():Void {
+        camWorkspace = new FlxCamera();
+        camUI = new FlxCamera();
+        camUI.bgColor = FlxColor.TRANSPARENT;
+
+        FlxG.cameras.reset(camWorkspace);
+        FlxG.cameras.add(camUI, false);
+        FlxG.cameras.setDefaultDrawTarget(camWorkspace, true);
     }
 
     private function createStrumMatrix():Void {
@@ -191,37 +207,36 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function setupWindows():Void {
-        topBar = new EditorTopBar("MODCHART AUTOMATION STUDIO PRO // [KEYFRAME & MATH MATRIX]");
-        topBar.cameras = [camHUD];
+        topBar = new EditorTopBar("MODCHART MATRIX ULTRA // [MATHEMATICAL AUTOMATION SUITE]");
+        topBar.cameras = [camUI];
         topBar.addAction("Play/Pause (Space)", togglePlayback);
-        topBar.addAction("Add Keyframe (K)", addCurrentAsKeyframe);
-        topBar.addAction("Undo (Ctrl+Z)", undo);
-        topBar.addAction("Redo (Ctrl+Y)", redo);
-        topBar.addAction("Export Formats", function() exportWindow.visible = !exportWindow.visible);
+        topBar.addAction("Record KF (K)", addCurrentAsKeyframe);
+        topBar.addAction("Presets", function() presetsWindow.visible = !presetsWindow.visible);
+        topBar.addAction("Export (Ctrl+E)", function() exportWindow.visible = !exportWindow.visible);
         topBar.addAction("Reset (R)", resetAllModifiers);
-        topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
+        topBar.addAction("Exit (Esc)", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        // --- 1. Modifier Matrix Window (Left Top) ---
-        matrixWindow = new EditorWindow(15, 45, 290, 390, "Matrix Parameters");
-        matrixWindow.cameras = [camHUD];
+        // --- 1. Parameter Matrix Panel (Left Top) ---
+        matrixWindow = new EditorWindow(15, 45, 290, 390, "Matrix Parameters (W/S/Arrows)");
+        matrixWindow.cameras = [camUI];
         add(matrixWindow);
 
         modifierListTxt = new FlxText(10, 6, 270, "", 12);
         modifierListTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         matrixWindow.addElement(modifierListTxt);
 
-        checkDualStrums = new EditorCheckbox(10, 320, "Affect Opponent Strums", affectOpponent, function(c) {
+        checkDualStrums = new EditorCheckbox(10, 320, "Affect Opponent Strumline", affectOpponent, function(c) {
             affectOpponent = c;
         });
         matrixWindow.addElement(checkDualStrums);
 
-        var btnAddKf = new EditorButton(10, 350, 270, 26, "+ Add Keyframe From Matrix", addCurrentAsKeyframe);
+        var btnAddKf = new EditorButton(10, 350, 270, 26, "+ Capture State as Keyframe", addCurrentAsKeyframe);
         matrixWindow.addElement(btnAddKf);
 
-        // --- 2. Live Oscilloscope Math Visualizer (Left Bottom) ---
+        // --- 2. Live Oscilloscope Graph (Left Bottom) ---
         graphOscilloscopeWindow = new EditorWindow(15, 445, 290, 185, "Live Waveform Oscilloscope");
-        graphOscilloscopeWindow.cameras = [camHUD];
+        graphOscilloscopeWindow.cameras = [camUI];
         add(graphOscilloscopeWindow);
 
         oscilloscopeGraph = new FlxSprite(10, 8);
@@ -234,7 +249,7 @@ class ModchartWorkspaceState extends MusicBeatState {
 
         // --- 3. Keyframe Sequencer & Timeline (Right Top) ---
         timelineWindow = new EditorWindow(FlxG.width - 325, 45, 310, 310, "Keyframe Sequencer");
-        timelineWindow.cameras = [camHUD];
+        timelineWindow.cameras = [camUI];
         add(timelineWindow);
 
         keyframeListTxt = new FlxText(10, 4, 290, "", 12);
@@ -269,44 +284,48 @@ class ModchartWorkspaceState extends MusicBeatState {
         var btnDelKf = new EditorButton(10, 275, 285, 24, "- Remove Selected Keyframe", removeSelectedKeyframe);
         timelineWindow.addElement(btnDelKf);
 
-        // --- 4. Presets Matrix Window (Right Middle) ---
-        presetsWindow = new EditorWindow(FlxG.width - 325, 365, 310, 265, "Curated Math Presets");
-        presetsWindow.cameras = [camHUD];
+        // --- 4. Curated Presets Library (Right Bottom) ---
+        presetsWindow = new EditorWindow(FlxG.width - 325, 365, 310, 265, "Curated Presets Library");
+        presetsWindow.cameras = [camUI];
         add(presetsWindow);
 
-        presetsWindow.addElement(new EditorButton(10, 6, 290, 24, "1. S-Curve Sine Surge", function() {
-            applyPreset(1.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, "Preset: S-Curve Surge");
+        presetsWindow.addElement(new EditorButton(10, 6, 290, 22, "1. S-Curve Sine Surge", function() {
+            applyFullPreset(1.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: S-Curve Surge");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 34, 290, 24, "2. Cross-Over Splitter", function() {
-            applyPreset(0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.2, "Preset: Cross-Over Splitter");
+        presetsWindow.addElement(new EditorButton(10, 30, 290, 22, "2. Cross-Over Splitter", function() {
+            applyFullPreset(0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: Cross-Over Splitter");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 62, 290, 24, "3. Chaos Vortex Whirl", function() {
-            applyPreset(1.4, 1.2, 1.0, 1.5, 0.2, 0.0, 0.5, 0.5, 0.8, 0.0, 1.2, 0.8, 0.3, 0.5, 0.4, 0.6, 0.0, 2.4, "Preset: Chaos Vortex Whirl");
+        presetsWindow.addElement(new EditorButton(10, 54, 290, 22, "3. Chaos Vortex Whirl", function() {
+            applyFullPreset(1.4, 1.2, 1.0, 1.5, 0.2, 0.0, 0.5, 0.5, 0.8, 0.0, 1.2, 0.8, 0.3, 0.5, 0.4, 0.6, 0.0, 2.4, 0.8, 0.0, 0.0, 0.5, 0.0, 0.5, "Preset: Chaos Vortex Whirl");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 90, 290, 24, "4. Digital Glitch Matrix", function() {
-            applyPreset(0.2, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.8, 1.2, 0.5, 0.0, 0.0, 2.0, "Preset: Digital Glitch Matrix");
+        presetsWindow.addElement(new EditorButton(10, 78, 290, 22, "4. Digital Glitch Matrix", function() {
+            applyFullPreset(0.2, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.8, 1.2, 0.5, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: Digital Glitch Matrix");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 118, 290, 24, "5. Bumpy Pulse Drive", function() {
-            applyPreset(0.4, 0.0, 1.4, 0.0, 0.0, 0.0, 0.0, 0.0, 1.6, 0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, "Preset: Bumpy Pulse Drive");
+        presetsWindow.addElement(new EditorButton(10, 102, 290, 22, "5. Bumpy Pulse Drive", function() {
+            applyFullPreset(0.4, 0.0, 1.4, 0.0, 0.0, 0.0, 0.0, 0.0, 1.6, 0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: Bumpy Pulse Drive");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 146, 290, 24, "6. Stealth Dive Shift", function() {
-            applyPreset(0.5, 0.5, 0.0, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 2.0, "Preset: Stealth Dive Shift");
+        presetsWindow.addElement(new EditorButton(10, 126, 290, 22, "6. Stealth Dive Shift", function() {
+            applyFullPreset(0.5, 0.5, 0.0, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: Stealth Dive Shift");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 174, 290, 24, "7. Space-Warp Dizzy Orbit", function() {
-            applyPreset(0.8, 0.8, 0.0, 1.8, 0.0, 0.0, 0.8, 0.8, 0.8, 0.0, 1.0, 0.5, 0.0, 0.8, 0.6, 1.5, 0.2, 2.2, "Preset: Space-Warp Dizzy Orbit");
+        presetsWindow.addElement(new EditorButton(10, 150, 290, 22, "7. Tornado Storm Orbit", function() {
+            applyFullPreset(0.8, 0.0, 0.5, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 2.2, 1.8, 0.0, 0.0, 0.0, 0.0, 0.0, "Preset: Tornado Storm Orbit");
         }));
 
-        presetsWindow.addElement(new EditorButton(10, 204, 290, 26, "Reset Matrix to Zero (R)", resetAllModifiers));
+        presetsWindow.addElement(new EditorButton(10, 174, 290, 22, "8. 3D Helix & Black Hole", function() {
+            applyFullPreset(0.0, 0.0, 0.8, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.2, 0.2, 2.4, 0.0, 0.8, 0.0, 1.5, 0.0, 1.2, "Preset: 3D Helix & Black Hole");
+        }));
 
-        // --- 5. Multi-Format Export Window (Center Modal) ---
-        exportWindow = new EditorWindow((FlxG.width - 340) * 0.5, (FlxG.height - 240) * 0.5, 340, 240, "Export Modchart Formats");
-        exportWindow.cameras = [camHUD];
+        presetsWindow.addElement(new EditorButton(10, 204, 290, 24, "Reset All Modifiers to Zero (R)", resetAllModifiers));
+
+        // --- 5. Multi-Format Script Export Modal ---
+        exportWindow = new EditorWindow((FlxG.width - 340) * 0.5, (FlxG.height - 240) * 0.5, 340, 240, "Export Modchart Code");
+        exportWindow.cameras = [camUI];
         exportWindow.visible = false;
         add(exportWindow);
 
@@ -342,17 +361,10 @@ class ModchartWorkspaceState extends MusicBeatState {
         if (FlxG.keys.justPressed.LEFT) adjustModifier(-delta);
         if (FlxG.keys.justPressed.RIGHT) adjustModifier(delta);
 
-        if (FlxG.keys.justPressed.ONE) applyPreset(1.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, "Preset 1 Loaded");
-        if (FlxG.keys.justPressed.TWO) applyPreset(0.0, 0.8, 0.0, 0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.2, "Preset 2 Loaded");
-        if (FlxG.keys.justPressed.THREE) applyPreset(1.4, 1.2, 1.0, 1.5, 0.2, 0.0, 0.5, 0.5, 0.8, 0.0, 1.2, 0.8, 0.3, 0.5, 0.4, 0.6, 0.0, 2.4, "Preset 3 Loaded");
-        if (FlxG.keys.justPressed.FOUR) applyPreset(0.2, 0.0, 1.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.8, 1.2, 0.5, 0.0, 0.0, 2.0, "Preset 4 Loaded");
-        if (FlxG.keys.justPressed.FIVE) applyPreset(0.4, 0.0, 1.4, 0.0, 0.0, 0.0, 0.0, 0.0, 1.6, 0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, "Preset 5 Loaded");
-        if (FlxG.keys.justPressed.SIX) applyPreset(0.5, 0.5, 0.0, 0.5, 0.75, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 2.0, "Preset 6 Loaded");
-        if (FlxG.keys.justPressed.SEVEN) applyPreset(0.8, 0.8, 0.0, 1.8, 0.0, 0.0, 0.8, 0.8, 0.8, 0.0, 1.0, 0.5, 0.0, 0.8, 0.6, 1.5, 0.2, 2.2, "Preset 7 Loaded");
-
         if (FlxG.keys.justPressed.K) addCurrentAsKeyframe();
         if (FlxG.keys.justPressed.R) resetAllModifiers();
         if (FlxG.keys.justPressed.SPACE) togglePlayback();
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.E) exportWindow.visible = !exportWindow.visible;
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) undo();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Y) redo();
         if (FlxG.keys.justPressed.ESCAPE) MusicBeatState.switchState(new MainMenuState());
@@ -379,6 +391,12 @@ class ModchartWorkspaceState extends MusicBeatState {
             case 15: dizzyIntensity = roundMod(dizzyIntensity + delta);
             case 16: miniIntensity = Math.min(1.0, Math.max(0.0, roundMod(miniIntensity + delta)));
             case 17: scrollSpeed = Math.max(0.5, Math.min(6.0, roundMod(scrollSpeed + delta)));
+            case 18: tornadoIntensity = roundMod(tornadoIntensity + delta);
+            case 19: centeredIntensity = Math.min(1.0, Math.max(0.0, roundMod(centeredIntensity + delta)));
+            case 20: flipIntensity = Math.min(1.0, Math.max(0.0, roundMod(flipIntensity + delta)));
+            case 21: spiralIntensity = roundMod(spiralIntensity + delta);
+            case 22: squishIntensity = roundMod(squishIntensity + delta);
+            case 23: blackHoleIntensity = roundMod(blackHoleIntensity + delta);
         }
         updateDisplay();
     }
@@ -387,7 +405,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         return Math.round(val * 100) / 100;
     }
 
-    private function applyPreset(d:Float, t:Float, b:Float, c:Float, s:Float, rev:Float, cr:Float, alt:Float, bmp:Float, inv:Float, wav:Float, bnc:Float, dig:Float, zig:Float, exp:Float, diz:Float, min:Float, spd:Float, msg:String):Void {
+    private function applyFullPreset(d:Float, t:Float, b:Float, c:Float, s:Float, rev:Float, cr:Float, alt:Float, bmp:Float, inv:Float, wav:Float, bnc:Float, dig:Float, zig:Float, exp:Float, diz:Float, min:Float, spd:Float, tor:Float, cen:Float, flp:Float, spi:Float, squ:Float, bh:Float, msg:String):Void {
         pushUndoSnapshot();
         drunkIntensity = d;
         tipsyIntensity = t;
@@ -407,6 +425,12 @@ class ModchartWorkspaceState extends MusicBeatState {
         dizzyIntensity = diz;
         miniIntensity = min;
         scrollSpeed = spd;
+        tornadoIntensity = tor;
+        centeredIntensity = cen;
+        flipIntensity = flp;
+        spiralIntensity = spi;
+        squishIntensity = squ;
+        blackHoleIntensity = bh;
 
         updateDisplay();
         EditorToast.show(msg);
@@ -417,6 +441,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         drunkIntensity = tipsyIntensity = beatIntensity = confusionIntensity = stealthIntensity = 0.0;
         reverseIntensity = crossIntensity = alternateIntensity = bumpyIntensity = invertIntensity = 0.0;
         waveIntensity = bounceIntensity = digitalIntensity = zigzagIntensity = expandIntensity = dizzyIntensity = miniIntensity = 0.0;
+        tornadoIntensity = centeredIntensity = flipIntensity = spiralIntensity = squishIntensity = blackHoleIntensity = 0.0;
         scrollSpeed = 2.2;
 
         updateDisplay();
@@ -480,6 +505,12 @@ class ModchartWorkspaceState extends MusicBeatState {
             case 15: dizzyIntensity;
             case 16: miniIntensity;
             case 17: scrollSpeed;
+            case 18: tornadoIntensity;
+            case 19: centeredIntensity;
+            case 20: flipIntensity;
+            case 21: spiralIntensity;
+            case 22: squishIntensity;
+            case 23: blackHoleIntensity;
             default: 0.0;
         };
     }
@@ -493,7 +524,7 @@ class ModchartWorkspaceState extends MusicBeatState {
                 spr.x = trans.x;
                 spr.y = trans.y;
                 spr.angle = trans.angle;
-                spr.scale.set(trans.scale, trans.scale);
+                spr.scale.set(trans.scaleX, trans.scaleY);
                 spr.alpha = trans.alpha;
             }
         }
@@ -506,20 +537,31 @@ class ModchartWorkspaceState extends MusicBeatState {
                 spr.x = trans.x;
                 spr.y = trans.y;
                 spr.angle = trans.angle;
-                spr.scale.set(trans.scale, trans.scale);
+                spr.scale.set(trans.scaleX, trans.scaleY);
                 spr.alpha = trans.alpha * 0.55;
             }
         }
     }
 
-    private function calculateModifiers(baseX:Float, baseY:Float, lane:Int, time:Float, enabled:Bool):{x:Float, y:Float, angle:Float, scale:Float, alpha:Float} {
+    private function calculateModifiers(baseX:Float, baseY:Float, lane:Int, time:Float, enabled:Bool):{x:Float, y:Float, angle:Float, scaleX:Float, scaleY:Float, alpha:Float} {
         var rx = baseX;
         var ry = baseY;
         var rAngle = 0.0;
-        var rScale = 0.7;
+        var rScaleX = 0.7;
+        var rScaleY = 0.7;
         var rAlpha = 1.0;
 
-        if (!enabled) return {x: rx, y: ry, angle: rAngle, scale: rScale, alpha: rAlpha};
+        if (!enabled) return {x: rx, y: ry, angle: rAngle, scaleX: rScaleX, scaleY: rScaleY, alpha: rAlpha};
+
+        if (centeredIntensity != 0) {
+            var centerX = (FlxG.width * 0.5) - ((4 * Strumline.STRUM_SPACING) * 0.5) + (lane * Strumline.STRUM_SPACING);
+            rx = FlxMath.lerp(rx, centerX, centeredIntensity);
+        }
+
+        if (flipIntensity != 0) {
+            var flippedX = baseX + ((3 - lane) - lane) * Strumline.STRUM_SPACING;
+            rx = FlxMath.lerp(rx, flippedX, flipIntensity);
+        }
 
         if (reverseIntensity != 0) {
             ry = FlxMath.lerp(ry, FlxG.height - 150.0, reverseIntensity);
@@ -537,8 +579,31 @@ class ModchartWorkspaceState extends MusicBeatState {
             var beatWave = Math.sin((time * 0.006) + (lane * 0.25));
             if (beatWave > 0) {
                 rx += beatWave * (beatIntensity * 22.0);
-                rScale += beatWave * (beatIntensity * 0.15);
+                rScaleX += beatWave * (beatIntensity * 0.15);
+                rScaleY += beatWave * (beatIntensity * 0.15);
             }
+        }
+
+        if (tornadoIntensity != 0) {
+            rx += Math.sin((time * 0.005) + (lane * 1.5)) * (tornadoIntensity * 55.0);
+            rScaleX *= (1.0 + Math.cos((time * 0.005) + (lane * 1.5)) * 0.25 * tornadoIntensity);
+        }
+
+        if (spiralIntensity != 0) {
+            var angleRad = (time * 0.004) + (lane * 0.8);
+            rx += Math.cos(angleRad) * (spiralIntensity * 40.0);
+            ry += Math.sin(angleRad) * (spiralIntensity * 40.0);
+        }
+
+        if (blackHoleIntensity != 0) {
+            var distToCenter = ((FlxG.width * 0.5) - rx);
+            rx += distToCenter * (blackHoleIntensity * 0.35);
+        }
+
+        if (squishIntensity != 0) {
+            var pulse = Math.sin(time * 0.007);
+            rScaleX += pulse * (squishIntensity * 0.25);
+            rScaleY -= pulse * (squishIntensity * 0.25);
         }
 
         if (confusionIntensity != 0) {
@@ -563,7 +628,8 @@ class ModchartWorkspaceState extends MusicBeatState {
         if (bumpyIntensity != 0) {
             var bump = Math.sin((time * 0.008) + (lane * 0.7));
             ry += bump * (bumpyIntensity * 25.0);
-            rScale += (bump * 0.12 * bumpyIntensity);
+            rScaleX += (bump * 0.12 * bumpyIntensity);
+            rScaleY += (bump * 0.12 * bumpyIntensity);
         }
 
         if (waveIntensity != 0) {
@@ -593,21 +659,23 @@ class ModchartWorkspaceState extends MusicBeatState {
         }
 
         if (miniIntensity != 0) {
-            rScale *= Math.max(0.2, 1.0 - (miniIntensity * 0.5));
+            var factor = Math.max(0.2, 1.0 - (miniIntensity * 0.5));
+            rScaleX *= factor;
+            rScaleY *= factor;
         }
 
         rAlpha = Math.max(0.0, 1.0 - stealthIntensity);
 
-        return {x: rx, y: ry, angle: rAngle, scale: rScale, alpha: rAlpha};
+        return {x: rx, y: ry, angle: rAngle, scaleX: rScaleX, scaleY: rScaleY, alpha: rAlpha};
     }
 
     private function renderOscilloscopeWaveform():Void {
-        oscilloscopeGraph.pixels.fillRect(new openfl.geom.Rectangle(0, 0, 270, 90), 0xFF111118);
+        oscilloscopeGraph.pixels.fillRect(new Rectangle(0, 0, 270, 90), 0xFF111118);
 
         var midY = 45.0;
         for (px in 0...270) {
             var sampleTime = simSongTime + (px * 12.0);
-            var waveSample = Math.sin(sampleTime * 0.005) * drunkIntensity + Math.cos(sampleTime * 0.006) * tipsyIntensity + Math.sin(sampleTime * 0.008) * bumpyIntensity;
+            var waveSample = Math.sin(sampleTime * 0.005) * drunkIntensity + Math.cos(sampleTime * 0.006) * tipsyIntensity + Math.sin(sampleTime * 0.008) * bumpyIntensity + Math.sin(sampleTime * 0.004) * tornadoIntensity;
             var py = Std.int(midY + (waveSample * 14.0));
             py = Std.int(Math.max(2, Math.min(88, py)));
 
@@ -638,7 +706,7 @@ class ModchartWorkspaceState extends MusicBeatState {
             var trans = calculateModifiers(def[0], n.y, lane, simSongTime + ((FlxG.height - n.y) * 0.8), true);
             n.x = trans.x;
             n.angle = trans.angle;
-            n.scale.set(trans.scale, trans.scale);
+            n.scale.set(trans.scaleX, trans.scaleY);
             n.alpha = trans.alpha;
 
             var hitThreshold = (reverseIntensity > 0.5) ? FlxG.height - 160 : 80;
@@ -657,8 +725,11 @@ class ModchartWorkspaceState extends MusicBeatState {
     }
 
     private function updateDisplay():Void {
-        var out = "ACTIVE MODIFIERS:\n\n";
-        for (i in 0...modNames.length) {
+        var out = "ACTIVE MATRIX MODIFIERS:\n\n";
+        var start = Std.int(Math.max(0, selectedModIndex - 5));
+        var end = Std.int(Math.min(modNames.length, start + 12));
+
+        for (i in start...end) {
             var sel = (i == selectedModIndex);
             var prefix = sel ? "> " : "  ";
             var suffix = sel ? " <" : "";
@@ -677,15 +748,15 @@ class ModchartWorkspaceState extends MusicBeatState {
             var isCur = (i == selectedKeyframeIdx);
             out += (isCur ? '> ' : '  ') + '[Step ${kf.step}] ${kf.modifier} -> ${kf.value} (${kf.ease})\n';
         }
-        if (keyframes.length == 0) out += "  No keyframes defined yet.\n  Press (K) to record.";
+        if (keyframes.length == 0) out += "  No keyframes defined yet.\n  Press (K) to record state.";
         keyframeListTxt.text = out;
     }
 
     private function updateLiveFormulaDisplay():Void {
         var timeSec = Math.round(simSongTime * 0.001 * 100) / 100;
         formulaTxt.text = 'SIM TIME: ${timeSec}s | SPEED: ${scrollSpeed}x\n' +
-            'Oscillator: cos(t*0.004) + sin(t*0.005)\n' +
-            'Active Waves: ${keyframes.length} Registered KFs';
+            'Active Modifiers: ${modNames.length} Registered\n' +
+            'Timeline Keyframes: ${keyframes.length} Captured';
     }
 
     private function pushUndoSnapshot():Void {
@@ -694,7 +765,9 @@ class ModchartWorkspaceState extends MusicBeatState {
             s: stealthIntensity, r: reverseIntensity, cr: crossIntensity, a: alternateIntensity,
             bmp: bumpyIntensity, inv: invertIntensity, w: waveIntensity, bnc: bounceIntensity,
             dig: digitalIntensity, zig: zigzagIntensity, exp: expandIntensity, diz: dizzyIntensity,
-            min: miniIntensity, spd: scrollSpeed, kfs: keyframes
+            min: miniIntensity, spd: scrollSpeed, tor: tornadoIntensity, cen: centeredIntensity,
+            flp: flipIntensity, spi: spiralIntensity, squ: squishIntensity, bh: blackHoleIntensity,
+            kfs: keyframes
         };
         undoStack.push(Json.stringify(data));
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
@@ -732,6 +805,12 @@ class ModchartWorkspaceState extends MusicBeatState {
         invertIntensity = data.inv; waveIntensity = data.w; bounceIntensity = data.bnc;
         digitalIntensity = data.dig; zigzagIntensity = data.zig; expandIntensity = data.exp;
         dizzyIntensity = data.diz; miniIntensity = data.min; scrollSpeed = data.spd;
+        tornadoIntensity = data.tor != null ? data.tor : 0.0;
+        centeredIntensity = data.cen != null ? data.cen : 0.0;
+        flipIntensity = data.flp != null ? data.flp : 0.0;
+        spiralIntensity = data.spi != null ? data.spi : 0.0;
+        squishIntensity = data.squ != null ? data.squ : 0.0;
+        blackHoleIntensity = data.bh != null ? data.bh : 0.0;
         keyframes = data.kfs != null ? cast data.kfs : [];
         updateDisplay();
         updateKeyframeDisplay();

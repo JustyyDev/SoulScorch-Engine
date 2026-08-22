@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<modifiers>
-    <!-- Default PlayField Adjustments for Ugh -->
-    <gameplay scrollSpeed="2.3" healthDrain="false" opponentDrain="0.0" ghostTapping="true" />
-    
-    <!-- Modchart Hooks & Lane Tweaks -->
-    <strumline playerAlpha="1.0" opponentAlpha="1.0" spectatorAlpha="1.0" />
-</modifiers>

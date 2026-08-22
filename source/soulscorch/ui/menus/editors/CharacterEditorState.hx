@@ -4,30 +4,27 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.ui.FlxBar;
 import flixel.util.FlxColor;
 import haxe.Json;
+import openfl.geom.Rectangle;
 import openfl.net.FileReference;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.actors.Character;
 import soulscorch.gameplay.actors.CharacterJson;
 import soulscorch.gameplay.actors.HealthIcon;
 import soulscorch.scripting.mod.ModManager;
-import soulscorch.ui.menus.editors.editorui.EditorButton;
-import soulscorch.ui.menus.editors.editorui.EditorCheckbox;
-import soulscorch.ui.menus.editors.editorui.EditorInputText;
-import soulscorch.ui.menus.editors.editorui.EditorNumericStepper;
-import soulscorch.ui.menus.editors.editorui.EditorTheme;
-import soulscorch.ui.menus.editors.editorui.EditorToast;
-import soulscorch.ui.menus.editors.editorui.EditorTopBar;
-import soulscorch.ui.menus.editors.editorui.EditorWindow;
+import soulscorch.ui.menus.editors.editorui.*;
 import soulscorch.ui.menus.states.MainMenuState;
 
 #if sys
@@ -41,49 +38,73 @@ class CharacterEditorState extends MusicBeatState {
     public var curCharacter:String = "dad";
     public var isPlayer:Bool = false;
 
+    // --- Cameras ---
     private var camEditor:FlxCamera;
+    private var camUI:FlxCamera;
 
+    // --- Actors & Layers ---
     private var charLayer:Character;
     private var ghostChar:Character;
+    private var stageBackdrop:FlxSprite;
+    private var groundGrid:FlxSprite;
     private var crosshair:FlxSprite;
     private var camFollowMarker:FlxSprite;
     private var camFollow:FlxPoint;
 
+    // --- HUD Health Preview ---
     private var previewHealthBarBG:FlxSprite;
     private var previewHealthBar:FlxBar;
     private var previewIcon:HealthIcon;
 
+    // --- Windows & UI Panes ---
     private var topBar:EditorTopBar;
     private var animMatrixWindow:EditorWindow;
     private var propertiesWindow:EditorWindow;
     private var offsetsWindow:EditorWindow;
+    private var colorPickerWindow:EditorWindow;
     private var newAnimWindow:EditorWindow;
-    private var quickToolsWindow:EditorWindow;
+    private var charPickerModal:EditorWindow;
 
+    // --- Inspector Labels ---
     private var curAnimTxt:FlxText;
     private var offsetTxt:FlxText;
     private var animListTxt:FlxText;
     private var frameInfoTxt:FlxText;
+    private var stageNameTxt:FlxText;
 
+    // --- Input Controls ---
     private var inputAnimName:EditorInputText;
     private var inputAnimPrefix:EditorInputText;
     private var stepperAnimFPS:EditorNumericStepper;
     private var checkAnimLoop:EditorCheckbox;
     private var inputHealthIcon:EditorInputText;
+    private var inputImageSheet:EditorInputText;
 
+    // --- Color Steppers ---
+    private var stepperColorR:EditorNumericStepper;
+    private var stepperColorG:EditorNumericStepper;
+    private var stepperColorB:EditorNumericStepper;
+    private var colorPreviewBox:FlxSprite;
+
+    // --- State Variables ---
     private var animList:Array<String> = [];
     private var curAnimIndex:Int = 0;
     private var ghostAnimIndex:Int = 0;
     private var showGhost:Bool = true;
+    private var curStageBackdrop:String = "stage";
+    private var availableStages:Array<String> = ["stage", "spooky", "philly", "limo", "mall", "school", "tank"];
+    private var curStageIdx:Int = 0;
 
+    // --- Drag Controls ---
     private var isDraggingCamAnchor:Bool = false;
     private var isDraggingCharOffset:Bool = false;
     private var dragStartOffset:FlxPoint;
     private var dragStartMouse:FlxPoint;
 
+    // --- History Stack ---
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
-    private static inline var MAX_UNDO_DEPTH:Int = 40;
+    private static inline var MAX_UNDO_DEPTH:Int = 50;
 
     public function new(?char:String = "dad", ?isPlayer:Bool = false) {
         super();
@@ -94,49 +115,82 @@ class CharacterEditorState extends MusicBeatState {
     override public function create():Void {
         super.create();
 
-        camEditor = new FlxCamera();
-        camHUD = new FlxCamera();
-        camHUD.bgColor.alpha = 0;
+        #if desktop
+        DiscordRPC.changePresence("Actor Studio Ultra", 'Calibrating: ${curCharacter.toUpperCase()}');
+        #end
 
-        FlxG.cameras.reset(camEditor);
-        FlxG.cameras.add(camHUD, false);
-        FlxG.cameras.setDefaultDrawTarget(camEditor, true);
+        setupCameras();
 
         camFollow = FlxPoint.get(FlxG.width * 0.5, FlxG.height * 0.5);
         dragStartOffset = FlxPoint.get(0, 0);
         dragStartMouse = FlxPoint.get(0, 0);
-        camEditor.zoom = 0.9;
+        camEditor.zoom = 0.85;
 
-        var bg = new FlxSprite().makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
-        bg.screenCenter();
-        bg.scrollFactor.set(0, 0);
-        add(bg);
+        createEnvironment();
+        reloadCharacters();
+        setupHUDPreview();
+        setupWindows();
+        buildCharacterPickerModal();
 
-        var ground = new FlxSprite(0, FlxG.height * 0.75).makeGraphic(Std.int(FlxG.width * 4), 2, EditorTheme.ACCENT_PURPLE);
-        ground.screenCenter(X);
-        ground.scrollFactor.set(1, 1);
-        add(ground);
+        pushUndoSnapshot();
+        add(new EditorToast());
+        FlxG.mouse.visible = true;
+    }
 
-        crosshair = new FlxSprite().makeGraphic(22, 22, FlxColor.TRANSPARENT);
-        for (i in 0...22) {
-            crosshair.pixels.setPixel32(i, 11, EditorTheme.ACCENT_MAGENTA);
-            crosshair.pixels.setPixel32(11, i, EditorTheme.ACCENT_MAGENTA);
+    override public function setupCameras():Void {
+        camEditor = new FlxCamera();
+        camUI = new FlxCamera();
+        camUI.bgColor = FlxColor.TRANSPARENT;
+
+        FlxG.cameras.reset(camEditor);
+        FlxG.cameras.add(camUI, false);
+        FlxG.cameras.setDefaultDrawTarget(camEditor, true);
+    }
+
+    private function createEnvironment():Void {
+        var bgGrid = new FlxSprite().makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
+        bgGrid.screenCenter();
+        bgGrid.scrollFactor.set(0, 0);
+        add(bgGrid);
+
+        stageBackdrop = new FlxSprite(-200, -100);
+        loadStageGraphic(curStageBackdrop);
+        stageBackdrop.scrollFactor.set(0.9, 0.9);
+        stageBackdrop.alpha = 0.4;
+        add(stageBackdrop);
+
+        groundGrid = new FlxSprite(0, FlxG.height * 0.78).makeGraphic(Std.int(FlxG.width * 4), 3, EditorTheme.ACCENT_PURPLE);
+        groundGrid.screenCenter(X);
+        groundGrid.scrollFactor.set(1, 1);
+        add(groundGrid);
+
+        crosshair = new FlxSprite().makeGraphic(24, 24, FlxColor.TRANSPARENT);
+        for (i in 0...24) {
+            crosshair.pixels.setPixel32(i, 12, EditorTheme.ACCENT_MAGENTA);
+            crosshair.pixels.setPixel32(12, i, EditorTheme.ACCENT_MAGENTA);
         }
         crosshair.dirty = true;
         crosshair.scrollFactor.set(1, 1);
         add(crosshair);
 
-        camFollowMarker = new FlxSprite().makeGraphic(18, 18, EditorTheme.ACCENT_CYAN);
+        camFollowMarker = new FlxSprite().makeGraphic(20, 20, EditorTheme.ACCENT_CYAN);
         camFollowMarker.scrollFactor.set(1, 1);
         add(camFollowMarker);
+    }
 
-        reloadCharacters();
-        setupHUDPreview();
-        setupWindows();
-
-        pushUndoSnapshot();
-        add(new EditorToast());
-        FlxG.mouse.visible = true;
+    private function loadStageGraphic(stage:String):Void {
+        var path = 'stages/default/stageback';
+        switch (stage) {
+            case "spooky": path = 'halloween_bg';
+            case "philly": path = 'philly/city';
+            case "limo": path = 'limo/limoSunset';
+            case "mall": path = 'christmas/bgWalls';
+            case "school": path = 'weeb/weebTrees';
+            case "tank": path = 'tank/tankSky';
+            default: path = 'stages/default/stageback';
+        }
+        AssetHelper.loadGraphicSafely(stageBackdrop, path);
+        stageBackdrop.updateHitbox();
     }
 
     private function reloadCharacters():Void {
@@ -150,18 +204,18 @@ class CharacterEditorState extends MusicBeatState {
         }
 
         try {
-            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.18, curCharacter, isPlayer);
         } catch (e:Dynamic) {
-            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, "dad", isPlayer);
+            ghostChar = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.18, "dad", isPlayer);
         }
         ghostChar.alpha = showGhost ? 0.35 : 0.0;
         ghostChar.color = EditorTheme.ACCENT_PURPLE;
         add(ghostChar);
 
         try {
-            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, curCharacter, isPlayer);
+            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.18, curCharacter, isPlayer);
         } catch (e:Dynamic) {
-            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.2, "dad", isPlayer);
+            charLayer = new Character(FlxG.width * 0.5 - 150, FlxG.height * 0.18, "dad", isPlayer);
         }
         add(charLayer);
 
@@ -177,78 +231,84 @@ class CharacterEditorState extends MusicBeatState {
         curAnimIndex = 0;
         ghostAnimIndex = 0;
         playCurrentAnim();
+        updateHealthColors();
     }
 
     private function setupHUDPreview():Void {
         previewHealthBarBG = new FlxSprite(FlxG.width * 0.5 - 200, FlxG.height - 55).makeGraphic(400, 18, 0xFF000000);
-        previewHealthBarBG.cameras = [camHUD];
+        previewHealthBarBG.cameras = [camUI];
         previewHealthBarBG.scrollFactor.set();
         add(previewHealthBarBG);
 
         var healthBarCol:FlxColor = (charLayer != null) ? charLayer.healthColor : 0xFF66FF33;
         previewHealthBar = new FlxBar(previewHealthBarBG.x + 2, previewHealthBarBG.y + 2, RIGHT_TO_LEFT, 396, 14);
         previewHealthBar.createFilledBar(0xFFFF0000, healthBarCol);
-        previewHealthBar.cameras = [camHUD];
+        previewHealthBar.cameras = [camUI];
         previewHealthBar.scrollFactor.set();
         add(previewHealthBar);
 
         var iconKey:String = (charLayer != null && charLayer.healthIcon != null) ? charLayer.healthIcon : "face";
         previewIcon = new HealthIcon(iconKey, isPlayer);
-        previewIcon.cameras = [camHUD];
+        previewIcon.cameras = [camUI];
         previewIcon.setPosition(previewHealthBar.x + (previewHealthBar.width * 0.5) - 40, previewHealthBar.y - 45);
         add(previewIcon);
     }
 
     private function setupWindows():Void {
-        topBar = new EditorTopBar('ACTOR STUDIO PRO // [${curCharacter.toUpperCase()}]');
-        topBar.cameras = [camHUD];
+        topBar = new EditorTopBar('ACTOR STUDIO ULTRA // [${curCharacter.toUpperCase()}]');
+        topBar.cameras = [camUI];
         topBar.addAction("Save (Ctrl+S)", saveOffsetsJson);
-        topBar.addAction("Undo (Ctrl+Z)", undo);
-        topBar.addAction("Redo (Ctrl+Y)", redo);
-        topBar.addAction("Load Character", promptLoadCharacter);
+        topBar.addAction("Save .xmsoul", saveOffsetsXMSoul);
+        topBar.addAction("Actors", function() charPickerModal.visible = !charPickerModal.visible);
+        topBar.addAction("Colors", function() colorPickerWindow.visible = !colorPickerWindow.visible);
         topBar.addAction("Reset View", function() {
             if (charLayer != null) {
                 camFollow.set(charLayer.getMidpoint().x, charLayer.getMidpoint().y);
-                camEditor.zoom = 0.9;
+                camEditor.zoom = 0.85;
             }
         });
-        topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
+        topBar.addAction("Exit (Esc)", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        animMatrixWindow = new EditorWindow(15, 45, 300, 420, "Animation Matrix");
-        animMatrixWindow.cameras = [camHUD];
+        // --- 1. Animation Matrix Panel (Left Top) ---
+        animMatrixWindow = new EditorWindow(15, 45, 290, 420, "Animation Matrix");
+        animMatrixWindow.cameras = [camUI];
         add(animMatrixWindow);
 
-        curAnimTxt = new FlxText(10, 4, 280, "Anim: idle", 16);
-        curAnimTxt.setFormat(Paths.font("vcr"), 16, EditorTheme.ACCENT_CYAN, LEFT);
+        curAnimTxt = new FlxText(10, 4, 270, "Anim: idle", 15);
+        curAnimTxt.setFormat(Paths.font("vcr"), 15, EditorTheme.ACCENT_CYAN, LEFT);
         animMatrixWindow.addElement(curAnimTxt);
 
-        offsetTxt = new FlxText(10, 26, 280, "Offset: [0, 0]", 14);
-        offsetTxt.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_MUTED, LEFT);
+        offsetTxt = new FlxText(10, 26, 270, "Offset: [0, 0]", 13);
+        offsetTxt.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_MUTED, LEFT);
         animMatrixWindow.addElement(offsetTxt);
 
-        frameInfoTxt = new FlxText(10, 48, 280, "Frame: 0/0", 12);
-        frameInfoTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, LEFT);
+        frameInfoTxt = new FlxText(10, 46, 270, "Frame: 0/0", 11);
+        frameInfoTxt.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         animMatrixWindow.addElement(frameInfoTxt);
 
-        animListTxt = new FlxText(10, 72, 280, "", 12);
+        animListTxt = new FlxText(10, 68, 270, "", 12);
         animListTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         animMatrixWindow.addElement(animListTxt);
 
-        var btnAddAnim = new EditorButton(10, 345, 135, 26, "+ Add Anim", function() {
+        var btnAddAnim = new EditorButton(10, 345, 130, 26, "+ Add Anim", function() {
             newAnimWindow.visible = !newAnimWindow.visible;
         });
         animMatrixWindow.addElement(btnAddAnim);
 
-        var btnDelAnim = new EditorButton(155, 345, 135, 26, "- Remove", removeCurrentAnimation);
+        var btnDelAnim = new EditorButton(150, 345, 130, 26, "- Remove", removeCurrentAnimation);
         animMatrixWindow.addElement(btnDelAnim);
 
-        propertiesWindow = new EditorWindow(FlxG.width - 325, 45, 310, 270, "Actor Settings");
-        propertiesWindow.cameras = [camHUD];
+        var btnAlignIdle = new EditorButton(10, 380, 270, 26, "Align All to Idle Baseline", alignAllToIdle);
+        animMatrixWindow.addElement(btnAlignIdle);
+
+        // --- 2. Actor Settings Window (Right Top) ---
+        propertiesWindow = new EditorWindow(FlxG.width - 305, 45, 290, 310, "Actor Settings");
+        propertiesWindow.cameras = [camUI];
         add(propertiesWindow);
 
         var currentScale:Float = (charLayer != null && charLayer.scale != null) ? charLayer.scale.x : 1.0;
-        var stepperScale = new EditorNumericStepper(10, 8, 290, "Scale Multiplier", currentScale, 0.1, 8.0, 0.05, 2, function(v) {
+        var stepperScale = new EditorNumericStepper(10, 8, 270, "Scale Multiplier", currentScale, 0.1, 8.0, 0.05, 2, function(v) {
             pushUndoSnapshot();
             if (charLayer != null) {
                 charLayer.scale.set(v, v);
@@ -263,36 +323,54 @@ class CharacterEditorState extends MusicBeatState {
         propertiesWindow.addElement(stepperScale);
 
         var currentSing:Float = (charLayer != null) ? charLayer.singDuration : 4.0;
-        var stepperSing = new EditorNumericStepper(10, 44, 290, "Sing Hold Duration", currentSing, 0.5, 16.0, 0.5, 1, function(v) {
+        var stepperSing = new EditorNumericStepper(10, 46, 270, "Sing Hold Duration", currentSing, 0.5, 16.0, 0.5, 1, function(v) {
             pushUndoSnapshot();
             if (charLayer != null) charLayer.singDuration = v;
         });
         propertiesWindow.addElement(stepperSing);
 
         var curIconName:String = (charLayer != null && charLayer.healthIcon != null) ? charLayer.healthIcon : "face";
-        inputHealthIcon = new EditorInputText(10, 84, 290, "Health Icon Key", curIconName);
+        inputHealthIcon = new EditorInputText(10, 86, 270, "Health Icon Key", curIconName, function(t) {
+            if (previewIcon != null && t.trim().length > 0) previewIcon.changeIcon(t.trim());
+        });
         propertiesWindow.addElement(inputHealthIcon);
 
-        var checkGhost = new EditorCheckbox(10, 128, "Ghost Overlay (G)", showGhost, function(c) {
+        var checkGhost = new EditorCheckbox(10, 132, "Ghost Overlay (G)", showGhost, function(c) {
             showGhost = c;
             if (ghostChar != null) ghostChar.alpha = showGhost ? 0.35 : 0.0;
         });
         propertiesWindow.addElement(checkGhost);
 
         var isFlipped:Bool = (charLayer != null) ? charLayer.flipX : false;
-        var checkFlip = new EditorCheckbox(160, 128, "Flip X Axis", isFlipped, function(c) {
+        var checkFlip = new EditorCheckbox(150, 132, "Flip X Axis", isFlipped, function(c) {
             pushUndoSnapshot();
             if (charLayer != null) charLayer.flipX = c;
             if (ghostChar != null) ghostChar.flipX = c;
         });
         propertiesWindow.addElement(checkFlip);
 
-        offsetsWindow = new EditorWindow(FlxG.width - 325, 325, 310, 150, "Camera Focus Anchor");
-        offsetsWindow.cameras = [camHUD];
+        var isPlayerCheck = new EditorCheckbox(10, 162, "Player Orientation", isPlayer, function(c) {
+            pushUndoSnapshot();
+            isPlayer = c;
+            reloadCharacters();
+        });
+        propertiesWindow.addElement(isPlayerCheck);
+
+        var btnCycleStage = new EditorButton(10, 196, 270, 26, "Stage Backdrop: " + curStageBackdrop, function() {
+            curStageIdx = (curStageIdx + 1) % availableStages.length;
+            curStageBackdrop = availableStages[curStageIdx];
+            loadStageGraphic(curStageBackdrop);
+            EditorToast.show('Stage Backdrop: $curStageBackdrop');
+        });
+        propertiesWindow.addElement(btnCycleStage);
+
+        // --- 3. Camera Focus Anchor Window (Right Bottom) ---
+        offsetsWindow = new EditorWindow(FlxG.width - 305, 365, 290, 140, "Camera Focus Anchor");
+        offsetsWindow.cameras = [camUI];
         add(offsetsWindow);
 
         var camXVal:Float = (charLayer != null && charLayer.cameraOffset != null && charLayer.cameraOffset.length > 0) ? charLayer.cameraOffset[0] : 0.0;
-        var stepperCamX = new EditorNumericStepper(10, 8, 290, "Cam Offset X", camXVal, -900, 900, 5.0, 1, function(v) {
+        var stepperCamX = new EditorNumericStepper(10, 8, 270, "Cam Offset X", camXVal, -900, 900, 5.0, 1, function(v) {
             pushUndoSnapshot();
             if (charLayer != null && charLayer.cameraOffset != null) charLayer.cameraOffset[0] = v;
             updateCrosshair();
@@ -300,32 +378,49 @@ class CharacterEditorState extends MusicBeatState {
         offsetsWindow.addElement(stepperCamX);
 
         var camYVal:Float = (charLayer != null && charLayer.cameraOffset != null && charLayer.cameraOffset.length > 1) ? charLayer.cameraOffset[1] : 0.0;
-        var stepperCamY = new EditorNumericStepper(10, 44, 290, "Cam Offset Y", camYVal, -900, 900, 5.0, 1, function(v) {
+        var stepperCamY = new EditorNumericStepper(10, 46, 270, "Cam Offset Y", camYVal, -900, 900, 5.0, 1, function(v) {
             pushUndoSnapshot();
             if (charLayer != null && charLayer.cameraOffset != null) charLayer.cameraOffset[1] = v;
             updateCrosshair();
         });
         offsetsWindow.addElement(stepperCamY);
 
-        quickToolsWindow = new EditorWindow(15, 475, 300, 135, "Quick Offset Helpers");
-        quickToolsWindow.cameras = [camHUD];
-        add(quickToolsWindow);
+        // --- 4. RGB Health Color Picker (Toggleable Center Modal) ---
+        colorPickerWindow = new EditorWindow((FlxG.width - 300) * 0.5, 90, 300, 240, "Health Bar RGB Color Picker");
+        colorPickerWindow.cameras = [camUI];
+        colorPickerWindow.visible = false;
+        add(colorPickerWindow);
 
-        var btnZeroOffset = new EditorButton(10, 8, 280, 26, "Reset Current Offset to [0, 0]", function() {
-            if (animList.length == 0 || curAnimIndex >= animList.length) return;
-            var anim = animList[curAnimIndex];
-            pushUndoSnapshot();
-            if (charLayer != null) charLayer.addOffset(anim, 0, 0);
-            playCurrentAnim();
-            EditorToast.show('Zeroed offset for: $anim');
+        colorPreviewBox = new FlxSprite(10, 6).makeGraphic(280, 30, (charLayer != null) ? charLayer.healthColor : 0xFF66FF33);
+        colorPickerWindow.addElement(colorPreviewBox);
+
+        var initialR = charLayer != null ? charLayer.healthColor.red : 255;
+        var initialG = charLayer != null ? charLayer.healthColor.green : 255;
+        var initialB = charLayer != null ? charLayer.healthColor.blue : 255;
+
+        stepperColorR = new EditorNumericStepper(10, 44, 280, "Red (0-255)", initialR, 0, 255, 5, 0, function(v) {
+            applyHealthColorFromSteppers();
         });
-        quickToolsWindow.addElement(btnZeroOffset);
+        colorPickerWindow.addElement(stepperColorR);
 
-        var btnAlignToIdle = new EditorButton(10, 38, 280, 26, "Align All to Idle Baseline", alignAllToIdle);
-        quickToolsWindow.addElement(btnAlignToIdle);
+        stepperColorG = new EditorNumericStepper(10, 82, 280, "Green (0-255)", initialG, 0, 255, 5, 0, function(v) {
+            applyHealthColorFromSteppers();
+        });
+        colorPickerWindow.addElement(stepperColorG);
 
+        stepperColorB = new EditorNumericStepper(10, 120, 280, "Blue (0-255)", initialB, 0, 255, 5, 0, function(v) {
+            applyHealthColorFromSteppers();
+        });
+        colorPickerWindow.addElement(stepperColorB);
+
+        var btnCloseColor = new EditorButton(10, 165, 280, 26, "Done & Apply Colors", function() {
+            colorPickerWindow.visible = false;
+        });
+        colorPickerWindow.addElement(btnCloseColor);
+
+        // --- 5. Add Animation Node Window ---
         newAnimWindow = new EditorWindow((FlxG.width - 320) * 0.5, (FlxG.height - 240) * 0.5, 320, 240, "Create Animation Node");
-        newAnimWindow.cameras = [camHUD];
+        newAnimWindow.cameras = [camUI];
         newAnimWindow.visible = false;
         add(newAnimWindow);
 
@@ -362,6 +457,77 @@ class CharacterEditorState extends MusicBeatState {
         updateCrosshair();
     }
 
+    private function buildCharacterPickerModal():Void {
+        charPickerModal = new EditorWindow((FlxG.width - 440) * 0.5, (FlxG.height - 480) * 0.5, 440, 480, "Character Asset Library");
+        charPickerModal.cameras = [camUI];
+        charPickerModal.visible = false;
+        add(charPickerModal);
+
+        var charactersFound:Array<String> = [];
+        #if sys
+        var charDirs = ["assets/data/characters", "assets/preload/data/characters", "data/characters"];
+        if (ModManager.activeMods != null) {
+            for (m in ModManager.activeMods) charDirs.unshift('mods/$m/data/characters');
+        }
+
+        for (dir in charDirs) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".json")) {
+                        var id = file.substr(0, file.length - 5);
+                        if (!charactersFound.contains(id)) charactersFound.push(id);
+                    }
+                }
+            }
+        }
+        #end
+        if (!charactersFound.contains("dad")) charactersFound.push("dad");
+        if (!charactersFound.contains("bf")) charactersFound.push("bf");
+
+        var listTxt = new FlxText(10, 6, 420, "AVAILABLE CHARACTERS:", 12);
+        listTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.ACCENT_CYAN, LEFT);
+        charPickerModal.addElement(listTxt);
+
+        for (i in 0...Std.int(Math.min(8, charactersFound.length))) {
+            var c = charactersFound[i];
+            var btn = new EditorButton(10, 30 + (i * 34), 420, 28, c.toUpperCase(), function() {
+                curCharacter = c;
+                reloadCharacters();
+                charPickerModal.visible = false;
+                EditorToast.show('Loaded character: $c');
+            });
+            charPickerModal.addElement(btn);
+        }
+
+        var btnClose = new EditorButton(10, 410, 420, 28, "Close Library", function() {
+            charPickerModal.visible = false;
+        });
+        charPickerModal.addElement(btnClose);
+    }
+
+    private function applyHealthColorFromSteppers():Void {
+        if (stepperColorR == null || stepperColorG == null || stepperColorB == null) return;
+        var r = Std.int(stepperColorR.value);
+        var g = Std.int(stepperColorG.value);
+        var b = Std.int(stepperColorB.value);
+
+        var newCol = FlxColor.fromRGB(r, g, b);
+        if (charLayer != null) charLayer.healthColor = newCol;
+
+        if (colorPreviewBox != null) colorPreviewBox.makeGraphic(280, 30, newCol);
+        if (previewHealthBar != null) previewHealthBar.createFilledBar(0xFFFF0000, newCol);
+    }
+
+    private function updateHealthColors():Void {
+        if (charLayer == null) return;
+        var col = charLayer.healthColor;
+        if (stepperColorR != null) stepperColorR.value = col.red;
+        if (stepperColorG != null) stepperColorG.value = col.green;
+        if (stepperColorB != null) stepperColorB.value = col.blue;
+        if (colorPreviewBox != null) colorPreviewBox.makeGraphic(280, 30, col);
+        if (previewHealthBar != null) previewHealthBar.createFilledBar(0xFFFF0000, col);
+    }
+
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
@@ -374,7 +540,9 @@ class CharacterEditorState extends MusicBeatState {
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveOffsetsJson();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) undo();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Y) redo();
-        if (FlxG.keys.justPressed.ESCAPE && !newAnimWindow.visible) MusicBeatState.switchState(new MainMenuState());
+        if (FlxG.keys.justPressed.ESCAPE && !newAnimWindow.visible && !charPickerModal.visible) {
+            MusicBeatState.switchState(new MainMenuState());
+        }
 
         updateLiveHUDPreview();
     }
@@ -393,7 +561,7 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function handleAnimationControls():Void {
-        if (animList.length == 0 || newAnimWindow.visible) return;
+        if (animList.length == 0 || newAnimWindow.visible || charPickerModal.visible) return;
 
         if (FlxG.keys.justPressed.W) {
             curAnimIndex = FlxMath.wrap(curAnimIndex - 1, 0, animList.length - 1);
@@ -410,7 +578,7 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function handleOffsetControls():Void {
-        if (charLayer == null || animList.length == 0 || curAnimIndex >= animList.length || newAnimWindow.visible) return;
+        if (charLayer == null || animList.length == 0 || curAnimIndex >= animList.length || newAnimWindow.visible || charPickerModal.visible) return;
 
         var anim = animList[curAnimIndex];
         var mult:Float = FlxG.keys.pressed.SHIFT ? 10.0 : 1.0;
@@ -438,8 +606,8 @@ class CharacterEditorState extends MusicBeatState {
         var worldMouse = FlxG.mouse.getWorldPosition(camEditor);
 
         if (FlxG.mouse.justPressed && camFollowMarker != null) {
-            if (worldMouse.x >= camFollowMarker.x - 8 && worldMouse.x <= camFollowMarker.x + 26 &&
-                worldMouse.y >= camFollowMarker.y - 8 && worldMouse.y <= camFollowMarker.y + 26) {
+            if (worldMouse.x >= camFollowMarker.x - 8 && worldMouse.x <= camFollowMarker.x + 28 &&
+                worldMouse.y >= camFollowMarker.y - 8 && worldMouse.y <= camFollowMarker.y + 28) {
                 isDraggingCamAnchor = true;
                 pushUndoSnapshot();
             }
@@ -626,6 +794,11 @@ class CharacterEditorState extends MusicBeatState {
         charLayer.flipX = (json.flip_x == true);
         charLayer.cameraOffset = (json.camera_position != null) ? json.camera_position : [0.0, 0.0];
 
+        if (json.healthbar_colors != null && json.healthbar_colors.length >= 3) {
+            charLayer.healthColor = FlxColor.fromRGB(json.healthbar_colors[0], json.healthbar_colors[1], json.healthbar_colors[2]);
+            updateHealthColors();
+        }
+
         if (json.animations != null) {
             for (a in json.animations) {
                 if (a != null && a.offsets != null && a.offsets.length >= 2) {
@@ -645,35 +818,6 @@ class CharacterEditorState extends MusicBeatState {
         }
     }
 
-    private function promptLoadCharacter():Void {
-        #if sys
-        var charactersFound:Array<String> = [];
-        var charDirs = ["assets/data/characters", "assets/preload/data/characters", "data/characters"];
-        if (ModManager.activeMods != null) {
-            for (m in ModManager.activeMods) charDirs.unshift('mods/$m/data/characters');
-        }
-
-        for (dir in charDirs) {
-            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
-                for (file in FileSystem.readDirectory(dir)) {
-                    if (file.endsWith(".json")) {
-                        var id = file.substr(0, file.length - 5);
-                        if (!charactersFound.contains(id)) charactersFound.push(id);
-                    }
-                }
-            }
-        }
-
-        if (charactersFound.length > 0) {
-            var nextIdx = (charactersFound.indexOf(curCharacter) + 1) % charactersFound.length;
-            curCharacter = charactersFound[nextIdx];
-            reloadCharacters();
-            setupWindows();
-            EditorToast.show('Loaded character: $curCharacter');
-        }
-        #end
-    }
-
     private function updateCrosshair():Void {
         if (charLayer != null && camFollowMarker != null) {
             crosshair.setPosition(charLayer.x, charLayer.y);
@@ -681,8 +825,8 @@ class CharacterEditorState extends MusicBeatState {
             var offY:Float = (charLayer.cameraOffset != null && charLayer.cameraOffset.length > 1) ? charLayer.cameraOffset[1] : 0.0;
 
             camFollowMarker.setPosition(
-                charLayer.getMidpoint().x + offX - 9,
-                charLayer.getMidpoint().y + offY - 9
+                charLayer.getMidpoint().x + offX - 10,
+                charLayer.getMidpoint().y + offY - 10
             );
         }
     }
@@ -712,6 +856,43 @@ class CharacterEditorState extends MusicBeatState {
             }
             animListTxt.text = list;
         }
+    }
+
+    public function saveOffsetsXMSoul():Void {
+        #if sys
+        var targetDir = 'assets/data/characters';
+        if (ModManager.activeMods != null && ModManager.activeMods.length > 0) {
+            targetDir = 'mods/${ModManager.activeMods[0]}/data/characters';
+        }
+        var targetPath = '$targetDir/$curCharacter.xmsoul';
+
+        var col = (charLayer != null) ? charLayer.healthColor : FlxColor.WHITE;
+        var scaleVal = (charLayer != null && charLayer.scale != null) ? charLayer.scale.x : 1.0;
+        var iconVal = (inputHealthIcon != null && inputHealthIcon.text.trim().length > 0) ? inputHealthIcon.text.trim() : "face";
+
+        var xml = '<?xml version="1.0" encoding="utf-8"?>\n';
+        xml += '<character name="$curCharacter" icon="$iconVal" scale="$scaleVal" singDuration="${charLayer.singDuration}" flipX="${charLayer.flipX}" healthColor="0xFF${col.toHexString(false)}">\n';
+        xml += '    <camera offset="${charLayer.cameraOffset[0]},${charLayer.cameraOffset[1]}" />\n';
+        xml += '    <animations>\n';
+
+        for (anim in animList) {
+            var off = charLayer.animOffsets.get(anim);
+            var ox = off != null ? off[0] : 0.0;
+            var oy = off != null ? off[1] : 0.0;
+            xml += '        <anim name="$anim" prefix="$anim" fps="24" loop="${anim == "idle"}" x="$ox" y="$oy" />\n';
+        }
+
+        xml += '    </animations>\n</character>';
+
+        try {
+            if (!FileSystem.exists(targetDir)) FileSystem.createDirectory(targetDir);
+            File.saveContent(targetPath, xml);
+            EditorToast.show('Saved .xmsoul manifest: $curCharacter.xmsoul');
+            AssetHelper.playSoundSafely("confirmMenu", 0.7);
+        } catch (e:Dynamic) {
+            EditorToast.show("Failed writing .xmsoul manifest", true);
+        }
+        #end
     }
 
     private function saveOffsetsJson():Void {

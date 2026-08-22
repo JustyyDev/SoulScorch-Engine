@@ -50,35 +50,48 @@ class StrumArrow extends FlxSprite {
         if (atlas != null) {
             frames = atlas;
         } else {
-            makeGraphic(Std.int(STRUM_SIZE), Std.int(STRUM_SIZE), 0xFFFFFFFF);
+            makeGraphic(Std.int(STRUM_SIZE), Std.int(STRUM_SIZE), NoteSkinManager.getLaneColor(this.direction));
         }
     }
 
     public function setupAnimations(?conf:NoteSkinConfig):Void {
         if (frames == null || frames.frames == null || frames.frames.length == 0) return;
 
-        var dirName = NoteSkinManager.noteDirections[direction % 4];
+        var dirName = switch (direction % 4) {
+            case 0: "left";
+            case 1: "down";
+            case 2: "up";
+            case 3: "right";
+            default: "left";
+        };
         var dirUpper = dirName.toUpperCase();
+        var colorName = NoteSkinManager.noteColors[direction % 4];
 
-        var animConf = (conf != null && conf.strumAnims.exists(direction)) ? conf.strumAnims.get(direction) : null;
-
-        var staticPrefix = (animConf != null) ? animConf.staticAnim : 'arrow' + dirUpper;
-        var pressPrefix = (animConf != null) ? animConf.pressedAnim : dirName + ' press';
-        var confirmPrefix = (animConf != null) ? animConf.confirmAnim : dirName + ' confirm';
-
-        animation.addByPrefix("static", staticPrefix, 24, false);
+        // 1. Static Receptor Prefix
+        animation.addByPrefix("static", 'arrow$dirUpper', 24, false);
         if (animation.getByName("static") == null) {
-            animation.addByPrefix("static", 'arrow' + dirUpper, 24, false);
+            animation.addByPrefix("static", 'arrow $dirUpper', 24, false);
+        }
+        if (animation.getByName("static") == null) {
+            animation.addByPrefix("static", '$dirName static', 24, false);
         }
 
-        animation.addByPrefix("pressed", pressPrefix, 24, false);
+        // 2. Pressed Receptor Prefix
+        animation.addByPrefix("pressed", '$dirName press', 24, false);
         if (animation.getByName("pressed") == null) {
-            animation.addByPrefix("pressed", dirName + ' press', 24, false);
+            animation.addByPrefix("pressed", '$colorName press', 24, false);
+        }
+        if (animation.getByName("pressed") == null) {
+            animation.addByPrefix("pressed", '$dirName note press', 24, false);
         }
 
-        animation.addByPrefix("confirm", confirmPrefix, 24, false);
+        // 3. Confirm (Hit) Receptor Prefix
+        animation.addByPrefix("confirm", '$dirName confirm', 24, false);
         if (animation.getByName("confirm") == null) {
-            animation.addByPrefix("confirm", dirName + ' confirm', 24, false);
+            animation.addByPrefix("confirm", '$colorName confirm', 24, false);
+        }
+        if (animation.getByName("confirm") == null) {
+            animation.addByPrefix("confirm", '$dirName note confirm', 24, false);
         }
     }
 
@@ -89,17 +102,9 @@ class StrumArrow extends FlxSprite {
         scale.set(skinScale, skinScale);
         updateHitbox();
 
-        if (animName == "confirm") {
-            centerOffsets();
-            offset.x -= 13;
-            offset.y -= 13;
-        } else if (animName == "pressed") {
-            centerOffsets();
-            offset.x -= 2;
-            offset.y -= 2;
-        } else {
-            centerOffsets();
-        }
+        // Exact center alignment offset compensation for confirm/press frames
+        offset.x += (frameWidth * skinScale - STRUM_SIZE) * 0.5;
+        offset.y += (frameHeight * skinScale - STRUM_SIZE) * 0.5;
     }
 
     override public function update(elapsed:Float):Void {

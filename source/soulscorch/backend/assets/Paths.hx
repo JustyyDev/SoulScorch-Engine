@@ -12,6 +12,11 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.engine.EngineOptimizer;
 import soulscorch.scripting.mod.ModManager;
 
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+#end
+
 #if cpp
 import cpp.vm.Gc;
 #elseif hl
@@ -227,14 +232,75 @@ class Paths {
         var clean = key.trim().replace("\\", "/");
         while (clean.startsWith("/")) clean = clean.substr(1);
 
-        var graph = graphic(clean);
-        var xmlContent = AssetResolver.getText('images/$clean.xml');
-        if (xmlContent.length == 0) xmlContent = AssetResolver.getText('$clean.xml');
-
-        if (graph != null && xmlContent.length > 0) {
-            return FlxAtlasFrames.fromSparrow(graph, xmlContent);
+        var graph:FlxGraphic = graphic(clean);
+        if (graph == null && !clean.startsWith("images/")) {
+            graph = graphic('images/$clean');
         }
+        if (graph == null) return null;
+
+        var rawXml:String = null;
+
+        var xmlPath:String = xml(clean);
+        #if sys
+        if (FileSystem.exists(xmlPath)) {
+            try {
+                rawXml = File.getContent(xmlPath);
+            } catch (e:Dynamic) {}
+        }
+        #end
+
+        if (rawXml == null) {
+            var resolved = AssetResolver.resolveFile('images/$clean', [".xml"]);
+            if (resolved == null) resolved = AssetResolver.resolveFile(clean, [".xml"]);
+            if (resolved != null) {
+                rawXml = AssetResolver.getText(resolved);
+            }
+        }
+
+        if (rawXml != null && rawXml.length > 0) {
+            try {
+                var cleanXml = sanitizeDuplicateXmlAttributes(rawXml);
+                return FlxAtlasFrames.fromSparrow(graph, cleanXml);
+            } catch (e:Dynamic) {
+                try {
+                    return FlxAtlasFrames.fromSparrow(graph, rawXml);
+                } catch (err:Dynamic) {}
+            }
+        }
+
         return null;
+    }
+
+    /**
+     * Cleans duplicate attributes within single XML tags to prevent XmlParserException crashes.
+     */
+    private static function sanitizeDuplicateXmlAttributes(xmlContent:String):String {
+        if (xmlContent == null || xmlContent.length == 0) return xmlContent;
+
+        var tagRegex = ~/<([a-zA-Z0-9_:]+)(\s+[^>]+?)(\/?)>/g;
+        return tagRegex.map(xmlContent, function(r:EReg) {
+            var tagName = r.matched(1);
+            var rawAttrs = r.matched(2);
+            var closingSlash = r.matched(3);
+
+            var attrRegex = ~/([a-zA-Z0-9_:]+)\s*=\s*(['"])(.*?)\2/g;
+            var seenAttrs:Map<String, Bool> = new Map<String, Bool>();
+            var cleanedAttrs:Array<String> = [];
+
+            while (attrRegex.match(rawAttrs)) {
+                var attrName = attrRegex.matched(1);
+                var fullAttr = attrRegex.matched(0);
+
+                if (!seenAttrs.exists(attrName)) {
+                    seenAttrs.set(attrName, true);
+                    cleanedAttrs.push(fullAttr);
+                }
+
+                rawAttrs = attrRegex.matchedRight();
+            }
+
+            return '<$tagName ${cleanedAttrs.join(" ")}$closingSlash>';
+        });
     }
 
     public static function getTextureAtlas(key:String):Null<FlxAtlasFrames> {

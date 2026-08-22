@@ -1,6 +1,6 @@
 package soulscorch.gameplay.actors;
 
-import flixel.FlxSprite;
+import flixel.FlxG;
 import flixel.math.FlxPoint;
 import flixel.util.FlxColor;
 import haxe.Json;
@@ -10,10 +10,11 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
+import soulscorch.graphics.FunkinSprite;
 
 using StringTools;
 
-class Character extends FlxSprite {
+class Character extends FunkinSprite {
     public var curCharacter:String = "bf";
     public var isPlayer:Bool = false;
     public var isDie:Bool = false;
@@ -68,10 +69,9 @@ class Character extends FlxSprite {
             var access = XMSoul.parse(path);
             if (access != null) {
                 try {
-                    var imagePath = XMSoul.getAttr(access, "image", 'characters/$char');
-                    if (!AssetHelper.loadSparrowSafely(this, imagePath)) {
-                        AssetHelper.loadSparrowSafely(this, 'characters/$char');
-                    }
+                    var imagePath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", 'characters/$char'));
+                    
+                    loadSprite(imagePath);
 
                     healthIcon = XMSoul.getAttr(access, "icon", char);
                     healthColor = access.has.color ? FlxColor.fromString(access.att.color) : (isPlayer ? 0xFF66FF33 : 0xFFAF66CE);
@@ -86,8 +86,11 @@ class Character extends FlxSprite {
                         scale.set(1.0, 1.0);
                     }
 
-                    if (access.has.camOffsetX && access.has.camOffsetY) {
-                        cameraOffset = [Std.parseFloat(access.att.camOffsetX), Std.parseFloat(access.att.camOffsetY)];
+                    if (access.has.cameraOffsetX && access.has.cameraOffsetY) {
+                        cameraOffset = [Std.parseFloat(access.att.cameraOffsetX), Std.parseFloat(access.att.cameraOffsetY)];
+                    }
+                    if (access.has.positionX && access.has.positionY) {
+                        positionOffset = [Std.parseFloat(access.att.positionX), Std.parseFloat(access.att.positionY)];
                     }
 
                     if (access.hasNode.anim) {
@@ -108,8 +111,16 @@ class Character extends FlxSprite {
                                 animation.addByPrefix(animName, animPrefix, fps, loop);
                             }
 
-                            var offsets = animNode.has.offsets ? animNode.att.offsets.split(",") : ["0", "0"];
-                            addOffset(animName, Std.parseFloat(offsets[0].trim()), Std.parseFloat(offsets[1].trim()));
+                            var offX = animNode.has.offsetX ? Std.parseFloat(animNode.att.offsetX) : 0.0;
+                            var offY = animNode.has.offsetY ? Std.parseFloat(animNode.att.offsetY) : 0.0;
+                            if (animNode.has.offsets) {
+                                var parts = animNode.att.offsets.split(",");
+                                if (parts.length >= 2) {
+                                    offX = Std.parseFloat(parts[0].trim());
+                                    offY = Std.parseFloat(parts[1].trim());
+                                }
+                            }
+                            addOffset(animName, offX, offY);
                         }
                     }
 
@@ -140,9 +151,7 @@ class Character extends FlxSprite {
                         var json:Dynamic = Json.parse(content);
                         var imagePath = json.image != null ? Std.string(json.image) : 'characters/$char';
 
-                        if (!AssetHelper.loadSparrowSafely(this, imagePath)) {
-                            AssetHelper.loadSparrowSafely(this, 'characters/$char');
-                        }
+                        loadSprite(imagePath);
 
                         if (json.healthicon != null) healthIcon = Std.string(json.healthicon);
                         else if (json.icon != null) healthIcon = Std.string(json.icon);
@@ -194,8 +203,8 @@ class Character extends FlxSprite {
         healthIcon = char;
         healthColor = isPlayer ? 0xFF66FF33 : 0xFFAF66CE;
 
-        if (!AssetHelper.loadSparrowSafely(this, 'characters/$char')) {
-            if (!AssetHelper.loadSparrowSafely(this, char)) {
+        if (!loadSprite('characters/$char')) {
+            if (!loadSprite(char)) {
                 makeGraphic(150, 250, healthColor);
                 return;
             }
@@ -213,7 +222,7 @@ class Character extends FlxSprite {
         animOffsets.set(name, [x, y]);
     }
 
-    public function playAnim(animName:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void {
+    override public function playAnim(animName:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void {
         if (animation.getByName(animName) == null) return;
 
         animation.play(animName, force, reversed, frame);

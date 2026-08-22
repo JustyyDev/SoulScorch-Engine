@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<flags>
-    <flag name="ghostTapping" value="true" />
-    <flag name="modchartEnabled" value="true" />
-    <flag name="flashingLights" value="true" />
-</flags>

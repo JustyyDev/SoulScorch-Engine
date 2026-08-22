@@ -22,10 +22,10 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     @:isVar public var angle(get, set):Float = 0.0;
     @:isVar public var spacing(get, set):Float = 112.0;
 
-    public var modX:Float = 0.0;
-    public var modY:Float = 0.0;
-    public var modAngle:Float = 0.0;
-    public var modAlpha:Float = 1.0;
+    @:isVar public var modX(get, set):Float = 0.0;
+    @:isVar public var modY(get, set):Float = 0.0;
+    @:isVar public var modAngle(get, set):Float = 0.0;
+    @:isVar public var modAlpha(get, set):Float = 1.0;
 
     public static inline var STRUM_SPACING:Float = 112.0;
 
@@ -75,8 +75,10 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public function clearReceptors():Void {
         while (receptors.length > 0) {
             var r = receptors.pop();
-            remove(r, true);
-            FlxDestroyUtil.destroy(r);
+            if (r != null) {
+                remove(r, true);
+                FlxDestroyUtil.destroy(r);
+            }
         }
     }
 
@@ -84,7 +86,8 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         if (newSkin == null || newSkin.trim().length == 0) return;
         currentSkin = newSkin.trim();
 
-        for (r in receptors) {
+        for (i in 0...receptors.length) {
+            var r = receptors[i];
             if (r != null) {
                 r.loadReceptorSkin(currentSkin);
                 r.setupAnimations(NoteSkinManager.getSkinConfig(currentSkin));
@@ -94,7 +97,8 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     }
 
     public function updateLayout():Void {
-        for (i in 0...receptors.length) {
+        var len = receptors.length;
+        for (i in 0...len) {
             var r = receptors[i];
             if (r != null) {
                 r.baseX = this.x + (i * this.spacing);
@@ -132,8 +136,9 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     }
 
     public inline function getReceptor(direction:Int):Null<StrumArrow> {
-        if (direction >= 0 && direction < receptors.length) {
-            return receptors[direction];
+        var cleanDir = direction % keyCount;
+        if (cleanDir >= 0 && cleanDir < receptors.length) {
+            return receptors[cleanDir];
         }
         return null;
     }
@@ -141,24 +146,14 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     inline function get_x():Float return x;
     function set_x(val:Float):Float {
         x = val;
-        for (i in 0...receptors.length) {
-            if (receptors[i] != null) {
-                receptors[i].baseX = val + (i * spacing);
-                receptors[i].x = receptors[i].baseX + modX;
-            }
-        }
+        updateLayout();
         return val;
     }
 
     inline function get_y():Float return y;
     function set_y(val:Float):Float {
         y = val;
-        for (r in receptors) {
-            if (r != null) {
-                r.baseY = val;
-                r.y = val + modY;
-            }
-        }
+        updateLayout();
         return val;
     }
 
@@ -183,6 +178,34 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     inline function get_spacing():Float return spacing;
     function set_spacing(val:Float):Float {
         spacing = val;
+        updateLayout();
+        return val;
+    }
+
+    inline function get_modX():Float return modX;
+    function set_modX(val:Float):Float {
+        modX = val;
+        updateLayout();
+        return val;
+    }
+
+    inline function get_modY():Float return modY;
+    function set_modY(val:Float):Float {
+        modY = val;
+        updateLayout();
+        return val;
+    }
+
+    inline function get_modAngle():Float return modAngle;
+    function set_modAngle(val:Float):Float {
+        modAngle = val;
+        updateLayout();
+        return val;
+    }
+
+    inline function get_modAlpha():Float return modAlpha;
+    function set_modAlpha(val:Float):Float {
+        modAlpha = val;
         updateLayout();
         return val;
     }

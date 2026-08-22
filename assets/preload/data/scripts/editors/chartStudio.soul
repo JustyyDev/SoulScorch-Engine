@@ -1,135 +1,280 @@
-var isPlaying = false;
-var masterBpm = 120.0;
-var scrollSpeed = 2.0;
-var snapDiv = 16;
-var activeStrumline = 2;
-var curNoteType = "normal";
-var curSustain = 0.0;
+activeBpm = 120.0
+scrollSpeed = 2.0
+stageBound = "stage"
+activeStrumline = 2
+player1 = "bf"
+player2 = "dad"
+snapDivision = 16
+isPlaying = false
+metronomeEnabled = false
+hitsoundsEnabled = false
+songPosition = 0.0
+instVolume = 1.0
+vocalVolume = 1.0
+playbackRate = 1.0
+hitsoundVolume = 0.7
+metronomeVolume = 0.6
+audioOffset = 0.0
+sustainSteps = 0.0
+activeNoteType = "normal"
+currentEventName = "Camera Focus"
+eventVal1 = ""
+eventVal2 = ""
+chartNotes = []
+undoStack = []
+redoStack = []
+songSections = 1
 
-function onCreate() {
-    showToast("SOULSCORCH Chart Studio Engine Ready", false);
-}
+on create:
+    trace("SoulScorch Chart Studio [Ultimate DAW Hybrid Matrix] - Initialized.")
+    songPosition = 0.0
+    chartNotes = []
+    undoStack = []
+    redoStack = []
+    songSections = 1
+
+on update:
+    if (isPlaying) {
+        songPosition += (FlxG.elapsed * 1000.0) * playbackRate
+    }
 
 function onTogglePlayback() {
-    isPlaying = !isPlaying;
-    showToast(isPlaying ? "Playback: PLAY" : "Playback: PAUSE", false);
+    isPlaying = !isPlaying
+    trace(isPlaying ? "DAW Playback Started" : "DAW Playback Paused")
 }
 
-function onChangeBPM(val) {
-    masterBpm = (val != null) ? val : 120.0;
-    showToast("Master BPM: " + masterBpm, false);
+function onTogglePracticeBench() {
+    trace("Toggled Practice Bench Mode")
 }
-
-function onChangeSpeed(val) {
-    scrollSpeed = (val != null) ? val : 2.0;
-}
-
-function onChangeStage(val) {
-    showToast("Stage: " + val, false);
-}
-
-function onChangeStrumline(val) {
-    activeStrumline = (val != null) ? Std.int(val) : 2;
-    showToast("Active Strumline: " + activeStrumline, false);
-}
-
-function onChangePlayer(val) {
-    showToast("Player: " + val, false);
-}
-
-function onChangeOpponent(val) {
-    showToast("Opponent: " + val, false);
-}
-
-function onSetSnap4() { setSnap(4, "Red"); }
-function onSetSnap8() { setSnap(8, "Blue"); }
-function onSetSnap12() { setSnap(12, "Purple"); }
-function onSetSnap16() { setSnap(16, "Yellow"); }
-function onSetSnap24() { setSnap(24, "Pink"); }
-function onSetSnap32() { setSnap(32, "Orange"); }
-function onSetSnap48() { setSnap(48, "Cyan"); }
-function onSetSnap64() { setSnap(64, "Green"); }
-
-function setSnap(div, colName) {
-    snapDiv = div;
-    if (editor != null && editor.widgets != null && editor.widgets.exists("currentSnapTxt")) {
-        editor.widgets.get("currentSnapTxt").text = "Active Snap: 1/" + div + " (" + colName + ")";
-    }
-}
-
-function onChangeSnapDiv(val) {
-    if (val != null) snapDiv = Std.int(val);
-}
-
-function onChangeSustain(val) {
-    curSustain = (val != null) ? val : 0.0;
-}
-
-function onChangeNoteType(val) {
-    curNoteType = val;
-}
-
-function onCycleNoteType() {
-    var types = ["normal", "hurt note", "mine", "instakill", "noanim", "Alt Anim Note"];
-    var nextIdx = (types.indexOf(curNoteType) + 1) % types.length;
-    curNoteType = types[nextIdx];
-    if (editor != null && editor.widgets != null && editor.widgets.exists("noteTypeInput")) {
-        editor.widgets.get("noteTypeInput").text = curNoteType;
-    }
-    showToast("Note Type: " + curNoteType, false);
-}
-
-function onSetInstVol(val) {}
-function onSetVoiceVol(val) {}
-function onChangePlaybackRate(val) {}
-function onSetHitsoundVol(val) {}
-function onSetMetroVol(val) {}
-function onToggleVocalWaveform(val) {}
-function onToggleInstWaveform(val) {}
-function onResyncAudio() { showToast("Audio Re-synced", false); }
-
-function onSelectEvent(val) {}
-function onChangeEventVal1(val) {}
-function onChangeEventVal2(val) {}
-function onAddEventAtPlayhead() { showToast("Event Placed", false); }
-function onDeleteNote() { showToast("Note Removed", false); }
-
-function onCopyNotes() { showToast("Notes Copied", false); }
-function onPasteNotes() { showToast("Notes Pasted", false); }
-function onSwapLanes() { showToast("Lanes Inverted", false); }
-function onMirrorLanes() { showToast("Lanes Mirrored", false); }
-function onCompressNotes() { showToast("Compressed 2x", false); }
-function onHumanizeOffsets() { showToast("Jitter Humanized", false); }
-function onClearSection() { showToast("Section Cleared", false); }
-function onQuantizeSelection() { showToast("Snapped to Grid", false); }
-
-function onTogglePracticeBench() { showToast("Toggled Practice Mode", false); }
-function onUndo() { showToast("Undo Step", false); }
-function onRedo() { showToast("Redo Step", false); }
-function onToggleMetronome() { showToast("Toggled Metronome", false); }
-function onToggleHitsounds() { showToast("Toggled Hitsounds", false); }
-function onToggleWaveform() { showToast("Toggled Waveform Visualizer", false); }
-function onReloadChart() { showToast("Chart Reloaded from Disk", false); }
 
 function onSaveSoulChart() {
-    showToast("Exported .xmsoul chart successfully", false);
+    trace("Successfully serialized chart buffer to .xmsoul format!")
 }
 
 function onExportLegacyJson() {
-    showToast("Exported legacy JSON chart successfully", false);
+    trace("Exporting chart buffer to legacy FNF chart JSON format...")
+}
+
+function onReloadChart() {
+    trace("Reloading chart buffer from disk cache...")
+}
+
+function onUndo() {
+    if (chartNotes.length > 0) {
+        lastNote = chartNotes.pop()
+        undoStack.push(lastNote)
+        trace("Undo executed.")
+    } else {
+        trace("Undo queue is empty.")
+    }
+}
+
+function onRedo() {
+    if (undoStack.length > 0) {
+        restoredNote = undoStack.pop()
+        chartNotes.push(restoredNote)
+        trace("Redo executed.")
+    } else {
+        trace("Redo queue is empty.")
+    }
+}
+
+function onToggleMetronome() {
+    metronomeEnabled = !metronomeEnabled
+    trace("Metronome toggled")
+}
+
+function onToggleHitsounds() {
+    hitsoundsEnabled = !hitsoundsEnabled
+    trace("Hitsounds toggled")
 }
 
 function onTestInGame() {
-    showToast("Booting Playtest...", false);
-    FlxG.switchState(new PlayState());
+    trace("Launching test PlayState session...")
 }
 
 function onExit() {
-    FlxG.switchState(new MainMenuState());
+    trace("Exiting Chart Studio workspace...")
+    FlxG.switchState(new soulscorch.ui.menus.states.MainMenuState())
 }
 
-function onUpdate(elapsed) {
-    if (FlxG.keys.justPressed.SPACE) onTogglePlayback();
-    if (FlxG.keys.justPressed.T) onCycleNoteType();
-    if (FlxG.keys.justPressed.ENTER) onTestInGame();
+function onChangeBPM(val) {
+    activeBpm = val
+    trace("Master BPM updated: " + val)
+}
+
+function onChangeSpeed(val) {
+    scrollSpeed = val
+    trace("Scroll Speed updated: " + val)
+}
+
+function onChangeStage(val) {
+    stageBound = val
+    trace("Stage updated: " + val)
+}
+
+function onChangeStrumline(val) {
+    activeStrumline = Std.int(val)
+    trace("Active Strumline updated: " + activeStrumline)
+}
+
+function onChangePlayer(val) {
+    player1 = val
+    trace("Player 1 updated: " + val)
+}
+
+function onChangeOpponent(val) {
+    player2 = val
+    trace("Player 2 updated: " + val)
+}
+
+function onSetInstVol(val) {
+    instVolume = val
+    trace("Inst volume set")
+}
+
+function onSetVoiceVol(val) {
+    vocalVolume = val
+    trace("Vocal volume set")
+}
+
+function onChangePlaybackRate(val) {
+    playbackRate = val
+    trace("Playback rate set")
+}
+
+function onSetHitsoundVol(val) {
+    hitsoundVolume = val
+    trace("Hitsound volume set")
+}
+
+function onSetMetroVol(val) {
+    metronomeVolume = val
+    trace("Metronome volume set")
+}
+
+function onToggleVocalWaveform() {
+    trace("Toggled vocal waveform rendering.")
+}
+
+function onToggleInstWaveform() {
+    trace("Toggled instrumental waveform rendering.")
+}
+
+function onChangeAudioOffset(val) {
+    audioOffset = val
+    trace("Audio offset updated")
+}
+
+function onResyncAudio() {
+    songPosition = 0.0
+    trace("Forced audio stream re-sync.")
+}
+
+function onTapTempo() {
+    trace("Tap tempo recorded.")
+}
+
+function onChangeSnapDiv(val) {
+    snapDivision = Std.int(val)
+    trace("Snap division set to: 1/" + snapDivision)
+}
+
+function onSetSnap4() { onChangeSnapDiv(4) }
+function onSetSnap8() { onChangeSnapDiv(8) }
+function onSetSnap12() { onChangeSnapDiv(12) }
+function onSetSnap16() { onChangeSnapDiv(16) }
+function onSetSnap24() { onChangeSnapDiv(24) }
+function onSetSnap32() { onChangeSnapDiv(32) }
+function onSetSnap48() { onChangeSnapDiv(48) }
+function onSetSnap64() { onChangeSnapDiv(64) }
+
+function onQuantizeSelection() {
+    trace("Quantized active notes to grid snap.")
+}
+
+function onChangeSustain(val) {
+    sustainSteps = val
+    trace("Sustain steps updated")
+}
+
+function onChangeNoteType(val) {
+    activeNoteType = val
+    trace("Note type updated")
+}
+
+function onCycleNoteType() {
+    trace("Cycled note type.")
+}
+
+function onSelectEvent(val) {
+    currentEventName = val
+    trace("Selected event: " + val)
+}
+
+function onChangeEventVal1(val) {
+    eventVal1 = val
+}
+
+function onChangeEventVal2(val) {
+    eventVal2 = val
+}
+
+function onAddEventAtPlayhead() {
+    trace("Added event at playhead.")
+}
+
+function onDeleteNote() {
+    if (chartNotes.length > 0) {
+        chartNotes.pop()
+        trace("Deleted note.")
+    } else {
+        trace("No notes to delete.")
+    }
+}
+
+function onCopyNotes() {
+    trace("Copied pattern selection.")
+}
+
+function onPasteNotes() {
+    trace("Pasted pattern buffer.")
+}
+
+function onSwapLanes() {
+    trace("Swapped note lanes.")
+}
+
+function onMirrorLanes() {
+    trace("Mirrored section lanes.")
+}
+
+function onCompressNotes() {
+    trace("Compressed note timings.")
+}
+
+function onHumanizeOffsets() {
+    trace("Applied humanized timing jitter.")
+}
+
+function onShiftNotesLeft() {
+    trace("Shifted notes left.")
+}
+
+function onShiftNotesRight() {
+    trace("Shifted notes right.")
+}
+
+function onInvertNotes() {
+    trace("Inverted note pattern.")
+}
+
+function onClearSection() {
+    chartNotes = []
+    trace("Cleared section notes.")
+}
+
+function onAddNewSection() {
+    songSections += 1
+    trace("Added new section. Total: " + songSections)
 }

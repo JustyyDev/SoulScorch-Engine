@@ -14,19 +14,19 @@ import soulscorch.gameplay.notes.NoteSkinManager;
 using StringTools;
 
 class NoteSplash extends FlxSprite {
-    public var splashSkin:String = "noteSplashes";
+    public var splashSkin:String = "default";
     public var splashScale:Float = 1.0;
     public var splashAlpha:Float = 0.6;
     public var animOffsets:Map<String, Array<Float>> = new Map<String, Array<Float>>();
 
-    public function new(x:Float = 0, y:Float = 0, ?skin:String = "noteSplashes") {
+    public function new(x:Float = 0, y:Float = 0, ?skin:String = "default") {
         super(x, y);
-        this.splashSkin = (skin != null && skin.length > 0) ? skin : "noteSplashes";
+        this.splashSkin = (skin != null && skin.length > 0) ? skin : "default";
         loadSplashSkin(this.splashSkin);
         scrollFactor.set();
     }
 
-    public function loadSplashSkin(skin:String = "noteSplashes"):Void {
+    public function loadSplashSkin(skin:String = "default"):Void {
         animOffsets.clear();
         this.splashSkin = skin;
 
@@ -52,7 +52,7 @@ class NoteSplash extends FlxSprite {
             if (access != null) {
                 var imagePath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", 'ui/game/splashes/$skin'));
                 if (!AssetHelper.loadSparrowSafely(this, imagePath)) {
-                    AssetHelper.loadSparrowSafely(this, 'ui/game/splashes/noteSplashes');
+                    AssetHelper.loadSparrowSafely(this, 'ui/game/splashes/default');
                 }
 
                 splashScale = XMSoul.getFloatAttr(access, "scale", 1.0);

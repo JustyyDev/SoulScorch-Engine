@@ -1,90 +1,85 @@
 package soulscorch.graphics;
 
-import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.FlxGraphic;
-import flixel.math.FlxPoint;
-import flixel.util.FlxColor;
-import soulscorch.backend.assets.AssetHelper;
+import flixel.graphics.frames.FlxAtlasFrames;
+import haxe.Json;
+import openfl.utils.Assets;
+import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.utils.Logger;
 
 using StringTools;
 
 class FunkinSprite extends FlxSprite {
-    public var animOffsets:Map<String, Array<Float>> = new Map<String, Array<Float>>();
-    public var globalOffset:FlxPoint = FlxPoint.get(0, 0);
-
-    public function new(x:Float = 0, y:Float = 0, ?graphicKey:Dynamic) {
+    public function new(x:Float = 0, y:Float = 0) {
         super(x, y);
-        if (graphicKey != null) {
-            loadSprite(graphicKey);
-        }
     }
 
-    public function loadSprite(asset:Dynamic):FunkinSprite {
-        if (Std.isOfType(asset, FlxGraphic)) {
-            loadGraphic(cast asset);
-            return this;
-        }
-
-        var key:String = Std.string(asset);
+    public function loadSprite(path:String):Bool {
+        var cleanPath = path.endsWith("/") ? path.substr(0, path.length - 1) : path;
         
-        // Try loading as Sparrow XML / Adobe Animate JSON atlas first
-        var loaded = AssetHelper.loadSparrowSafely(this, key);
-        if (!loaded) loaded = AssetHelper.loadSparrowSafely(this, 'ui/game/cutscenes/$key');
-        if (!loaded) loaded = AssetHelper.loadGraphicSafely(this, key);
-        if (!loaded) loaded = AssetHelper.loadGraphicSafely(this, 'ui/game/cutscenes/$key');
-        if (!loaded) makeGraphic(100, 100, 0xFFFF0055);
+        var jsonAnimPath = '$cleanPath/Animation.json';
+        var resolvedAnim = AssetResolver.resolveFile(jsonAnimPath, [".json", ""]);
 
-        antialiasing = true;
-        return this;
+        if (resolvedAnim != null) {
+            try {
+                var dir = cleanPath.substring(0, cleanPath.lastIndexOf("/") + 1);
+                var rawJson = AssetResolver.getText(resolvedAnim);
+                if (rawJson != null) {
+                    loadAnimateAtlas(dir, rawJson);
+                    return true;
+                }
+            } catch (e:Dynamic) {
+                Logger.warn('Failed to load Animate spritemap at $cleanPath: $e', "graphics");
+            }
+        }
+
+        var sparrowLoaded = loadSparrow(path);
+        if (sparrowLoaded) return true;
+
+        var graphic = AssetResolver.getGraphic(path);
+        if (graphic != null) {
+            loadGraphic(graphic);
+            return true;
+        }
+
+        return false;
     }
 
-    public function makeSolid(width:Float, height:Float, color:FlxColor = FlxColor.WHITE):FunkinSprite {
-        makeGraphic(Std.int(width), Std.int(height), color);
-        return this;
+    private function loadAnimateAtlas(directory:String, animationJson:String):Void {
+        try {
+            var pngPath = '${directory}spritemap1.png';
+            var resolvedImage = AssetResolver.resolveFile(pngPath, [".png", ""]);
+            if (resolvedImage != null) {
+                var graphic = AssetResolver.getGraphic(resolvedImage);
+                if (graphic != null) {
+                    loadGraphic(graphic);
+                }
+            }
+        } catch (e:Dynamic) {
+            Logger.error('Error parsing spritemap sheets: $e', "graphics");
+        }
     }
 
-    public function addAnim(name:String, prefix:String, fps:Int = 24, loop:Bool = false, ?indices:Array<Int>):Void {
-        if (frames == null || frames.frames == null) return;
+    public function loadSparrow(path:String):Bool {
+        var atlas = Paths.getSparrowAtlas(path);
+        if (atlas != null) {
+            frames = atlas;
+            return true;
+        }
+        return false;
+    }
 
-        if (indices != null && indices.length > 0) {
-            animation.addByIndices(name, prefix, indices, "", fps, loop);
-        } else {
+    public function addAnim(name:String, prefix:String, fps:Int = 24, loop:Bool = false):Void {
+        if (animation != null) {
             animation.addByPrefix(name, prefix, fps, loop);
         }
     }
 
-    public function addAnimByIndices(name:String, prefix:String, indices:Array<Int>, fps:Int = 24, loop:Bool = false):Void {
-        addAnim(name, prefix, fps, loop, indices);
-    }
-
     public function playAnim(name:String, force:Bool = false, reversed:Bool = false, frame:Int = 0):Void {
-        if (animation.getByName(name) == null) return;
-
-        animation.play(name, force, reversed, frame);
-
-        var daOffset = animOffsets.get(name);
-        if (daOffset != null) {
-            offset.set(daOffset[0], daOffset[1]);
-        } else {
-            offset.set(0, 0);
+        if (animation != null && animation.getByName(name) != null) {
+            animation.play(name, force, reversed, frame);
         }
-    }
-
-    public function addOffset(name:String, x:Float = 0, y:Float = 0):Void {
-        animOffsets.set(name, [x, y]);
-    }
-
-    public function getCameraPosition():FlxPoint {
-        return FlxPoint.get(getMidpoint().x + globalOffset.x, getMidpoint().y + globalOffset.y);
-    }
-
-    override public function destroy():Void {
-        if (globalOffset != null) {
-            globalOffset.put();
-            globalOffset = null;
-        }
-        animOffsets.clear();
-        super.destroy();
     }
 }

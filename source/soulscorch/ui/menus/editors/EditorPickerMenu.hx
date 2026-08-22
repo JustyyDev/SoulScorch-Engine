@@ -24,6 +24,10 @@ import soulscorch.ui.menus.editors.XMSoulEditorState;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
 
+#if sys
+import sys.FileSystem;
+#end
+
 using StringTools;
 
 typedef EditorOptionDef = {
@@ -33,70 +37,14 @@ typedef EditorOptionDef = {
     var desc:String;
     var color:FlxColor;
     var details:Array<String>;
-    var layoutPath:String;
+    @:optional var layoutPath:String;
+    @:optional var onLaunch:Void->Void;
 }
 
 class EditorPickerMenu extends MusicBeatState {
     public static var curSelected:Int = 0;
 
-    private var options:Array<EditorOptionDef> = [
-        {
-            title: "Chart Studio",
-            tag: "SOULCHART / TIMING",
-            shortcut: "[1]",
-            desc: "Interactive audio-synced node mapping with multi-snap quantization and event automators.",
-            color: 0xFF00FFCC,
-            details: [
-                "• 1/4 to 1/64 Beat Quantization Snaps",
-                "• Real-time Audio Hitsound Engine",
-                "• Section Lane Inverter & Rate Scaler",
-                "• Native .soulchart & JSON Exporter"
-            ],
-            layoutPath: "config/ui/menus/chartStudio.xmsoul"
-        },
-        {
-            title: "Actor Studio",
-            tag: "XMSOUL / OFFSETS",
-            shortcut: "[2]",
-            desc: "Character offset calibrator, animation matrices, frame scrubbers, and ghost overlays.",
-            color: 0xFFFF0055,
-            details: [
-                "• Live Animation Injector & Offset Calibrator",
-                "• Interactive World Camera Focus Anchors",
-                "• Microsecond Frame Scrubbing & Looping",
-                "• Native .xmsoul Character Manifest Serializer"
-            ],
-            layoutPath: "config/ui/menus/actorStudio.xmsoul"
-        },
-        {
-            title: "Stage Architect",
-            tag: "WORLD / PARALLAX",
-            shortcut: "[3]",
-            desc: "Layered stage layout builder, viewport anchors, drag-and-drop props, and parallax editors.",
-            color: 0xFF8A3FFC,
-            details: [
-                "• Direct Mouse Drag-and-Drop Viewport",
-                "• Multi-layer Parallax Scroll Factor Matrix",
-                "• Character Spawn Anchor Configurator",
-                "• Stage Prop Injection & .xmsoul Serialization"
-            ],
-            layoutPath: "config/ui/menus/stageArchitect.xmsoul"
-        },
-        {
-            title: "Modchart Matrix",
-            tag: "SOULSCRIPT / MATH",
-            shortcut: "[4]",
-            desc: "Visual real-time receptor modifier suite, math matrix curves, and live notes stream tests.",
-            color: 0xFFFFD700,
-            details: [
-                "• Drunk, Tipsy, Beat Pulse, Bumpy & Invert",
-                "• Live Oscillator Math & Curve Formatter",
-                "• Continuous Test Stream Trajectory Matrix",
-                "• One-click SoulScript (.soul) Code Generator"
-            ],
-            layoutPath: "config/ui/menus/modchartMatrix.xmsoul"
-        }
-    ];
+    private var options:Array<EditorOptionDef> = [];
 
     private var grpCards:FlxTypedGroup<FlxSpriteGroup>;
     private var cardBgs:Array<FlxSprite> = [];
@@ -117,6 +65,8 @@ class EditorPickerMenu extends MusicBeatState {
         #if desktop
         DiscordRPC.changePresence("Developer Suite", "Browsing Engine Editors");
         #end
+
+        buildEditorList();
 
         bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
         bg.scrollFactor.set(0, 0);
@@ -150,7 +100,7 @@ class EditorPickerMenu extends MusicBeatState {
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
 
-        var headerSubtitle = new FlxText(38, 38, 600, "MODULAR XMSOUL & SOULSCRIPT TOOLKITS", 11);
+        var headerSubtitle = new FlxText(38, 38, 600, "NATIVE COMPILED EDITORS & MODULAR XMSOUL EXTENSIONS", 11);
         headerSubtitle.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         headerSubtitle.scrollFactor.set(0, 0);
         add(headerSubtitle);
@@ -248,8 +198,100 @@ class EditorPickerMenu extends MusicBeatState {
         Controls.instance.bindMobilePad(mobileControls);
         #end
 
+        curSelected = FlxMath.wrap(curSelected, 0, options.length - 1);
         changeSelection(0);
         FlxG.mouse.visible = true;
+    }
+
+    private function buildEditorList():Void {
+        options = [
+            {
+                title: "Chart Studio",
+                tag: "NATIVE / TIMING",
+                shortcut: "[1]",
+                desc: "Full interactive 8-lane note timeline, hitsound feedback, and section mapping.",
+                color: 0xFF00FFCC,
+                details: [
+                    "• 1/4 to 1/64 Beat Quantization Snaps",
+                    "• Real-time Audio Hitsound Engine",
+                    "• Section Lane Inverter & Rate Scaler",
+                    "• Dual .xmsoul & JSON Direct Exporter"
+                ],
+                onLaunch: function() MusicBeatState.switchState(new ChartingState("tutorial", "normal"))
+            },
+            {
+                title: "Actor Studio",
+                tag: "NATIVE / OFFSETS",
+                shortcut: "[2]",
+                desc: "Character offset calibrator, animation matrices, frame scrubbers, and ghost overlays.",
+                color: 0xFFFF0055,
+                details: [
+                    "• Live Animation Injector & Offset Calibrator",
+                    "• Interactive World Camera Focus Anchors",
+                    "• Microsecond Frame Scrubbing & Looping",
+                    "• Native Character JSON Serializer"
+                ],
+                onLaunch: function() MusicBeatState.switchState(new CharacterEditorState("dad", false))
+            },
+            {
+                title: "Stage Architect",
+                tag: "NATIVE / PARALLAX",
+                shortcut: "[3]",
+                desc: "Layered stage layout builder, viewport anchors, drag-and-drop props, and parallax editors.",
+                color: 0xFF8A3FFC,
+                details: [
+                    "• Direct Mouse Drag-and-Drop Viewport",
+                    "• Multi-layer Parallax Scroll Factor Matrix",
+                    "• Character Spawn Anchor Configurator",
+                    "• Stage Prop Injection & Stage JSON Export"
+                ],
+                onLaunch: function() MusicBeatState.switchState(new StageEditorState("stage"))
+            },
+            {
+                title: "Modchart Matrix",
+                tag: "NATIVE / MATH",
+                shortcut: "[4]",
+                desc: "Visual real-time receptor modifier suite, math matrix curves, and live notes stream tests.",
+                color: 0xFFFFD700,
+                details: [
+                    "• Drunk, Tipsy, Beat Pulse, Bumpy & Invert",
+                    "• Live Oscillator Math & Curve Formatter",
+                    "• Continuous Test Stream Trajectory Matrix",
+                    "• SoulScript, Lua & HScript Exporter"
+                ],
+                onLaunch: function() MusicBeatState.switchState(new ModchartWorkspaceState())
+            }
+        ];
+
+        #if sys
+        var layoutDirs = ["config/ui/menus", "data/config/ui/menus"];
+        for (dir in layoutDirs) {
+            if (FileSystem.exists(dir) && FileSystem.isDirectory(dir)) {
+                for (file in FileSystem.readDirectory(dir)) {
+                    if (file.endsWith(".xmsoul")) {
+                        var baseName = file.substr(0, file.length - 7);
+                        var formattedTitle = baseName.substr(0, 1).toUpperCase() + baseName.substr(1);
+                        var path = '$dir/$file';
+
+                        options.push({
+                            title: formattedTitle + " (XMSoul)",
+                            tag: "MODULAR / XML",
+                            shortcut: "[+]",
+                            desc: 'Custom data-driven layout loaded from $path.',
+                            color: 0xFF00FF99,
+                            details: [
+                                '• Layout: $file',
+                                "• Dynamic XML Widget Binding",
+                                "• HScript Integration",
+                                "• Custom Modular Workspace"
+                            ],
+                            layoutPath: path
+                        });
+                    }
+                }
+            }
+        }
+        #end
     }
 
     override public function update(elapsed:Float):Void {
@@ -277,10 +319,10 @@ class EditorPickerMenu extends MusicBeatState {
         if (Controls.instance.UI_UP_P) changeSelection(-1);
         if (Controls.instance.UI_DOWN_P) changeSelection(1);
 
-        if (FlxG.keys.justPressed.ONE) launchEditor(0);
-        if (FlxG.keys.justPressed.TWO) launchEditor(1);
-        if (FlxG.keys.justPressed.THREE) launchEditor(2);
-        if (FlxG.keys.justPressed.FOUR) launchEditor(3);
+        if (FlxG.keys.justPressed.ONE && options.length > 0) launchEditor(0);
+        if (FlxG.keys.justPressed.TWO && options.length > 1) launchEditor(1);
+        if (FlxG.keys.justPressed.THREE && options.length > 2) launchEditor(2);
+        if (FlxG.keys.justPressed.FOUR && options.length > 3) launchEditor(3);
 
         if (Controls.instance.BACK) {
             AssetHelper.playSoundSafely("cancelMenu", 0.7);
@@ -327,17 +369,12 @@ class EditorPickerMenu extends MusicBeatState {
         AssetHelper.playSoundSafely("confirmMenu", 0.7);
 
         var targetOpt = options[index];
-        if (targetOpt != null && targetOpt.layoutPath != null && targetOpt.layoutPath.length > 0) {
-            MusicBeatState.switchState(new XMSoulEditorState(targetOpt.layoutPath));
-            return;
-        }
+        if (targetOpt == null) return;
 
-        // Fallback state routing if layout manifests are missing
-        switch (index) {
-            case 0: MusicBeatState.switchState(new ChartingState("tutorial", "normal"));
-            case 1: MusicBeatState.switchState(new CharacterEditorState("dad", false));
-            case 2: MusicBeatState.switchState(new StageEditorState("stage"));
-            case 3: MusicBeatState.switchState(new ModchartWorkspaceState());
+        if (targetOpt.onLaunch != null) {
+            targetOpt.onLaunch();
+        } else if (targetOpt.layoutPath != null && targetOpt.layoutPath.length > 0) {
+            MusicBeatState.switchState(new XMSoulEditorState(targetOpt.layoutPath));
         }
     }
 
