@@ -2,10 +2,12 @@ package soulscorch.gameplay.notes;
 
 import flixel.FlxG;
 import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.util.FlxColor;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.gameplay.GameplayFlags;
 
 using StringTools;
 
@@ -57,6 +59,33 @@ class NoteSkinManager {
 
     public static var noteColors:Array<String> = ["purple", "blue", "green", "red"];
     public static var noteDirections:Array<String> = ["left", "down", "up", "right"];
+
+    // Default vibrant fallback palette for greyscaled base spritesheets
+    public static var defaultLaneColors:Array<FlxColor> = [
+        0xFFC24B99, // Left: Purple
+        0xFF00FFFF, // Down: Cyan/Blue
+        0xFF12FA05, // Up: Green
+        0xFFF9393F  // Right: Red
+    ];
+
+    public static function getLaneColor(lane:Int):FlxColor {
+        var cleanLane = lane % 4;
+
+        // 1. Mod-Forced Override via mod.xmsoul
+        if (GameplayFlags.has('forcedLaneColor_$cleanLane')) {
+            return GameplayFlags.getInt('forcedLaneColor_$cleanLane', defaultLaneColors[cleanLane]);
+        }
+
+        // 2. User-Defined Custom Preferences from Save / Options
+        if (FlxG.save != null && FlxG.save.data != null) {
+            var customCols:Array<Int> = FlxG.save.data.customNoteColors;
+            if (customCols != null && customCols.length > cleanLane && customCols[cleanLane] != 0) {
+                return customCols[cleanLane];
+            }
+        }
+
+        return defaultLaneColors[cleanLane];
+    }
 
     public static function getSkinConfig(?skinName:String):NoteSkinConfig {
         var cleanSkin = (skinName != null && skinName.trim().length > 0 && skinName != "default") ? skinName.trim() : getNoteSkinName();
@@ -210,12 +239,6 @@ class NoteSkinManager {
         }
 
         return null;
-    }
-
-    public static function applySkin(strumline:Strumline, skinName:String):Void {
-        if (strumline != null && skinName != null) {
-            strumline.changeSkin(skinName);
-        }
     }
 
     public static function getNoteSkinName():String {

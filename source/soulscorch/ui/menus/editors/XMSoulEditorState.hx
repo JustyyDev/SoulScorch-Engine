@@ -34,6 +34,10 @@ class XMSoulEditorState extends MusicBeatState {
     public var topBar:EditorTopBar;
     public var toast:EditorToast;
 
+    // Viewport Navigation States
+    private var isDraggingCamera:Bool = false;
+    private var lastMousePos:FlxPoint;
+
     public function new(layoutFile:String) {
         super();
         this.layoutFile = layoutFile;
@@ -42,6 +46,8 @@ class XMSoulEditorState extends MusicBeatState {
     override public function create():Void {
         super.create();
         instance = this;
+
+        lastMousePos = FlxPoint.get();
 
         camWorld = new FlxCamera();
         camUI = new FlxCamera();
@@ -215,10 +221,37 @@ class XMSoulEditorState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+
+        // Viewport Drag & Zoom
+        if (FlxG.mouse.pressedMiddle || (FlxG.keys.pressed.SPACE && FlxG.mouse.pressed)) {
+            if (!isDraggingCamera) {
+                isDraggingCamera = true;
+                lastMousePos.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+            } else {
+                camWorld.scroll.x -= (FlxG.mouse.screenX - lastMousePos.x) / camWorld.zoom;
+                camWorld.scroll.y -= (FlxG.mouse.screenY - lastMousePos.y) / camWorld.zoom;
+                lastMousePos.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+            }
+        } else {
+            isDraggingCamera = false;
+        }
+
+        if (FlxG.mouse.wheel != 0 && !isOverUI()) {
+            camWorld.zoom = FlxMath.bound(camWorld.zoom + (FlxG.mouse.wheel * 0.1), 0.2, 5.0);
+        }
+
         if (script != null) script.callAll("onUpdate", [elapsed]);
     }
 
+    public function isOverUI():Bool {
+        for (win in windowList) {
+            if (win.visible && FlxG.mouse.overlaps(win, camUI)) return true;
+        }
+        return topBar != null && FlxG.mouse.overlaps(topBar, camUI);
+    }
+
     override public function destroy():Void {
+        if (lastMousePos != null) lastMousePos.put();
         if (script != null) {
             script.callAll("onDestroy");
             script.clear();

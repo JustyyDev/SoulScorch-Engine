@@ -3,6 +3,7 @@ package soulscorch.gameplay.notes;
 import flixel.FlxSprite;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.util.FlxColor;
+import soulscorch.gameplay.notes.NoteSkinManager;
 
 using StringTools;
 
@@ -79,6 +80,12 @@ class StrumArrow extends FlxSprite {
         animation.play(animName, force);
         scale.set(skinScale, skinScale);
         updateHitbox();
+
+        if (animName == "confirm" || animName == "pressed") {
+            color = NoteSkinManager.getLaneColor(this.direction);
+        } else {
+            color = FlxColor.WHITE;
+        }
 
         if (animName == "confirm") {
             offset.x -= 13;

@@ -84,7 +84,6 @@ class SaveData {
 
         if (save.data == null) return;
 
-        // 1. Song High Scores & Accuracies
         if (save.data.songScores != null) {
             var raw:Dynamic = save.data.songScores;
             for (key in Reflect.fields(raw)) {
@@ -93,7 +92,6 @@ class SaveData {
             }
         }
 
-        // 2. Story Mode Week Progress
         if (save.data.weekScores != null) {
             var raw:Dynamic = save.data.weekScores;
             for (key in Reflect.fields(raw)) {
@@ -102,7 +100,6 @@ class SaveData {
             }
         }
 
-        // 3. User Preferences & Settings
         if (save.data.settings != null) {
             var raw:Dynamic = save.data.settings;
             for (key in Reflect.fields(raw)) {
@@ -110,7 +107,6 @@ class SaveData {
             }
         }
 
-        // 4. Content Unlocks
         if (save.data.unlocks != null) {
             var raw:Dynamic = save.data.unlocks;
             for (key in Reflect.fields(raw)) {
@@ -118,14 +114,12 @@ class SaveData {
             }
         }
 
-        // 5. Active Mod Stack Configuration
         if (save.data.enabledMods != null && Std.isOfType(save.data.enabledMods, Array)) {
             for (mod in (cast save.data.enabledMods : Array<Dynamic>)) {
                 enabledMods.push(Std.string(mod));
             }
         }
 
-        // 6. Custom XMSoul Gameplay Flags
         if (save.data.customFlags != null) {
             var raw:Dynamic = save.data.customFlags;
             for (key in Reflect.fields(raw)) {
@@ -133,7 +127,6 @@ class SaveData {
             }
         }
 
-        // 7. Recorded Replays Metadata Archive
         if (save.data.savedReplays != null && Std.isOfType(save.data.savedReplays, Array)) {
             for (item in (cast save.data.savedReplays : Array<Dynamic>)) {
                 if (item != null) savedReplays.push(cast item);
@@ -141,8 +134,7 @@ class SaveData {
         }
 
         applyMissingDefaults();
-
-        Logger.info('[SaveData] Loaded ${Lambda.count(songScores)} scores, ${Lambda.count(settings)} settings, ${savedReplays.length} replay records, and ${enabledMods.length} active mods.', "save");
+        syncToFlxGSave();
     }
 
     private function applyMissingDefaults():Void {
@@ -151,20 +143,26 @@ class SaveData {
         if (!settings.exists("ghostTapping")) settings.set("ghostTapping", true);
         if (!settings.exists("noteSplash")) settings.set("noteSplash", true);
         if (!settings.exists("flashingLights")) settings.set("flashingLights", true);
-        if (!settings.exists("cameraZooms")) settings.set("cameraZooms", true);
+        if (!settings.exists("cameraZoomOnBeat")) settings.set("cameraZoomOnBeat", true);
         if (!settings.exists("framerate")) settings.set("framerate", 120);
-        if (!settings.exists("noteSkin")) settings.set("noteSkin", "default");
+        if (!settings.exists("antialiasing")) settings.set("antialiasing", true);
+        if (!settings.exists("noteOffset")) settings.set("noteOffset", 0.0);
+        if (!settings.exists("botplay")) settings.set("botplay", false);
+        if (!settings.exists("songSpeedMultiplier")) settings.set("songSpeedMultiplier", 1.0);
         if (!settings.exists("exportReplayMp4")) settings.set("exportReplayMp4", false);
     }
 
-    // ==========================================
-    // REPLAY PERSISTENCE
-    // ==========================================
+    private function syncToFlxGSave():Void {
+        if (FlxG.save == null || FlxG.save.data == null) return;
+        for (key => val in settings) {
+            Reflect.setField(FlxG.save.data, key, val);
+        }
+        FlxG.save.flush();
+    }
 
     public function registerReplay(entry:ReplayDataEntry):Void {
         if (entry == null) return;
         savedReplays.unshift(entry);
-        // Retain last 100 replays max
         if (savedReplays.length > 100) savedReplays.pop();
         isDirty = true;
         persist();
@@ -179,10 +177,6 @@ class SaveData {
         isDirty = true;
         persist();
     }
-
-    // ==========================================
-    // SCORE & LEADERBOARD MANAGEMENT
-    // ==========================================
 
     public function submitScore(song:String, diff:String, entry:SongScoreEntry):Bool {
         var key = formatKey(song, diff);
@@ -227,18 +221,23 @@ class SaveData {
         return weekScores.get(formatKey(week, diff));
     }
 
-    // ==========================================
-    // TYPE-SAFE SETTINGS & FLAGS
-    // ==========================================
-
     public function setSetting(key:String, value:Dynamic, autoFlush:Bool = true):Void {
         settings.set(key, value);
+        if (FlxG.save != null && FlxG.save.data != null) {
+            Reflect.setField(FlxG.save.data, key, value);
+        }
         isDirty = true;
         if (autoFlush) persist();
     }
 
     public function getSetting(key:String, defaultValue:Dynamic):Dynamic {
-        return settings.exists(key) ? settings.get(key) : defaultValue;
+        if (settings.exists(key)) return settings.get(key);
+        if (FlxG.save != null && FlxG.save.data != null && Reflect.hasField(FlxG.save.data, key)) {
+            var val = Reflect.field(FlxG.save.data, key);
+            settings.set(key, val);
+            return val;
+        }
+        return defaultValue;
     }
 
     public function getBool(key:String, defaultValue:Bool = false):Bool {
@@ -256,10 +255,6 @@ class SaveData {
     public function getString(key:String, defaultValue:String = ""):String {
         return Std.string(getSetting(key, defaultValue));
     }
-
-    // ==========================================
-    // MODDING & FLAG INTEGRATION
-    // ==========================================
 
     public function setFlag(flagName:String, value:Dynamic, autoFlush:Bool = true):Void {
         customFlags.set(flagName, value);
@@ -287,10 +282,6 @@ class SaveData {
         return unlocks.exists(unlockID) && unlocks.get(unlockID) == true;
     }
 
-    // ==========================================
-    // PERSISTENCE & FLUSHING
-    // ==========================================
-
     public function persist():Void {
         if (save.data == null) return;
 
@@ -303,7 +294,12 @@ class SaveData {
         save.data.weekScores = serializedWeeks;
 
         var serializedSettings:Dynamic = {};
-        for (key => val in settings) Reflect.setField(serializedSettings, key, val);
+        for (key => val in settings) {
+            Reflect.setField(serializedSettings, key, val);
+            if (FlxG.save != null && FlxG.save.data != null) {
+                Reflect.setField(FlxG.save.data, key, val);
+            }
+        }
         save.data.settings = serializedSettings;
 
         var serializedUnlocks:Dynamic = {};
@@ -325,6 +321,7 @@ class SaveData {
         if (save != null) {
             try {
                 save.flush();
+                if (FlxG.save != null) FlxG.save.flush();
                 isDirty = false;
             } catch (e:Dynamic) {
                 Logger.warn('Save flush failed: $e', "save");
@@ -343,6 +340,10 @@ class SaveData {
         if (save != null) {
             save.erase();
             save.flush();
+        }
+        if (FlxG.save != null) {
+            FlxG.save.erase();
+            FlxG.save.flush();
         }
         Logger.info("[SaveData] Engine save file completely wiped.", "save");
     }

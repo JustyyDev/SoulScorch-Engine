@@ -9,6 +9,7 @@ import flixel.util.FlxColor;
 import haxe.xml.Access;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.gameplay.notes.NoteSkinManager;
 
 using StringTools;
 
@@ -72,6 +73,7 @@ class Note extends FlxSprite {
 
         loadNoteSkin(skin);
         setupAnimation();
+        applyColorTint();
         applyNoteTypeConfig(this.noteType);
 
         antialiasing = (skinConf != null) ? skinConf.antialiasing : true;
@@ -85,19 +87,16 @@ class Note extends FlxSprite {
         playAnim();
     }
 
+    public function applyColorTint():Void {
+        this.color = NoteSkinManager.getLaneColor(this.noteData);
+    }
+
     public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
         if (atlas != null) {
             frames = atlas;
         } else {
-            var colorInt:FlxColor = switch (noteData % 4) {
-                case 0: 0xFFC24B99;
-                case 1: 0xFF00FFFF;
-                case 2: 0xFF12FA05;
-                case 3: 0xFFF9393F;
-                default: 0xFFFFFFFF;
-            };
-            makeGraphic(Std.int(STRUM_WIDTH), isSustainNote ? 30 : Std.int(STRUM_WIDTH), colorInt);
+            makeGraphic(Std.int(STRUM_WIDTH), isSustainNote ? 30 : Std.int(STRUM_WIDTH), NoteSkinManager.getLaneColor(this.noteData));
         }
     }
 
@@ -149,13 +148,13 @@ class Note extends FlxSprite {
         if (isSustainNote) {
             if (isSustainEnd) {
                 var endPrefix = (noteData == 0) ? "pruple end hold" : (colorName + " hold end");
-                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end"]);
+                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end", "hold end", "end hold"]);
             } else {
                 var bodyPrefix = (noteData == 0) ? "purple hold piece" : (colorName + " hold piece");
-                tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece"]);
+                tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece", "hold piece"]);
             }
         } else {
-            tryAddAnimation("scroll", [colorName + "0", colorName + " scroll", colorName]);
+            tryAddAnimation("scroll", [colorName + "0", colorName + " scroll", colorName, "arrowUP", "arrowDOWN", "arrowLEFT", "arrowRIGHT"]);
         }
     }
 
@@ -196,20 +195,17 @@ class Note extends FlxSprite {
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * (songSpeed * multSpeed));
         var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
 
-        // Horizontal alignment centered directly with the StrumArrow receptor
         x = strumX + ((STRUM_WIDTH - width) * 0.5) + offsetX;
 
         if (isSustainNote) {
             flipY = downscroll;
 
             if (downscroll) {
-                // Correct vertical downscroll anchor attached cleanly to receptor center
                 y = strumY + (STRUM_WIDTH * 0.5) - distance - height + stepHeight + offsetY;
             } else {
                 y = strumY + (STRUM_WIDTH * 0.5) + distance - stepHeight + offsetY;
             }
 
-            // High-precision hold clipping as note crosses strumline
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
                 var strumCenterY = strumY + (STRUM_WIDTH * 0.5);
                 if (downscroll) {

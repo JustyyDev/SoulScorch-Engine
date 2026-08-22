@@ -123,7 +123,6 @@ class PlayState extends MusicBeatState {
 
     public var maxHealth:Float = 2.0;
 
-    // --- Accurate Scoring & Hit Tracking ---
     public var songScore:Int = 0;
     public var songMisses:Int = 0;
     public var songHits:Int = 0;
@@ -262,19 +261,15 @@ class PlayState extends MusicBeatState {
         ];
 
         for (p in paths) {
-            var access = XMSoul.parse(p);
-            if (access != null) {
-                try {
-                    songSpeed *= XMSoul.getFloatAttr(access, "scrollSpeedMultiplier", 1.0);
-                    ghostTapping = XMSoul.getBoolAttr(access, "ghostTapping", ghostTapping);
-                    passiveHealthDrain = XMSoul.getFloatAttr(access, "healthDrain", 0.0);
-                    healthDrainFloor = XMSoul.getFloatAttr(access, "drainFloor", XMSoul.getFloatAttr(access, "minHealthDrainLimit", 0.1));
-                    maxHealth = XMSoul.getFloatAttr(access, "maxHealth", maxHealth);
-                    Logger.info('Successfully loaded .xmsoul modifiers for $clean (Drain: $passiveHealthDrain, Floor: $healthDrainFloor)', "modifiers");
-                    break;
-                } catch (e:Dynamic) {
-                    Logger.warn('Failed parsing modifiers.xmsoul for $clean: $e', "modifiers");
-                }
+            var mods = XMSoul.loadModifiers(p);
+            if (mods != null) {
+                songSpeed *= mods.scrollSpeedMultiplier;
+                ghostTapping = mods.ghostTapping;
+                passiveHealthDrain = mods.healthDrain;
+                healthDrainFloor = mods.drainFloor;
+                maxHealth = mods.maxHealth;
+                Logger.info('Successfully loaded .xmsoul modifiers for $clean (Drain: $passiveHealthDrain, Floor: $healthDrainFloor)', "modifiers");
+                break;
             }
         }
     }

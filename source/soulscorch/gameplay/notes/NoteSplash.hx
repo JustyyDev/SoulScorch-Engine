@@ -3,6 +3,7 @@ package soulscorch.gameplay.notes;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.graphics.frames.FlxAtlasFrames;
+import soulscorch.gameplay.notes.NoteSkinManager;
 
 class NoteSplash extends FlxSprite {
     public function new(x:Float = 0, y:Float = 0, ?noteData:Int = 0) {
@@ -31,12 +32,13 @@ class NoteSplash extends FlxSprite {
             antialiasing = conf.antialiasing;
             alpha = conf.alpha;
         } else {
-            makeGraphic(100, 100, 0xFFFFCC00);
+            makeGraphic(100, 100, 0xFFFFFFFF);
         }
     }
 
     public function spawn(receptorX:Float, receptorY:Float, noteData:Int, ?skin:String):Void {
         loadSplash(skin);
+        this.color = NoteSkinManager.getLaneColor(noteData);
 
         setPosition(receptorX - (width * 0.25), receptorY - (height * 0.25));
 

@@ -3,8 +3,6 @@ package;
 import flixel.FlxG;
 import flixel.FlxGame;
 import flixel.FlxState;
-import flixel.tweens.FlxTween;
-import flixel.util.FlxTimer;
 import flixel.util.FlxColor;
 import haxe.CallStack;
 import openfl.Lib;
@@ -39,17 +37,12 @@ import soulscorch.ui.menus.editors.EditorPickerMenu;
 import soulscorch.ui.menus.states.TitleState;
 import soulscorch.ui.menus.substate.ModSwitchMenu;
 
-#if cpp
-import cpp.vm.Gc;
-#end
-
 using StringTools;
 
 class Main extends Sprite {
     public static var gameWidth:Int = 1280;
     public static var gameHeight:Int = 720;
     public static var initialState:Class<FlxState> = TitleState;
-    public static var zoom:Float = -1.0;
     public static var framerate:Int = 120;
     public static var skipSplash:Bool = true;
     public static var startFullscreen:Bool = false;
@@ -62,7 +55,6 @@ class Main extends Sprite {
 
     public function new() {
         super();
-
         CrashHandler.install();
 
         if (stage != null) {
@@ -91,17 +83,12 @@ class Main extends Sprite {
             Lib.current.stage.align = StageAlign.TOP_LEFT;
             Lib.current.stage.scaleMode = StageScaleMode.NO_SCALE;
 
-            // Zero-Lag Engine Execution Setup
             FlxG.fixedTimestep = false;
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
 
-            // Force default camera background to pitch black globally
+            // Ensure cameras are fully initialized with default draw target
             FlxG.cameras.bgColor = FlxColor.BLACK;
-
-            #if (cpp && windows)
-            //cpp.vm.ExecutionTrace.setLevel(0);
-            #end
 
             setupStateSwitchOptimization();
 
@@ -165,22 +152,21 @@ class Main extends Sprite {
             NativeAPI.setWindowTopmost(topmost);
             NativeAPI.setPreventSleep(preventSleep);
 
-            if (access.hasNode.titlebar) {
-                var tb = access.node.titlebar;
-                if (tb.has.color) {
-                    var col = tb.att.color.split(",").map(function(s) return Std.parseInt(s.trim()));
+            if (access.hasNode.resolve("titlebar")) {
+                var tb = access.node.resolve("titlebar");
+                if (tb.has.resolve("color")) {
+                    var col = tb.att.resolve("color").split(",").map(function(s) return Std.parseInt(s.trim()));
                     if (col.length >= 3) NativeAPI.setTitleBarColor(col[0], col[1], col[2]);
                 }
-                if (tb.has.borderColor) {
-                    var bCol = tb.att.borderColor.split(",").map(function(s) return Std.parseInt(s.trim()));
+                if (tb.has.resolve("borderColor")) {
+                    var bCol = tb.att.resolve("borderColor").split(",").map(function(s) return Std.parseInt(s.trim()));
                     if (bCol.length >= 3) NativeAPI.setBorderColor(bCol[0], bCol[1], bCol[2]);
                 }
-                if (tb.has.textColor) {
-                    var tCol = tb.att.textColor.split(",").map(function(s) return Std.parseInt(s.trim()));
+                if (tb.has.resolve("textColor")) {
+                    var tCol = tb.att.resolve("textColor").split(",").map(function(s) return Std.parseInt(s.trim()));
                     if (tCol.length >= 3) NativeAPI.setTitleTextColor(tCol[0], tCol[1], tCol[2]);
                 }
             }
-            Logger.info("Applied native window settings from window.xmsoul.", "main");
         } else {
             NativeAPI.setDarkMode(true);
         }

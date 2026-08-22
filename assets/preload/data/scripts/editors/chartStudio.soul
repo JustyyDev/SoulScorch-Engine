@@ -1,5 +1,3 @@
-// SOULSCORCH Chart Studio Controller
-
 var isPlaying = false;
 var masterBpm = 120.0;
 var scrollSpeed = 2.0;

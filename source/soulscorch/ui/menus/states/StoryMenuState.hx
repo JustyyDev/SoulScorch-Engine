@@ -18,6 +18,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
@@ -206,32 +207,33 @@ class StoryMenuState extends MusicBeatState {
 
                     if (file.endsWith(".xmsoul") || file.endsWith(".xml")) {
                         try {
-                            var rawXml = File.getContent(fullPath);
-                            var parsed = Xml.parse(rawXml);
-                            var access = new Access(parsed.firstElement());
+                            var access = XMSoul.parse(fullPath);
+                            if (access != null) {
+                                var weekName = XMSoul.getAttr(access, "name", fileId);
+                                var charsStr = XMSoul.getAttr(access, "chars", "dad,bf,gf");
+                                var spriteName = XMSoul.getAttr(access, "sprite", fileId);
+                                var colorStr = access.has.resolve("color") ? access.att.resolve("color") : null;
 
-                            var weekName = access.has.name ? access.att.name : fileId;
-                            var charsStr = access.has.chars ? access.att.chars : "dad,bf,gf";
-                            var spriteName = access.has.sprite ? access.att.sprite : fileId;
-                            var colorStr = access.has.color ? access.att.color : null;
+                                var songsList:Array<String> = [];
+                                if (access.hasNode.resolve("song")) {
+                                    for (s in access.nodes.resolve("song")) {
+                                        var songName = s.innerData.trim();
+                                        if (songName.length > 0) songsList.push(songName);
+                                    }
+                                }
 
-                            var songsList:Array<String> = [];
-                            for (s in access.nodes.song) {
-                                var songName = s.innerData.trim();
-                                if (songName.length > 0) songsList.push(songName);
+                                weeks.push({
+                                    id: fileId,
+                                    name: weekName,
+                                    sprite: spriteName,
+                                    songs: songsList,
+                                    characters: charsStr.split(","),
+                                    color: colorStr,
+                                    difficulties: ["easy", "normal", "hard"]
+                                });
+
+                                loadedWeekIds.push(fileId);
                             }
-
-                            weeks.push({
-                                id: fileId,
-                                name: weekName,
-                                sprite: spriteName,
-                                songs: songsList,
-                                characters: charsStr.split(","),
-                                color: colorStr,
-                                difficulties: ["easy", "normal", "hard"]
-                            });
-
-                            loadedWeekIds.push(fileId);
                         } catch (e:Dynamic) {
                             Logger.warn('Failed parsing XML week $file: $e', "weeks");
                         }

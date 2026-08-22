@@ -3,7 +3,6 @@ package soulscorch.ui.menus.states;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
@@ -15,6 +14,7 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
@@ -54,7 +54,6 @@ class TitleState extends MusicBeatState {
             FlxG.sound.playMusic(Paths.music("freakyMenu"), 0.7);
         }
 
-        // 1. Girlfriend Dance Sprite
         gfDance = new FlxSprite(FlxG.width * 0.4, FlxG.height * 0.07);
         var gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/titlescreen/gf");
         if (!gfLoaded) gfLoaded = AssetHelper.loadSparrowSafely(gfDance, "ui/menus/title/gfDanceTitle");
@@ -79,7 +78,6 @@ class TitleState extends MusicBeatState {
         gfDance.visible = false;
         add(gfDance);
 
-        // 2. Main Logo Sprite
         logoBl = new FlxSprite(-150, -100);
         var logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "ui/titlescreen/logo");
         if (!logoLoaded) logoLoaded = AssetHelper.loadSparrowSafely(logoBl, "ui/menus/title/logoBumpin");
@@ -96,7 +94,6 @@ class TitleState extends MusicBeatState {
         logoBl.visible = false;
         add(logoBl);
 
-        // 3. Newgrounds Logo Sprite
         ngLogo = new FlxSprite(0, FlxG.height * 0.52);
         if (!AssetHelper.loadGraphicSafely(ngLogo, "ui/titlescreen/newgrounds_logo")) {
             AssetHelper.loadGraphicSafely(ngLogo, "newgrounds_logo");
@@ -107,7 +104,6 @@ class TitleState extends MusicBeatState {
         ngLogo.visible = false;
         add(ngLogo);
 
-        // 4. Press Enter Prompt Sprite
         titleText = new FlxSprite(100, FlxG.height * 0.8);
         var enterLoaded = AssetHelper.loadSparrowSafely(titleText, "ui/titlescreen/titleEnter");
         if (!enterLoaded) enterLoaded = AssetHelper.loadSparrowSafely(titleText, "ui/menus/title/titleEnter");
@@ -122,7 +118,6 @@ class TitleState extends MusicBeatState {
         titleText.visible = false;
         add(titleText);
 
-        // 5. Alphabet Intro Text Group
         textGroup = new FlxTypedGroup<Alphabet>();
         add(textGroup);
 
@@ -150,33 +145,40 @@ class TitleState extends MusicBeatState {
     }
 
     private function getIntroText():Array<Array<String>> {
+        var customLines = XMSoul.loadIntroLines("data/intros");
+        if (customLines.length > 0) {
+            var parsed:Array<Array<String>> = [];
+            for (line in customLines) {
+                if (line.contains("--")) {
+                    var parts = line.split("--");
+                    parsed.push([parts[0].trim(), parts[1].trim()]);
+                }
+            }
+            if (parsed.length > 0) return parsed;
+        }
+
         var fullText:String = "";
         var textPath = AssetResolver.resolveFile("data/introText", [".txt", ""]);
-        if (textPath != null) {
-            fullText = AssetResolver.getText(textPath);
-        }
+        if (textPath != null) fullText = AssetResolver.getText(textPath);
 
-        if (fullText == null || fullText.trim().length == 0) {
-            return [
-                ["SoulScorch Team", "by Justy"],
-                ["High Performance", "Rhythm Engine"],
-                ["Not just another fork", "A total powerhouse"],
-                ["Shoutouts to", "Newgrounds community"]
-            ];
-        }
-
-        var lines = fullText.trim().split("\n");
-        var result:Array<Array<String>> = [];
-
-        for (line in lines) {
-            var clean = line.trim();
-            if (clean.length > 0 && clean.contains("--")) {
-                var parts = clean.split("--");
-                result.push([parts[0].trim(), parts[1].trim()]);
+        if (fullText != null && fullText.trim().length > 0) {
+            var lines = fullText.trim().split("\n");
+            var result:Array<Array<String>> = [];
+            for (line in lines) {
+                var clean = line.trim();
+                if (clean.length > 0 && clean.contains("--")) {
+                    var parts = clean.split("--");
+                    result.push([parts[0].trim(), parts[1].trim()]);
+                }
             }
+            if (result.length > 0) return result;
         }
 
-        return result.length > 0 ? result : [["SoulScorch Team", "by Justy"]];
+        return [
+            ["SoulScorch Team", "by the SoulScorch Team"],
+            ["High Performance", "Rhythm Engine"],
+            ["Not just another fork", "A total powerhouse"]
+        ];
     }
 
     private function createCoolText(textArray:Array<String>, ?offsetY:Float = 0):Void {
@@ -208,7 +210,7 @@ class TitleState extends MusicBeatState {
             remove(ngLogo);
             deleteCoolText();
 
-            FlxG.camera.flash(FlxColor.WHITE, 2.0);
+            FlxG.camera.flash(FlxColor.WHITE, 1.0);
 
             gfDance.visible = true;
             logoBl.visible = true;
@@ -311,7 +313,7 @@ class TitleState extends MusicBeatState {
                 case 14:
                     addMoreText('Engine');
                 case 15:
-                    addMoreText('Alpha Build');
+                    addMoreText('Ready');
                 case 16:
                     skipIntro();
             }

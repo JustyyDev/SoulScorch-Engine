@@ -1,6 +1,7 @@
 package soulscorch.gameplay;
 
 import flixel.FlxG;
+import flixel.util.FlxColor;
 import haxe.Json;
 import haxe.xml.Access;
 import soulscorch.backend.system.SaveData;
@@ -43,12 +44,14 @@ class GameplayFlags {
         defaults.set("antialiasing", true);
         defaults.set("flashingLights", true);
         defaults.set("botplay", false);
+        defaults.set("noteOffset", 0.0);
 
         if (Runtime.config != null) {
             defaults.set("ghostTapping", Runtime.config.ghostTapping);
             defaults.set("downscroll", Runtime.config.downscroll);
             defaults.set("flashingLights", Runtime.config.flashingLights);
             defaults.set("antialiasing", Runtime.config.antialiasing);
+            defaults.set("framerate", Runtime.config.framerate);
         }
 
         if (FlxG.save != null && FlxG.save.data != null) {
@@ -56,6 +59,7 @@ class GameplayFlags {
             if (FlxG.save.data.downscroll != null) defaults.set("downscroll", FlxG.save.data.downscroll);
             if (FlxG.save.data.middlescroll != null) defaults.set("middlescroll", FlxG.save.data.middlescroll);
             if (FlxG.save.data.botplay != null) defaults.set("botplay", FlxG.save.data.botplay);
+            if (FlxG.save.data.noteOffset != null) defaults.set("noteOffset", FlxG.save.data.noteOffset);
         }
 
         for (key => value in defaults) {
@@ -78,12 +82,8 @@ class GameplayFlags {
 
     public static function get(key:String, fallback:Dynamic = null):Dynamic {
         var normKey = normalizeKey(key);
-        if (active.exists(normKey)) {
-            return active.get(normKey);
-        }
-        if (defaults.exists(normKey)) {
-            return defaults.get(normKey);
-        }
+        if (active.exists(normKey)) return active.get(normKey);
+        if (defaults.exists(normKey)) return defaults.get(normKey);
         return fallback;
     }
 
@@ -94,9 +94,7 @@ class GameplayFlags {
 
     public static function getFloat(key:String, fallback:Float = 0.0):Float {
         var value:Dynamic = get(key, fallback);
-        if (Std.isOfType(value, Float) || Std.isOfType(value, Int)) {
-            return cast value;
-        }
+        if (Std.isOfType(value, Float) || Std.isOfType(value, Int)) return cast value;
         if (Std.isOfType(value, String)) {
             var parsed = Std.parseFloat(cast value);
             return Math.isNaN(parsed) ? fallback : parsed;
@@ -106,12 +104,8 @@ class GameplayFlags {
 
     public static function getInt(key:String, fallback:Int = 0):Int {
         var value:Dynamic = get(key, fallback);
-        if (Std.isOfType(value, Int)) {
-            return cast value;
-        }
-        if (Std.isOfType(value, Float)) {
-            return Std.int(cast value);
-        }
+        if (Std.isOfType(value, Int)) return cast value;
+        if (Std.isOfType(value, Float)) return Std.int(cast value);
         if (Std.isOfType(value, String)) {
             var parsed = Std.parseInt(cast value);
             return parsed != null ? parsed : fallback;
@@ -124,16 +118,6 @@ class GameplayFlags {
         return (value != null) ? Std.string(value) : fallback;
     }
 
-    public static function toggle(key:String):Bool {
-        var current = getBool(key, false);
-        set(key, !current);
-        return !current;
-    }
-
-    public static function remove(key:String):Void {
-        active.remove(normalizeKey(key));
-    }
-
     public static function normalizeKey(rawKey:String):String {
         if (rawKey == null) return "";
         var key:String = rawKey.trim();
@@ -142,45 +126,6 @@ class GameplayFlags {
             return parts[parts.length - 1];
         }
         return key;
-    }
-
-    public static function applyFlagString(flagString:String):Void {
-        if (flagString == null) return;
-        var cleaned:String = flagString.trim();
-        if (cleaned.length == 0) return;
-
-        if (cleaned.indexOf("=") == -1) {
-            set(cleaned, true);
-            return;
-        }
-
-        var parts:Array<String> = cleaned.split("=");
-        if (parts.length < 2) return;
-
-        var key:String = parts[0].trim();
-        var valueString:String = parts.slice(1).join("=").trim();
-        set(key, parseScalar(valueString));
-    }
-
-    static function parseScalar(rawValue:String):Dynamic {
-        if (rawValue == null) return true;
-        var value:String = rawValue.trim();
-
-        if (value == "true") return true;
-        if (value == "false") return false;
-        if (value.toLowerCase() == "null") return null;
-
-        var intValue:Null<Int> = Std.parseInt(value);
-        if (intValue != null && Std.string(intValue) == value) {
-            return intValue;
-        }
-
-        var floatValue:Float = Std.parseFloat(value);
-        if (!Math.isNaN(floatValue)) {
-            return floatValue;
-        }
-
-        return value;
     }
 
     public static function resolveModFlags():Void {
@@ -214,57 +159,19 @@ class GameplayFlags {
                         if (node.name.toLowerCase() == "flag") {
                             var name = XMSoul.getAttr(node, "name", "");
                             var val = XMSoul.getAttr(node, "value", "true");
-                            if (name.length > 0) set(name, parseScalar(val));
+                            if (name.length > 0) set(name, val);
+                        } else if (node.name.toLowerCase() == "notecolors") {
+                            for (cNode in node.elements) {
+                                var lane = XMSoul.getIntAttr(cNode, "lane", -1);
+                                var colorVal = XMSoul.getColorAttr(cNode, "color", FlxColor.WHITE);
+                                if (lane >= 0) set('forcedLaneColor_$lane', colorVal);
+                            }
                         }
                     }
                 } catch (e:Dynamic) {
                     Logger.warn('Failed parsing flags in $xp: $e', "flags");
                 }
                 break;
-            }
-        }
-
-        var manifestCandidates = [
-            '$modDirectory/soulmod.json',
-            '$modDirectory/mod.json',
-            '$modDirectory/config.json'
-        ];
-
-        for (jsonPath in manifestCandidates) {
-            if (FileSystem.exists(jsonPath)) {
-                try {
-                    var raw:String = File.getContent(jsonPath);
-                    var parsed:Dynamic = Json.parse(raw);
-
-                    if (Reflect.hasField(parsed, "flags")) {
-                        var flags:Array<Dynamic> = Reflect.field(parsed, "flags");
-                        if (flags != null) {
-                            for (flag in flags) {
-                                if (Std.isOfType(flag, String)) {
-                                    applyFlagString(cast flag);
-                                }
-                            }
-                        }
-                    }
-                } catch (e:Dynamic) {
-                    Logger.warn('Failed parsing flags in $jsonPath: $e', "flags");
-                }
-                break;
-            }
-        }
-
-        var flagsPath:String = '$modDirectory/flags.json';
-        if (FileSystem.exists(flagsPath)) {
-            try {
-                var raw:String = File.getContent(flagsPath);
-                var parsed:Dynamic = Json.parse(raw);
-                if (parsed != null) {
-                    for (key in Reflect.fields(parsed)) {
-                        set(key, Reflect.field(parsed, key));
-                    }
-                }
-            } catch (e:Dynamic) {
-                Logger.warn('Failed parsing flags in $flagsPath: $e', "flags");
             }
         }
         #end

@@ -1,6 +1,7 @@
 package soulscorch.backend.system.engine;
 
 import flixel.FlxG;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.backend.utils.Logger;
 
@@ -19,6 +20,10 @@ class GameConfig {
     public var shadersEnabled:Bool = true;
     public var lowQualityShaders:Bool = false;
     public var defaultNoteSkin:String = "default";
+    public var cameraZoomOnBeat:Bool = true;
+    public var botplay:Bool = false;
+    public var noteSplash:Bool = true;
+    public var exportReplayMp4:Bool = false;
 
     public function new() {
         load();
@@ -26,27 +31,31 @@ class GameConfig {
 
     public function load():Void {
         try {
-            if (FlxG.save != null && FlxG.save.data != null) {
-                if (FlxG.save.data.downscroll != null) downscroll = FlxG.save.data.downscroll;
-                if (FlxG.save.data.middlescroll != null) middlescroll = FlxG.save.data.middlescroll;
-                if (FlxG.save.data.ghostTapping != null) ghostTapping = FlxG.save.data.ghostTapping;
-                if (FlxG.save.data.framerate != null) framerate = FlxG.save.data.framerate;
-                if (FlxG.save.data.flashingLights != null) flashingLights = FlxG.save.data.flashingLights;
-                if (FlxG.save.data.antialiasing != null) antialiasing = FlxG.save.data.antialiasing;
-                if (FlxG.save.data.autoGC != null) autoGC = FlxG.save.data.autoGC;
-                if (FlxG.save.data.offset != null) offset = FlxG.save.data.offset;
-                if (FlxG.save.data.masterVolume != null) masterVolume = FlxG.save.data.masterVolume;
-                if (FlxG.save.data.instrumentalVolume != null) instrumentalVolume = FlxG.save.data.instrumentalVolume;
-                if (FlxG.save.data.vocalVolume != null) vocalVolume = FlxG.save.data.vocalVolume;
-                if (FlxG.save.data.shadersEnabled != null) shadersEnabled = FlxG.save.data.shadersEnabled;
-                if (FlxG.save.data.lowQualityShaders != null) lowQualityShaders = FlxG.save.data.lowQualityShaders;
-                if (FlxG.save.data.defaultNoteSkin != null) defaultNoteSkin = FlxG.save.data.defaultNoteSkin;
-            }
+            var saveInst = SaveData.instance;
+
+            downscroll = saveInst.getBool("downscroll", false);
+            middlescroll = saveInst.getBool("middlescroll", false);
+            ghostTapping = saveInst.getBool("ghostTapping", true);
+            framerate = saveInst.getInt("framerate", 120);
+            flashingLights = saveInst.getBool("flashingLights", true);
+            antialiasing = saveInst.getBool("antialiasing", true);
+            autoGC = saveInst.getBool("autoGC", true);
+            offset = saveInst.getFloat("noteOffset", saveInst.getFloat("offset", 0.0));
+            masterVolume = saveInst.getFloat("masterVolume", 1.0);
+            instrumentalVolume = saveInst.getFloat("instrumentalVolume", 1.0);
+            vocalVolume = saveInst.getFloat("vocalVolume", 1.0);
+            shadersEnabled = saveInst.getBool("shadersEnabled", true);
+            lowQualityShaders = saveInst.getBool("lowQualityShaders", false);
+            defaultNoteSkin = saveInst.getString("noteSkin", "default");
+            cameraZoomOnBeat = saveInst.getBool("cameraZoomOnBeat", true);
+            botplay = saveInst.getBool("botplay", false);
+            noteSplash = saveInst.getBool("noteSplash", true);
+            exportReplayMp4 = saveInst.getBool("exportReplayMp4", false);
 
             EngineUtils.setFramerate(framerate);
             applyAudioPreferences();
             
-            Logger.info("Game configuration loaded successfully.", "config");
+            Logger.info("Game configuration synchronized with SaveData successfully.", "config");
         } catch (e:Dynamic) {
             Logger.error('Failed loading configuration: $e', "config");
         }
@@ -54,28 +63,33 @@ class GameConfig {
 
     public function save():Void {
         try {
-            if (FlxG.save != null && FlxG.save.data != null) {
-                FlxG.save.data.downscroll = downscroll;
-                FlxG.save.data.middlescroll = middlescroll;
-                FlxG.save.data.ghostTapping = ghostTapping;
-                FlxG.save.data.framerate = framerate;
-                FlxG.save.data.flashingLights = flashingLights;
-                FlxG.save.data.antialiasing = antialiasing;
-                FlxG.save.data.autoGC = autoGC;
-                FlxG.save.data.offset = offset;
-                FlxG.save.data.masterVolume = masterVolume;
-                FlxG.save.data.instrumentalVolume = instrumentalVolume;
-                FlxG.save.data.vocalVolume = vocalVolume;
-                FlxG.save.data.shadersEnabled = shadersEnabled;
-                FlxG.save.data.lowQualityShaders = lowQualityShaders;
-                FlxG.save.data.defaultNoteSkin = defaultNoteSkin;
-                FlxG.save.flush();
-            }
+            var saveInst = SaveData.instance;
+
+            saveInst.setSetting("downscroll", downscroll, false);
+            saveInst.setSetting("middlescroll", middlescroll, false);
+            saveInst.setSetting("ghostTapping", ghostTapping, false);
+            saveInst.setSetting("framerate", framerate, false);
+            saveInst.setSetting("flashingLights", flashingLights, false);
+            saveInst.setSetting("antialiasing", antialiasing, false);
+            saveInst.setSetting("autoGC", autoGC, false);
+            saveInst.setSetting("noteOffset", offset, false);
+            saveInst.setSetting("masterVolume", masterVolume, false);
+            saveInst.setSetting("instrumentalVolume", instrumentalVolume, false);
+            saveInst.setSetting("vocalVolume", vocalVolume, false);
+            saveInst.setSetting("shadersEnabled", shadersEnabled, false);
+            saveInst.setSetting("lowQualityShaders", lowQualityShaders, false);
+            saveInst.setSetting("noteSkin", defaultNoteSkin, false);
+            saveInst.setSetting("cameraZoomOnBeat", cameraZoomOnBeat, false);
+            saveInst.setSetting("botplay", botplay, false);
+            saveInst.setSetting("noteSplash", noteSplash, false);
+            saveInst.setSetting("exportReplayMp4", exportReplayMp4, false);
+
+            saveInst.persist();
 
             EngineUtils.setFramerate(framerate);
             applyAudioPreferences();
 
-            Logger.info("Game configuration saved to disk.", "config");
+            Logger.info("Game configuration persisted to disk.", "config");
         } catch (e:Dynamic) {
             Logger.error('Failed saving configuration: $e', "config");
         }
@@ -96,6 +110,10 @@ class GameConfig {
         shadersEnabled = true;
         lowQualityShaders = false;
         defaultNoteSkin = "default";
+        cameraZoomOnBeat = true;
+        botplay = false;
+        noteSplash = true;
+        exportReplayMp4 = false;
         save();
     }
 

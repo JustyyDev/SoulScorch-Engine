@@ -8,7 +8,7 @@ class SoulScriptParser {
 
         var lines = source.split("\n");
         var output:Array<String> = [];
-        var openFunctions:Int = 0;
+        var indentStack:Array<Int> = [0];
 
         for (raw in lines) {
             var rawClean = raw.replace("\r", "");
@@ -18,59 +18,63 @@ class SoulScriptParser {
                 continue;
             }
 
+            var currentIndent = getIndentLevel(rawClean);
+
+            while (indentStack.length > 1 && currentIndent < indentStack[indentStack.length - 1]) {
+                indentStack.pop();
+                output.push(getIndentation(indentStack.length - 1) + "}");
+            }
+
             var header = translateHeader(trimmed);
             if (header != null) {
-                // If a previous function block was already open, close it before opening the next
-                if (openFunctions > 0) {
-                    output.push("}");
-                    openFunctions--;
-                }
-                output.push(header);
-                openFunctions++;
+                output.push(getIndentation(indentStack.length - 1) + header);
+                indentStack.push(currentIndent + 4);
                 continue;
             }
 
-            var strumTween = translateStrumTween(trimmed);
-            if (strumTween != null) {
-                output.push("    " + strumTween);
-                continue;
-            }
-
-            var vec3Tween = translateVector3Tween(trimmed);
-            if (vec3Tween != null) {
-                output.push("    " + vec3Tween);
-                continue;
-            }
-
-            var shaderTween = translateShaderTween(trimmed);
-            if (shaderTween != null) {
-                output.push("    " + shaderTween);
-                continue;
-            }
-
-            var tween = translateTween(trimmed);
+            var tween = translateAnyTween(trimmed);
             if (tween != null) {
-                output.push("    " + tween);
+                output.push(getIndentation(indentStack.length - 1) + tween);
                 continue;
             }
 
-            var statement = translateMacros(trimmed);
-            if (statement == null) statement = trimmed;
+            var macroCode = translateMacros(trimmed);
+            if (macroCode != null) {
+                output.push(getIndentation(indentStack.length - 1) + macroCode);
+                continue;
+            }
 
-            // Avoid injecting duplicate semicolons around braces or existing terminals
+            var statement = trimmed;
             if (!statement.endsWith(";") && !statement.endsWith("{") && !statement.endsWith("}")) {
                 statement += ";";
             }
 
-            output.push("    " + statement);
+            output.push(getIndentation(indentStack.length - 1) + statement);
         }
 
-        while (openFunctions > 0) {
-            output.push("}");
-            openFunctions--;
+        while (indentStack.length > 1) {
+            indentStack.pop();
+            output.push(getIndentation(indentStack.length - 1) + "}");
         }
 
         return output.join("\n");
+    }
+
+    private static function getIndentLevel(line:String):Int {
+        var count = 0;
+        for (i in 0...line.length) {
+            var c = line.charAt(i);
+            if (c == " ") count += 1;
+            else if (c == "\t") count += 4;
+            else break;
+        }
+        return count;
+    }
+
+    private static inline function getIndentation(depth:Int):String {
+        var str = "";
+        for (_ in 0...depth) str += "    ";
+        return str;
     }
 
     private static function translateHeader(line:String):String {
@@ -112,63 +116,67 @@ class SoulScriptParser {
         return null;
     }
 
-    private static function translateStrumTween(line:String):String {
+    private static function translateAnyTween(line:String):String {
         var clean = line.trim();
-        var reg = ~/^strumline\.(player|opponent)\[([0-3])\]\.([A-Za-z0-9_]+)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
-        if (!reg.match(clean)) return null;
 
-        var group = reg.matched(1) == "player" ? "game.playerStrumline.receptors" : "game.opponentStrumline.receptors";
-        var idx = reg.matched(2);
-        var prop = reg.matched(3);
-        var val = reg.matched(4);
-        var dur = reg.matched(5);
-        var ease = reg.matched(6) != null ? reg.matched(6) : "linear";
+        // Strumline: strumline.player[0].y -> 100 in 1s (cubeOut)
+        var strumReg = ~/^strumline\.(player|opponent)\[([0-3])\]\.([A-Za-z0-9_]+)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
+        if (strumReg.match(clean)) {
+            var group = strumReg.matched(1) == "player" ? "game.playerStrumline.receptors" : "game.opponentStrumline.receptors";
+            var idx = strumReg.matched(2);
+            var prop = strumReg.matched(3);
+            var val = strumReg.matched(4);
+            var dur = strumReg.matched(5);
+            var ease = strumReg.matched(6) != null ? strumReg.matched(6) : "linear";
+            return 'FlxTween.tween($group[$idx], {$prop: $val}, $dur, {ease: FlxEase.$ease});';
+        }
 
-        return 'FlxTween.tween($group[$idx], {$prop: $val}, $dur, {ease: FlxEase.$ease});';
-    }
+        // Camera Pan: camera -> [x, y] in 2s (quadInOut)
+        var camReg = ~/^camera\s*->\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
+        if (camReg.match(clean)) {
+            var targetX = camReg.matched(1);
+            var targetY = camReg.matched(2);
+            var dur = camReg.matched(3);
+            var ease = camReg.matched(4) != null ? camReg.matched(4) : "linear";
+            return 'FlxTween.tween(FlxG.camera.scroll, {x: $targetX - (FlxG.width / 2), y: $targetY - (FlxG.height / 2)}, $dur, {ease: FlxEase.$ease});';
+        }
 
-    private static function translateTween(line:String):String {
-        var clean = line.trim();
-        var regex = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
-        if (!regex.match(clean)) return null;
+        // Vector3: obj.position -> [x, y, z] in 1.5s
+        var v3Reg = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.(position|target|rotation|scale)\s*->\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
+        if (v3Reg.match(clean)) {
+            var target = v3Reg.matched(1);
+            var prop = v3Reg.matched(2);
+            var x = v3Reg.matched(3);
+            var y = v3Reg.matched(4);
+            var z = v3Reg.matched(5);
+            var dur = v3Reg.matched(6);
+            var ease = v3Reg.matched(7) != null ? v3Reg.matched(7) : "linear";
+            return 'FlxTween.tween($target.$prop, {x: $x, y: $y, z: $z}, $dur, {ease: FlxEase.$ease});';
+        }
 
-        var target = regex.matched(1);
-        var prop = regex.matched(2);
-        var value = regex.matched(3);
-        var dur = regex.matched(4);
-        var ease = regex.matched(5) != null ? regex.matched(5) : "linear";
+        // Shader Uniform: shader.glitch.intensity -> 0.8 in 0.5s
+        var shaderReg = ~/^shader\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*->\s*([0-9.]+)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
+        if (shaderReg.match(clean)) {
+            var shaderVar = shaderReg.matched(1);
+            var uniform = shaderReg.matched(2);
+            var targetVal = shaderReg.matched(3);
+            var dur = shaderReg.matched(4);
+            var ease = shaderReg.matched(5) != null ? shaderReg.matched(5) : "linear";
+            return 'FlxTween.num($shaderVar.getFloat("$uniform"), $targetVal, $dur, {ease: FlxEase.$ease}, function(v) { $shaderVar.setFloat("$uniform", v); });';
+        }
 
-        return 'FlxTween.tween(' + target + ', {' + prop + ': ' + value + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';
-    }
+        // Generic Property: sprite.alpha -> 0.0 in 1.25s (quadOut)
+        var propReg = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
+        if (propReg.match(clean)) {
+            var target = propReg.matched(1);
+            var prop = propReg.matched(2);
+            var value = propReg.matched(3);
+            var dur = propReg.matched(4);
+            var ease = propReg.matched(5) != null ? propReg.matched(5) : "linear";
+            return 'FlxTween.tween($target, {$prop: $value}, $dur, {ease: FlxEase.$ease});';
+        }
 
-    private static function translateVector3Tween(line:String):String {
-        var clean = line.trim();
-        var regex = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.(position|target|rotation|scale)\s*->\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
-        if (!regex.match(clean)) return null;
-
-        var target = regex.matched(1);
-        var prop = regex.matched(2);
-        var x = regex.matched(3);
-        var y = regex.matched(4);
-        var z = regex.matched(5);
-        var dur = regex.matched(6);
-        var ease = regex.matched(7) != null ? regex.matched(7) : "linear";
-
-        return 'FlxTween.tween(' + target + '.' + prop + ', {x: ' + x + ', y: ' + y + ', z: ' + z + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';
-    }
-
-    private static function translateShaderTween(line:String):String {
-        var clean = line.trim();
-        var regex = ~/^shader\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*->\s*([0-9.]+)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
-        if (!regex.match(clean)) return null;
-
-        var shaderVar = regex.matched(1);
-        var uniform = regex.matched(2);
-        var targetVal = regex.matched(3);
-        var dur = regex.matched(4);
-        var ease = regex.matched(5) != null ? regex.matched(5) : "linear";
-
-        return 'FlxTween.num(' + shaderVar + '.getFloat("' + uniform + '"), ' + targetVal + ', ' + dur + ', {ease: FlxEase.' + ease + '}, function(v) { ' + shaderVar + '.setFloat("' + uniform + '", v); });';
+        return null;
     }
 
     private static function translateMacros(line:String):String {
@@ -180,10 +188,26 @@ class SoulScriptParser {
         var bump = ~/^camera\.bump\(([0-9.]+)\);?$/i;
         if (bump.match(clean)) return 'FlxG.camera.zoom += ' + bump.matched(1) + ';';
 
+        var fade = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.fade\(([0-9.]+),\s*([0-9.]+)s?(?:,\s*([A-Za-z0-9_]+))?\);?$/i;
+        if (fade.match(clean)) {
+            var spr = fade.matched(1);
+            var targetAlpha = fade.matched(2);
+            var dur = fade.matched(3);
+            var ease = fade.matched(4) != null ? fade.matched(4) : "linear";
+            return 'FlxTween.tween($spr, {alpha: $targetAlpha}, $dur, {ease: FlxEase.$ease});';
+        }
+
         var snd = ~/^playSound\("([^"]+)"(?:,\s*([0-9.]+))?\);?$/i;
         if (snd.match(clean)) {
             var vol = snd.matched(2) != null ? snd.matched(2) : "1.0";
             return 'soulscorch.backend.assets.AssetHelper.playSoundSafely("' + snd.matched(1) + '", ' + vol + ');';
+        }
+
+        var music = ~/^playMusic\("([^"]+)"(?:,\s*([0-9.]+))?(?:,\s*(true|false))?\);?$/i;
+        if (music.match(clean)) {
+            var vol = music.matched(2) != null ? music.matched(2) : "1.0";
+            var loop = music.matched(3) != null ? music.matched(3) : "true";
+            return 'FlxG.sound.playMusic(Paths.music("' + music.matched(1) + '"), ' + vol + ', ' + loop + ');';
         }
 
         return null;

@@ -1,24 +1,63 @@
 var activeLayer = "behindDad";
 var layers = ["background", "behindGF", "behindDad", "behindBF", "foreground"];
+var stageProps = [];
 
 function onCreate() {
     showToast("Stage Architect System Ready", false);
 }
 
 function onAddProp() {
+    var p = new FlxSprite(FlxG.width * 0.5 - 50, FlxG.height * 0.5 - 50);
+    p.makeGraphic(100, 100, 0xFFFFFFFF);
+    stageProps.push(p);
+    editor.add(p);
     showToast("Prop added to stage hierarchy", false);
 }
 
 function onRemoveProp() {
-    showToast("Prop removed from stage hierarchy", false);
+    if (stageProps.length > 0) {
+        var p = stageProps.pop();
+        editor.remove(p);
+        p.destroy();
+        showToast("Prop removed from stage hierarchy", false);
+    }
 }
 
-function onScaleX(val) {}
-function onScaleY(val) {}
-function onScrollX(val) {}
-function onScrollY(val) {}
-function onAlpha(val) {}
-function onAntialias(val) {}
+function onScaleX(val) {
+    if (stageProps.length > 0 && val != null) {
+        stageProps[stageProps.length - 1].scale.x = val;
+    }
+}
+
+function onScaleY(val) {
+    if (stageProps.length > 0 && val != null) {
+        stageProps[stageProps.length - 1].scale.y = val;
+    }
+}
+
+function onScrollX(val) {
+    if (stageProps.length > 0 && val != null) {
+        stageProps[stageProps.length - 1].scrollFactor.x = val;
+    }
+}
+
+function onScrollY(val) {
+    if (stageProps.length > 0 && val != null) {
+        stageProps[stageProps.length - 1].scrollFactor.y = val;
+    }
+}
+
+function onAlpha(val) {
+    if (stageProps.length > 0 && val != null) {
+        stageProps[stageProps.length - 1].alpha = val;
+    }
+}
+
+function onAntialias(val) {
+    if (stageProps.length > 0) {
+        stageProps[stageProps.length - 1].antialiasing = (val == true);
+    }
+}
 
 function onCycleLayer() {
     var nextIdx = (layers.indexOf(activeLayer) + 1) % layers.length;

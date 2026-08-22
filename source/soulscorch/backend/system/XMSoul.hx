@@ -146,6 +146,14 @@ typedef XMSoulStageObject = {
     var antialiasing:Bool;
 }
 
+typedef XMSoulStageConfig = {
+    var name:String;
+    var defaultZoom:Float;
+    var camPos:Array<Float>;
+    var positions:Map<String, Array<Float>>;
+    var objects:Array<XMSoulStageObject>;
+}
+
 typedef XMSoulCharacterConfig = {
     var image:String;
     var icon:String;
@@ -160,9 +168,22 @@ typedef XMSoulCharacterConfig = {
     var animations:Array<{name:String, prefix:String, fps:Int, loop:Bool, indices:Array<Int>, offset:Array<Float>}>;
 }
 
-// ==========================================
-// Master Engine Parser Implementation
-// ==========================================
+typedef XMSoulDialogueLine = {
+    var portrait:String;
+    var box:String;
+    var text:String;
+    var speed:Float;
+    var sound:String;
+    var side:String;
+}
+
+typedef XMSoulSongModifiers = {
+    var scrollSpeedMultiplier:Float;
+    var ghostTapping:Bool;
+    var healthDrain:Float;
+    var drainFloor:Float;
+    var maxHealth:Float;
+}
 
 class XMSoul {
     private static var cache:Map<String, Access> = new Map<String, Access>();
@@ -600,20 +621,40 @@ class XMSoul {
         return lines;
     }
 
-    // ==========================================
-    // Stage & Character Generators
-    // ==========================================
-
     public static function loadStage(path:String):Array<XMSoulStageObject> {
-        var doc = parse(path);
-        if (doc == null) return [];
+        var conf = loadStageConfig(path);
+        return conf != null ? conf.objects : [];
+    }
 
-        var stageObjects:Array<XMSoulStageObject> = [];
+    public static function loadStageConfig(path:String):Null<XMSoulStageConfig> {
+        var doc = parse(path);
+        if (doc == null) return null;
+
+        var stageConf:XMSoulStageConfig = {
+            name: getAttr(doc, "name", "Stage"),
+            defaultZoom: getFloatAttr(doc, "defaultZoom", 1.0),
+            camPos: [getFloatAttr(doc, "startCamPosX", 0.0), getFloatAttr(doc, "startCamPosY", 0.0)],
+            positions: new Map<String, Array<Float>>(),
+            objects: []
+        };
+
+        if (doc.hasNode.resolve("camera")) {
+            var c = doc.node.resolve("camera");
+            stageConf.defaultZoom = getFloatAttr(c, "zoom", stageConf.defaultZoom);
+            stageConf.camPos = [getFloatAttr(c, "x", stageConf.camPos[0]), getFloatAttr(c, "y", stageConf.camPos[1])];
+        }
+
+        if (doc.hasNode.resolve("positions")) {
+            var posNode = doc.node.resolve("positions");
+            for (elem in posNode.elements) {
+                stageConf.positions.set(elem.name.toLowerCase(), [getFloatAttr(elem, "x", 0.0), getFloatAttr(elem, "y", 0.0)]);
+            }
+        }
 
         if (doc.hasNode.resolve("objects")) {
             for (node in doc.node.resolve("objects").nodes.resolve("sprite")) {
                 var obj:XMSoulStageObject = {
-                    id: getAttr(node, "id", "prop_" + stageObjects.length),
+                    id: getAttr(node, "id", "prop_" + stageConf.objects.length),
                     image: getAttr(node, "image", ""),
                     x: getFloatAttr(node, "x", 0.0),
                     y: getFloatAttr(node, "y", 0.0),
@@ -621,15 +662,15 @@ class XMSoul {
                     scaleY: getFloatAttr(node, "scaleY", getFloatAttr(node, "scale", 1.0)),
                     scrollX: getFloatAttr(node, "scrollX", getFloatAttr(node, "scroll", 1.0)),
                     scrollY: getFloatAttr(node, "scrollY", getFloatAttr(node, "scroll", 1.0)),
-                    zIndex: getIntAttr(node, "zIndex", stageObjects.length),
+                    zIndex: getIntAttr(node, "zIndex", stageConf.objects.length),
                     alpha: getFloatAttr(node, "alpha", 1.0),
                     antialiasing: getBoolAttr(node, "antialiasing", true)
                 };
-                stageObjects.push(obj);
+                stageConf.objects.push(obj);
             }
         }
 
-        return stageObjects;
+        return stageConf;
     }
 
     public static function loadCharacter(path:String):Null<XMSoulCharacterConfig> {
@@ -661,18 +702,50 @@ class XMSoul {
                     }
                 }
 
+                var offsets = getFloatArrayAttr(anim, "offsets");
+                if (offsets.length == 0) offsets = getFloatArrayAttr(anim, "offset");
+
                 char.animations.push({
                     name: getAttr(anim, "name"),
                     prefix: getAttr(anim, "prefix"),
                     fps: getIntAttr(anim, "fps", 24),
                     loop: getBoolAttr(anim, "loop", false),
                     indices: indices,
-                    offset: getFloatArrayAttr(anim, "offset")
+                    offset: offsets
                 });
             }
         }
 
         return char;
+    }
+
+    public static function loadDialogue(path:String):Array<XMSoulDialogueLine> {
+        var doc = parse(path);
+        if (doc == null) return [];
+
+        var lines:Array<XMSoulDialogueLine> = [];
+        for (line in doc.nodes.resolve("line")) {
+            lines.push({
+                portrait: getAttr(line, "portrait", "bf"),
+                box: getAttr(line, "box", "default"),
+                text: getAttr(line, "text", ""),
+                speed: getFloatAttr(line, "speed", 0.05),
+                sound: getAttr(line, "sound", "dialogue"),
+                side: getAttr(line, "side", "left")
+            });
+        }
+        return lines;
+    }
+
+    public static function loadModifiers(path:String):XMSoulSongModifiers {
+        var doc = parse(path);
+        return {
+            scrollSpeedMultiplier: getFloatAttr(doc, "scrollSpeedMultiplier", 1.0),
+            ghostTapping: getBoolAttr(doc, "ghostTapping", true),
+            healthDrain: getFloatAttr(doc, "healthDrain", 0.0),
+            drainFloor: getFloatAttr(doc, "drainFloor", getFloatAttr(doc, "minHealthDrainLimit", 0.1)),
+            maxHealth: getFloatAttr(doc, "maxHealth", 2.0)
+        };
     }
 
     public static function clearCache():Void {

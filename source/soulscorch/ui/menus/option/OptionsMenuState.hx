@@ -14,12 +14,13 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.InputMap;
-import soulscorch.backend.system.SaveData;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.gameplay.GameplayFlags;
+import soulscorch.gameplay.notes.NoteSkinManager;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.KeybindRow;
@@ -64,7 +65,6 @@ class OptionsMenuState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -197,22 +197,13 @@ class OptionsMenuState extends MusicBeatState {
                 },
                 {
                     name: "Export Replay MP4s",
-                    description: "Automatically encodes and exports Discord-embeddable 60FPS MP4 videos of your runs to replays/videos/.",
+                    description: "Automatically encodes and exports Discord-embeddable 60FPS MP4 videos of your runs.",
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("exportReplayMp4", false),
                     setValue: function(v) {
                         GameplayFlags.set("exportReplayMp4", v);
                         if (SaveData.instance != null) SaveData.instance.setSetting("exportReplayMp4", v, true);
                         savePreferences();
-                    }
-                },
-                {
-                    name: "Replay & MP4 Archive",
-                    description: "View and play recorded gameplay replays or open your exported MP4 video folder.",
-                    type: "button",
-                    getValue: function() return "OPEN",
-                    setValue: function(_) {
-                        openSubState(new soulscorch.ui.menus.substate.ReplayGallerySubState());
                     }
                 }
             ]),
@@ -271,6 +262,54 @@ class OptionsMenuState extends MusicBeatState {
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("cameraZoomOnBeat", true),
                     setValue: function(v) { GameplayFlags.set("cameraZoomOnBeat", v); savePreferences(); }
+                }
+            ]),
+            new OptionCategory("Note Colors", "options", 0xFF2A1A30, [
+                {
+                    name: "Left Note Color",
+                    description: "Base tint applied across Left receptors, notes, and splashes.",
+                    type: "enum",
+                    options: ["Purple", "Magenta", "Cyan", "Lime", "Red", "Yellow", "White"],
+                    getValue: function() return getColorName(0),
+                    setValue: function(v) { setLaneColorByName(0, Std.string(v)); }
+                },
+                {
+                    name: "Down Note Color",
+                    description: "Base tint applied across Down receptors, notes, and splashes.",
+                    type: "enum",
+                    options: ["Cyan", "Blue", "Purple", "Lime", "Red", "Yellow", "White"],
+                    getValue: function() return getColorName(1),
+                    setValue: function(v) { setLaneColorByName(1, Std.string(v)); }
+                },
+                {
+                    name: "Up Note Color",
+                    description: "Base tint applied across Up receptors, notes, and splashes.",
+                    type: "enum",
+                    options: ["Green", "Lime", "Cyan", "Purple", "Red", "Yellow", "White"],
+                    getValue: function() return getColorName(2),
+                    setValue: function(v) { setLaneColorByName(2, Std.string(v)); }
+                },
+                {
+                    name: "Right Note Color",
+                    description: "Base tint applied across Right receptors, notes, and splashes.",
+                    type: "enum",
+                    options: ["Red", "Orange", "Yellow", "Purple", "Cyan", "Lime", "White"],
+                    getValue: function() return getColorName(3),
+                    setValue: function(v) { setLaneColorByName(3, Std.string(v)); }
+                },
+                {
+                    name: "Reset Note Colors",
+                    description: "Restores lane color settings back to default vibrant engine themes.",
+                    type: "button",
+                    getValue: function() return "EXECUTE",
+                    setValue: function(_) {
+                        if (FlxG.save != null && FlxG.save.data != null) {
+                            FlxG.save.data.customNoteColors = NoteSkinManager.defaultLaneColors.copy();
+                            savePreferences();
+                            updateRowValues();
+                            EditorToast.show("Note Colors Reset to Defaults");
+                        }
+                    }
                 }
             ]),
             new OptionCategory("Audio", "options", 0xFF301A1A, [
@@ -351,13 +390,50 @@ class OptionsMenuState extends MusicBeatState {
         ];
     }
 
+    private function getColorName(lane:Int):String {
+        var col:FlxColor = NoteSkinManager.getLaneColor(lane);
+        return switch (col) {
+            case 0xFFC24B99: "Purple";
+            case 0xFFFF00FF: "Magenta";
+            case 0xFF00FFFF: "Cyan";
+            case 0xFF0000FF: "Blue";
+            case 0xFF12FA05, 0xFF00FF00: "Lime";
+            case 0xFF008800: "Green";
+            case 0xFFF9393F, 0xFFFF0000: "Red";
+            case 0xFFFF8800: "Orange";
+            case 0xFFFFFF00: "Yellow";
+            case 0xFFFFFFFF: "White";
+            default: "Custom";
+        };
+    }
+
+    private function setLaneColorByName(lane:Int, name:String):Void {
+        var col:FlxColor = switch (name.toLowerCase()) {
+            case "purple": 0xFFC24B99;
+            case "magenta": 0xFFFF00FF;
+            case "cyan": 0xFF00FFFF;
+            case "blue": 0xFF0000FF;
+            case "lime": 0xFF12FA05;
+            case "green": 0xFF008800;
+            case "red": 0xFFF9393F;
+            case "orange": 0xFFFF8800;
+            case "yellow": 0xFFFFFF00;
+            case "white": 0xFFFFFFFF;
+            default: NoteSkinManager.defaultLaneColors[lane % 4];
+        };
+
+        if (FlxG.save != null && FlxG.save.data != null) {
+            if (FlxG.save.data.customNoteColors == null) {
+                FlxG.save.data.customNoteColors = NoteSkinManager.defaultLaneColors.copy();
+            }
+            FlxG.save.data.customNoteColors[lane % 4] = col;
+            savePreferences();
+        }
+    }
+
     private function savePreferences():Void {
-        if (Runtime.config != null) {
-            Runtime.config.save();
-        }
-        if (FlxG.save != null) {
-            FlxG.save.flush();
-        }
+        if (Runtime.config != null) Runtime.config.save();
+        if (FlxG.save != null) FlxG.save.flush();
         EditorToast.show("Preferences Saved!");
     }
 
@@ -418,7 +494,7 @@ class OptionsMenuState extends MusicBeatState {
             changeCategory(-1);
             return;
         }
-        if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN || FlxG.keys.justPressed.TAB) {
+        if (FlxG.keys.justPressed.E || FlxG.keys.justPressed.PAGEDOWN) {
             changeCategory(1);
             return;
         }

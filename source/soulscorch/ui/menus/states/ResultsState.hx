@@ -46,7 +46,6 @@ class ResultsState extends MusicBeatState {
         }
         #end
 
-        // Play results ambient music safely
         var resultsMusic = Paths.music("results");
         if (resultsMusic == null) resultsMusic = Paths.music("breakfast");
         if (resultsMusic != null) {
@@ -61,7 +60,6 @@ class ResultsState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
-        // Cyber Grid Lines
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
         for (i in 0...Std.int(FlxG.width / 40)) {
             grid.pixels.fillRect(new openfl.geom.Rectangle(i * 40, 0, 1, FlxG.height), 0x08FFFFFF);
@@ -72,7 +70,6 @@ class ResultsState extends MusicBeatState {
         grid.dirty = true;
         add(grid);
 
-        // Header Top Bar
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 68, EditorTheme.PANEL_HEADER);
         add(topBar);
 
@@ -93,7 +90,6 @@ class ResultsState extends MusicBeatState {
         headerSub.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         add(headerSub);
 
-        // Left Stats Card
         var leftCard = new FlxSpriteGroup(40, 95);
         add(leftCard);
 
@@ -141,7 +137,6 @@ class ResultsState extends MusicBeatState {
         hitStatsText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_MUTED, LEFT);
         leftCard.add(hitStatsText);
 
-        // Right Grade Card
         rankCard = new FlxSpriteGroup(FlxG.width - 420, 95);
         add(rankCard);
 
@@ -170,7 +165,6 @@ class ResultsState extends MusicBeatState {
         clearTypeText.setFormat(Paths.font("vcr"), 24, (clearType == "MFC" || clearType == "GFC" || clearType == "FC") ? EditorTheme.ACCENT_CYAN : EditorTheme.ACCENT_YELLOW, CENTER);
         rankCard.add(clearTypeText);
 
-        // Footer Bar
         var footer = new FlxSprite(0, FlxG.height - 48).makeGraphic(FlxG.width, 48, EditorTheme.PANEL_HEADER);
         add(footer);
 

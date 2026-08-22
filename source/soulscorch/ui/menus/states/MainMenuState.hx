@@ -20,9 +20,9 @@ import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.credits.CreditsState;
-import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.FreeplayState;
 import soulscorch.ui.menus.states.HomeSoulState;
@@ -283,6 +283,12 @@ class MainMenuState extends MusicBeatState {
 
     private function goToState(choice:String):Void {
         var clean = choice != null ? choice.trim().toLowerCase() : "";
+        var redirect = SoulGlobalScript.getRedirect(clean);
+        if (redirect != null && redirect != clean) {
+            MusicBeatState.switchState(new soulscorch.scripting.mod.ModCustomState(redirect));
+            return;
+        }
+
         switch (clean) {
             case "story_mode" | "story" | "storymode":
                 MusicBeatState.switchState(new StoryMenuState());

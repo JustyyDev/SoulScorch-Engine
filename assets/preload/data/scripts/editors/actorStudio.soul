@@ -4,13 +4,28 @@ var camOffsetX = 0.0;
 var camOffsetY = 0.0;
 var isGhost = true;
 var isFlipped = false;
+var actorSprite = null;
+var ghostSprite = null;
 
 function onCreate() {
     showToast("Actor Studio Engine Ready", false);
+    
+    actorSprite = new FlxSprite(FlxG.width * 0.5 - 100, FlxG.height * 0.5 - 100);
+    actorSprite.makeGraphic(200, 300, 0xFF00FFCC);
+    editor.add(actorSprite);
+
+    ghostSprite = new FlxSprite(actorSprite.x, actorSprite.y);
+    ghostSprite.makeGraphic(200, 300, 0x44FFFFFF);
+    ghostSprite.visible = isGhost;
+    editor.add(ghostSprite);
 }
 
 function onUpdateScale(val) {
-    if (val != null) curScale = val;
+    if (val != null && actorSprite != null) {
+        curScale = val;
+        actorSprite.scale.set(curScale, curScale);
+        actorSprite.updateHitbox();
+    }
 }
 
 function onUpdateSing(val) {
@@ -31,11 +46,13 @@ function onUpdateCamY(val) {
 
 function onToggleGhost(val) {
     isGhost = (val == true);
+    if (ghostSprite != null) ghostSprite.visible = isGhost;
     showToast("Ghost Overlay: " + (isGhost ? "ENABLED" : "DISABLED"), false);
 }
 
 function onToggleFlip(val) {
     isFlipped = (val == true);
+    if (actorSprite != null) actorSprite.flipX = isFlipped;
 }
 
 function onAddAnimModal() {
@@ -47,6 +64,9 @@ function onRemoveAnim() {
 }
 
 function onResetOffsets() {
+    if (actorSprite != null) {
+        actorSprite.offset.set(0, 0);
+    }
     showToast("Offsets reset to [0, 0].", false);
 }
 
