@@ -13,15 +13,45 @@ class ShaderManager {
 
     public var filters:Array<ShaderFilter> = [];
     public var shaders:Array<SoulShader> = [];
+    public var shaderMap:Map<String, SoulShader> = new Map<String, SoulShader>();
 
     public function new() {
         instance = this;
+    }
+
+    public function getShader(name:String):Null<SoulShader> {
+        if (name == null || name.trim().length == 0) return null;
+        var clean = name.trim();
+
+        if (shaderMap.exists(clean)) {
+            return shaderMap.get(clean);
+        }
+
+        for (s in shaders) {
+            if (s != null && s.shaderName != null && s.shaderName.toLowerCase() == clean.toLowerCase()) {
+                shaderMap.set(clean, s);
+                return s;
+            }
+        }
+
+        var createdShader = new SoulShader(clean);
+        if (createdShader != null) {
+            addShader(createdShader);
+            shaderMap.set(clean, createdShader);
+            return createdShader;
+        }
+
+        return null;
     }
 
     public function addShader(shader:SoulShader, ?camera:FlxCamera):Void {
         if (shader == null || shaders.contains(shader)) return;
 
         shaders.push(shader);
+        if (shader.shaderName != null) {
+            shaderMap.set(shader.shaderName, shader);
+        }
+
         var filter = shader.filter;
         filters.push(filter);
 
@@ -39,6 +69,9 @@ class ShaderManager {
     public function removeShader(shader:SoulShader, ?camera:FlxCamera):Void {
         if (shader == null) return;
         shaders.remove(shader);
+        if (shader.shaderName != null) {
+            shaderMap.remove(shader.shaderName);
+        }
         filters.remove(shader.filter);
 
         var cam = (camera != null) ? camera : FlxG.camera;
@@ -64,6 +97,7 @@ class ShaderManager {
         }
         filters = [];
         shaders = [];
+        shaderMap.clear();
         EventBus.publish("shader/cleared", {});
     }
 

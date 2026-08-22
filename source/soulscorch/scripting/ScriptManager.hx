@@ -27,7 +27,6 @@ class ScriptManager {
     public var scripts:Array<ScriptInstance> = [];
     public var scriptPath:String = "";
 
-    // Compatibility getters for legacy / module checks
     public var isValid(get, never):Bool;
     public var active(get, never):Bool;
 
@@ -61,6 +60,18 @@ class ScriptManager {
         }
 
         return false;
+    }
+
+    public function importClass(className:String):Bool {
+        var success = false;
+        for (s in scripts) {
+            if (s != null && s.active) {
+                if (s.importClass(className)) {
+                    success = true;
+                }
+            }
+        }
+        return success;
     }
 
     public function setAll(key:String, val:Dynamic):Void {

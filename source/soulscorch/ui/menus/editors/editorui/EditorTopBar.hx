@@ -1,8 +1,10 @@
 package soulscorch.ui.menus.editors.editorui;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
@@ -10,7 +12,7 @@ import soulscorch.backend.assets.Paths;
 
 class EditorTopBar extends FlxSpriteGroup {
     public var titleText:FlxText;
-    private var buttons:Array<{name:String, callback:Void->Void, x:Float, w:Float}> = [];
+    private var buttons:Array<{name:String, callback:Void->Void, x:Float, w:Float, spr:FlxSprite}> = [];
 
     public function new(editorTitle:String) {
         super(0, 0);
@@ -45,18 +47,23 @@ class EditorTopBar extends FlxSpriteGroup {
         txt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, CENTER);
         add(txt);
 
-        buttons.push({name: name, callback: callback, x: btnX, w: btnWidth});
+        buttons.push({name: name, callback: callback, x: btnX, w: btnWidth, spr: buttonSprite});
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
-        if (FlxG.mouse.justPressed && FlxG.mouse.screenY <= 32) {
-            for (btn in buttons) {
-                if (FlxG.mouse.screenX >= btn.x && FlxG.mouse.screenX <= btn.x + btn.w) {
-                    AssetHelper.playSoundSafely("scrollMenu", 0.5);
-                    btn.callback();
-                    break;
-                }
+
+        var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
+        var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
+
+        for (btn in buttons) {
+            var hovered = (mousePos.x >= btn.x && mousePos.x <= btn.x + btn.w && mousePos.y >= 4 && mousePos.y <= 28);
+            btn.spr.color = hovered ? EditorTheme.BTN_HOVER : EditorTheme.BTN_IDLE;
+
+            if (hovered && FlxG.mouse.justPressed) {
+                AssetHelper.playSoundSafely("scrollMenu", 0.5);
+                btn.callback();
+                break;
             }
         }
     }

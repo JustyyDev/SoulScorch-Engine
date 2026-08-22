@@ -49,7 +49,7 @@ class EditorCheckbox extends FlxSpriteGroup {
         if (checkmark != null) {
             checkmark.visible = checked;
         }
-        return checkmark != null ? checkmark.visible : checked;
+        return checked;
     }
 
     private function set_labelText(t:String):String {

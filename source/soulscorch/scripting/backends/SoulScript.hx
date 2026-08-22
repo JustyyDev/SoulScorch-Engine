@@ -43,6 +43,7 @@ import soulscorch.backend.audio.AudioManager;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.EventBus;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.apis.FileSystemAPI;
 import soulscorch.backend.system.apis.ModelAPI;
@@ -105,6 +106,11 @@ class SoulScript implements ScriptInstance {
     public var path(default, null):String;
 
     public var uiElements:Map<String, FlxSprite> = new Map<String, FlxSprite>();
+    public var customSprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
+    public var customTexts:Map<String, FlxText> = new Map<String, FlxText>();
+    public var activeTweens:Map<String, FlxTween> = new Map<String, FlxTween>();
+    public var activeTimers:Map<String, FlxTimer> = new Map<String, FlxTimer>();
+
     private var interp:Interp;
 
     public function new(scriptPath:String) {
@@ -160,16 +166,21 @@ class SoulScript implements ScriptInstance {
             interp.variables.set(Std.string(i), i);
         }
 
-        // Core Timing & Conductor Variables
-        set("curBeat", 0);
-        set("curStep", 0);
-        set("curDecBeat", 0.0);
-        set("curDecStep", 0.0);
+        // ==========================================
+        // Conductor, Timing & State Properties
+        // ==========================================
+        set("curBeat", Conductor.curBeat);
+        set("curStep", Conductor.curStep);
+        set("curDecBeat", Conductor.curDecBeat);
+        set("curDecStep", Conductor.curDecStep);
         set("bpm", Conductor.bpm);
         set("crochet", Conductor.crochet);
         set("stepCrochet", Conductor.stepCrochet);
+        set("songPosition", Conductor.songPosition);
 
-        // Core Haxe & Reflection
+        // ==========================================
+        // Core Standard Libraries & Reflection
+        // ==========================================
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
@@ -180,7 +191,6 @@ class SoulScript implements ScriptInstance {
         set("Xml", Xml);
         set("Json", haxe.Json);
 
-        // Native System & I/O
         #if sys
         set("Sys", Sys);
         set("File", sys.io.File);
@@ -188,7 +198,6 @@ class SoulScript implements ScriptInstance {
         set("Process", sys.io.Process);
         #end
 
-        // Native OS API & Windowing
         set("NativeAPI", NativeAPI);
         set("FileSystemAPI", FileSystemAPI);
         set("openfl", {Lib: openfl.Lib});
@@ -199,7 +208,9 @@ class SoulScript implements ScriptInstance {
         set("Controls", Controls.instance);
         set("controls", Controls.instance);
 
-        // Flixel Core & Geometry
+        // ==========================================
+        // Flixel Core Framework & UI
+        // ==========================================
         set("FlxG", FlxG);
         set("FlxSprite", FlxSprite);
         set("FlxCamera", FlxCamera);
@@ -215,27 +226,22 @@ class SoulScript implements ScriptInstance {
         set("FlxPoint", {get: FlxPoint.get, weak: FlxPoint.weak});
         set("FlxRect", {get: FlxRect.get});
 
-        // Flx Groups & Containers
         set("FlxGroup", FlxGroup);
         set("FlxTypedGroup", FlxTypedGroup);
         set("FlxSpriteGroup", FlxSpriteGroup);
 
-        // Flx Tweens, Eases & Timing
         set("FlxTween", FlxTween);
         set("FlxEase", FlxEase);
         set("FlxTimer", FlxTimer);
         set("FlxSort", FlxSort);
 
-        // Flx Math, Physics & Velocity
         set("FlxMath", FlxMath);
         set("FlxVelocity", FlxVelocity);
         set("FlxAngle", FlxAngle);
 
-        // Flx Sounds & Effects
         set("FlxSound", FlxSound);
         set("FlxTrail", FlxTrail);
 
-        // Color Palettes & Blending
         set("FlxColor", {
             BLACK: 0xFF000000,
             WHITE: 0xFFFFFFFF,
@@ -271,7 +277,9 @@ class SoulScript implements ScriptInstance {
         set("Matrix", Matrix);
         set("URLRequest", URLRequest);
 
-        // Engine Architecture & Subsystems
+        // ==========================================
+        // Subsystems, Modding & Storage
+        // ==========================================
         set("Runtime", Runtime);
         set("Engine", Engine);
         set("Version", Version);
@@ -282,6 +290,7 @@ class SoulScript implements ScriptInstance {
         set("ModLoader", ModLoader);
         set("ModManager", ModManager);
         set("XMSoul", XMSoul);
+        set("SaveData", SaveData.instance);
         set("EngineOptimizer", EngineOptimizer);
         set("HotReloader", HotReloader);
         set("DevConsole", DevConsole);
@@ -296,7 +305,6 @@ class SoulScript implements ScriptInstance {
         set("Discord", soulscorch.backend.system.modules.discord.DiscordRPC);
         #end
 
-        // 3D Rendering & Shaders
         set("Away3DManager", Away3DManager);
         set("ModelAPI", ModelAPI);
         set("JuiceManager", JuiceManager);
@@ -315,7 +323,6 @@ class SoulScript implements ScriptInstance {
             return null;
         });
 
-        // Gameplay Actors, Notes & Charting
         set("Character", Character);
         set("HealthIcon", HealthIcon);
         set("Note", Note);
@@ -328,7 +335,6 @@ class SoulScript implements ScriptInstance {
         set("JudgementManager", JudgementManager);
         set("ModchartManager", ModchartManager);
 
-        // UI & Menus
         set("MusicBeatState", MusicBeatState);
         set("ResultsState", ResultsState);
         set("GameOverSubState", GameOverSubState);
@@ -343,7 +349,6 @@ class SoulScript implements ScriptInstance {
         set("ScriptedState", ScriptedState);
         set("ScriptedSubState", ScriptedSubState);
 
-        // Live Context & Shorthand Hooks
         set("game", FlxG.state);
         set("state", FlxG.state);
         set("camera", FlxG.camera);
@@ -354,7 +359,251 @@ class SoulScript implements ScriptInstance {
         set("defaultCamZoom", 1.0);
         set("PlayState", PlayState);
 
-        // Utility Methods
+        // ==========================================
+        // High-Level SoulScript Bridges & Shorthands
+        // ==========================================
+
+        // --- Custom Sprite & Text Instantiation ---
+        set("makeSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
+            var spr = new FlxSprite(x, y);
+            if (image != null && image.trim().length > 0) {
+                AssetHelper.loadGraphicSafely(spr, image);
+            } else {
+                spr.makeGraphic(64, 64, FlxColor.WHITE);
+            }
+            customSprites.set(tag, spr);
+            if (FlxG.state != null) {
+                if (inFront) FlxG.state.add(spr); else FlxG.state.insert(0, spr);
+            }
+            return spr;
+        });
+
+        set("makeAnimatedSprite", function(tag:String, image:String, x:Float = 0, y:Float = 0, ?inFront:Bool = false) {
+            var spr = new FlxSprite(x, y);
+            AssetHelper.loadSparrowSafely(spr, image);
+            customSprites.set(tag, spr);
+            if (FlxG.state != null) {
+                if (inFront) FlxG.state.add(spr); else FlxG.state.insert(0, spr);
+            }
+            return spr;
+        });
+
+        set("makeText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0, size:Int = 16, ?inFront:Bool = true) {
+            var txt = new FlxText(x, y, width, text, size);
+            txt.setFormat(Paths.font("vcr"), size, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+            txt.borderSize = 1.2;
+            customTexts.set(tag, txt);
+            if (FlxG.state != null) {
+                if (inFront) FlxG.state.add(txt); else FlxG.state.insert(0, txt);
+            }
+            return txt;
+        });
+
+        set("getSprite", function(tag:String):Null<FlxSprite> {
+            if (customSprites.exists(tag)) return customSprites.get(tag);
+            if (uiElements.exists(tag)) return uiElements.get(tag);
+            return null;
+        });
+
+        set("getText", function(tag:String):Null<FlxText> return customTexts.get(tag));
+
+        set("removeObject", function(tag:String, destroy:Bool = true) {
+            var spr = customSprites.get(tag);
+            if (spr != null) {
+                if (FlxG.state != null) FlxG.state.remove(spr, true);
+                if (destroy) {
+                    spr.destroy();
+                    customSprites.remove(tag);
+                }
+                return;
+            }
+            var txt = customTexts.get(tag);
+            if (txt != null) {
+                if (FlxG.state != null) FlxG.state.remove(txt, true);
+                if (destroy) {
+                    txt.destroy();
+                    customTexts.remove(tag);
+                }
+            }
+        });
+
+        // --- Note & Receptor Tweens ---
+        set("noteTweenX", function(tag:String, lane:Int, targetX:Float, duration:Float, ?ease:String = "linear") {
+            var receptor = getReceptorByLane(lane);
+            if (receptor != null) {
+                cancelScriptTween(tag);
+                activeTweens.set(tag, FlxTween.tween(receptor, {x: targetX}, duration, {
+                    ease: resolveEaseFunction(ease),
+                    onComplete: function(_) activeTweens.remove(tag)
+                }));
+            }
+        });
+
+        set("noteTweenY", function(tag:String, lane:Int, targetY:Float, duration:Float, ?ease:String = "linear") {
+            var receptor = getReceptorByLane(lane);
+            if (receptor != null) {
+                cancelScriptTween(tag);
+                activeTweens.set(tag, FlxTween.tween(receptor, {y: targetY}, duration, {
+                    ease: resolveEaseFunction(ease),
+                    onComplete: function(_) activeTweens.remove(tag)
+                }));
+            }
+        });
+
+        set("noteTweenAngle", function(tag:String, lane:Int, targetAngle:Float, duration:Float, ?ease:String = "linear") {
+            var receptor = getReceptorByLane(lane);
+            if (receptor != null) {
+                cancelScriptTween(tag);
+                activeTweens.set(tag, FlxTween.tween(receptor, {angle: targetAngle}, duration, {
+                    ease: resolveEaseFunction(ease),
+                    onComplete: function(_) activeTweens.remove(tag)
+                }));
+            }
+        });
+
+        set("noteTweenAlpha", function(tag:String, lane:Int, targetAlpha:Float, duration:Float, ?ease:String = "linear") {
+            var receptor = getReceptorByLane(lane);
+            if (receptor != null) {
+                cancelScriptTween(tag);
+                activeTweens.set(tag, FlxTween.tween(receptor, {alpha: targetAlpha}, duration, {
+                    ease: resolveEaseFunction(ease),
+                    onComplete: function(_) activeTweens.remove(tag)
+                }));
+            }
+        });
+
+        // --- Character Animation & Camera Actions ---
+        set("characterPlayAnim", function(character:String, animName:String, force:Bool = true) {
+            if (PlayState.instance == null) return;
+            switch (character.toLowerCase().trim()) {
+                case "dad" | "opponent": if (PlayState.instance.dad != null) PlayState.instance.dad.playAnim(animName, force);
+                case "bf" | "boyfriend" | "player": if (PlayState.instance.boyfriend != null) PlayState.instance.boyfriend.playAnim(animName, force);
+                case "gf" | "girlfriend": if (PlayState.instance.gf != null) PlayState.instance.gf.playAnim(animName, force);
+            }
+        });
+
+        set("characterDance", function(character:String) {
+            if (PlayState.instance == null) return;
+            switch (character.toLowerCase().trim()) {
+                case "dad" | "opponent": if (PlayState.instance.dad != null) PlayState.instance.dad.dance();
+                case "bf" | "boyfriend" | "player": if (PlayState.instance.boyfriend != null) PlayState.instance.boyfriend.dance();
+                case "gf" | "girlfriend": if (PlayState.instance.gf != null) PlayState.instance.gf.dance();
+            }
+        });
+
+        set("cameraFocus", function(character:String) {
+            if (PlayState.instance == null) return;
+            switch (character.toLowerCase().trim()) {
+                case "dad" | "opponent":
+                    if (PlayState.instance.dad != null && PlayState.instance.camFollow != null) {
+                        PlayState.instance.camFollow.setPosition(
+                            PlayState.instance.dad.getMidpoint().x + 150 + PlayState.instance.dad.cameraOffset[0],
+                            PlayState.instance.dad.getMidpoint().y - 100 + PlayState.instance.dad.cameraOffset[1]
+                        );
+                    }
+                case "bf" | "boyfriend" | "player":
+                    if (PlayState.instance.boyfriend != null && PlayState.instance.camFollow != null) {
+                        PlayState.instance.camFollow.setPosition(
+                            PlayState.instance.boyfriend.getMidpoint().x - 100 + PlayState.instance.boyfriend.cameraOffset[0],
+                            PlayState.instance.boyfriend.getMidpoint().y - 100 + PlayState.instance.boyfriend.cameraOffset[1]
+                        );
+                    }
+                case "gf" | "girlfriend":
+                    if (PlayState.instance.gf != null && PlayState.instance.camFollow != null) {
+                        PlayState.instance.camFollow.setPosition(
+                            PlayState.instance.gf.getMidpoint().x + PlayState.instance.gf.cameraOffset[0],
+                            PlayState.instance.gf.getMidpoint().y + PlayState.instance.gf.cameraOffset[1]
+                        );
+                    }
+            }
+        });
+
+        // --- Song Events & Modifiers ---
+        set("triggerEvent", function(eventName:String, val1:Dynamic, val2:Dynamic) {
+            if (PlayState.instance != null) {
+                PlayState.instance.triggerEvent(eventName, val1, val2);
+            }
+        });
+
+        set("setHealth", function(value:Float) {
+            if (PlayState.instance != null) PlayState.instance.health = value;
+        });
+
+        set("getHealth", function():Float {
+            return (PlayState.instance != null) ? PlayState.instance.health : 1.0;
+        });
+
+        set("addScore", function(score:Int) {
+            if (PlayState.instance != null) PlayState.instance.songScore += score;
+        });
+
+        set("addMisses", function(misses:Int) {
+            if (PlayState.instance != null) PlayState.instance.songMisses += misses;
+        });
+
+        // --- Shaders & FX ---
+        set("setShaderFloat", function(shaderName:String, uniform:String, value:Float) {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s != null) s.setFloat(uniform, value);
+        });
+
+        set("setShaderBool", function(shaderName:String, uniform:String, value:Bool) {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s != null) s.setBool(uniform, value);
+        });
+
+        set("cameraShake", function(camName:String, intensity:Float, duration:Float) {
+            var cam = resolveCamera(camName);
+            if (cam != null) cam.shake(intensity, duration);
+        });
+
+        set("cameraFlash", function(camName:String, colorStr:String, duration:Float) {
+            var cam = resolveCamera(camName);
+            if (cam != null) cam.flash(FlxColor.fromString(colorStr), duration);
+        });
+
+        // --- Tween Management & Interpolation ---
+        set("tweenProperty", function(tag:String, target:Dynamic, property:String, toValue:Float, duration:Float, ?ease:String = "linear") {
+            if (target == null) return;
+            cancelScriptTween(tag);
+            var tweenProps:Dynamic = {};
+            Reflect.setField(tweenProps, property, toValue);
+            activeTweens.set(tag, FlxTween.tween(target, tweenProps, duration, {
+                ease: resolveEaseFunction(ease),
+                onComplete: function(_) activeTweens.remove(tag)
+            }));
+        });
+
+        set("cancelTween", cancelScriptTween);
+
+        // --- Timers ---
+        set("startTimer", function(tag:String, duration:Float, callback:Void->Void, ?loops:Int = 1) {
+            if (activeTimers.exists(tag)) {
+                activeTimers.get(tag).cancel();
+                activeTimers.remove(tag);
+            }
+            activeTimers.set(tag, new FlxTimer().start(duration, function(_) {
+                if (callback != null) callback();
+            }, loops));
+        });
+
+        set("cancelTimer", function(tag:String) {
+            if (activeTimers.exists(tag)) {
+                activeTimers.get(tag).cancel();
+                activeTimers.remove(tag);
+            }
+        });
+
+        // --- Audio Controls ---
+        set("playSound", function(soundPath:String, volume:Float = 1.0) {
+            AssetHelper.playSoundSafely(soundPath, volume);
+        });
+
+        set("playMusic", function(musicPath:String, volume:Float = 1.0, loop:Bool = true) {
+            FlxG.sound.playMusic(Paths.music(musicPath), volume, loop);
+        });
+
+        // --- General Utilities ---
         set("lerp", function(a:Float, b:Float, ratio:Float):Float return FlxMath.lerp(a, b, ratio));
         set("getElement", function(id:String):Null<FlxSprite> return uiElements.get(id));
         set("trace", function(v:Dynamic):Void Logger.info(Std.string(v), "soulscript"));
@@ -381,15 +630,15 @@ class SoulScript implements ScriptInstance {
             if (Std.isOfType(target, String)) {
                 var targetName:String = cast target;
                 var redirect = SoulGlobalScript.getRedirect(targetName);
-                if (redirect != null) {
+                if (redirect != null && redirect != targetName) {
                     MusicBeatState.switchState(new ModCustomState(redirect));
                 } else {
-                    switch (targetName.toLowerCase()) {
+                    switch (targetName.toLowerCase().trim()) {
                         case "mainmenustate" | "mainmenu": MusicBeatState.switchState(new MainMenuState());
                         case "titlestate" | "title": MusicBeatState.switchState(new TitleState());
                         case "freeplaystate" | "freeplay": MusicBeatState.switchState(new FreeplayState());
                         case "storymenustate" | "storymenu": MusicBeatState.switchState(new StoryMenuState());
-                        case "optionsstate" | "optionsmenustate": MusicBeatState.switchState(new OptionsMenuState());
+                        case "optionsstate" | "optionsmenustate" | "options": MusicBeatState.switchState(new OptionsMenuState());
                         case "creditsstate" | "credits": MusicBeatState.switchState(new CreditsState());
                         default: MusicBeatState.switchState(new ScriptedState(targetName));
                     }
@@ -410,6 +659,69 @@ class SoulScript implements ScriptInstance {
         });
 
         interp.execute(program);
+    }
+
+    private function getReceptorByLane(lane:Int):Null<StrumArrow> {
+        if (PlayState.instance == null) return null;
+        if (lane < 4 && PlayState.instance.opponentStrumline != null && PlayState.instance.opponentStrumline.receptors.length > lane) {
+            return PlayState.instance.opponentStrumline.receptors[lane];
+        } else if (lane >= 4 && PlayState.instance.playerStrumline != null && PlayState.instance.playerStrumline.receptors.length > (lane - 4)) {
+            return PlayState.instance.playerStrumline.receptors[lane - 4];
+        }
+        return null;
+    }
+
+    private function resolveCamera(cameraName:String):FlxCamera {
+        if (cameraName == null) return FlxG.camera;
+        return switch (cameraName.toLowerCase().trim()) {
+            case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
+            case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
+            case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
+            default: FlxG.camera;
+        };
+    }
+
+    private function cancelScriptTween(tag:String):Void {
+        if (activeTweens.exists(tag)) {
+            activeTweens.get(tag).cancel();
+            activeTweens.remove(tag);
+        }
+    }
+
+    private function resolveEaseFunction(ease:String):flixel.tweens.FlxEase.EaseFunction {
+        return switch (ease.toLowerCase().trim()) {
+            case "sinein": FlxEase.sineIn;
+            case "sineout": FlxEase.sineOut;
+            case "sineinout": FlxEase.sineInOut;
+            case "quadin": FlxEase.quadIn;
+            case "quadout": FlxEase.quadOut;
+            case "quadinout": FlxEase.quadInOut;
+            case "cubein": FlxEase.cubeIn;
+            case "cubeout": FlxEase.cubeOut;
+            case "cubeinout": FlxEase.cubeInOut;
+            case "quartin": FlxEase.quartIn;
+            case "quartout": FlxEase.quartOut;
+            case "quartinout": FlxEase.quartInOut;
+            case "quintin": FlxEase.quintIn;
+            case "quintout": FlxEase.quintOut;
+            case "quintinout": FlxEase.quintInOut;
+            case "expoin": FlxEase.expoIn;
+            case "expoout": FlxEase.expoOut;
+            case "expoinout": FlxEase.expoInOut;
+            case "circin": FlxEase.circIn;
+            case "circout": FlxEase.circOut;
+            case "circinout": FlxEase.circInOut;
+            case "backin": FlxEase.backIn;
+            case "backout": FlxEase.backOut;
+            case "backinout": FlxEase.backInOut;
+            case "elasticin": FlxEase.elasticIn;
+            case "elasticout": FlxEase.elasticOut;
+            case "elasticinout": FlxEase.elasticInOut;
+            case "bouncein": FlxEase.bounceIn;
+            case "bounceout": FlxEase.bounceOut;
+            case "bounceinout": FlxEase.bounceInOut;
+            default: FlxEase.linear;
+        };
     }
 
     public function importClass(className:String):Bool {
@@ -506,6 +818,7 @@ class SoulScript implements ScriptInstance {
             set("bpm", Conductor.bpm);
             set("crochet", Conductor.crochet);
             set("stepCrochet", Conductor.stepCrochet);
+            set("songPosition", Conductor.songPosition);
 
             if (interp.variables.exists(func)) {
                 var fn = interp.variables.get(func);
@@ -523,6 +836,8 @@ class SoulScript implements ScriptInstance {
 
     public function get(key:String):Dynamic {
         if (interp != null && interp.variables.exists(key)) return interp.variables.get(key);
+        if (customSprites.exists(key)) return customSprites.get(key);
+        if (customTexts.exists(key)) return customTexts.get(key);
         if (uiElements.exists(key)) return uiElements.get(key);
         return null;
     }
@@ -530,7 +845,18 @@ class SoulScript implements ScriptInstance {
     public function destroy():Void {
         active = false;
         call("onDestroy", []);
+
+        for (t in activeTweens) t.cancel();
+        for (tm in activeTimers) tm.cancel();
+        activeTweens.clear();
+        activeTimers.clear();
+
+        for (s in customSprites) s.destroy();
+        for (txt in customTexts) txt.destroy();
+        customSprites.clear();
+        customTexts.clear();
         uiElements.clear();
+
         if (interp != null) {
             interp.variables.clear();
             interp = null;

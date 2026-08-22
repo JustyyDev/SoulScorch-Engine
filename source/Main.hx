@@ -87,7 +87,6 @@ class Main extends Sprite {
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
 
-            // Ensure cameras are fully initialized with default draw target
             FlxG.cameras.bgColor = FlxColor.BLACK;
 
             setupStateSwitchOptimization();

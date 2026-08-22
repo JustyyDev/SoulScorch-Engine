@@ -2,19 +2,13 @@ package soulscorch.ui.menus.substate;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.text.FlxText;
-import flixel.tweens.FlxEase;
-import flixel.tweens.FlxTween;
-import flixel.util.FlxColor;
 import haxe.xml.Access;
-import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
-import soulscorch.backend.input.Controls;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptManager;
-import soulscorch.ui.menus.editors.editorui.EditorTheme;
 
 class XMSoulPauseSubState extends PauseSubState {
     private var pauseConfig:Access;
@@ -22,6 +16,11 @@ class XMSoulPauseSubState extends PauseSubState {
 
     override public function create():Void {
         super.create();
+
+        #if desktop
+        var songName = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.title : PlayState.curSong;
+        DiscordRPC.changePresence('Paused - ${songName.toUpperCase()}', '[ ${PlayState.curDifficulty.toUpperCase()} ]');
+        #end
 
         pauseScripts = new ScriptManager();
         initSubStateScripts();
@@ -44,7 +43,7 @@ class XMSoulPauseSubState extends PauseSubState {
             "data/scripts/pauseSubstate"
         ];
         for (p in paths) {
-            var file = soulscorch.backend.assets.AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
             if (file != null) pauseScripts.loadScript(file);
         }
         pauseScripts.setAll("substate", this);
@@ -58,13 +57,13 @@ class XMSoulPauseSubState extends PauseSubState {
             var bgAlpha = XMSoul.getFloatAttr(pauseConfig, "bgAlpha", 0.72);
             if (bg != null) bg.alpha = bgAlpha;
 
-            if (pauseConfig.hasNode != null && pauseConfig.hasNode.resolve("items")) {
+            if (pauseConfig.hasNode.resolve("items")) {
                 var itemsNode = pauseConfig.node.resolve("items");
                 if (itemsNode != null) {
                     var parsedItems:Array<String> = [];
                     for (item in itemsNode.nodes.resolve("item")) {
-                        if (item != null && item.has.label) {
-                            parsedItems.push(item.att.label);
+                        if (item != null && item.has.resolve("label")) {
+                            parsedItems.push(item.att.resolve("label"));
                         }
                     }
 

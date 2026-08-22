@@ -1,8 +1,10 @@
 package soulscorch.ui.menus.editors.editorui;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
@@ -46,11 +48,11 @@ class EditorInputText extends FlxSpriteGroup {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        var mx = FlxG.mouse.screenX;
-        var my = FlxG.mouse.screenY;
+        var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
+        var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
         if (FlxG.mouse.justPressed) {
-            var inside = (mx >= x && mx <= x + fieldWidth && my >= y + 18 && my <= y + 42);
+            var inside = (mousePos.x >= x && mousePos.x <= x + fieldWidth && mousePos.y >= y + 18 && mousePos.y <= y + 42);
             setFocus(inside);
         }
 
@@ -70,6 +72,28 @@ class EditorInputText extends FlxSpriteGroup {
             }
         } else if (FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.ESCAPE) {
             setFocus(false);
+        } else {
+            var char = FlxG.keys.justPressed;
+            // Capture alphanumeric input
+            for (code in 65...91) { // A-Z
+                if (FlxG.keys.checkStatus(code, JUST_PRESSED)) {
+                    var letter = String.fromCharCode(code);
+                    if (!FlxG.keys.pressed.SHIFT) letter = letter.toLowerCase();
+                    text += letter;
+                    if (onChange != null) onChange(text);
+                    return;
+                }
+            }
+            for (code in 48...58) { // 0-9
+                if (FlxG.keys.checkStatus(code, JUST_PRESSED)) {
+                    text += String.fromCharCode(code);
+                    if (onChange != null) onChange(text);
+                    return;
+                }
+            }
+            if (FlxG.keys.justPressed.PERIOD) { text += "."; if (onChange != null) onChange(text); }
+            if (FlxG.keys.justPressed.MINUS) { text += "-"; if (onChange != null) onChange(text); }
+            if (FlxG.keys.justPressed.SPACE) { text += " "; if (onChange != null) onChange(text); }
         }
     }
 

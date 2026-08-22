@@ -8,5 +8,6 @@ interface ScriptInstance {
     public function call(func:String, ?args:Array<Dynamic>):Dynamic;
     public function set(key:String, value:Dynamic):Void;
     public function get(key:String):Dynamic;
+    public function importClass(className:String):Bool;
     public function destroy():Void;
 }

@@ -34,7 +34,6 @@ class XMSoulEditorState extends MusicBeatState {
     public var topBar:EditorTopBar;
     public var toast:EditorToast;
 
-    // Viewport Navigation States
     private var isDraggingCamera:Bool = false;
     private var lastMousePos:FlxPoint;
 
@@ -56,6 +55,10 @@ class XMSoulEditorState extends MusicBeatState {
         FlxG.cameras.reset(camWorld);
         FlxG.cameras.add(camUI, false);
         FlxG.cameras.setDefaultDrawTarget(camWorld, true);
+
+        toast = new EditorToast();
+        toast.cameras = [camUI];
+        add(toast);
 
         var resolvedXml:Access = null;
         var cleanPath = layoutFile;
@@ -114,10 +117,6 @@ class XMSoulEditorState extends MusicBeatState {
 
             script.callAll("onCreate", []);
         }
-
-        toast = new EditorToast();
-        toast.cameras = [camUI];
-        add(toast);
 
         FlxG.mouse.visible = true;
     }
@@ -222,7 +221,6 @@ class XMSoulEditorState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        // Viewport Drag & Zoom
         if (FlxG.mouse.pressedMiddle || (FlxG.keys.pressed.SPACE && FlxG.mouse.pressed)) {
             if (!isDraggingCamera) {
                 isDraggingCamera = true;

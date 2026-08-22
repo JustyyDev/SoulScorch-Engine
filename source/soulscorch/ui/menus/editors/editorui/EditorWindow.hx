@@ -1,12 +1,13 @@
 package soulscorch.ui.menus.editors.editorui;
 
+import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
-import flixel.math.FlxPoint;
 
 class EditorWindow extends FlxSpriteGroup {
     public var windowWidth:Float;
@@ -47,7 +48,7 @@ class EditorWindow extends FlxSpriteGroup {
         contentGroup = new FlxSpriteGroup(0, 28);
         add(contentGroup);
 
-        dragOffset = flixel.math.FlxPoint.get(0, 0);
+        dragOffset = FlxPoint.get(0, 0);
         scrollFactor.set(0, 0);
     }
 
@@ -60,18 +61,18 @@ class EditorWindow extends FlxSpriteGroup {
     }
 
     override public function update(elapsed:Float):Void {
-        var mx = FlxG.mouse.screenX;
-        var my = FlxG.mouse.screenY;
+        var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
+        var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
-        if (FlxG.mouse.justPressed && mx >= x && mx <= x + windowWidth && my >= y && my <= y + 26) {
+        if (FlxG.mouse.justPressed && mousePos.x >= x && mousePos.x <= x + windowWidth && mousePos.y >= y && mousePos.y <= y + 26) {
             isDragging = true;
-            dragOffset.set(mx - x, my - y);
+            dragOffset.set(mousePos.x - x, mousePos.y - y);
         }
 
         if (isDragging) {
             if (FlxG.mouse.pressed) {
-                x = Math.max(0, Math.min(FlxG.width - windowWidth, mx - dragOffset.x));
-                y = Math.max(0, Math.min(FlxG.height - windowHeight, my - dragOffset.y));
+                x = Math.max(0, Math.min(FlxG.width - windowWidth, mousePos.x - dragOffset.x));
+                y = Math.max(0, Math.min(FlxG.height - windowHeight, mousePos.y - dragOffset.y));
             } else {
                 isDragging = false;
             }
