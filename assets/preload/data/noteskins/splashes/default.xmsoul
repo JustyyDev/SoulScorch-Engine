@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<splashskin name="Default Splashes" sprite="ui/game/splashes/default" scale="1.0" alpha="0.6" antialiasing="true">
+<splashskin name="default" sprite="ui/game/splashes/noteSplashes" scale="1.0" alpha="0.6" antialiasing="true">
     <lanes fps="24">
+        <!-- Lane 0: Purple / Left -->
         <lane id="0">
             <anim name="splash1" prefix="note impact 1 purple" x="0" y="0" />
             <anim name="splash2" prefix="note impact 2 purple" x="0" y="0" />
         </lane>
+        <!-- Lane 1: Blue / Down -->
         <lane id="1">
             <anim name="splash1" prefix="note impact 1 blue" x="0" y="0" />
             <anim name="splash2" prefix="note impact 2 blue" x="0" y="0" />
         </lane>
+        <!-- Lane 2: Green / Up -->
         <lane id="2">
             <anim name="splash1" prefix="note impact 1 green" x="0" y="0" />
             <anim name="splash2" prefix="note impact 2 green" x="0" y="0" />
         </lane>
+        <!-- Lane 3: Red / Right -->
         <lane id="3">
             <anim name="splash1" prefix="note impact 1 red" x="0" y="0" />
             <anim name="splash2" prefix="note impact 2 red" x="0" y="0" />

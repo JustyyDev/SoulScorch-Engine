@@ -60,7 +60,6 @@ class NoteSkinManager {
     public static var noteColors:Array<String> = ["purple", "blue", "green", "red"];
     public static var noteDirections:Array<String> = ["left", "down", "up", "right"];
 
-    // Default vibrant fallback palette for greyscaled base spritesheets
     public static var defaultLaneColors:Array<FlxColor> = [
         0xFFC24B99, // Left: Purple
         0xFF00FFFF, // Down: Cyan/Blue
@@ -71,12 +70,10 @@ class NoteSkinManager {
     public static function getLaneColor(lane:Int):FlxColor {
         var cleanLane = lane % 4;
 
-        // 1. Mod-Forced Override via mod.xmsoul
         if (GameplayFlags.has('forcedLaneColor_$cleanLane')) {
             return GameplayFlags.getInt('forcedLaneColor_$cleanLane', defaultLaneColors[cleanLane]);
         }
 
-        // 2. User-Defined Custom Preferences from Save / Options
         if (FlxG.save != null && FlxG.save.data != null) {
             var customCols:Array<Int> = FlxG.save.data.customNoteColors;
             if (customCols != null && customCols.length > cleanLane && customCols[cleanLane] != 0) {
@@ -139,9 +136,37 @@ class NoteSkinManager {
             config.scale = XMSoul.getFloatAttr(access, "scale", config.type == "grid" ? 6.0 : 0.7);
             config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", config.type != "grid");
 
+            var strumsNode = access.hasNode.resolve("strums") ? access.node.resolve("strums") : (access.hasNode.resolve("receptors") ? access.node.resolve("receptors") : null);
+            if (strumsNode != null) {
+                for (strumNode in strumsNode.nodes.resolve("strum")) {
+                    var lane = XMSoul.getIntAttr(strumNode, "lane", 0);
+                    config.strumAnims.set(lane, {
+                        staticAnim: XMSoul.getAttr(strumNode, "static", 'arrow' + noteDirections[lane % 4].toUpperCase()),
+                        pressedAnim: XMSoul.getAttr(strumNode, "press", XMSoul.getAttr(strumNode, "pressed", noteDirections[lane % 4] + ' press')),
+                        confirmAnim: XMSoul.getAttr(strumNode, "confirm", noteDirections[lane % 4] + ' confirm')
+                    });
+                }
+            }
+
+            var notesNode = access.hasNode.resolve("notes") ? access.node.resolve("notes") : (access.hasNode.resolve("tapNotes") ? access.node.resolve("tapNotes") : null);
+            if (notesNode != null) {
+                for (nNode in notesNode.nodes.resolve("note")) {
+                    var lane = XMSoul.getIntAttr(nNode, "lane", 0);
+                    var animName = XMSoul.getAttr(nNode, "anim", noteColors[lane % 4]);
+                    config.tapAnims.set(lane, animName);
+                }
+            }
+
             if (access.hasNode.resolve("sustains")) {
                 var susNode = access.node.resolve("sustains");
                 config.sustainAlpha = XMSoul.getFloatAttr(susNode, "alpha", 0.6);
+                for (holdNode in susNode.nodes.resolve("hold")) {
+                    var lane = XMSoul.getIntAttr(holdNode, "lane", 0);
+                    config.holdAnims.set(lane, {
+                        bodyAnim: XMSoul.getAttr(holdNode, "piece", XMSoul.getAttr(holdNode, "body", noteColors[lane % 4] + ' hold piece')),
+                        endAnim: XMSoul.getAttr(holdNode, "end", (lane == 0 ? "pruple end hold" : noteColors[lane % 4] + ' hold end'))
+                    });
+                }
             }
         }
 
@@ -177,7 +202,8 @@ class NoteSkinManager {
     }
 
     public static function getSkinAtlas(?skinName:String):Null<FlxAtlasFrames> {
-        var cleanSkin = (skinName != null && skinName.trim().length > 0 && skinName != "default") ? skinName.trim() : "NOTE_assets";
+        var conf = getSkinConfig(skinName);
+        var cleanSkin = conf.atlasPath;
 
         if (_skinCache.exists(cleanSkin)) {
             var cached = _skinCache.get(cleanSkin);

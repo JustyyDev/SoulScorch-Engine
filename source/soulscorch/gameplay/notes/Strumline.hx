@@ -26,8 +26,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
     public var modY:Float = 0.0;
     public var modAngle:Float = 0.0;
     public var modAlpha:Float = 1.0;
-    public var modScaleX:Float = 1.0;
-    public var modScaleY:Float = 1.0;
 
     public static inline var STRUM_SPACING:Float = 112.0;
 
@@ -68,8 +66,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
             receptor.alpha = this.alpha * this.modAlpha;
             receptor.visible = this.visible;
             receptor.angle = this.angle + this.modAngle;
-            receptor.scale.x *= this.modScaleX;
-            receptor.scale.y *= this.modScaleY;
 
             receptors.push(receptor);
             add(receptor);
@@ -91,6 +87,7 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         for (r in receptors) {
             if (r != null) {
                 r.loadReceptorSkin(currentSkin);
+                r.setupAnimations(NoteSkinManager.getSkinConfig(currentSkin));
                 r.playAnim("static", true);
             }
         }
@@ -188,22 +185,6 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
         spacing = val;
         updateLayout();
         return val;
-    }
-
-    override public function update(elapsed:Float):Void {
-        super.update(elapsed);
-
-        if (modX != 0 || modY != 0 || modAngle != 0 || modAlpha != 1.0 || modScaleX != 1.0 || modScaleY != 1.0) {
-            for (i in 0...receptors.length) {
-                var r = receptors[i];
-                if (r != null) {
-                    r.x = (this.x + (i * spacing)) + modX;
-                    r.y = this.y + modY;
-                    r.angle = this.angle + modAngle;
-                    r.alpha = this.alpha * modAlpha;
-                }
-            }
-        }
     }
 
     override public function destroy():Void {

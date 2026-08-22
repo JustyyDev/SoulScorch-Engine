@@ -117,8 +117,12 @@ class PlayState extends MusicBeatState {
     public var health(get, set):Float;
     inline function get_health():Float return judgementManager != null ? judgementManager.health : 1.0;
     inline function set_health(val:Float):Float {
-        if (judgementManager != null) judgementManager.health = Math.max(0.0, Math.min(maxHealth, val));
-        return val;
+        var clamped = Math.max(0.0, Math.min(maxHealth, val));
+        if (judgementManager != null) judgementManager.health = clamped;
+        if (clamped <= 0.0 && !isEnding && !practiceMode && startedCountdown) {
+            gameOver();
+        }
+        return clamped;
     }
 
     public var maxHealth:Float = 2.0;
@@ -788,6 +792,10 @@ class PlayState extends MusicBeatState {
             }
         }
 
+        if (health <= 0.0 && !isEnding && !practiceMode && countdownEnded) {
+            gameOver();
+        }
+
         if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
             var audioTime:Float = audio.inst.time;
             if (Math.abs(Conductor.songPosition - audioTime) > 35.0) {
@@ -1080,7 +1088,7 @@ class PlayState extends MusicBeatState {
 
     private function spawnSplash(x:Float, y:Float, dir:Int):Void {
         var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-        splash.spawn(x, y, dir);
+        splash.spawnSplash(x, y, dir);
         grpNoteSplashes.add(splash);
     }
 

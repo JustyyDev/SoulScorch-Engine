@@ -1,15 +1,12 @@
 package soulscorch.gameplay.actors;
 
-import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
 import flixel.util.FlxColor;
 import haxe.Json;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
-import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
@@ -26,6 +23,7 @@ class Character extends FlxSprite {
     public var idleSuffix:String = "";
     public var altAnim:Bool = false;
     public var stunned:Bool = false;
+    public var danced:Bool = false;
 
     public var healthColor:FlxColor = 0xFF66FF33;
     public var healthIcon:String = "face";
@@ -248,7 +246,8 @@ class Character extends FlxSprite {
     public function dance(force:Bool = false):Void {
         if (stunned) return;
         if (animation.getByName("danceLeft") != null && animation.getByName("danceRight") != null) {
-            playAnim("danceLeft", force);
+            danced = !danced;
+            playAnim(danced ? "danceRight" : "danceLeft", force);
         } else if (animation.getByName("idle" + idleSuffix) != null) {
             playAnim("idle" + idleSuffix, force);
         } else if (animation.getByName("idle") != null) {

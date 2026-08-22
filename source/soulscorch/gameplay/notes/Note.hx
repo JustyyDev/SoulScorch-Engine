@@ -21,6 +21,7 @@ class Note extends FlxSprite {
     public var isSustainEnd:Bool = false;
     public var mustPress:Bool = false;
     public var noteType:String = "normal";
+    public var skinName:String = "NOTE_assets";
 
     public var parent:Note = null;
     public var tail:Array<Note> = [];
@@ -42,6 +43,8 @@ class Note extends FlxSprite {
     public var multAlpha:Float = 1.0;
     public var multSpeed:Float = 1.0;
     public var skinScale:Float = 0.7;
+
+    private static var _sharedClipRect:FlxRect = new FlxRect();
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -67,12 +70,13 @@ class Note extends FlxSprite {
         this.isSustainEnd = isSustainEnd;
         this.mustPress = mustPress;
         this.noteType = (noteType != null && noteType.trim().length > 0) ? noteType.trim() : "normal";
+        this.skinName = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
 
-        var skinConf = NoteSkinManager.getSkinConfig(skin);
+        var skinConf = NoteSkinManager.getSkinConfig(this.skinName);
         this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : DEFAULT_SCALE;
 
-        loadNoteSkin(skin);
-        setupAnimation();
+        loadNoteSkin(this.skinName);
+        setupAnimation(skinConf);
         applyColorTint();
         applyNoteTypeConfig(this.noteType);
 
@@ -88,7 +92,7 @@ class Note extends FlxSprite {
     }
 
     public function applyColorTint():Void {
-        this.color = NoteSkinManager.getLaneColor(this.noteData);
+        this.color = FlxColor.WHITE;
     }
 
     public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
@@ -115,8 +119,9 @@ class Note extends FlxSprite {
 
             var customTexture = XMSoul.getAttr(access, "texture", "NOTE_assets");
             if (customTexture != "NOTE_assets" && customTexture != "default") {
+                this.skinName = customTexture;
                 loadNoteSkin(customTexture);
-                setupAnimation();
+                setupAnimation(NoteSkinManager.getSkinConfig(customTexture));
             }
             return;
         }
@@ -140,35 +145,33 @@ class Note extends FlxSprite {
         }
     }
 
-    private function setupAnimation():Void {
+    private function setupAnimation(?conf:NoteSkinConfig):Void {
         if (frames == null || frames.frames == null || frames.frames.length == 0) return;
 
         var colorName = NoteSkinManager.noteColors[noteData % 4];
 
         if (isSustainNote) {
+            var holdConf = (conf != null && conf.holdAnims.exists(noteData)) ? conf.holdAnims.get(noteData) : null;
             if (isSustainEnd) {
-                var endPrefix = (noteData == 0) ? "pruple end hold" : (colorName + " hold end");
-                tryAddAnimation("holdend", [endPrefix, "purple hold end", colorName + " end hold", colorName + " hold end", "hold end", "end hold"]);
+                var endAnim = (holdConf != null) ? holdConf.endAnim : (noteData == 0 ? "pruple end hold" : colorName + " hold end");
+                animation.addByPrefix("holdend", endAnim, 24, false);
+                if (animation.getByName("holdend") == null) {
+                    animation.addByPrefix("holdend", colorName + " hold end", 24, false);
+                }
             } else {
-                var bodyPrefix = (noteData == 0) ? "purple hold piece" : (colorName + " hold piece");
-                tryAddAnimation("hold", [bodyPrefix, colorName + " hold piece", colorName + " piece", "hold piece"]);
-            }
-        } else {
-            tryAddAnimation("scroll", [colorName + "0", colorName + " scroll", colorName, "arrowUP", "arrowDOWN", "arrowLEFT", "arrowRIGHT"]);
-        }
-    }
-
-    private function tryAddAnimation(animName:String, prefixes:Array<String>):Bool {
-        for (prefix in prefixes) {
-            var prefixLower = prefix.toLowerCase().trim();
-            for (f in frames.frames) {
-                if (f.name != null && f.name.toLowerCase().startsWith(prefixLower)) {
-                    animation.addByPrefix(animName, f.name.substr(0, prefix.length), 24, false);
-                    return true;
+                var bodyAnim = (holdConf != null) ? holdConf.bodyAnim : colorName + " hold piece";
+                animation.addByPrefix("hold", bodyAnim, 24, false);
+                if (animation.getByName("hold") == null) {
+                    animation.addByPrefix("hold", colorName + " hold piece", 24, false);
                 }
             }
+        } else {
+            var tapAnim = (conf != null && conf.tapAnims.exists(noteData)) ? conf.tapAnims.get(noteData) : colorName;
+            animation.addByPrefix("scroll", tapAnim + "0", 24, false);
+            if (animation.getByName("scroll") == null) {
+                animation.addByPrefix("scroll", colorName + "0", 24, false);
+            }
         }
-        return false;
     }
 
     public function playAnim(?songSpeed:Float = 2.0):Void {
@@ -181,7 +184,7 @@ class Note extends FlxSprite {
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(skinScale, (stepHeight + 1.0) / baseH);
+                scale.set(skinScale, (stepHeight + 1.5) / baseH);
                 updateHitbox();
             }
         } else {
@@ -210,10 +213,12 @@ class Note extends FlxSprite {
                 var strumCenterY = strumY + (STRUM_WIDTH * 0.5);
                 if (downscroll) {
                     var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);
-                    clipRect = new FlxRect(0, 0, frameWidth, clipHeight);
+                    _sharedClipRect.set(0, 0, frameWidth, clipHeight);
+                    clipRect = _sharedClipRect;
                 } else {
                     var clipHeight:Float = Math.max(0, (y + height - strumCenterY) / scale.y);
-                    clipRect = new FlxRect(0, frameHeight - clipHeight, frameWidth, clipHeight);
+                    _sharedClipRect.set(0, frameHeight - clipHeight, frameWidth, clipHeight);
+                    clipRect = _sharedClipRect;
                 }
             } else {
                 clipRect = null;

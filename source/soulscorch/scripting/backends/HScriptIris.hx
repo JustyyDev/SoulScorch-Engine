@@ -169,6 +169,13 @@ class HScriptIris implements ScriptInstance {
     }
 
     private function presetEnvironment():Void {
+        #if (!SOULSCORCH_IRIS)
+        if (interp != null) {
+            for (i in 0...2000) {
+                interp.variables.set(Std.string(i), i);
+            }
+        }
+        #end
         set("curBeat", Conductor.curBeat);
         set("curStep", Conductor.curStep);
         set("curDecBeat", Conductor.curDecBeat);
@@ -703,14 +710,22 @@ class HScriptIris implements ScriptInstance {
 
             #if SOULSCORCH_IRIS
             if (iris != null) {
-                var result = iris.call(func, args != null ? args : []);
-                return result != null ? result.val : null;
+                try {
+                    var result = iris.call(func, args != null ? args : []);
+                    return result != null ? result.val : null;
+                } catch (e:Dynamic) {
+                    Logger.warn('Iris call error in $func ($path): $e', "iris");
+                }
             }
             #else
             if (interp != null && interp.variables.exists(func)) {
                 var fn = interp.variables.get(func);
                 if (Reflect.isFunction(fn)) {
-                    return Reflect.callMethod(null, fn, (args != null) ? args : []);
+                    try {
+                        return Reflect.callMethod(null, fn, (args != null) ? args : []);
+                    } catch (e:Dynamic) {
+                        Logger.warn('HScript call error in $func ($path): $e', "hscript");
+                    }
                 }
             }
             #end

@@ -5,8 +5,12 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import haxe.Json;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
@@ -14,7 +18,10 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.actors.Character;
+import soulscorch.graphics.shaders.ShaderManager;
+import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptManager;
 
 #if sys
@@ -27,16 +34,16 @@ using StringTools;
 class Stage extends FlxTypedGroup<FlxBasic> {
     public var stageId:String = "stage";
     public var defaultZoom:Float = 0.9;
-    public var startCamPos:FlxPoint = FlxPoint.get(1000, 600);
+    public var startCamPos:FlxPoint = new FlxPoint(1000, 600);
 
     public var layers:Map<String, FlxTypedGroup<FlxBasic>> = new Map<String, FlxTypedGroup<FlxBasic>>();
     public var namedSprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
     public var beatSprites:Array<FlxSprite> = [];
     public var loopSprites:Array<FlxSprite> = [];
 
-    public var boyfriendPosition:FlxPoint = FlxPoint.get(770, 450);
-    public var dadPosition:FlxPoint = FlxPoint.get(100, 100);
-    public var gfPosition:FlxPoint = FlxPoint.get(400, 130);
+    public var boyfriendPosition:FlxPoint = new FlxPoint(770, 450);
+    public var dadPosition:FlxPoint = new FlxPoint(100, 100);
+    public var gfPosition:FlxPoint = new FlxPoint(400, 130);
 
     public var stageScript:ScriptManager;
 
@@ -252,22 +259,48 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                     try {
                         var json:Dynamic = Json.parse(content);
                         if (json.defaultZoom != null) defaultZoom = json.defaultZoom;
+                        else if (json.zoom != null) defaultZoom = json.zoom;
 
-                        var pieces:Array<Dynamic> = json.pieces != null ? cast json.pieces : [];
+                        if (json.boyfriend != null && json.boyfriend.length >= 2) {
+                            boyfriendPosition.set(json.boyfriend[0], json.boyfriend[1]);
+                        }
+                        if (json.opponent != null && json.opponent.length >= 2) {
+                            dadPosition.set(json.opponent[0], json.opponent[1]);
+                        }
+                        if (json.girlfriend != null && json.girlfriend.length >= 2) {
+                            gfPosition.set(json.girlfriend[0], json.girlfriend[1]);
+                        }
+
+                        var pieces:Array<Dynamic> = json.pieces != null ? cast json.pieces : (json.sprites != null ? cast json.sprites : []);
                         for (p in pieces) {
-                            var posX = p.position != null ? p.position[0] : 0.0;
-                            var posY = p.position != null ? p.position[1] : 0.0;
+                            var posX = p.position != null ? p.position[0] : (p.x != null ? p.x : 0.0);
+                            var posY = p.position != null ? p.position[1] : (p.y != null ? p.y : 0.0);
                             var spr = new FlxSprite(posX, posY);
                             AssetHelper.loadGraphicSafely(spr, p.image);
 
-                            if (p.scroll != null) spr.scrollFactor.set(p.scroll[0], p.scroll[1]);
-                            if (p.scale != null) spr.scale.set(p.scale[0], p.scale[1]);
+                            if (p.scroll != null) {
+                                spr.scrollFactor.set(p.scroll[0], p.scroll[1]);
+                            } else if (p.scrollX != null || p.scrollY != null) {
+                                spr.scrollFactor.set(p.scrollX != null ? p.scrollX : 1.0, p.scrollY != null ? p.scrollY : 1.0);
+                            }
 
-                            var layer = p.layer != null ? (p.layer == "foreground" ? "fg" : "bg") : "bg";
+                            if (p.scale != null) {
+                                spr.scale.set(p.scale[0], p.scale[1]);
+                            } else if (p.scaleX != null || p.scaleY != null) {
+                                spr.scale.set(p.scaleX != null ? p.scaleX : 1.0, p.scaleY != null ? p.scaleY : 1.0);
+                            }
+
+                            if (p.alpha != null) spr.alpha = p.alpha;
+                            if (p.antialiasing != null) spr.antialiasing = p.antialiasing;
+
+                            var layer = p.layer != null ? (p.layer == "foreground" ? "fg" : p.layer) : "bg";
+                            if (!layers.exists(layer)) layer = "bg";
                             layers.get(layer).add(spr);
                         }
                         return true;
-                    } catch (e:Dynamic) {}
+                    } catch (e:Dynamic) {
+                        Logger.warn('Failed parsing stage JSON for $id: $e', "stage");
+                    }
                 }
             }
         }
@@ -304,10 +337,35 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
         if (scriptPath != null) {
             stageScript.loadScript(scriptPath);
+
+            // Register sprite handles
             for (key in namedSprites.keys()) {
                 stageScript.setAll(key, namedSprites.get(key));
             }
+
+            // Bind environment objects & engines
             stageScript.setAll("stage", this);
+            stageScript.setAll("FlxG", FlxG);
+            stageScript.setAll("FlxTween", FlxTween);
+            stageScript.setAll("FlxEase", FlxEase);
+            stageScript.setAll("FlxTimer", FlxTimer);
+            stageScript.setAll("FlxMath", FlxMath);
+            stageScript.setAll("ShaderManager", ShaderManager.instance);
+
+            // Bind cameras & game references safely
+            if (PlayState.instance != null) {
+                stageScript.setAll("game", PlayState.instance);
+                stageScript.setAll("PlayState", PlayState);
+                stageScript.setAll("camGame", PlayState.instance.camGame);
+                stageScript.setAll("camHUD", PlayState.instance.camHUD);
+                stageScript.setAll("camOther", PlayState.instance.camOther);
+                stageScript.setAll("boyfriend", PlayState.instance.boyfriend);
+                stageScript.setAll("dad", PlayState.instance.dad);
+                stageScript.setAll("gf", PlayState.instance.gf);
+            } else {
+                stageScript.setAll("camGame", FlxG.camera);
+            }
+
             stageScript.callAll("postCreate", []);
             stageScript.callAll("create", []);
         }
@@ -354,10 +412,10 @@ class Stage extends FlxTypedGroup<FlxBasic> {
             stageScript.callAll("onDestroy", []);
             stageScript.clear();
         }
-        if (startCamPos != null) { startCamPos.put(); startCamPos = null; }
-        if (boyfriendPosition != null) { boyfriendPosition.put(); boyfriendPosition = null; }
-        if (dadPosition != null) { dadPosition.put(); dadPosition = null; }
-        if (gfPosition != null) { gfPosition.put(); gfPosition = null; }
+        startCamPos = null;
+        boyfriendPosition = null;
+        dadPosition = null;
+        gfPosition = null;
         clearStage();
         super.destroy();
     }
