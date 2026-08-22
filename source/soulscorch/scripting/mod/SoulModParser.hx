@@ -19,15 +19,17 @@ class SoulModParser {
             var parsed:Dynamic = Json.parse(jsonContent);
             return {
                 name: (parsed.name != null) ? parsed.name : ((parsed.title != null) ? parsed.title : folderName),
+                title: parsed.title,
                 version: (parsed.version != null) ? parsed.version : "1.0.0",
                 author: (parsed.author != null) ? parsed.author : "Unknown",
-                api_version: parsed.api_version != null ? parsed.api_version : "1.0.0",
+                api_version: (parsed.api_version != null) ? parsed.api_version : ((parsed.apiVersion != null) ? parsed.apiVersion : "1.0.0"),
                 description: (parsed.description != null) ? parsed.description : "",
                 color: (parsed.color != null) ? parsed.color : "#FFFFFF",
                 icon: parsed.icon,
                 global_scripts: (parsed.global_scripts != null) ? cast parsed.global_scripts : ["scripts/global.soul"],
                 dependencies: (parsed.dependencies != null) ? cast parsed.dependencies : [],
-                load_priority: (parsed.load_priority != null) ? parsed.load_priority : 0,
+                load_priority: (parsed.load_priority != null) ? parsed.load_priority : ((parsed.priority != null) ? parsed.priority : 0),
+                priority: parsed.priority,
                 folder: folderName
             };
         } catch (e:Dynamic) {
@@ -75,15 +77,17 @@ class SoulModParser {
 
             return {
                 name: XMSoul.getAttr(xml, "name", XMSoul.getAttr(xml, "title", folderName)),
+                title: XMSoul.getAttr(xml, "title", null),
                 version: XMSoul.getAttr(xml, "version", "1.0.0"),
                 author: XMSoul.getAttr(xml, "author", "Unknown"),
-                api_version: XMSoul.getAttr(xml, "api", XMSoul.getAttr(xml, "api_version", "1.0.0")),
+                api_version: XMSoul.getAttr(xml, "apiVersion", XMSoul.getAttr(xml, "api_version", "1.0.0")),
                 description: XMSoul.getAttr(xml, "description", ""),
                 color: XMSoul.getAttr(xml, "color", "#FFFFFF"),
                 icon: XMSoul.getAttr(xml, "icon", "icon.png"),
                 global_scripts: globalScripts,
                 dependencies: deps,
                 load_priority: XMSoul.getIntAttr(xml, "priority", XMSoul.getIntAttr(xml, "load_priority", 0)),
+                priority: XMSoul.getIntAttr(xml, "priority", 0),
                 folder: folderName
             };
         } catch (e:Dynamic) {
@@ -123,6 +127,7 @@ class SoulModParser {
     public static function fallback(folderName:String = "unknown"):SoulModData {
         return {
             name: folderName != "" ? folderName : "Unknown Mod",
+            title: folderName != "" ? folderName : "Unknown Mod",
             version: "1.0.0",
             author: "Unknown",
             api_version: "1.0.0",
@@ -132,6 +137,7 @@ class SoulModParser {
             global_scripts: ["scripts/global.soul"],
             dependencies: [],
             load_priority: 0,
+            priority: 0,
             folder: folderName
         };
     }

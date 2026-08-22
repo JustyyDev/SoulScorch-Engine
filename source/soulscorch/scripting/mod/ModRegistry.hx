@@ -53,7 +53,6 @@ class ModRegistry {
             }
         }
 
-        // If no saved configuration exists, auto-enable all discovered valid mod folders
         if (enabledMods.length == 0 && ModManager.allMods != null && ModManager.allMods.length > 0) {
             enabledMods = ModManager.allMods.copy();
         }
