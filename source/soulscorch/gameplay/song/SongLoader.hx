@@ -22,30 +22,26 @@ class SongLoader {
         var song:Song = new Song(cleanSong, cleanSong);
         song.difficulty = cleanDiff;
 
-        // ----------------------------------------------------
-        // 1. Load Song Metadata (.xmsoul primary, .json fallback)
-        // ----------------------------------------------------
+        // 1. Load Song Metadata
         loadMetadata(song, cleanSong);
 
-        // ----------------------------------------------------
-        // 2. Load Chart (.xmsoul primary, .soulchart / .json fallback)
-        // ----------------------------------------------------
+        // 2. Load Chart
         var chartLoaded = loadXMSoulChart(song, cleanSong, cleanDiff);
 
         if (!chartLoaded) {
-            chartLoaded = loadLegacyJsonChart(song, cleanSong, cleanDiff, diffSuffix);
+            chartLoaded = loadUniversalJsonChart(song, cleanSong, cleanDiff, diffSuffix);
         }
 
         if (!chartLoaded) {
-            Logger.warn('No valid chart found for [$cleanSong ($cleanDiff)], generating blank chart.', "song");
+            Logger.warn('No valid chart found for [$cleanSong ($cleanDiff)], generating empty fallback chart.', "song");
             if (song.chart == null) {
                 song.chart = new Chart(song.bpm, song.scrollSpeed);
             }
         }
 
-        // ----------------------------------------------------
-        // 3. Load Events File (events.xmsoul / events.json)
-        // ----------------------------------------------------
+        song.scrollSpeed *= Difficulty.getScrollSpeedMultiplier(cleanDiff);
+
+        // 3. Load External Events
         loadEvents(song, cleanSong);
 
         return song;
@@ -61,7 +57,7 @@ class SongLoader {
             song.needsVoices = XMSoul.getBoolAttr(metaXml, "needsVoices", false);
 
             if (metaXml.has.resolve("color")) {
-                var c = FlxColor.fromString(metaXml.att.resolve("color"));
+                var c:Null<FlxColor> = SongMetadataHelper.parseColor(metaXml.att.resolve("color"));
                 if (c != null) song.color = c;
             }
 
@@ -78,11 +74,12 @@ class SongLoader {
             return;
         }
 
-        // Fallback: Legacy JSON metadata
         var metaCandidates = [
             'songs/$cleanSong/meta.json',
             'songs/$cleanSong/_meta.json',
+            'songs/$cleanSong/metadata.json',
             'data/$cleanSong/meta.json',
+            'data/$cleanSong/metadata.json',
             'assets/preload/songs/$cleanSong/meta.json'
         ];
 
@@ -102,8 +99,8 @@ class SongLoader {
                     if (meta.needsVoices != null) song.needsVoices = meta.needsVoices == true;
 
                     if (meta.color != null && meta.color.trim().length > 0) {
-                        var parsedColor:Null<FlxColor> = FlxColor.fromString(meta.color);
-                        if (parsedColor != null) song.color = parsedColor;
+                        var parsedCol:Null<FlxColor> = SongMetadataHelper.parseColor(meta.color);
+                        if (parsedCol != null) song.color = parsedCol;
                     }
                 } catch (err:Dynamic) {
                     Logger.warn('Failed parsing metadata for $cleanSong: $err', "song");
@@ -141,14 +138,15 @@ class SongLoader {
         return true;
     }
 
-    private static function loadLegacyJsonChart(song:Song, cleanSong:String, cleanDiff:String, diffSuffix:String):Bool {
+    private static function loadUniversalJsonChart(song:Song, cleanSong:String, cleanDiff:String, diffSuffix:String):Bool {
         var chartCandidates = [
             'songs/$cleanSong/charts/$cleanDiff',
             'songs/$cleanSong/chart$diffSuffix',
             'songs/$cleanSong/$cleanSong$diffSuffix',
             'data/$cleanSong/$cleanSong$diffSuffix',
             'data/$cleanSong/$cleanDiff',
-            'assets/preload/songs/$cleanSong/charts/$cleanDiff'
+            'assets/preload/songs/$cleanSong/charts/$cleanDiff',
+            'songs/$cleanSong/$cleanDiff'
         ];
 
         if (cleanDiff == "normal") {
@@ -173,10 +171,13 @@ class SongLoader {
                 song.chart = parsed.chart;
                 if (song.bpm <= 0 && parsed.bpm > 0) song.bpm = parsed.bpm;
                 if (parsed.scrollSpeed > 0) song.scrollSpeed = parsed.scrollSpeed;
+                if (parsed.player1 != null && song.player1 == null) song.player1 = parsed.player1;
+                if (parsed.player2 != null && song.player2 == null) song.player2 = parsed.player2;
+                if (parsed.stage != null && song.stage == null) song.stage = parsed.stage;
                 return true;
             }
         } catch (e:Dynamic) {
-            Logger.error('Failed parsing legacy JSON chart for $cleanSong: $e', "song");
+            Logger.error('Failed parsing JSON chart for $cleanSong: $e', "song");
         }
         return false;
     }

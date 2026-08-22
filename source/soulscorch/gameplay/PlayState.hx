@@ -122,16 +122,21 @@ class PlayState extends MusicBeatState {
     }
 
     public var maxHealth:Float = 2.0;
-    public var songScore(get, never):Int;
-    inline function get_songScore():Int return judgementManager != null ? judgementManager.score : 0;
-    public var songMisses(get, never):Int;
-    inline function get_songMisses():Int return judgementManager != null ? judgementManager.misses : 0;
-    public var songHits(get, never):Int;
-    inline function get_songHits():Int return judgementManager != null ? judgementManager.totalNotesHit : 0;
-    public var combo(get, never):Int;
-    inline function get_combo():Int return judgementManager != null ? judgementManager.combo : 0;
-    public var accuracy(get, never):Float;
-    inline function get_accuracy():Float return judgementManager != null ? judgementManager.accuracy : 0.0;
+
+    // --- Accurate Scoring & Hit Tracking ---
+    public var songScore:Int = 0;
+    public var songMisses:Int = 0;
+    public var songHits:Int = 0;
+    public var combo:Int = 0;
+    public var maxCombo:Int = 0;
+    public var totalNotesPassed:Int = 0;
+    public var totalAccuracyScore:Float = 0.0;
+    public var accuracy:Float = 0.0;
+
+    public var sicks:Int = 0;
+    public var goods:Int = 0;
+    public var bads:Int = 0;
+    public var shits:Int = 0;
 
     public var healthBarBG:FlxSprite;
     public var healthBar:FlxBar;
@@ -139,6 +144,7 @@ class PlayState extends MusicBeatState {
     public var iconP2:HealthIcon;
     public var scoreTxt:FlxText;
     public var botplayTxt:FlxText;
+    public var judgementCounterTxt:FlxText;
 
     // --- Time Bar ---
     public var timeBarBG:FlxSprite;
@@ -158,6 +164,7 @@ class PlayState extends MusicBeatState {
     public var downscroll:Bool = false;
     public var middlescroll:Bool = false;
     public var botplay:Bool = false;
+    public var practiceMode:Bool = false;
     public var cameraZoomOnBeat:Bool = true;
     public var allowPause:Bool = true;
     public var noteSplashEnabled:Bool = true;
@@ -214,7 +221,6 @@ class PlayState extends MusicBeatState {
         setupMobileControls();
         setupScriptRuntime();
 
-        // Fire post-create script hooks safely after all elements are added
         if (scripts != null) {
             scripts.callAll("onPostCreate", []);
         }
@@ -239,6 +245,7 @@ class PlayState extends MusicBeatState {
         downscroll = GameplayFlags.getBool("downscroll", false);
         middlescroll = GameplayFlags.getBool("middlescroll", false);
         botplay = GameplayFlags.getBool("botplay", false);
+        practiceMode = GameplayFlags.getBool("practiceMode", false);
         allowPause = GameplayFlags.getBool("allowPause", true);
         cameraZoomOnBeat = GameplayFlags.getBool("cameraZoomOnBeat", true);
         noteSplashEnabled = GameplayFlags.getBool("noteSplash", true);
@@ -304,7 +311,7 @@ class PlayState extends MusicBeatState {
 
         judgementManager = new JudgementManager(camHUD);
         judgementManager.onHealthChange = function(newHealth:Float) {
-            if (newHealth <= 0 && !isEnding && !GameplayFlags.getBool("practiceMode", false)) {
+            if (newHealth <= 0 && !isEnding && !practiceMode) {
                 gameOver();
             }
             updateScoreText();
@@ -420,7 +427,7 @@ class PlayState extends MusicBeatState {
         ];
 
         for (p in cutscenePaths) {
-            var resolved = AssetResolver.resolveFile(p, [".hx", ".soul"]);
+            var resolved = AssetResolver.resolveFile(p, [".hx", ".soul", ".lua", ".py"]);
             if (resolved != null) {
                 openSubState(new CutsceneSubState(resolved, onComplete));
                 return;
@@ -603,6 +610,13 @@ class PlayState extends MusicBeatState {
         scoreTxt.cameras = [camHUD];
         add(scoreTxt);
 
+        judgementCounterTxt = new FlxText(20, healthBarBG.y - 40, 300, "", 14);
+        judgementCounterTxt.setFormat(Paths.font(fontName), 14, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+        judgementCounterTxt.borderSize = 1.2;
+        judgementCounterTxt.scrollFactor.set(0, 0);
+        judgementCounterTxt.cameras = [camHUD];
+        add(judgementCounterTxt);
+
         botplayTxt = new FlxText(0, healthBarBG.y + (downscroll ? 58 : -38), FlxG.width, "BOTPLAY", 24);
         botplayTxt.setFormat(Paths.font(fontName), 24, 0xFFFFCC00, CENTER, OUTLINE, FlxColor.BLACK);
         botplayTxt.borderSize = 1.5;
@@ -612,6 +626,7 @@ class PlayState extends MusicBeatState {
         add(botplayTxt);
 
         updateIconPositions();
+        updateScoreText();
     }
 
     private function setupMobileControls():Void {
@@ -627,7 +642,6 @@ class PlayState extends MusicBeatState {
         scripts = new ScriptManager();
         var cleanSong = curSong.toLowerCase().trim();
 
-        // Robust path checks targeting song root folders directly
         var scriptPaths = [
             'songs/$cleanSong/script',
             'data/$cleanSong/script',
@@ -636,7 +650,7 @@ class PlayState extends MusicBeatState {
         ];
 
         for (s in scriptPaths) {
-            var file = AssetResolver.resolveFile(s, [".hx", ".soul", ".lua", ".py", ".js"]);
+            var file = AssetResolver.resolveFile(s, [".hx", ".soul", ".lua", ".py", ".hscript"]);
             if (file != null) {
                 scripts.loadScript(file);
                 Logger.info('Loaded song script: $file', "script");
@@ -653,7 +667,7 @@ class PlayState extends MusicBeatState {
         for (d in scriptDirs) {
             if (FileSystem.exists(d) && FileSystem.isDirectory(d)) {
                 for (f in FileSystem.readDirectory(d)) {
-                    if (f.endsWith(".hx") || f.endsWith(".soul") || f.endsWith(".lua") || f.endsWith(".py") || f.endsWith(".js")) {
+                    if (f.endsWith(".hx") || f.endsWith(".soul") || f.endsWith(".lua") || f.endsWith(".py") || f.endsWith(".hscript")) {
                         var fullPath = '$d/$f';
                         scripts.loadScript(fullPath);
                         Logger.info('Loaded directory script: $fullPath', "script");
@@ -664,6 +678,7 @@ class PlayState extends MusicBeatState {
         #end
 
         scripts.setAll("game", this);
+        scripts.setAll("state", this);
         scripts.setAll("audio", audio);
         scripts.setAll("modcharts", modcharts);
         scripts.setAll("boyfriend", boyfriend);
@@ -673,6 +688,7 @@ class PlayState extends MusicBeatState {
         scripts.setAll("camGame", camGame);
         scripts.setAll("camHUD", camHUD);
         scripts.setAll("camOther", camOther);
+        scripts.setAll("defaultCamZoom", defaultCamZoom);
 
         scripts.callAll("create", []);
         scripts.callAll("onCreate", []);
@@ -747,7 +763,7 @@ class PlayState extends MusicBeatState {
                     songLength,
                     0.0,
                     0.0,
-                    0,
+                    songScore,
                     songMisses
                 );
                 #end
@@ -764,6 +780,7 @@ class PlayState extends MusicBeatState {
             scripts.setAll("curBeat", Conductor.curBeat);
             scripts.setAll("curStep", Conductor.curStep);
             scripts.setAll("songPosition", Conductor.songPosition);
+            scripts.setAll("health", health);
             scripts.callAll("onUpdate", [elapsed]);
         }
 
@@ -994,23 +1011,54 @@ class PlayState extends MusicBeatState {
         note.wasGoodHit = true;
 
         if (note.causesMiss) {
-            judgementManager.miss(note);
+            noteMiss(note.noteData);
             note.kill();
             notes.remove(note, false);
             note.destroy();
             return;
         }
 
-        var result:Judgment = judgementManager.judge(note, Conductor.songPosition - noteOffset);
+        var diff = Math.abs(note.strumTime - (Conductor.songPosition - noteOffset));
+        var accuracyMod:Float = 1.0;
+        var scoreAdd:Int = 350;
 
-        if (health < maxHealth) {
-            health = Math.min(maxHealth, health + note.hitHealth);
+        if (diff <= 45.0) {
+            sicks++;
+            accuracyMod = 1.0;
+            scoreAdd = 350;
+        } else if (diff <= 90.0) {
+            goods++;
+            accuracyMod = 0.75;
+            scoreAdd = 200;
+        } else if (diff <= 135.0) {
+            bads++;
+            accuracyMod = 0.45;
+            scoreAdd = 100;
+        } else {
+            shits++;
+            accuracyMod = 0.15;
+            scoreAdd = 50;
         }
 
         if (!note.isSustainNote) {
-            if (Judgment.triggersSplash(result) && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
+            songHits++;
+            combo++;
+            if (combo > maxCombo) maxCombo = combo;
+
+            totalNotesPassed++;
+            totalAccuracyScore += accuracyMod;
+            accuracy = (totalAccuracyScore / totalNotesPassed) * 100.0;
+            songScore += scoreAdd;
+
+            if (diff <= 45.0 && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
                 spawnSplash(playerStrumline.receptors[note.noteData].x, playerStrumline.receptors[note.noteData].y, note.noteData);
             }
+        } else {
+            songScore += 20;
+        }
+
+        if (health < maxHealth) {
+            health = Math.min(maxHealth, health + (note.isSustainNote ? 0.0125 : note.hitHealth));
         }
 
         if (audio != null) audio.muteVocal(true, false);
@@ -1042,7 +1090,12 @@ class PlayState extends MusicBeatState {
     }
 
     private function noteMiss(dir:Int):Void {
-        judgementManager.miss(null);
+        songMisses++;
+        combo = 0;
+        totalNotesPassed++;
+        accuracy = (totalAccuracyScore / totalNotesPassed) * 100.0;
+        songScore = Std.int(Math.max(0, songScore - 10));
+
         if (health > 0) {
             health = Math.max(0.0, health - 0.0475);
         }
@@ -1069,19 +1122,23 @@ class PlayState extends MusicBeatState {
     }
 
     private function updateScoreText():Void {
-        var acc = Math.round(accuracy * 100) / 100;
-        var rank = getRatingString(accuracy);
+        var acc = totalNotesPassed > 0 ? (Math.round(accuracy * 100) / 100) : 0.0;
+        var rank = getRatingString(acc);
         scoreTxt.text = 'Score: $songScore | Misses: $songMisses | Accuracy: $acc% [$rank]';
+
+        if (judgementCounterTxt != null) {
+            judgementCounterTxt.text = 'Sicks: $sicks\nGoods: $goods\nBads: $bads\nShits: $shits\nCombo: $combo (Max: $maxCombo)';
+        }
     }
 
     private function getRatingString(acc:Float):String {
-        if (songHits == 0 && songMisses == 0) return "?";
+        if (totalNotesPassed == 0) return "?";
         if (songMisses == 0) {
             if (acc >= 100.0) return "SFC";
             if (acc >= 90.0) return "GFC";
             return "FC";
         }
-        if (acc >= 80.0) return "SDC";
+        if (acc >= 85.0) return "SDC";
         if (acc >= 70.0) return "Clear";
         return "Loss";
     }
@@ -1226,13 +1283,10 @@ class PlayState extends MusicBeatState {
         if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
         
-        // Pass boyfriend's actual x and y coordinates (or 0,0 as fallback)
         var bfX:Float = (boyfriend != null) ? boyfriend.x : 100;
         var bfY:Float = (boyfriend != null) ? boyfriend.y : 100;
         openSubState(new GameOverSubState(bfX, bfY));
     }
-    private inline function lineGetX():Float return boyfriend != null ? boyfriend.x : 100;
-    private inline function lineGetY():Float return boyfriend != null ? boyfriend.y : 100;
 
     private function onSongFinished():Void {
         if (paused || isEnding) return;

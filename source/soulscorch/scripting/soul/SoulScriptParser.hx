@@ -1,247 +1,191 @@
 package soulscorch.scripting.soul;
 
-import Std;
-import Math;
-import StringTools;
-
 using StringTools;
 
 class SoulScriptParser {
     public static function transpile(source:String):String {
-        if (source == null) return "";  
+        if (source == null || source.trim().length == 0) return "";
 
-        var output:Array<String> = [];  
-        var indent:Int = 0;  
+        var lines = source.split("\n");
+        var output:Array<String> = [];
+        var openFunctions:Int = 0;
 
-        for (raw in source.split("\n")) {  
-            var line:String = raw.replace("\r", "").trim();  
+        for (raw in lines) {
+            var rawClean = raw.replace("\r", "");
+            var trimmed = rawClean.trim();
 
-            if (line.length == 0 || line.startsWith("#") || line.startsWith("//")) {  
-                continue;  
+            if (trimmed.length == 0 || trimmed.startsWith("#") || trimmed.startsWith("//")) {
+                continue;
             }
 
-            if (line == "end" || line == "}") {  
-                indent = Std.int(Math.max(0, indent - 1));  
-                output.push(spaces(indent) + "}");  
-                continue;  
+            var header = translateHeader(trimmed);
+            if (header != null) {
+                // If a previous function block was already open, close it before opening the next
+                if (openFunctions > 0) {
+                    output.push("}");
+                    openFunctions--;
+                }
+                output.push(header);
+                openFunctions++;
+                continue;
             }
 
-            var header:String = translateHeader(line);  
-            if (header != null) {  
-                output.push(spaces(indent) + header);  
-                indent++;  
-                continue;  
+            var strumTween = translateStrumTween(trimmed);
+            if (strumTween != null) {
+                output.push("    " + strumTween);
+                continue;
             }
 
-            var strumTween:String = translateStrumTween(line);  
-            if (strumTween != null) {  
-                output.push(spaces(indent) + strumTween);  
-                continue;  
+            var vec3Tween = translateVector3Tween(trimmed);
+            if (vec3Tween != null) {
+                output.push("    " + vec3Tween);
+                continue;
             }
 
-            var vec3Tween:String = translateVector3Tween(line);  
-            if (vec3Tween != null) {  
-                output.push(spaces(indent) + vec3Tween);  
-                continue;  
+            var shaderTween = translateShaderTween(trimmed);
+            if (shaderTween != null) {
+                output.push("    " + shaderTween);
+                continue;
             }
 
-            var shaderTween:String = translateShaderTween(line);  
-            if (shaderTween != null) {  
-                output.push(spaces(indent) + shaderTween);  
-                continue;  
+            var tween = translateTween(trimmed);
+            if (tween != null) {
+                output.push("    " + tween);
+                continue;
             }
 
-            var tween:String = translateTween(line);  
-            if (tween != null) {  
-                output.push(spaces(indent) + tween);  
-                continue;  
+            var statement = translateMacros(trimmed);
+            if (statement == null) statement = trimmed;
+
+            // Avoid injecting duplicate semicolons around braces or existing terminals
+            if (!statement.endsWith(";") && !statement.endsWith("{") && !statement.endsWith("}")) {
+                statement += ";";
             }
 
-            var macroLine:String = translateMacros(line);  
-            if (macroLine != null) {  
-                output.push(spaces(indent) + macroLine);  
-                continue;  
-            }
-
-            output.push(spaces(indent) + line);  
+            output.push("    " + statement);
         }
 
-        while (indent-- > 0) {  
-            output.push("}");  
+        while (openFunctions > 0) {
+            output.push("}");
+            openFunctions--;
         }
 
-        return output.join("\n");  
+        return output.join("\n");
     }
 
     private static function translateHeader(line:String):String {
-        var atBeat:EReg = ~/^at beat (-?\d+(?:\.\d+)?)\s*:/i;  
-        if (atBeat.match(line)) return "if (curBeat == " + atBeat.matched(1) + ") {";  
+        var clean = line.trim();
 
-        var everyBeat:EReg = ~/^every (\d+(?:\.\d+)?) beats\s*:/i;  
-        if (everyBeat.match(line)) return "if (curBeat % " + everyBeat.matched(1) + " == 0) {";  
+        var atBeat = ~/^at beat (-?\d+(?:\.\d+)?)\s*:/i;
+        if (atBeat.match(clean)) return "if (curBeat == " + atBeat.matched(1) + ") {";
 
-        var atStep:EReg = ~/^at step (-?\d+(?:\.\d+)?)\s*:/i;  
-        if (atStep.match(line)) return "if (curStep == " + atStep.matched(1) + ") {";  
+        var everyBeat = ~/^every (\d+(?:\.\d+)?) beats\s*:/i;
+        if (everyBeat.match(clean)) return "if (curBeat % " + everyBeat.matched(1) + " == 0) {";
 
-        var everyStep:EReg = ~/^every (\d+(?:\.\d+)?) steps\s*:/i;  
-        if (everyStep.match(line)) return "if (curStep % " + everyStep.matched(1) + " == 0) {";  
+        var atStep = ~/^at step (-?\d+(?:\.\d+)?)\s*:/i;
+        if (atStep.match(clean)) return "if (curStep == " + atStep.matched(1) + ") {";
 
-        var sEvent:EReg = ~/^on songEvent\("([^"]+)"(?:,\s*([A-Za-z0-9_]+))?(?:,\s*([A-Za-z0-9_]+))?\)\s*:/i;  
-        if (sEvent.match(line)) {  
-            var name = sEvent.matched(1);  
-            var v1 = sEvent.matched(2) != null ? sEvent.matched(2) : "value1";  
-            var v2 = sEvent.matched(3) != null ? sEvent.matched(3) : "value2";  
-            return 'if (eventName == "$name") { var $v1 = eventVal1; var $v2 = eventVal2;';  
+        var everyStep = ~/^every (\d+(?:\.\d+)?) steps\s*:/i;
+        if (everyStep.match(clean)) return "if (curStep % " + everyStep.matched(1) + " == 0) {";
+
+        var sEvent = ~/^on songEvent\("([^"]+)"(?:,\s*([A-Za-z0-9_]+))?(?:,\s*([A-Za-z0-9_]+))?\)\s*:/i;
+        if (sEvent.match(clean)) {
+            var name = sEvent.matched(1);
+            var v1 = sEvent.matched(2) != null ? sEvent.matched(2) : "value1";
+            var v2 = sEvent.matched(3) != null ? sEvent.matched(3) : "value2";
+            return 'if (eventName == "$name") { var $v1 = eventVal1; var $v2 = eventVal2;';
         }
 
-        if (~/^on (create|onCreate)\s*:/i.match(line)) return "function create() {";  
-        if (~/^on (postCreate|onPostCreate)\s*:/i.match(line)) return "function postCreate() {";  
-        if (~/^on (update|onUpdate)\s*:/i.match(line)) return "function update(elapsed) {";  
-        if (~/^on (updatePost|onUpdatePost)\s*:/i.match(line)) return "function updatePost(elapsed) {";  
-        if (~/^on (beatHit|onBeatHit)\s*:/i.match(line)) return "function onBeatHit(curBeat) {";  
-        if (~/^on (stepHit|onStepHit)\s*:/i.match(line)) return "function onStepHit(curStep) {";  
-        if (~/^on (destroy|onDestroy)\s*:/i.match(line)) return "function destroy() {";  
-        if (~/^on preStateSwitch\s*:/i.match(line)) return "function preStateSwitch() {";  
-        if (~/^on postStateSwitch\s*:/i.match(line)) return "function postStateSwitch() {";  
-        if (~/^on stageReady\s*:/i.match(line)) return "function onStageReady() {";  
-        if (~/^on 3dReady\s*:/i.match(line)) return "function on3DReady() {";  
+        if (~/^on (create|onCreate|globalInit|onGlobalInit)\s*:/i.match(clean)) return "function create() {";
+        if (~/^on (postCreate|onPostCreate)\s*:/i.match(clean)) return "function onPostCreate() {";
+        if (~/^on (update|onUpdate|globalUpdate|onGlobalUpdate)\s*:/i.match(clean)) return "function onUpdate(elapsed) {";
+        if (~/^on (updatePost|onUpdatePost)\s*:/i.match(clean)) return "function onUpdatePost(elapsed) {";
+        if (~/^on (beatHit|onBeatHit)\s*:/i.match(clean)) return "function onBeatHit(curBeat) {";
+        if (~/^on (stepHit|onStepHit)\s*:/i.match(clean)) return "function onStepHit(curStep) {";
+        if (~/^on (preStateSwitch|onPreStateSwitch)\s*:/i.match(clean)) return "function onPreStateSwitch() {";
+        if (~/^on (postStateSwitch|onPostStateSwitch|stateSwitch|onStateSwitch)\s*:/i.match(clean)) return "function onStateSwitch() {";
+        if (~/^on (destroy|onDestroy)\s*:/i.match(clean)) return "function onDestroy() {";
 
-        var noteHit:EReg = ~/^on noteHit\((.*)\)\s*:/i;  
-        if (noteHit.match(line)) return 'if (event == "noteHit" && (' + noteHit.matched(1) + ')) {';  
+        var evt = ~/^on event\("([^"]+)"\)\s*:/i;
+        if (evt.match(clean)) return 'if (eventName == "' + evt.matched(1) + '") {';
 
-        var noteMiss:EReg = ~/^on noteMiss\((.*)\)\s*:/i;  
-        if (noteMiss.match(line)) return 'if (event == "noteMiss" && (' + noteMiss.matched(1) + ')) {';  
-
-        var evt:EReg = ~/^on event\("([^"]+)"\)\s*:/i;  
-        if (evt.match(line)) return 'if (eventName == "' + evt.matched(1) + '") {';  
-
-        return null;  
+        return null;
     }
 
     private static function translateStrumTween(line:String):String {
-        var reg:EReg = ~/^strumline\.(player|opponent)\[([0-3])\]\.([A-Za-z0-9_]+)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;  
-        if (!reg.match(line)) return null;  
+        var clean = line.trim();
+        var reg = ~/^strumline\.(player|opponent)\[([0-3])\]\.([A-Za-z0-9_]+)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/i;
+        if (!reg.match(clean)) return null;
 
         var group = reg.matched(1) == "player" ? "game.playerStrumline.receptors" : "game.opponentStrumline.receptors";
-        var idx = reg.matched(2);  
-        var prop = reg.matched(3);  
-        var val = reg.matched(4);  
-        var dur = reg.matched(5);  
-        var ease = reg.matched(6) != null ? reg.matched(6) : "linear";  
+        var idx = reg.matched(2);
+        var prop = reg.matched(3);
+        var val = reg.matched(4);
+        var dur = reg.matched(5);
+        var ease = reg.matched(6) != null ? reg.matched(6) : "linear";
 
         return 'FlxTween.tween($group[$idx], {$prop: $val}, $dur, {ease: FlxEase.$ease});';
     }
 
     private static function translateTween(line:String):String {
-        var regex:EReg = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;  
-        if (!regex.match(line)) return null;  
+        var clean = line.trim();
+        var regex = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*->\s*(.*?)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
+        if (!regex.match(clean)) return null;
 
-        var target:String = regex.matched(1);  
-        var prop:String = regex.matched(2);  
-        var value:String = regex.matched(3);  
-        var dur:String = regex.matched(4);  
-        var ease:String = regex.matched(5) != null ? regex.matched(5) : "linear";  
+        var target = regex.matched(1);
+        var prop = regex.matched(2);
+        var value = regex.matched(3);
+        var dur = regex.matched(4);
+        var ease = regex.matched(5) != null ? regex.matched(5) : "linear";
 
-        return 'FlxTween.tween(' + target + ', {' + prop + ': ' + value + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';  
+        return 'FlxTween.tween(' + target + ', {' + prop + ': ' + value + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';
     }
 
     private static function translateVector3Tween(line:String):String {
-        var regex:EReg = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.(position|target|rotation|scale)\s*->\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;  
-        if (!regex.match(line)) return null;  
+        var clean = line.trim();
+        var regex = ~/^([A-Za-z_][A-Za-z0-9_.]*)\.(position|target|rotation|scale)\s*->\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
+        if (!regex.match(clean)) return null;
 
-        var target = regex.matched(1);  
-        var prop = regex.matched(2);  
-        var x = regex.matched(3);  
-        var y = regex.matched(4);  
-        var z = regex.matched(5);  
-        var dur = regex.matched(6);  
-        var ease = regex.matched(7) != null ? regex.matched(7) : "linear";  
+        var target = regex.matched(1);
+        var prop = regex.matched(2);
+        var x = regex.matched(3);
+        var y = regex.matched(4);
+        var z = regex.matched(5);
+        var dur = regex.matched(6);
+        var ease = regex.matched(7) != null ? regex.matched(7) : "linear";
 
-        return 'FlxTween.tween(' + target + '.' + prop + ', {x: ' + x + ', y: ' + y + ', z: ' + z + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';  
+        return 'FlxTween.tween(' + target + '.' + prop + ', {x: ' + x + ', y: ' + y + ', z: ' + z + '}, ' + dur + ', {ease: FlxEase.' + ease + '});';
     }
 
     private static function translateShaderTween(line:String):String {
-        var regex:EReg = ~/^shader\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*->\s*([0-9.]+)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;  
-        if (!regex.match(line)) return null;  
+        var clean = line.trim();
+        var regex = ~/^shader\.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*->\s*([0-9.]+)\s+in\s+([0-9.]+)s?(?:\s*\(([^)]+)\))?;?$/;
+        if (!regex.match(clean)) return null;
 
-        var shaderVar = regex.matched(1);  
-        var uniform = regex.matched(2);  
-        var targetVal = regex.matched(3);  
-        var dur = regex.matched(4);  
-        var ease = regex.matched(5) != null ? regex.matched(5) : "linear";  
+        var shaderVar = regex.matched(1);
+        var uniform = regex.matched(2);
+        var targetVal = regex.matched(3);
+        var dur = regex.matched(4);
+        var ease = regex.matched(5) != null ? regex.matched(5) : "linear";
 
-        return 'FlxTween.num(' + shaderVar + '.getFloat("' + uniform + '"), ' + targetVal + ', ' + dur + ', {ease: FlxEase.' + ease + '}, function(v) { ' + shaderVar + '.setFloat("' + uniform + '", v); });';  
+        return 'FlxTween.num(' + shaderVar + '.getFloat("' + uniform + '"), ' + targetVal + ', ' + dur + ', {ease: FlxEase.' + ease + '}, function(v) { ' + shaderVar + '.setFloat("' + uniform + '", v); });';
     }
 
     private static function translateMacros(line:String):String {
-        var nsAll:EReg = ~/^noteskin\.set\("([^"]+)"\);?$/i;  
-        if (nsAll.match(line)) return 'game.changeNoteSkin("' + nsAll.matched(1) + '");';  
+        var clean = line.trim();
 
-        var nsPlayer:EReg = ~/^noteskin\.setPlayer\("([^"]+)"\);?$/i;  
-        if (nsPlayer.match(line)) return 'game.changePlayerNoteSkin("' + nsPlayer.matched(1) + '");';  
+        var shake = ~/^screen\.shake\(([0-9.]+),\s*([0-9.]+)s?\);?$/i;
+        if (shake.match(clean)) return 'FlxG.camera.shake(' + shake.matched(1) + ', ' + shake.matched(2) + ');';
 
-        var splash:EReg = ~/^noteskin\.setSplash\("([^"]+)"\);?$/i;  
-        if (splash.match(line)) return 'game.changeSplashSkin("' + splash.matched(1) + '");';  
+        var bump = ~/^camera\.bump\(([0-9.]+)\);?$/i;
+        if (bump.match(clean)) return 'FlxG.camera.zoom += ' + bump.matched(1) + ';';
 
-        var cAnim:EReg = ~/^character\("(boyfriend|dad|gf)"\)\.playAnim\("([^"]+)"(?:,\s*(true|false))?\);?$/i;  
-        if (cAnim.match(line)) {  
-            var targetChar = cAnim.matched(1) == "boyfriend" ? "game.boyfriend" : (cAnim.matched(1) == "dad" ? "game.dad" : "game.gf");  
-            var forced = cAnim.matched(3) != null ? cAnim.matched(3) : "true";  
-            return targetChar + '.playAnim("' + cAnim.matched(2) + '", ' + forced + ');';  
-        }
-
-        var switchSt:EReg = ~/^switchState\("([^"]+)"\);?$/i;  
-        if (switchSt.match(line)) return 'FlxG.switchState(new soulscorch.scripting.ScriptedState("' + switchSt.matched(1) + '"));';
-
-        var openSub:EReg = ~/^openSubState\("([^"]+)"\);?$/i;
-        if (openSub.match(line)) return 'FlxG.state.openSubState(new soulscorch.scripting.ScriptedSubState("' + openSub.matched(1) + '"));';
-
-        if (~/^closeSubState\(\);?$/i.match(line)) return 'close();';  
-
-        var loadMdl:EReg = ~/^loadModel\("([^"]+)",\s*"([^"]+)"(?:,\s*\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\])?\);?$/i;  
-        if (loadMdl.match(line)) {  
-            var id = loadMdl.matched(1);  
-            var path = loadMdl.matched(2);  
-            var x = loadMdl.matched(3) != null ? loadMdl.matched(3) : "0";  
-            var y = loadMdl.matched(4) != null ? loadMdl.matched(4) : "0";  
-            var z = loadMdl.matched(5) != null ? loadMdl.matched(5) : "0";  
-            return 'var _mesh = soulscorch.backend.system.apis.ModelAPI.loadOBJ("' + path + '", null, function(m) { m.x = ' + x + '; m.y = ' + y + '; m.z = ' + z + '; soulscorch.graphics.threed.Away3DManager.scene.addChild(m); });';
-        }
-
-        var addShd:EReg = ~/^addShader\("([^"]+)"(?:,\s*"([^"]+)")?\);?$/i;  
-        if (addShd.match(line)) {  
-            var sName = addShd.matched(1);  
-            var targetCam = addShd.matched(2) != null ? addShd.matched(2) : "FlxG.camera";  
-            return 'var ' + sName + ' = new soulscorch.graphics.shaders.SoulShader("' + sName + '"); ' + targetCam + '.setFilters([new openfl.filters.ShaderFilter(' + sName + ')]);';  
-        }
-
-        var rmShd:EReg = ~/^removeShaders\((?:["']?([^"']*)["']?)?\);?$/i;  
-        if (rmShd.match(line)) {  
-            var cam = (rmShd.matched(1) != null && rmShd.matched(1).length > 0) ? rmShd.matched(1) : "FlxG.camera";  
-            return cam + '.setFilters([]);';  
-        }
-
-        var stmVol:EReg = ~/^stems\.setVolume\("([^"]+)",\s*([0-9.]+)\);?$/i;  
-        if (stmVol.match(line)) return 'game.audio.inst.volume = ' + stmVol.matched(2) + ';';
-
-        var shake:EReg = ~/^screen\.shake\(([0-9.]+),\s*([0-9.]+)s?\);?$/i;  
-        if (shake.match(line)) return 'FlxG.camera.shake(' + shake.matched(1) + ', ' + shake.matched(2) + ');';  
-
-        var bump:EReg = ~/^camera\.bump\(([0-9.]+)\);?$/i;  
-        if (bump.match(line)) return 'FlxG.camera.zoom += ' + bump.matched(1) + ';';  
-
-        var snd:EReg = ~/^playSound\("([^"]+)"(?:,\s*([0-9.]+))?\);?$/i;  
-        if (snd.match(line)) {  
-            var vol = snd.matched(2) != null ? snd.matched(2) : "1.0";  
+        var snd = ~/^playSound\("([^"]+)"(?:,\s*([0-9.]+))?\);?$/i;
+        if (snd.match(clean)) {
+            var vol = snd.matched(2) != null ? snd.matched(2) : "1.0";
             return 'soulscorch.backend.assets.AssetHelper.playSoundSafely("' + snd.matched(1) + '", ' + vol + ');';
         }
 
-        return null;  
-    }
-
-    private static function spaces(count:Int):String {
-        var result:String = "";  
-        for (i in 0...count) result += "    ";  
-        return result;  
+        return null;
     }
 }

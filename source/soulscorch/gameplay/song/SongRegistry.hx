@@ -22,6 +22,8 @@ typedef RegisteredSong = {
     var speed:Float;
     var character:String;
     var color:FlxColor;
+    var ?artist:String;
+    var ?charter:String;
     var ?difficulties:Array<String>;
     var ?folder:String;
 }
@@ -34,7 +36,6 @@ class SongRegistry {
         songs = [];
         _songMap.clear();
 
-        // 1. Check for strict freeplay config replacement (Mods or Base)
         var freeplayPath:String = null;
         #if sys
         if (ModManager.activeMods != null) {
@@ -43,7 +44,8 @@ class SongRegistry {
                     'mods/$m/data/config/freeplay.xmsoul',
                     'mods/$m/config/freeplay.xmsoul',
                     'mods/$m/data/config/freeplayList.xmsoul',
-                    'mods/$m/data/freeplay.xmsoul'
+                    'mods/$m/data/freeplay.xmsoul',
+                    'mods/$m/data/freeplaySongList.txt'
                 ];
                 for (p in candidatePaths) {
                     if (FileSystem.exists(p)) {
@@ -57,9 +59,9 @@ class SongRegistry {
         #end
 
         if (freeplayPath == null) {
-            var probes = ["config/freeplay", "data/config/freeplay", "data/config/freeplayList"];
+            var probes = ["config/freeplay", "data/config/freeplay", "data/config/freeplayList", "data/freeplaySongList"];
             for (pr in probes) {
-                var res = AssetResolver.resolveFile(pr, [".xmsoul", ".xml", ""]);
+                var res = AssetResolver.resolveFile(pr, [".xmsoul", ".xml", ".txt", ""]);
                 if (res != null) {
                     freeplayPath = res;
                     break;
@@ -67,41 +69,43 @@ class SongRegistry {
             }
         }
 
-        // If a valid freeplay list exists, parse it as the absolute source of truth
         if (freeplayPath != null) {
-            var freeplayXml:Access = XMSoul.parse(freeplayPath, false);
-            if (freeplayXml != null) {
-                for (songNode in freeplayXml.elements) {
-                    if (songNode.name.toLowerCase() == "song") {
-                        var songId = XMSoul.getAttr(songNode, "id", XMSoul.getAttr(songNode, "name", "")).toLowerCase().trim();
-                        if (songId.length == 0) continue;
+            if (freeplayPath.endsWith(".txt")) {
+                parseLegacyTextList(freeplayPath);
+            } else {
+                var freeplayXml:Access = XMSoul.parse(freeplayPath, false);
+                if (freeplayXml != null) {
+                    for (songNode in freeplayXml.elements) {
+                        if (songNode.name.toLowerCase() == "song") {
+                            var songId = XMSoul.getAttr(songNode, "id", XMSoul.getAttr(songNode, "name", "")).toLowerCase().trim();
+                            if (songId.length == 0) continue;
 
-                        var explicitTitle = XMSoul.getAttr(songNode, "name", formatSongTitle(songId));
-                        var explicitIcon = XMSoul.getAttr(songNode, "icon", "");
-                        var explicitDiffs = XMSoul.getArrayAttr(songNode, "difficulties", ",");
+                            var explicitTitle = XMSoul.getAttr(songNode, "name", formatSongTitle(songId));
+                            var explicitIcon = XMSoul.getAttr(songNode, "icon", "");
+                            var explicitDiffs = XMSoul.getArrayAttr(songNode, "difficulties", ",");
 
-                        var entry = buildSongEntryWithMeta(songId, explicitTitle, explicitIcon.length > 0 ? explicitIcon : null);
+                            var entry = buildSongEntryWithMeta(songId, explicitTitle, explicitIcon.length > 0 ? explicitIcon : null);
 
-                        if (songNode.has.color) {
-                            var parsedCol = parseColorString(songNode.att.color);
-                            if (parsedCol != null) entry.color = parsedCol;
-                        }
+                            if (songNode.has.color) {
+                                var parsedCol:Null<FlxColor> = parseColorString(songNode.att.color);
+                                if (parsedCol != null) entry.color = parsedCol;
+                            }
 
-                        if (explicitDiffs.length > 0) {
-                            entry.difficulties = explicitDiffs;
-                        }
+                            if (explicitDiffs.length > 0) {
+                                entry.difficulties = explicitDiffs;
+                            }
 
-                        if (!_songMap.exists(entry.id)) {
-                            _songMap.set(entry.id, entry);
-                            songs.push(entry);
+                            if (!_songMap.exists(entry.id)) {
+                                _songMap.set(entry.id, entry);
+                                songs.push(entry);
+                            }
                         }
                     }
                 }
-                if (songs.length > 0) return;
             }
+            if (songs.length > 0) return;
         }
 
-        // 2. Fallback Scan: Discover weeks and song folders if no list is defined
         var rawDiscovered:Map<String, RegisteredSong> = new Map<String, RegisteredSong>();
         gatherWeeks(rawDiscovered);
         gatherSongFolders(rawDiscovered);
@@ -118,16 +122,35 @@ class SongRegistry {
         }
     }
 
+    private static function parseLegacyTextList(path:String):Void {
+        #if sys
+        var lines = File.getContent(path).split("\n");
+        for (line in lines) {
+            var parts = line.trim().split(":");
+            if (parts.length > 0 && parts[0].trim().length > 0) {
+                var sId = parts[0].trim().toLowerCase();
+                var sIcon = parts.length > 1 ? parts[1].trim() : getDefaultIcon(sId);
+                var entry = buildSongEntryWithMeta(sId, formatSongTitle(sId), sIcon);
+                if (!_songMap.exists(entry.id)) {
+                    _songMap.set(entry.id, entry);
+                    songs.push(entry);
+                }
+            }
+        }
+        #end
+    }
+
     public static function buildSongEntryWithMeta(id:String, ?defaultTitle:String, ?defaultIcon:String):RegisteredSong {
         var clean = id.toLowerCase().trim();
         var songTitle = defaultTitle != null ? formatSongTitle(defaultTitle) : formatSongTitle(clean);
         var iconChar = defaultIcon != null ? defaultIcon : getDefaultIcon(clean);
         var bpmVal = 100.0;
         var speedVal = 2.0;
-        var songColor = getCharColor(iconChar);
+        var songColor:FlxColor = getCharColor(iconChar);
         var detectedDiffs:Array<String> = [];
+        var artistName:String = "Unknown";
+        var charterName:String = "Unknown";
 
-        // 1. Read meta.xmsoul
         var metaXml:Access = XMSoul.parse('songs/$clean/meta', false);
         if (metaXml == null) metaXml = XMSoul.parse('data/$clean/meta', false);
 
@@ -135,16 +158,24 @@ class SongRegistry {
             songTitle = XMSoul.getAttr(metaXml, "displayName", XMSoul.getAttr(metaXml, "title", songTitle));
             bpmVal = XMSoul.getFloatAttr(metaXml, "bpm", 100.0);
             iconChar = XMSoul.getAttr(metaXml, "icon", iconChar);
+            artistName = XMSoul.getAttr(metaXml, "artist", "Unknown");
+            charterName = XMSoul.getAttr(metaXml, "charter", "Unknown");
+
             if (metaXml.has.color) {
-                var c = parseColorString(metaXml.att.color);
+                var c:Null<FlxColor> = parseColorString(metaXml.att.color);
                 if (c != null) songColor = c;
             }
             if (metaXml.hasNode.difficulties) {
                 detectedDiffs = XMSoul.getArrayAttr(metaXml.node.difficulties, "names", ",");
             }
         } else {
-            // Fallback: meta.json
-            var metaPaths = ['songs/$clean/meta.json', 'data/$clean/meta.json', 'assets/preload/songs/$clean/meta.json'];
+            var metaPaths = [
+                'songs/$clean/meta.json',
+                'songs/$clean/_meta.json',
+                'songs/$clean/metadata.json',
+                'data/$clean/meta.json',
+                'assets/preload/songs/$clean/meta.json'
+            ];
             for (path in metaPaths) {
                 var resolved = AssetResolver.resolveFile(path, [".json", ""]);
                 if (resolved != null) {
@@ -157,9 +188,11 @@ class SongRegistry {
 
                             if (Reflect.hasField(meta, "bpm")) bpmVal = Std.parseFloat(Reflect.field(meta, "bpm"));
                             if (Reflect.hasField(meta, "icon")) iconChar = Std.string(Reflect.field(meta, "icon"));
+                            if (Reflect.hasField(meta, "artist")) artistName = Std.string(Reflect.field(meta, "artist"));
+                            if (Reflect.hasField(meta, "charter")) charterName = Std.string(Reflect.field(meta, "charter"));
 
                             if (Reflect.hasField(meta, "color")) {
-                                var c = parseColorString(Std.string(Reflect.field(meta, "color")));
+                                var c:Null<FlxColor> = parseColorString(Std.string(Reflect.field(meta, "color")));
                                 if (c != null) songColor = c;
                             }
                             if (Reflect.hasField(meta, "difficulties")) {
@@ -172,7 +205,6 @@ class SongRegistry {
             }
         }
 
-        // 2. Auto-Detect available chart difficulties if none specified
         if (detectedDiffs.length == 0) {
             detectedDiffs = detectAvailableDifficulties(clean);
         }
@@ -181,7 +213,6 @@ class SongRegistry {
             detectedDiffs = ["easy", "normal", "hard"];
         }
 
-        // 3. Read chart metadata for BPM/speed if unassigned
         if (bpmVal == 100.0) {
             var chartMeta = readSongChartMeta(clean, detectedDiffs[0]);
             if (chartMeta.bpm > 0) bpmVal = chartMeta.bpm;
@@ -195,6 +226,8 @@ class SongRegistry {
             speed: speedVal,
             character: iconChar,
             color: songColor,
+            artist: artistName,
+            charter: charterName,
             difficulties: detectedDiffs
         };
     }
@@ -228,8 +261,7 @@ class SongRegistry {
                         var diffName = file.substr(0, file.lastIndexOf(".")).toLowerCase();
                         if (diffName.startsWith(clean + "-")) diffName = diffName.substr(clean.length + 1);
 
-                        // Filter out non-chart XML definitions
-                        if (diffName != "events" && diffName != "meta" && diffName != "modifiers" && diffName != "config" && !foundDiffs.contains(diffName)) {
+                        if (diffName != "events" && diffName != "meta" && diffName != "metadata" && diffName != "modifiers" && diffName != "config" && !foundDiffs.contains(diffName)) {
                             foundDiffs.push(diffName);
                         }
                     }
@@ -245,7 +277,6 @@ class SongRegistry {
         var cleanSong = songId.toLowerCase().trim();
         var diff = targetDiff.toLowerCase().trim();
 
-        // 1. Try reading .xmsoul chart
         var chartXml:Access = XMSoul.parse('songs/$cleanSong/charts/$diff', false);
         if (chartXml == null) chartXml = XMSoul.parse('songs/$cleanSong/$diff', false);
         if (chartXml != null) {
@@ -253,7 +284,6 @@ class SongRegistry {
             return {bpm: 100.0, speed: speedVal};
         }
 
-        // 2. Fallback: JSON chart
         var possibleChartPaths = [
             'songs/$cleanSong/charts/$diff.json',
             'songs/$cleanSong/$diff.json',
@@ -374,6 +404,12 @@ class SongRegistry {
         var clean = raw.trim();
         if (clean.startsWith("#")) return FlxColor.fromString(clean);
         if (clean.startsWith("0x") || clean.startsWith("0X")) return Std.parseInt(clean);
+        if (clean.contains(",")) {
+            var parts = clean.split(",").map(function(s) return Std.parseInt(s.trim()));
+            if (parts.length >= 3) {
+                return FlxColor.fromRGB(parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : 255);
+            }
+        }
         return FlxColor.fromString("#" + clean);
     }
 

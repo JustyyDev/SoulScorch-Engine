@@ -15,21 +15,32 @@ class FileWatcher {
     private var fileTimestamps:Map<String, Float> = new Map();
     private var watchedDirectories:Array<String> = [];
     private var checkTimer:Float = 0.0;
-    public var checkInterval:Float = 1.0;
+    public var checkInterval:Float = 0.5;
 
     public function new() {
-        initWatchedDirectories();
+        refreshWatchedDirectories();
         scanInitialTimestamps();
     }
 
-    private function initWatchedDirectories():Void {
-        watchedDirectories = ["assets/scripts", "assets/data", "assets/songs"];
+    public function refreshWatchedDirectories():Void {
+        watchedDirectories = [
+            "assets/scripts",
+            "assets/data",
+            "assets/songs",
+            "assets/data/scripts/global",
+            "mods/global_scripts"
+        ];
 
         #if sys
         for (mod in ModLoader.activeMods) {
             watchedDirectories.push('mods/$mod/scripts');
             watchedDirectories.push('mods/$mod/data');
             watchedDirectories.push('mods/$mod/songs');
+            watchedDirectories.push('mods/$mod/scripts/global');
+            watchedDirectories.push('mods/$mod/global_scripts');
+            watchedDirectories.push('mods/$mod/data/states');
+            watchedDirectories.push('mods/$mod/data/substates');
+            watchedDirectories.push('mods/$mod/data/ui');
         }
         #end
     }

@@ -47,7 +47,8 @@ class SoulShader extends FlxShader {
                 'shaders/$rawFrag.frag',
                 '$rawFrag.frag',
                 'assets/shaders/$rawFrag.frag',
-                'data/shaders/$rawFrag.frag'
+                'data/shaders/$rawFrag.frag',
+                'mods/funkinsania/shaders/$rawFrag.frag'
             ];
 
             for (p in pathCandidates) {
@@ -90,12 +91,15 @@ class SoulShader extends FlxShader {
 
         setFloatArray("iResolution", [FlxG.width, FlxG.height]);
         setFloat("iTime", 0.0);
+        setFloat("u_time", 0.0);
     }
 
     public function update(elapsed:Float):Void {
         var cur = getFloat("iTime");
-        setFloat("iTime", cur + elapsed);
-        setFloat("u_time", cur + elapsed);
+        var next = cur + elapsed;
+        setFloat("iTime", next);
+        setFloat("u_time", next);
+        setFloat("time", next);
 
         if (FlxG.mouse != null) {
             setFloatArray("iMouse", [FlxG.mouse.x, FlxG.mouse.y, FlxG.mouse.justPressed ? 1.0 : 0.0, 0.0]);
@@ -177,7 +181,10 @@ class SoulShader extends FlxShader {
         var result = src;
         if (result.indexOf("#pragma header") != -1) {
             result = result.replace("#pragma header", header);
+        } else if (isFragment && result.indexOf("void main()") != -1 && result.indexOf("openfl_TextureCoordv") == -1) {
+            result = header + "\n" + result;
         }
+
         if (result.indexOf("#pragma body") != -1) {
             result = result.replace("#pragma body", body);
         }

@@ -2,8 +2,8 @@ package soulscorch.scripting;
 
 import flixel.FlxG;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.backends.ScriptBackendType;
 import soulscorch.scripting.mod.ModLoader;
-import soulscorch.scripting.soul.SoulScript;
 
 #if sys
 import sys.FileSystem;
@@ -16,6 +16,7 @@ class GlobalScriptManager {
     private static var _instance:GlobalScriptManager;
 
     public var activeScripts:Array<ScriptInstance> = [];
+    private var _loadedPaths:Array<String> = [];
 
     public function new() {
         _instance = this;
@@ -33,32 +34,32 @@ class GlobalScriptManager {
         #if sys
         var searchPaths = [
             "assets/data/scripts/global",
+            "assets/scripts/global",
             "mods/global_scripts"
         ];
 
         for (mod in ModLoader.activeMods) {
             searchPaths.push('mods/$mod/scripts/global');
             searchPaths.push('mods/$mod/global_scripts');
-            searchPaths.push('mods/$mod/data'); // Added to support global.soul in the data root
+            searchPaths.push('mods/$mod/data/scripts');
         }
 
         for (path in searchPaths) {
             if (FileSystem.exists(path) && FileSystem.isDirectory(path)) {
                 var files = FileSystem.readDirectory(path);
                 for (file in files) {
-                    if (file.endsWith(".hx") || file.endsWith(".hscript") || file.endsWith(".soul")) {
+                    var lower = file.toLowerCase();
+                    if (lower.endsWith(".hx") || lower.endsWith(".hscript") || lower.endsWith(".soul") || lower.endsWith(".lua") || lower.endsWith(".py")) {
                         var fullPath = '$path/$file';
-                        
-                        var script:ScriptInstance = null;
-                        if (file.endsWith(".soul")) {
-                            script = new SoulScript(fullPath);
-                        } else {
-                            script = new Script(fullPath);
-                        }
+                        if (_loadedPaths.contains(fullPath)) continue;
 
-                        if (script.active) {
+                        var script:ScriptInstance = ScriptBackendType.createInstance(fullPath);
+                        if (script != null && script.active) {
+                            _loadedPaths.push(fullPath);
                             activeScripts.push(script);
+                            script.set("isGlobal", true);
                             script.call("onGlobalInit", []);
+                            script.call("create", []);
                             Logger.info('Global script loaded: $fullPath', "script");
                         }
                     }
@@ -68,28 +69,53 @@ class GlobalScriptManager {
         #end
     }
 
-    public function call(funcName:String, ?args:Array<Dynamic>):Void {
-        if (args == null) args = [];
+    public function setAll(key:String, value:Dynamic):Void {
         for (script in activeScripts) {
-            if (script.active) {
-                script.call(funcName, args);
+            if (script != null && script.active) {
+                script.set(key, value);
             }
         }
     }
 
+    public function call(funcName:String, ?args:Array<Dynamic>):Dynamic {
+        if (args == null) args = [];
+        var lastResult:Dynamic = null;
+        for (script in activeScripts) {
+            if (script != null && script.active) {
+                var res = script.call(funcName, args);
+                if (res != null) lastResult = res;
+            }
+        }
+        return lastResult;
+    }
+
     public function update(elapsed:Float):Void {
         call("onGlobalUpdate", [elapsed]);
+        call("onUpdate", [elapsed]);
+        call("update", [elapsed]);
     }
 
     public function onStateSwitch():Void {
+        call("onPreStateSwitch", []);
         call("onStateSwitch", []);
+    }
+
+    public function stepHit(step:Int):Void {
+        call("onStepHit", [step]);
+        call("stepHit", [step]);
+    }
+
+    public function beatHit(beat:Int):Void {
+        call("onBeatHit", [beat]);
+        call("beatHit", [beat]);
     }
 
     public function reload():Void {
         for (script in activeScripts) {
-            script.destroy();
+            if (script != null) script.destroy();
         }
         activeScripts = [];
+        _loadedPaths = [];
         scanGlobalScripts();
     }
 }

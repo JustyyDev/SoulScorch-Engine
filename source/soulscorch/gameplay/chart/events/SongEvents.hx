@@ -47,6 +47,13 @@ class SongEvents {
             defaultVal2: "",
             color: 0xFF22AACC
         },
+        "Screen Shake" => {
+            name: "Screen Shake",
+            description: "Shakes the game camera with intensity (val1) and duration (val2).",
+            defaultVal1: "0.015",
+            defaultVal2: "0.25",
+            color: 0xFFE08020
+        },
         "Flash" => {
             name: "Flash",
             description: "Flashes the camera screen with a color.",
@@ -67,6 +74,34 @@ class SongEvents {
             defaultVal1: "singUP",
             defaultVal2: "dad",
             color: 0xFF30B040
+        },
+        "Alt Animation Toggle" => {
+            name: "Alt Animation Toggle",
+            description: "Toggles alternative sing animations on or off (true/false).",
+            defaultVal1: "dad",
+            defaultVal2: "true",
+            color: 0xFF30B040
+        },
+        "Change Scroll Speed" => {
+            name: "Change Scroll Speed",
+            description: "Tweens or sets note scroll speed multiplier.",
+            defaultVal1: "1.0",
+            defaultVal2: "1.0",
+            color: 0xFFE04040
+        },
+        "Set Strumline Alpha" => {
+            name: "Set Strumline Alpha",
+            description: "Sets alpha for opponent (0) or player (1) strum receptors.",
+            defaultVal1: "0",
+            defaultVal2: "0.5",
+            color: 0xFF506070
+        },
+        "Toggle UI" => {
+            name: "Toggle UI",
+            description: "Hides or shows HUD elements (alpha 0 or 1).",
+            defaultVal1: "0.0",
+            defaultVal2: "0.5",
+            color: 0xFF506070
         }
     ];
 

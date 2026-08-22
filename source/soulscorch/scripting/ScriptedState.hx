@@ -2,15 +2,21 @@ package soulscorch.scripting;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import haxe.io.Path;
-import haxe.xml.Parser;
+import flixel.text.FlxText;
+import flixel.ui.FlxButton;
+import flixel.util.FlxColor;
 import haxe.xml.Access;
+import haxe.xml.Parser;
+import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.backends.ScriptBackendType;
+import soulscorch.scripting.mod.ModLoader;
 
 using StringTools;
 
@@ -20,11 +26,11 @@ class ScriptedState extends Scene {
     public var uiElements:Map<String, Dynamic> = new Map();
 
     private static final SUPPORTED_EXTENSIONS:Array<String> = [
-        "soul", "hx", "hscript", "lua", "py", "js"
+        "hx", "soul", "lua", "py", "hscript", "js"
     ];
 
     private static final SEARCH_DIRECTORIES:Array<String> = [
-        "data/ui/", "data/states/", "scripts/states/"
+        "data/ui/", "data/states/", "scripts/states/", "data/"
     ];
 
     public function new(scriptName:String) {
@@ -35,17 +41,16 @@ class ScriptedState extends Scene {
     override public function create():Void {
         super.create();
 
-        var xmlParsed = false;
         var possibleXmlPaths = [
             'data/ui/$scriptName.xml',
-            'data/states/$scriptName.xml'
+            'data/states/$scriptName.xml',
+            'data/$scriptName.xml'
         ];
 
         for (p in possibleXmlPaths) {
             var resolvedXml = ModLoader.getPath(p);
             if (AssetResolver.exists(resolvedXml)) {
                 parseXML(AssetResolver.getText(resolvedXml));
-                xmlParsed = true;
                 break;
             }
         }
@@ -69,31 +74,39 @@ class ScriptedState extends Scene {
                 script.set("state", this);
                 script.set("game", this);
                 script.set("camera", FlxG.camera);
+                script.set("cameras", FlxG.cameras);
                 script.set("add", add);
                 script.set("remove", remove);
                 script.set("insert", insert);
                 script.set("members", members);
-                script.set("Paths", soulscorch.backend.assets.Paths);
-                script.set("Conductor", soulscorch.backend.audio.Conductor);
+                script.set("Paths", Paths);
+                script.set("Conductor", Conductor);
+                script.set("EventBus", EventBus.instance);
                 
                 script.set("getElement", function(id:String):Dynamic {
-                    if (!uiElements.exists(id)) {
-                        return null;
-                    }
                     return uiElements.get(id);
                 });
 
-                script.set("switchState", function(nextState:String) {
-                    FlxG.switchState(new ScriptedState(nextState));
-                });
-                script.set("openSubState", function(subState:String) {
-                    openSubState(new ScriptedSubState(subState));
+                script.set("switchState", function(nextState:Dynamic) {
+                    if (Std.isOfType(nextState, String)) {
+                        MusicBeatState.switchState(new ScriptedState(cast nextState));
+                    } else {
+                        MusicBeatState.switchState(nextState);
+                    }
                 });
 
-                script.call("create");
-                script.call("onCreate");
-                script.call("createPost");
-                script.call("onCreatePost");
+                script.set("openSubState", function(subState:Dynamic) {
+                    if (Std.isOfType(subState, String)) {
+                        openSubState(new ScriptedSubState(cast subState));
+                    } else {
+                        openSubState(subState);
+                    }
+                });
+
+                script.call("create", []);
+                script.call("onCreate", []);
+                script.call("createPost", []);
+                script.call("onCreatePost", []);
             } else {
                 Logger.warn('ScriptBackend failed to initialize for: $finalScriptPath', "scripting");
             }
@@ -108,7 +121,7 @@ class ScriptedState extends Scene {
             var fast = new Access(xml.firstElement());
 
             if (fast.has.bgColor) {
-                FlxG.camera.bgColor = flixel.util.FlxColor.fromString(fast.att.bgColor);
+                FlxG.camera.bgColor = FlxColor.fromString(fast.att.bgColor);
             }
 
             for (node in fast.elements) {
@@ -132,10 +145,27 @@ class ScriptedState extends Scene {
                         add(spr);
                         uiElements.set(id, spr);
 
+                    case "text":
+                        var content = node.has.content ? node.att.content : "";
+                        var size = node.has.size ? Std.parseInt(node.att.size) : 16;
+                        var width = node.has.width ? Std.parseFloat(node.att.width) : 0;
+                        var txt = new FlxText(x, y, width, content, size);
+                        var col = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                        txt.setFormat(Paths.font("vcr"), size, col, LEFT);
+                        txt.alpha = alpha;
+                        add(txt);
+                        uiElements.set(id, txt);
+
                     case "button":
-                        var width = node.has.width ? Std.parseFloat(node.att.width) : 100;
-                        var height = node.has.height ? Std.parseFloat(node.att.height) : 50;
-                        var btn = new FlxSprite(x, y).makeGraphic(Std.int(width), Std.int(height), 0x00000000);
+                        var width = node.has.width ? Std.parseInt(node.att.width) : 100;
+                        var height = node.has.height ? Std.parseInt(node.att.height) : 50;
+                        var onClickName = node.has.onClick ? node.att.onClick : null;
+                        var btn = new FlxButton(x, y, "", function() {
+                            if (onClickName != null && script != null && script.active) {
+                                script.call(onClickName, []);
+                            }
+                        });
+                        btn.makeGraphic(width, height, FlxColor.TRANSPARENT);
                         btn.alpha = alpha;
                         add(btn);
                         uiElements.set(id, btn);
@@ -178,15 +208,13 @@ class ScriptedState extends Scene {
 
     override public function destroy():Void {
         if (script != null && script.active) {
-            script.call("destroy");
-            script.call("onDestroy");
+            script.call("destroy", []);
+            script.call("onDestroy", []);
             script.destroy();
             script = null;
         }
         
         uiElements.clear();
-        uiElements = null;
-        
         super.destroy();
     }
 }

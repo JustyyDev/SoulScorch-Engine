@@ -5,6 +5,7 @@ import flixel.FlxGame;
 import flixel.FlxState;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
+import flixel.util.FlxColor;
 import haxe.CallStack;
 import openfl.Lib;
 import openfl.display.Sprite;
@@ -94,6 +95,9 @@ class Main extends Sprite {
             FlxG.fixedTimestep = false;
             FlxG.autoPause = false;
             FlxG.mouse.useSystemCursor = false;
+
+            // Force default camera background to pitch black globally
+            FlxG.cameras.bgColor = FlxColor.BLACK;
 
             #if (cpp && windows)
             //cpp.vm.ExecutionTrace.setLevel(0);

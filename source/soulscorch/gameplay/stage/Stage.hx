@@ -160,13 +160,6 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                             }
                         }
 
-                    case "high-memory":
-                        for (subNode in node.elements) {
-                            if (subNode.name.toLowerCase() == "sprite") {
-                                parseSpriteElement(subNode, baseFolder, currentLayerTarget);
-                            }
-                        }
-
                     case "box", "solid":
                         var bx = node.has.x ? Std.parseFloat(node.att.x) : 0.0;
                         var by = node.has.y ? Std.parseFloat(node.att.y) : 0.0;
@@ -219,15 +212,6 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
         if (elem.has.updateHitbox && elem.att.updateHitbox == "true") {
             spr.updateHitbox();
-        }
-
-        for (propNode in elem.elements) {
-            if (propNode.name.toLowerCase() == "property" && propNode.has.name && propNode.has.value) {
-                var pName = propNode.att.name;
-                var pVal = propNode.att.value;
-                if (pName == "velocity.x") spr.velocity.x = Std.parseFloat(pVal);
-                if (pName == "velocity.y") spr.velocity.y = Std.parseFloat(pVal);
-            }
         }
 
         var type = elem.has.type ? elem.att.type.toLowerCase() : "static";
@@ -325,6 +309,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
             }
             stageScript.setAll("stage", this);
             stageScript.callAll("postCreate", []);
+            stageScript.callAll("create", []);
         }
     }
 

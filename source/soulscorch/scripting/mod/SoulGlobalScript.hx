@@ -2,7 +2,8 @@ package soulscorch.scripting.mod;
 
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
-import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.backends.ScriptBackendType;
 import soulscorch.scripting.mod.ModManager;
 
 #if sys
@@ -12,13 +13,13 @@ import sys.FileSystem;
 using StringTools;
 
 class SoulGlobalScript {
-    public static var scripts:Array<ScriptManager> = [];
+    public static var scripts:Array<ScriptInstance> = [];
     public static var stateRedirects:Map<String, String> = new Map<String, String>();
+    private static var _loadedPaths:Array<String> = [];
 
     public static function init():Void {
         clear();
 
-        // 1. Gather all global script paths across active mods and base assets
         var scriptPaths:Array<String> = [];
 
         #if sys
@@ -35,7 +36,6 @@ class SoulGlobalScript {
                 }
             }
 
-            // Also check standard global script entry points in mod directories
             var defaultModGlobals = [
                 'mods/$mod/scripts/global.soul',
                 'mods/$mod/scripts/global.hx',
@@ -50,7 +50,6 @@ class SoulGlobalScript {
         }
         #end
 
-        // Base assets global script fallback
         var baseGlobals = [
             "data/scripts/global.soul",
             "scripts/global.soul",
@@ -63,13 +62,16 @@ class SoulGlobalScript {
             }
         }
 
-        // 2. Instantiate and register functions for each script
         for (path in scriptPaths) {
-            var script = new ScriptManager();
-            if (script.loadScript(path)) {
-                registerScriptGlobals(script);
-                script.callAll("onCreate", []);
-                scripts.push(script);
+            if (_loadedPaths.contains(path)) continue;
+
+            var instance:ScriptInstance = ScriptBackendType.createInstance(path);
+            if (instance != null && instance.active) {
+                _loadedPaths.push(path);
+                registerScriptGlobals(instance);
+                instance.call("onCreate", []);
+                instance.call("create", []);
+                scripts.push(instance);
             }
         }
 
@@ -79,11 +81,11 @@ class SoulGlobalScript {
         Logger.info('Global scripts initialized (${scripts.length} active, ${redirectCount} state redirect(s)).', "scripts");
     }
 
-    private static function registerScriptGlobals(script:ScriptManager):Void {
-        script.setAll("redirectState", redirectState);
-        script.setAll("getRedirect", getRedirect);
-        script.setAll("clearRedirects", clearRedirects);
-        script.setAll("addStateRedirect", redirectState);
+    private static function registerScriptGlobals(script:ScriptInstance):Void {
+        script.set("redirectState", redirectState);
+        script.set("getRedirect", getRedirect);
+        script.set("clearRedirects", clearRedirects);
+        script.set("addStateRedirect", redirectState);
     }
 
     public static function redirectState(fromState:String, toState:String):Void {
@@ -104,8 +106,8 @@ class SoulGlobalScript {
 
     public static function call(func:String, ?args:Array<Dynamic>):Void {
         for (script in scripts) {
-            if (script != null && script.isValid) {
-                script.callAll(func, args);
+            if (script != null && script.active) {
+                script.call(func, args);
             }
         }
     }
@@ -113,11 +115,12 @@ class SoulGlobalScript {
     public static function clear():Void {
         for (script in scripts) {
             if (script != null) {
-                script.callAll("onDestroy", []);
-                script.clear();
+                script.call("onDestroy", []);
+                script.destroy();
             }
         }
         scripts = [];
+        _loadedPaths = [];
         stateRedirects.clear();
     }
 }

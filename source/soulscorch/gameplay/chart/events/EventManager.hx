@@ -9,12 +9,17 @@ import flixel.util.FlxColor;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.utils.Logger;
-import soulscorch.backend.utils.tools.StringTools;
-import soulscorch.gameplay.chart.events.SongEvent.QueuedEvent;
+import soulscorch.gameplay.chart.events.SongEvents.QueuedEvent;
+import soulscorch.graphics.JuiceManager;
 import soulscorch.scripting.ScriptManager;
 
+using StringTools;
+
 class EventManager {
+    public static var instance:EventManager;
+
     public var camera:FlxCamera;
+    public var camHUD:FlxCamera;
     public var events:Array<QueuedEvent> = [];
 
     public var opponentPosition:{x:Float, y:Float} = {x: 400.0, y: 300.0};
@@ -28,14 +33,14 @@ class EventManager {
 
     public var onCameraPan:String->Float->Void;
     public var onPlayAnimation:String->String->Void;
+    public var onSpeedChange:Float->Float->Void;
 
-    public function new(?targetCamera:FlxCamera) {
+    public function new(?targetCamera:FlxCamera, ?hudCamera:FlxCamera) {
+        instance = this;
         this.camera = (targetCamera != null) ? targetCamera : FlxG.camera;
+        this.camHUD = hudCamera;
     }
 
-    /**
-     * Parses raw event arrays from Chart JSONs (supports Psych, Codename params, and V-Slice schemas).
-     */
     public function parse(raw:Dynamic):Void {
         if (raw == null) return;
         events = [];
@@ -46,9 +51,9 @@ class EventManager {
         for (entry in (cast rawList : Array<Dynamic>)) {
             if (entry == null) continue;
 
-            // Format A: [strumTime, [[eventName, val1, val2]]] (Legacy Psych format)
+            // Format A: Psych Engine array format: [time, [[name, val1, val2]]]
             if (Std.isOfType(entry, Array) && entry.length >= 2) {
-                var time:Float = entry[0];
+                var time:Float = Std.parseFloat(Std.string(entry[0]));
                 var subEvents:Array<Dynamic> = cast entry[1];
                 if (subEvents != null) {
                     for (sub in subEvents) {
@@ -64,9 +69,10 @@ class EventManager {
                     }
                 }
             } 
-            // Format B: Codename Engine / Modern Object format {time: Float, name: String, params: Array}
+            // Format B: Codename Engine / JSON Object format
             else if (Reflect.hasField(entry, "name")) {
-                var time:Float = StringTools.forceFloat(Reflect.field(entry, "time"), StringTools.forceFloat(Reflect.field(entry, "strumTime"), 0.0));
+                var rawTime:Dynamic = Reflect.hasField(entry, "time") ? Reflect.field(entry, "time") : Reflect.field(entry, "strumTime");
+                var time:Float = (rawTime != null) ? Std.parseFloat(Std.string(rawTime)) : 0.0;
                 var name:String = Std.string(Reflect.field(entry, "name"));
                 
                 var val1:String = "";
@@ -134,7 +140,7 @@ class EventManager {
     public function beatHit(beat:Int):Void {
         if (beat < 0) return;
         zoomBump = 0.035;
-        EventBus.emit("event/beatBump", {beat: beat});
+        EventBus.publish("event/beatBump", {beat: beat});
     }
 
     public function reset():Void {
@@ -150,31 +156,50 @@ class EventManager {
         switch (cleanName) {
             case "camera movement", "camera pan", "camera_pan", "camerapan", "focus camera":
                 var target = (val1.length > 0) ? val1 : "stage";
-                var duration = StringTools.forceFloat(val2, 0.4);
+                var duration = parseFloatSafe(val2, 0.4);
                 panCamera(target, duration);
 
-            case "camera zoom", "camera_zoom", "camerazoom", "set zoom":
-                var zoomAmount = StringTools.forceFloat(val1, baseCameraZoom);
-                var duration = StringTools.forceFloat(val2, 0.3);
+            case "camera zoom", "camera_zoom", "camerazoom", "set zoom", "set cam zoom":
+                var zoomAmount = parseFloatSafe(val1, baseCameraZoom);
+                var duration = parseFloatSafe(val2, 0.3);
                 setCameraZoom(zoomAmount, duration);
 
             case "add camera zoom", "camera bump", "camerabump":
-                var bumpAmount = StringTools.forceFloat(val1, 0.05);
+                var bumpAmount = parseFloatSafe(val1, 0.05);
                 zoomBump += bumpAmount;
 
+            case "screen shake", "screenshake", "shake":
+                var intensity = parseFloatSafe(val1, 0.015);
+                var duration = parseFloatSafe(val2, 0.25);
+                if (camera != null) camera.shake(intensity, duration);
+
             case "flash", "flash screen", "screen flash":
-                var duration = StringTools.forceFloat(val1, 0.35);
-                var colorHex = (val2.length > 0) ? FlxColor.fromString(val2) : FlxColor.WHITE;
+                var duration = parseFloatSafe(val1, 0.35);
+                var colorHex = parseColorSafe(val2, FlxColor.WHITE);
                 if (camera != null) camera.flash(colorHex, duration);
 
             case "fade", "fade screen", "screen fade":
-                var duration = StringTools.forceFloat(val1, 0.5);
-                var colorHex = (val2.length > 0) ? FlxColor.fromString(val2) : FlxColor.BLACK;
+                var duration = parseFloatSafe(val1, 0.5);
+                var colorHex = parseColorSafe(val2, FlxColor.BLACK);
                 if (camera != null) camera.fade(colorHex, duration, false);
 
             case "play animation", "play anim":
                 if (onPlayAnimation != null) {
                     onPlayAnimation(val1, val2);
+                }
+
+            case "change scroll speed", "scroll speed", "speed":
+                var speedMultiplier = parseFloatSafe(val1, 1.0);
+                var duration = parseFloatSafe(val2, 0.0);
+                if (onSpeedChange != null) {
+                    onSpeedChange(speedMultiplier, duration);
+                }
+
+            case "toggle ui", "ui alpha", "hud alpha":
+                var targetAlpha = parseFloatSafe(val1, 1.0);
+                var duration = parseFloatSafe(val2, 0.5);
+                if (camHUD != null) {
+                    FlxTween.tween(camHUD, {alpha: targetAlpha}, Math.max(0.01, duration), {ease: FlxEase.cubeOut});
                 }
 
             case "script", "hscript", "call script":
@@ -183,10 +208,10 @@ class EventManager {
                 }
 
             default:
-                EventBus.emit('event/$name', {val1: val1, val2: val2, data: data});
+                EventBus.publish('event/$name', {val1: val1, val2: val2, data: data});
         }
 
-        EventBus.emit("event/dispatched", {name: name, val1: val1, val2: val2, data: data});
+        EventBus.publish("event/dispatched", {name: name, val1: val1, val2: val2, data: data});
         if (ScriptManager.instance != null) {
             ScriptManager.instance.callAll("onEvent", [name, val1, val2]);
         }
@@ -216,5 +241,17 @@ class EventManager {
                 ease: FlxEase.cubeOut
             });
         }
+    }
+
+    private static inline function parseFloatSafe(val:String, fallback:Float):Float {
+        if (val == null || val.trim().length == 0) return fallback;
+        var parsed = Std.parseFloat(val.trim());
+        return Math.isNaN(parsed) ? fallback : parsed;
+    }
+
+    private static inline function parseColorSafe(val:String, fallback:FlxColor):FlxColor {
+        if (val == null || val.trim().length == 0) return fallback;
+        var parsed = FlxColor.fromString(val.trim());
+        return parsed != null ? parsed : fallback;
     }
 }

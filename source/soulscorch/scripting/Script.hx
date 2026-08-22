@@ -6,16 +6,35 @@ import flixel.util.FlxColor;
 import hscript.Expr;
 import hscript.Interp;
 import hscript.Parser;
+
+import soulscorch.backend.MusicBeatState;
+import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.AudioManager;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
+import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.system.apis.NativeAPI;
+import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
+import soulscorch.backend.system.engine.EngineOptimizer;
+import soulscorch.backend.system.engine.GameConfig;
+import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Runtime;
+import soulscorch.backend.system.engine.Version;
+import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.ModManager;
+
+#if sys
+import sys.FileSystem;
+import sys.io.File;
+import sys.io.Process;
+#end
 
 using StringTools;
 
@@ -44,20 +63,34 @@ class Script implements ScriptInstance {
     }
 
     public function setupGlobals():Void {
-        // Standard Haxe & System Libraries
+        // Core Haxe & Reflection
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
         set("Reflect", Reflect);
         set("Type", Type);
-        #if sys set("Sys", Sys); #end
+        set("Date", Date);
+        set("DateTools", DateTools);
+        set("Xml", Xml);
+        set("Json", haxe.Json);
 
-        // OpenFL & Windowing
+        // Native System & I/O
+        #if sys
+        set("Sys", Sys);
+        set("File", sys.io.File);
+        set("FileSystem", sys.FileSystem);
+        set("Process", sys.io.Process);
+        #end
+
+        // Native OS API & Windowing
+        set("NativeAPI", NativeAPI);
         set("openfl", {Lib: openfl.Lib});
         set("Lib", openfl.Lib);
         set("Application", openfl.Lib.application);
+        set("window", openfl.Lib.application.window);
+        set("stage", openfl.Lib.current.stage);
 
-        // Flixel Core & Display Objects
+        // Flixel Core & States
         set("FlxG", flixel.FlxG);
         set("FlxSprite", flixel.FlxSprite);
         set("FlxCamera", flixel.FlxCamera);
@@ -65,32 +98,31 @@ class Script implements ScriptInstance {
         set("FlxObject", flixel.FlxObject);
         set("FlxState", flixel.FlxState);
         set("FlxSubState", flixel.FlxSubState);
+        set("FlxBasic", flixel.FlxBasic);
         set("FlxBackdrop", flixel.addons.display.FlxBackdrop);
         set("FlxGridOverlay", flixel.addons.display.FlxGridOverlay);
 
-        // Flx Groups & Collections
+        // Flx Groups & Containers
         set("FlxGroup", flixel.group.FlxGroup);
         set("FlxTypedGroup", flixel.group.FlxGroup.FlxTypedGroup);
+        set("FlxSpriteGroup", flixel.group.FlxSpriteGroup);
 
-        // Flx Tweens, Eases, Timers & Actions
+        // Flx Tweens, Eases & Timing
         set("FlxTween", flixel.tweens.FlxTween);
         set("FlxEase", flixel.tweens.FlxEase);
         set("FlxTimer", flixel.util.FlxTimer);
         set("FlxSort", flixel.util.FlxSort);
-        set("FlxDestroyUtil", flixel.util.destroy.FlxDestroyUtil);
 
-        // Flx Math, Geometry & Rectangles
+        // Flx Math, Physics & Velocity
         set("FlxMath", flixel.math.FlxMath);
-        set("FlxPoint", flixel.math.FlxPoint);
-        set("FlxRect", flixel.math.FlxRect);
         set("FlxVelocity", flixel.math.FlxVelocity);
+        set("FlxAngle", flixel.math.FlxAngle);
 
-        // Flx Sounds, Music & Visual Effects
+        // Flx Sounds & Effects
         set("FlxSound", flixel.sound.FlxSound);
         set("FlxTrail", flixel.addons.effects.FlxTrail);
-        set("FlxGlitchEffect", flixel.addons.effects.FlxGlitchEffect);
 
-        // Flx Color Utilities & Palettes
+        // Color Palettes & Utilities
         set("FlxColor", {
             BLACK: 0xFF000000,
             WHITE: 0xFFFFFFFF,
@@ -106,21 +138,30 @@ class Script implements ScriptInstance {
             fromString: flixel.util.FlxColor.fromString
         });
 
-        // Engine Systems, Audio & Asset Management
+        // Engine Architecture, Performance & Modding
         set("Runtime", Runtime);
+        set("Engine", Engine);
+        set("Version", Version);
         set("Conductor", Conductor);
         set("Paths", Paths);
         set("EventBus", EventBus);
         set("Logger", Logger);
         set("ModLoader", ModLoader);
+        set("ModManager", ModManager);
+        set("XMSoul", XMSoul);
+        set("EngineOptimizer", EngineOptimizer);
+        set("HotReloader", HotReloader);
+        set("DevConsole", DevConsole);
+        set("AssetResolver", AssetResolver);
+        set("AssetHelper", AssetHelper);
+        set("AudioManager", AudioManager);
+
+        // Visuals & Shaders
         set("JuiceManager", soulscorch.graphics.JuiceManager);
         set("SoulShader", soulscorch.graphics.shaders.SoulShader);
         set("ShaderManager", soulscorch.graphics.shaders.ShaderManager);
-        set("AssetResolver", soulscorch.backend.assets.AssetResolver);
-        set("AssetHelper", soulscorch.backend.assets.AssetHelper);
-        set("AudioManager", soulscorch.backend.audio.AudioManager);
 
-        // Gameplay Actors, Notes, Charting & Stages
+        // Gameplay Actors, Notes, Mechanics & Charting
         set("Character", soulscorch.gameplay.actors.Character);
         set("HealthIcon", soulscorch.gameplay.actors.HealthIcon);
         set("Note", soulscorch.gameplay.notes.Note);
@@ -133,15 +174,42 @@ class Script implements ScriptInstance {
         set("JudgementManager", soulscorch.gameplay.JudgementManager);
         set("ModchartManager", soulscorch.gameplay.modchart.ModchartManager);
 
-        // UI, Menus & Substates
+        // UI & Menus
+        set("MusicBeatState", MusicBeatState);
         set("ResultsState", soulscorch.ui.menus.states.ResultsState);
         set("GameOverSubState", soulscorch.ui.menus.substate.GameOverSubState);
         set("PauseSubState", soulscorch.ui.menus.substate.PauseSubState);
 
-        // Active State & Game References
+        // Live Context & Shorthand Hooks
         set("game", flixel.FlxG.state);
         set("state", flixel.FlxG.state);
+        set("camera", flixel.FlxG.camera);
+        set("cameras", flixel.FlxG.cameras);
+        set("sound", flixel.FlxG.sound);
+        set("keys", flixel.FlxG.keys);
+        set("mouse", flixel.FlxG.mouse);
+        set("defaultCamZoom", 1.0);
         set("PlayState", soulscorch.gameplay.PlayState);
+
+        // Script Global Helper Utilities
+        set("add", function(obj:flixel.FlxBasic) {
+            if (flixel.FlxG.state != null) flixel.FlxG.state.add(obj);
+        });
+        set("remove", function(obj:flixel.FlxBasic) {
+            if (flixel.FlxG.state != null) flixel.FlxG.state.remove(obj);
+        });
+        set("insert", function(index:Int, obj:flixel.FlxBasic) {
+            if (flixel.FlxG.state != null) flixel.FlxG.state.insert(index, obj);
+        });
+        set("switchState", function(nextState:flixel.FlxState) {
+            MusicBeatState.switchState(nextState);
+        });
+        set("log", function(msg:Dynamic) {
+            Logger.info(Std.string(msg), "script");
+        });
+        set("trace", function(msg:Dynamic) {
+            Logger.info(Std.string(msg), "script");
+        });
     }
 
     public function load():Bool {

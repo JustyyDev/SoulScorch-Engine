@@ -3,7 +3,10 @@ package soulscorch.scripting;
 import flixel.FlxG;
 import flixel.FlxSubState;
 import soulscorch.backend.assets.AssetResolver;
+import soulscorch.backend.assets.Paths;
+import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.backends.ScriptBackendType;
 import soulscorch.scripting.mod.ModLoader;
 
 using StringTools;
@@ -12,40 +15,45 @@ class ScriptedSubState extends FlxSubState {
     public var scriptName:String;
     public var script:ScriptInstance;
 
+    private static final SUPPORTED_EXTENSIONS:Array<String> = [
+        "hx", "soul", "lua", "py", "hscript"
+    ];
+
+    private static final SEARCH_DIRECTORIES:Array<String> = [
+        "data/substates/", "scripts/substates/", "data/"
+    ];
+
     public function new(scriptName:String) {
         super();
         this.scriptName = scriptName;
 
-        var possiblePaths = [
-            'assets/data/substates/$scriptName.hx',
-            'assets/substates/$scriptName.hx',
-            'scripts/substates/$scriptName.hx'
-        ];
-
-        var finalPath:String = null;
-        for (p in possiblePaths) {
-            var resolved = ModLoader.getPath(p);
-            if (AssetResolver.exists(resolved)) {
-                finalPath = resolved;
-                break;
+        var finalScriptPath:String = null;
+        for (dir in SEARCH_DIRECTORIES) {
+            for (ext in SUPPORTED_EXTENSIONS) {
+                var testPath = ModLoader.getPath('$dir$scriptName.$ext');
+                if (AssetResolver.exists(testPath)) {
+                    finalScriptPath = testPath;
+                    break;
+                }
             }
+            if (finalScriptPath != null) break;
         }
 
-        if (finalPath == null) finalPath = possiblePaths[0];
+        if (finalScriptPath != null) {
+            this.script = ScriptBackendType.createInstance(finalScriptPath);
+            if (script != null && script.active) {
+                script.set("substate", this);
+                script.set("add", add);
+                script.set("remove", remove);
+                script.set("close", close);
+                script.set("Paths", Paths);
+                script.set("Conductor", Conductor);
 
-        var scriptObj = new Script(finalPath);
-        this.script = scriptObj;
-
-        if (script.active) {
-            script.set("substate", this);
-            script.set("add", add);
-            script.set("remove", remove);
-            script.set("close", close);
-
-            script.call("create");
-            script.call("onCreate");
+                script.call("create", []);
+                script.call("onCreate", []);
+            }
         } else {
-            Logger.warn('ScriptedSubState could not find $finalPath.', "script");
+            Logger.warn('ScriptedSubState could not find script for $scriptName.', "script");
         }
     }
 
@@ -65,8 +73,8 @@ class ScriptedSubState extends FlxSubState {
 
     override public function destroy():Void {
         if (script != null && script.active) {
-            script.call("destroy");
-            script.call("onDestroy");
+            script.call("destroy", []);
+            script.call("onDestroy", []);
             script.destroy();
             script = null;
         }

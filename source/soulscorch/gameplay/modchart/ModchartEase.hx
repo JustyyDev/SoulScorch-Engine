@@ -3,6 +3,8 @@ package soulscorch.gameplay.modchart;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxEase.EaseFunction;
 
+using StringTools;
+
 class ModchartEase {
     /**
      * Resolves a string ease name from charts or scripts into a FlxEase function.

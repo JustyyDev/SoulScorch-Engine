@@ -25,6 +25,7 @@ class Character extends FlxSprite {
     public var singDuration:Float = 4.0;
     public var idleSuffix:String = "";
     public var altAnim:Bool = false;
+    public var stunned:Bool = false;
 
     public var healthColor:FlxColor = 0xFF66FF33;
     public var healthIcon:String = "face";
@@ -45,13 +46,10 @@ class Character extends FlxSprite {
         animOffsets.clear();
         antialiasing = true;
 
-        // 1. Try loading custom .xmsoul format first
         var xmsoulLoaded = loadCharacterXMSoul(curCharacter);
         if (!xmsoulLoaded) {
-            // 2. Fall back to standard JSON character files
             var charDataLoaded = loadCharacterJSON(curCharacter);
             if (!charDataLoaded) {
-                // 3. Ultimate fallback
                 loadCharacterFallback(curCharacter);
             }
         }
@@ -78,7 +76,7 @@ class Character extends FlxSprite {
                     }
 
                     healthIcon = XMSoul.getAttr(access, "icon", char);
-                    healthColor = access.has.color ? FlxColor.fromString(access.att.color) : 0xFF66FF33;
+                    healthColor = access.has.color ? FlxColor.fromString(access.att.color) : (isPlayer ? 0xFF66FF33 : 0xFFAF66CE);
                     singDuration = XMSoul.getFloatAttr(access, "singDuration", 4.0);
                     flipX = XMSoul.getBoolAttr(access, "flipX", false);
                     if (isPlayer) flipX = !flipX;
@@ -248,6 +246,7 @@ class Character extends FlxSprite {
     }
 
     public function dance(force:Bool = false):Void {
+        if (stunned) return;
         if (animation.getByName("danceLeft") != null && animation.getByName("danceRight") != null) {
             playAnim("danceLeft", force);
         } else if (animation.getByName("idle" + idleSuffix) != null) {

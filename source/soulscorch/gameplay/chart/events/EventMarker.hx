@@ -1,10 +1,12 @@
 package soulscorch.gameplay.chart.events;
 
-import flixel.group.FlxSpriteGroup;
 import flixel.FlxSprite;
+import flixel.group.FlxSpriteGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
+
+using StringTools;
 
 class EventMarker extends FlxSpriteGroup {
     public var time:Float;
@@ -51,15 +53,17 @@ class EventMarker extends FlxSpriteGroup {
         if (name == null) return 0xFF506070;
         var clean = name.toLowerCase().trim();
         if (clean.indexOf("camera") != -1 || clean.indexOf("zoom") != -1) {
-            return 0xFF22AACC; // Cyan-Blue for Camera
+            return 0xFF22AACC; // Cyan-Blue
         } else if (clean.indexOf("bpm") != -1 || clean.indexOf("speed") != -1) {
-            return 0xFFE04040; // Red for Timing & Tempo
+            return 0xFFE04040; // Red
+        } else if (clean.indexOf("shake") != -1) {
+            return 0xFFE08020; // Orange
         } else if (clean.indexOf("flash") != -1 || clean.indexOf("fade") != -1 || clean.indexOf("color") != -1) {
-            return 0xFFA030D0; // Purple for Screen & Visuals
-        } else if (clean.indexOf("script") != -1 || clean.indexOf("hscript") != -1) {
-            return 0xFF30B040; // Green for Script Triggers
+            return 0xFFA030D0; // Purple
+        } else if (clean.indexOf("script") != -1 || clean.indexOf("hscript") != -1 || clean.indexOf("anim") != -1) {
+            return 0xFF30B040; // Green
         }
-        return 0xFF506070; // Slate-Gray default
+        return 0xFF506070; // Slate-Gray
     }
 
     private static function getShortName(name:String):String {
@@ -68,6 +72,6 @@ class EventMarker extends FlxSpriteGroup {
         if (parts.length > 1 && parts[0] != null && parts[1] != null) {
             return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
         }
-        return name.substr(0, Math.min(3, name.length)).toUpperCase();
+        return name.substr(0, 3).toUpperCase();
     }
 }
