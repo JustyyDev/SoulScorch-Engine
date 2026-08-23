@@ -16,6 +16,7 @@ import openfl.ui.Keyboard;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.apis.NativeAPI;
 import soulscorch.backend.system.engine.CrashHandler;
@@ -77,6 +78,10 @@ class Main extends Sprite {
             if (stageWidth <= 0) stageWidth = gameWidth;
             if (stageHeight <= 0) stageHeight = gameHeight;
 
+            // Retrieve saved framerate from save file
+            var savedFPS = SaveData.instance.getInt("framerate", 120);
+            framerate = (savedFPS >= 30 && savedFPS <= 360) ? savedFPS : 120;
+
             var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
             addChild(game);
 
@@ -91,6 +96,9 @@ class Main extends Sprite {
             fpsCounter = new Framerate(10, 10, 0xFFFFFF);
             fpsCounter.visible = true;
             addChild(fpsCounter);
+
+            // Apply framerate directly to FlxG now that game is instantiated
+            SaveData.instance.applyFramerate(framerate);
 
             // Core Backend Engine Initialization
             var config = new GameConfig();

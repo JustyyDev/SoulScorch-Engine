@@ -2,7 +2,6 @@ package soulscorch.backend.system;
 
 import flixel.FlxG;
 import flixel.util.FlxSave;
-import haxe.Json;
 import soulscorch.backend.utils.GameTime;
 import soulscorch.backend.utils.Logger;
 
@@ -134,6 +133,7 @@ class SaveData {
         }
 
         applyMissingDefaults();
+        applyFramerate();
         syncToFlxGSave();
     }
 
@@ -150,6 +150,28 @@ class SaveData {
         if (!settings.exists("botplay")) settings.set("botplay", false);
         if (!settings.exists("songSpeedMultiplier")) settings.set("songSpeedMultiplier", 1.0);
         if (!settings.exists("exportReplayMp4")) settings.set("exportReplayMp4", false);
+    }
+
+    public function applyFramerate(?fps:Int):Void {
+        var targetFPS = (fps != null) ? fps : getInt("framerate", 120);
+        targetFPS = Std.int(Math.max(30, Math.min(360, targetFPS)));
+
+        // Safe check: Only modify FlxG framerate if FlxG.game is initialized
+        if (FlxG.game != null) {
+            if (targetFPS > FlxG.drawFramerate) {
+                FlxG.updateFramerate = targetFPS;
+                FlxG.drawFramerate = targetFPS;
+            } else {
+                FlxG.drawFramerate = targetFPS;
+                FlxG.updateFramerate = targetFPS;
+            }
+        }
+    }
+
+    public function setFramerate(fps:Int):Void {
+        var clamped = Std.int(Math.max(30, Math.min(360, fps)));
+        setSetting("framerate", clamped, true);
+        applyFramerate(clamped);
     }
 
     private function syncToFlxGSave():Void {

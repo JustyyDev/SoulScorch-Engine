@@ -1,8 +1,20 @@
 package soulscorch.scripting;
 
+import flixel.FlxBasic;
+import flixel.FlxCamera;
 import flixel.FlxG;
+import flixel.FlxObject;
+import flixel.FlxSprite;
+import flixel.math.FlxAngle;
 import flixel.math.FlxMath;
+import flixel.math.FlxPoint;
+import flixel.math.FlxVelocity;
+import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import flixel.util.FlxSort;
+import flixel.util.FlxTimer;
 import hscript.Expr;
 import hscript.Interp;
 import hscript.Parser;
@@ -14,18 +26,17 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.AudioManager;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.apis.NativeAPI;
-import soulscorch.backend.system.engine.CrashHandler;
 import soulscorch.backend.system.engine.DevConsole;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.system.engine.EngineOptimizer;
-import soulscorch.backend.system.engine.GameConfig;
 import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
-import soulscorch.backend.system.framerate.Framerate;
 import soulscorch.backend.utils.Logger;
+import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.mod.ModManager;
@@ -38,17 +49,85 @@ import sys.io.Process;
 
 using StringTools;
 
+class SoulScorchInterp extends Interp {
+    override function get(o:Dynamic, f:String):Dynamic {
+        if (o == null) {
+            if (variables.exists(f)) {
+                return variables.get(f);
+            }
+            
+            // Fast-path resolution avoiding reflection overhead
+            var ps = PlayState.instance;
+            if (ps != null) {
+                switch (f) {
+                    case "boyfriend" | "bf": return ps.boyfriend;
+                    case "dad": return ps.dad;
+                    case "gf": return ps.gf;
+                    case "currentStage" | "stage": return ps.currentStage;
+                    case "camGame": return ps.camGame;
+                    case "camHUD": return ps.camHUD;
+                    case "camOther": return ps.camOther;
+                    case "camControls": return ps.camControls;
+                    case "playerStrumline": return ps.playerStrumline;
+                    case "opponentStrumline": return ps.opponentStrumline;
+                    case "playerStrums": return (ps.playerStrumline != null) ? ps.playerStrumline.receptors : null;
+                    case "opponentStrums": return (ps.opponentStrumline != null) ? ps.opponentStrumline.receptors : null;
+                    case "notes": return ps.notes;
+                    case "sustainsGroup": return ps.sustainsGroup;
+                    case "curBeat": return ps.curBeat;
+                    case "curStep": return ps.curStep;
+                    case "health": return ps.health;
+                    case "songScore": return ps.songScore;
+                    case "songMisses": return ps.songMisses;
+                    case "accuracy": return ps.accuracy;
+                    case "defaultCamZoom": return ps.defaultCamZoom;
+                    case "defaultHUDZoom": return ps.defaultHUDZoom;
+                    case "middlescroll": return ps.middlescroll;
+                    case "downscroll": return ps.downscroll;
+                    case "botplay": return ps.botplay;
+                    case "paused": return ps.paused;
+                    case "isEnding": return ps.isEnding;
+                }
+            }
+
+            if (f == "game" || f == "state") return (ps != null) ? ps : FlxG.state;
+            if (f == "camera") return FlxG.camera;
+            if (f == "cameras") return FlxG.cameras;
+        }
+        return super.get(o, f);
+    }
+
+    override function set(o:Dynamic, f:String, v:Dynamic):Dynamic {
+        if (o == null) {
+            var ps = PlayState.instance;
+            if (ps != null) {
+                switch (f) {
+                    case "health": ps.health = v; return v;
+                    case "defaultCamZoom": ps.defaultCamZoom = v; return v;
+                    case "defaultHUDZoom": ps.defaultHUDZoom = v; return v;
+                    case "middlescroll": ps.middlescroll = v; return v;
+                    case "downscroll": ps.downscroll = v; return v;
+                    case "botplay": ps.botplay = v; return v;
+                }
+            }
+            variables.set(f, v);
+            return v;
+        }
+        return super.set(o, f, v);
+    }
+}
+
 class Script implements ScriptInstance {
     public var active:Bool = false;
     public var path(default, null):String;
 
-    public var interp:Interp;
+    public var interp:SoulScorchInterp;
     public var parser:Parser;
     public var ast:Expr;
 
     public function new(path:String, autoLoad:Bool = true) {
         this.path = path;
-        interp = new Interp();
+        interp = new SoulScorchInterp();
         parser = new Parser();
 
         parser.allowTypes = true;
@@ -63,7 +142,7 @@ class Script implements ScriptInstance {
     }
 
     public function setupGlobals():Void {
-        // Core Haxe & Reflection
+        // Haxe Standard Library
         set("Std", Std);
         set("Math", Math);
         set("StringTools", StringTools);
@@ -74,7 +153,6 @@ class Script implements ScriptInstance {
         set("Xml", Xml);
         set("Json", haxe.Json);
 
-        // Native System & I/O
         #if sys
         set("Sys", Sys);
         set("File", sys.io.File);
@@ -82,7 +160,6 @@ class Script implements ScriptInstance {
         set("Process", sys.io.Process);
         #end
 
-        // Native OS API & Windowing
         set("NativeAPI", NativeAPI);
         set("openfl", {Lib: openfl.Lib});
         set("Lib", openfl.Lib);
@@ -90,7 +167,7 @@ class Script implements ScriptInstance {
         set("window", openfl.Lib.application.window);
         set("stage", openfl.Lib.current.stage);
 
-        // Flixel Core & States
+        // Flixel Core & Hierarchy
         set("FlxG", flixel.FlxG);
         set("FlxSprite", flixel.FlxSprite);
         set("FlxCamera", flixel.FlxCamera);
@@ -99,30 +176,26 @@ class Script implements ScriptInstance {
         set("FlxState", flixel.FlxState);
         set("FlxSubState", flixel.FlxSubState);
         set("FlxBasic", flixel.FlxBasic);
-        set("FlxBackdrop", flixel.addons.display.FlxBackdrop);
-        set("FlxGridOverlay", flixel.addons.display.FlxGridOverlay);
-
-        // Flx Groups & Containers
         set("FlxGroup", flixel.group.FlxGroup);
         set("FlxTypedGroup", flixel.group.FlxGroup.FlxTypedGroup);
         set("FlxSpriteGroup", flixel.group.FlxSpriteGroup);
-
-        // Flx Tweens, Eases & Timing
         set("FlxTween", flixel.tweens.FlxTween);
         set("FlxEase", flixel.tweens.FlxEase);
         set("FlxTimer", flixel.util.FlxTimer);
         set("FlxSort", flixel.util.FlxSort);
-
-        // Flx Math, Physics & Velocity
         set("FlxMath", flixel.math.FlxMath);
         set("FlxVelocity", flixel.math.FlxVelocity);
         set("FlxAngle", flixel.math.FlxAngle);
-
-        // Flx Sounds & Effects
         set("FlxSound", flixel.sound.FlxSound);
-        set("FlxTrail", flixel.addons.effects.FlxTrail);
 
-        // Color Palettes & Utilities
+        // Safe FlxPoint bridge
+        set("FlxPoint", {
+            get: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.get(x, y),
+            weak: function(?x:Float = 0, ?y:Float = 0) return FlxPoint.weak(x, y),
+            set: function(point:FlxPoint, ?x:Float = 0, ?y:Float = 0) return point.set(x, y)
+        });
+
+        // Color Presets
         set("FlxColor", {
             BLACK: 0xFF000000,
             WHITE: 0xFFFFFFFF,
@@ -138,7 +211,7 @@ class Script implements ScriptInstance {
             fromString: flixel.util.FlxColor.fromString
         });
 
-        // Engine Architecture, Performance & Modding
+        // SoulScorch Backend
         set("Runtime", Runtime);
         set("Engine", Engine);
         set("Version", Version);
@@ -149,19 +222,16 @@ class Script implements ScriptInstance {
         set("ModLoader", ModLoader);
         set("ModManager", ModManager);
         set("XMSoul", XMSoul);
+        set("SaveData", SaveData);
         set("EngineOptimizer", EngineOptimizer);
         set("HotReloader", HotReloader);
         set("DevConsole", DevConsole);
         set("AssetResolver", AssetResolver);
         set("AssetHelper", AssetHelper);
         set("AudioManager", AudioManager);
-
-        // Visuals & Shaders
         set("JuiceManager", soulscorch.graphics.JuiceManager);
-        set("SoulShader", soulscorch.graphics.shaders.SoulShader);
-        set("ShaderManager", soulscorch.graphics.shaders.ShaderManager);
 
-        // Gameplay Actors, Notes, Mechanics & Charting
+        // Gameplay Types
         set("Character", soulscorch.gameplay.actors.Character);
         set("HealthIcon", soulscorch.gameplay.actors.HealthIcon);
         set("Note", soulscorch.gameplay.notes.Note);
@@ -170,45 +240,44 @@ class Script implements ScriptInstance {
         set("NoteSplash", soulscorch.gameplay.notes.NoteSplash);
         set("NoteSkinManager", soulscorch.gameplay.notes.NoteSkinManager);
         set("Stage", soulscorch.gameplay.stage.Stage);
-        set("GameplayFlags", soulscorch.gameplay.GameplayFlags);
-        set("JudgementManager", soulscorch.gameplay.JudgementManager);
-        set("ModchartManager", soulscorch.gameplay.modchart.ModchartManager);
+        set("PlayState", PlayState);
 
-        // UI & Menus
-        set("MusicBeatState", MusicBeatState);
-        set("ResultsState", soulscorch.ui.menus.states.ResultsState);
-        set("GameOverSubState", soulscorch.ui.menus.substate.GameOverSubState);
-        set("PauseSubState", soulscorch.ui.menus.substate.PauseSubState);
-
-        // Live Context & Shorthand Hooks
-        set("game", flixel.FlxG.state);
-        set("state", flixel.FlxG.state);
-        set("camera", flixel.FlxG.camera);
-        set("cameras", flixel.FlxG.cameras);
-        set("sound", flixel.FlxG.sound);
-        set("keys", flixel.FlxG.keys);
-        set("mouse", flixel.FlxG.mouse);
-        set("defaultCamZoom", 1.0);
-        set("PlayState", soulscorch.gameplay.PlayState);
-
-        // Script Global Helper Utilities
-        set("add", function(obj:flixel.FlxBasic) {
-            if (flixel.FlxG.state != null) flixel.FlxG.state.add(obj);
+        // State Helpers
+        set("add", function(obj:FlxBasic) {
+            if (FlxG.state != null) FlxG.state.add(obj);
         });
-        set("remove", function(obj:flixel.FlxBasic) {
-            if (flixel.FlxG.state != null) flixel.FlxG.state.remove(obj);
+        set("remove", function(obj:FlxBasic) {
+            if (FlxG.state != null) FlxG.state.remove(obj);
         });
-        set("insert", function(index:Int, obj:flixel.FlxBasic) {
-            if (flixel.FlxG.state != null) flixel.FlxG.state.insert(index, obj);
+        set("insert", function(index:Int, obj:FlxBasic) {
+            if (FlxG.state != null) FlxG.state.insert(index, obj);
         });
-        set("switchState", function(nextState:flixel.FlxState) {
-            MusicBeatState.switchState(nextState);
+        set("addBehindGF", function(obj:FlxBasic) {
+            var ps = PlayState.instance;
+            if (ps != null && ps.gf != null) {
+                var idx = ps.members.indexOf(ps.gf);
+                if (idx != -1) ps.insert(idx, obj); else ps.add(obj);
+            } else if (FlxG.state != null) {
+                FlxG.state.add(obj);
+            }
         });
-        set("log", function(msg:Dynamic) {
-            Logger.info(Std.string(msg), "script");
+        set("addBehindBF", function(obj:FlxBasic) {
+            var ps = PlayState.instance;
+            if (ps != null && ps.boyfriend != null) {
+                var idx = ps.members.indexOf(ps.boyfriend);
+                if (idx != -1) ps.insert(idx, obj); else ps.add(obj);
+            } else if (FlxG.state != null) {
+                FlxG.state.add(obj);
+            }
         });
-        set("trace", function(msg:Dynamic) {
-            Logger.info(Std.string(msg), "script");
+        set("addBehindDad", function(obj:FlxBasic) {
+            var ps = PlayState.instance;
+            if (ps != null && ps.dad != null) {
+                var idx = ps.members.indexOf(ps.dad);
+                if (idx != -1) ps.insert(idx, obj); else ps.add(obj);
+            } else if (FlxG.state != null) {
+                FlxG.state.add(obj);
+            }
         });
     }
 
@@ -232,18 +301,13 @@ class Script implements ScriptInstance {
             return true;
         } catch (e:Dynamic) {
             Logger.error('Script parse/runtime error in $path: $e', "script");
-            if (DevConsole.instance != null) {
-                DevConsole.instance.log('[SCRIPT ERROR] $path: ' + Std.string(e));
-            }
             active = false;
             return false;
         }
     }
 
     public function set(key:String, value:Dynamic):Void {
-        if (interp != null) {
-            interp.variables.set(key, value);
-        }
+        if (interp != null) interp.variables.set(key, value);
     }
 
     public function get(key:String):Dynamic {

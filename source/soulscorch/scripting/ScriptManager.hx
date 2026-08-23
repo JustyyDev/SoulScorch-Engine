@@ -1,5 +1,6 @@
 package soulscorch.scripting;
 
+import flixel.FlxBasic;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.math.FlxMath;
@@ -26,6 +27,9 @@ class ScriptManager {
     public static var instance:ScriptManager;
     public var scripts:Array<ScriptInstance> = [];
     public var scriptPath:String = "";
+    
+    // Cached global variable dictionary to inject into any new script
+    public var presetVariables:Map<String, Dynamic> = new Map<String, Dynamic>();
 
     public var isValid(get, never):Bool;
     public var active(get, never):Bool;
@@ -48,13 +52,25 @@ class ScriptManager {
         var finalPath = (resolved != null) ? resolved : path;
 
         var inst = ScriptBackendType.createInstance(finalPath);
-        if (inst != null && inst.active) {
-            scripts.push(inst);
-            return true;
+        if (inst != null) {
+            // Pre-seed script with all cached variables before executing
+            for (key => val in presetVariables) {
+                inst.set(key, val);
+            }
+            
+            if (inst.active) {
+                scripts.push(inst);
+                return true;
+            }
         }
 
-        var script = new Script(finalPath);
-        if (script.active) {
+        var script = new Script(finalPath, false);
+        // Pre-seed default HScript instance
+        for (key => val in presetVariables) {
+            script.set(key, val);
+        }
+        
+        if (script.load()) {
             scripts.push(script);
             return true;
         }
@@ -75,6 +91,7 @@ class ScriptManager {
     }
 
     public function setAll(key:String, val:Dynamic):Void {
+        presetVariables.set(key, val);
         for (s in scripts) {
             if (s != null && s.active) s.set(key, val);
         }
@@ -87,6 +104,7 @@ class ScriptManager {
                 if (v != null) return v;
             }
         }
+        if (presetVariables.exists(key)) return presetVariables.get(key);
         return null;
     }
 
@@ -107,5 +125,6 @@ class ScriptManager {
             if (s != null) s.destroy();
         }
         scripts = [];
+        presetVariables.clear();
     }
 }

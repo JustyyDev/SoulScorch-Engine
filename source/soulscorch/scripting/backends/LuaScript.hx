@@ -31,6 +31,7 @@ import llua.Lua;
 import llua.LuaL;
 import llua.Lua_helper;
 import llua.State;
+import llua.Convert;
 #end
 
 using StringTools;
@@ -76,6 +77,7 @@ class LuaScript implements ScriptInstance {
                 return false;
             }
             active = true;
+            call("create");
             call("onCreate");
             return true;
         } catch (e:Dynamic) {
@@ -87,83 +89,82 @@ class LuaScript implements ScriptInstance {
         variables.set("FlxG", FlxG);
         variables.set("game", FlxG.state);
         variables.set("Conductor", Conductor);
-        active = true;
-        return true;
+        active = false;
+        return false;
         #end
     }
 
     #if (cpp && LUA_ALLOWED)
     private function registerLuaCallbacks():Void {
-        // --- Core Reflection & Properties ---
-        Lua_helper.add_callback(luaState, "getProperty", function(variable:String) {
-            return getProperty(FlxG.state, variable);
+        setLuaCallback("getProperty", function(variable:String) {
+            var target:Dynamic = (PlayState.instance != null) ? PlayState.instance : FlxG.state;
+            return getProperty(target, variable);
         });
 
-        Lua_helper.add_callback(luaState, "setProperty", function(variable:String, value:Dynamic) {
-            setProperty(FlxG.state, variable, value);
+        setLuaCallback("setProperty", function(variable:String, value:Dynamic) {
+            var target:Dynamic = (PlayState.instance != null) ? PlayState.instance : FlxG.state;
+            setProperty(target, variable, value);
         });
 
-        Lua_helper.add_callback(luaState, "getPropertyFromClass", function(className:String, variable:String) {
+        setLuaCallback("getPropertyFromClass", function(className:String, variable:String) {
             var cl = Type.resolveClass(className);
             return (cl != null) ? getProperty(cl, variable) : null;
         });
 
-        Lua_helper.add_callback(luaState, "setPropertyFromClass", function(className:String, variable:String, value:Dynamic) {
+        setLuaCallback("setPropertyFromClass", function(className:String, variable:String, value:Dynamic) {
             var cl = Type.resolveClass(className);
             if (cl != null) setProperty(cl, variable, value);
         });
 
-        // --- State Switching ---
-        Lua_helper.add_callback(luaState, "switchState", switchCustomState);
+        setLuaCallback("switchState", switchCustomState);
+        setLuaCallback("makeLuaSprite", makeLuaSprite);
+        setLuaCallback("makeAnimatedLuaSprite", makeAnimatedLuaSprite);
+        setLuaCallback("makeLuaText", makeLuaText);
+        setLuaCallback("setTextString", setTextString);
+        setLuaCallback("setTextSize", setTextSize);
+        setLuaCallback("setTextColor", setTextColor);
+        setLuaCallback("addAnimationByPrefix", addAnimationByPrefix);
+        setLuaCallback("addAnimationByIndices", addAnimationByIndices);
+        setLuaCallback("playAnim", playAnim);
+        setLuaCallback("addLuaSprite", addLuaSprite);
+        setLuaCallback("removeLuaSprite", removeLuaSprite);
+        setLuaCallback("setScrollFactor", setScrollFactor);
+        setLuaCallback("scaleObject", scaleObject);
+        setLuaCallback("setObjectCamera", setObjectCamera);
 
-        // --- Sprites & Text ---
-        Lua_helper.add_callback(luaState, "makeLuaSprite", makeLuaSprite);
-        Lua_helper.add_callback(luaState, "makeAnimatedLuaSprite", makeAnimatedLuaSprite);
-        Lua_helper.add_callback(luaState, "makeLuaText", makeLuaText);
-        Lua_helper.add_callback(luaState, "setTextString", setTextString);
-        Lua_helper.add_callback(luaState, "setTextSize", setTextSize);
-        Lua_helper.add_callback(luaState, "setTextColor", setTextColor);
-        Lua_helper.add_callback(luaState, "addAnimationByPrefix", addAnimationByPrefix);
-        Lua_helper.add_callback(luaState, "addAnimationByIndices", addAnimationByIndices);
-        Lua_helper.add_callback(luaState, "playAnim", playAnim);
-        Lua_helper.add_callback(luaState, "addLuaSprite", addLuaSprite);
-        Lua_helper.add_callback(luaState, "removeLuaSprite", removeLuaSprite);
-        Lua_helper.add_callback(luaState, "setScrollFactor", setScrollFactor);
-        Lua_helper.add_callback(luaState, "scaleObject", scaleObject);
-        Lua_helper.add_callback(luaState, "setObjectCamera", setObjectCamera);
-
-        // --- Characters & Gameplay ---
-        Lua_helper.add_callback(luaState, "characterPlayAnim", characterPlayAnim);
-        Lua_helper.add_callback(luaState, "characterDance", characterDance);
-        Lua_helper.add_callback(luaState, "triggerEvent", triggerEvent);
-        Lua_helper.add_callback(luaState, "getHealth", function() return (PlayState.instance != null) ? PlayState.instance.health : 1.0);
-        Lua_helper.add_callback(luaState, "setHealth", function(val:Float) {
+        setLuaCallback("characterPlayAnim", characterPlayAnim);
+        setLuaCallback("characterDance", characterDance);
+        setLuaCallback("triggerEvent", triggerEvent);
+        setLuaCallback("getHealth", function() return (PlayState.instance != null) ? PlayState.instance.health : 1.0);
+        setLuaCallback("setHealth", function(val:Float) {
             if (PlayState.instance != null) PlayState.instance.health = val;
         });
 
-        // --- Tweens & FX ---
-        Lua_helper.add_callback(luaState, "doTweenX", doTweenX);
-        Lua_helper.add_callback(luaState, "doTweenY", doTweenY);
-        Lua_helper.add_callback(luaState, "doTweenAngle", doTweenAngle);
-        Lua_helper.add_callback(luaState, "doTweenAlpha", doTweenAlpha);
-        Lua_helper.add_callback(luaState, "doTweenZoom", doTweenZoom);
-        Lua_helper.add_callback(luaState, "noteTweenX", noteTweenX);
-        Lua_helper.add_callback(luaState, "noteTweenY", noteTweenY);
-        Lua_helper.add_callback(luaState, "noteTweenAngle", noteTweenAngle);
-        Lua_helper.add_callback(luaState, "noteTweenAlpha", noteTweenAlpha);
-        Lua_helper.add_callback(luaState, "noteTweenDirection", noteTweenDirection);
-        Lua_helper.add_callback(luaState, "cameraShake", cameraShake);
-        Lua_helper.add_callback(luaState, "cameraFlash", cameraFlash);
+        setLuaCallback("doTweenX", doTweenX);
+        setLuaCallback("doTweenY", doTweenY);
+        setLuaCallback("doTweenAngle", doTweenAngle);
+        setLuaCallback("doTweenAlpha", doTweenAlpha);
+        setLuaCallback("doTweenZoom", doTweenZoom);
+        setLuaCallback("noteTweenX", noteTweenX);
+        setLuaCallback("noteTweenY", noteTweenY);
+        setLuaCallback("noteTweenAngle", noteTweenAngle);
+        setLuaCallback("noteTweenAlpha", noteTweenAlpha);
+        setLuaCallback("cameraShake", cameraShake);
+        setLuaCallback("cameraFlash", cameraFlash);
 
-        // --- Shaders ---
-        Lua_helper.add_callback(luaState, "setShaderFloat", setShaderFloat);
-        Lua_helper.add_callback(luaState, "setShaderBool", setShaderBool);
+        setLuaCallback("setShaderFloat", setShaderFloat);
+        setLuaCallback("setShaderBool", setShaderBool);
 
-        // --- Audio & Conductor ---
-        Lua_helper.add_callback(luaState, "playSound", playSound);
-        Lua_helper.add_callback(luaState, "getSongPosition", function() return Conductor.songPosition);
-        Lua_helper.add_callback(luaState, "getCurBeat", function() return Conductor.curBeat);
-        Lua_helper.add_callback(luaState, "getCurStep", function() return Conductor.curStep);
+        setLuaCallback("playSound", playSound);
+        setLuaCallback("getSongPosition", function() return Conductor.songPosition);
+        setLuaCallback("getCurBeat", function() return Conductor.curBeat);
+        setLuaCallback("getCurStep", function() return Conductor.curStep);
+    }
+
+    private function setLuaCallback(name:String, func:Dynamic):Void {
+        if (luaState != null) {
+            llua.Lua_helper.add_callback(luaState, name, func);
+        }
     }
     #end
 
@@ -279,7 +280,12 @@ class LuaScript implements ScriptInstance {
     public function setObjectCamera(tag:String, cameraName:String):Void {
         var sprite:FlxSprite = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
         if (sprite != null) {
-            var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") ? getProperty(FlxG.state, "camHUD") : FlxG.camera;
+            var cam:FlxCamera = switch (cameraName.toLowerCase().trim()) {
+                case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
+                case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
+                case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
+                default: FlxG.camera;
+            };
             if (cam != null) sprite.cameras = [cam];
         }
     }
@@ -353,7 +359,9 @@ class LuaScript implements ScriptInstance {
     }
 
     public function doTweenZoom(tag:String, cameraName:String, value:Float, duration:Float, ?ease:String = "linear"):Void {
-        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") ? getProperty(FlxG.state, "camHUD") : FlxG.camera;
+        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") 
+            ? ((PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera) 
+            : FlxG.camera;
         if (cam != null) {
             cancelTween(tag);
             luaTweens.set(tag, FlxTween.tween(cam, {zoom: value}, duration, {
@@ -407,10 +415,6 @@ class LuaScript implements ScriptInstance {
         }
     }
 
-    public function noteTweenDirection(tag:String, noteIdx:Int, value:Float, duration:Float, ?ease:String = "linear"):Void {
-        noteTweenAngle(tag, noteIdx, value, duration, ease);
-    }
-
     private function getReceptorByIdx(idx:Int):Null<StrumArrow> {
         if (PlayState.instance == null) return null;
         if (idx < 4 && PlayState.instance.opponentStrumline != null && PlayState.instance.opponentStrumline.receptors.length > idx) {
@@ -422,12 +426,16 @@ class LuaScript implements ScriptInstance {
     }
 
     public function cameraShake(cameraName:String, intensity:Float, duration:Float):Void {
-        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") ? getProperty(FlxG.state, "camHUD") : FlxG.camera;
+        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") 
+            ? ((PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera) 
+            : FlxG.camera;
         if (cam != null) cam.shake(intensity, duration);
     }
 
     public function cameraFlash(cameraName:String, colorStr:String, duration:Float):Void {
-        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") ? getProperty(FlxG.state, "camHUD") : FlxG.camera;
+        var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") 
+            ? ((PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera) 
+            : FlxG.camera;
         if (cam != null) cam.flash(FlxColor.fromString(colorStr), duration);
     }
 
@@ -455,7 +463,8 @@ class LuaScript implements ScriptInstance {
     private function resolveObject(name:String):Dynamic {
         if (luaSprites.exists(name)) return luaSprites.get(name);
         if (luaTexts.exists(name)) return luaTexts.get(name);
-        return getProperty(FlxG.state, name);
+        var target:Dynamic = (PlayState.instance != null) ? PlayState.instance : FlxG.state;
+        return getProperty(target, name);
     }
 
     private function resolveEase(ease:String):flixel.tweens.FlxEase.EaseFunction {
@@ -469,15 +478,6 @@ class LuaScript implements ScriptInstance {
             case "cubein": FlxEase.cubeIn;
             case "cubeout": FlxEase.cubeOut;
             case "cubeinout": FlxEase.cubeInOut;
-            case "circin": FlxEase.circIn;
-            case "circout": FlxEase.circOut;
-            case "circinout": FlxEase.circInOut;
-            case "backin": FlxEase.backIn;
-            case "backout": FlxEase.backOut;
-            case "backinout": FlxEase.backInOut;
-            case "elasticin": FlxEase.elasticIn;
-            case "elasticout": FlxEase.elasticOut;
-            case "elasticinout": FlxEase.elasticInOut;
             default: FlxEase.linear;
         };
     }
@@ -497,7 +497,7 @@ class LuaScript implements ScriptInstance {
                 var arr = Reflect.getProperty(current, fieldName);
                 current = (arr != null) ? arr[index] : null;
             } else {
-                current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(part) : Reflect.getProperty(current, part);
+                current = Reflect.getProperty(current, part);
             }
         }
 
@@ -508,8 +508,6 @@ class LuaScript implements ScriptInstance {
                 var index = Std.parseInt(arrayRegex.matched(2));
                 var arr = Reflect.getProperty(current, fieldName);
                 if (arr != null) arr[index] = value;
-            } else if (Std.isOfType(current, haxe.ds.StringMap)) {
-                cast(current, haxe.ds.StringMap<Dynamic>).set(lastPart, value);
             } else {
                 Reflect.setProperty(current, lastPart, value);
             }
@@ -529,7 +527,7 @@ class LuaScript implements ScriptInstance {
                 var arr = Reflect.getProperty(current, fieldName);
                 current = (arr != null) ? arr[index] : null;
             } else {
-                current = Std.isOfType(current, haxe.ds.StringMap) ? cast(current, haxe.ds.StringMap<Dynamic>).get(part) : Reflect.getProperty(current, part);
+                current = Reflect.getProperty(current, part);
             }
         }
         return current;
@@ -539,7 +537,7 @@ class LuaScript implements ScriptInstance {
         #if (cpp && LUA_ALLOWED)
         if (!active || luaState == null) return null;
         Lua.getglobal(luaState, func);
-        if (Lua.isfunction(luaState, -1)) {
+        if (Lua.isfunction(luaState, -1) != 0) {
             var argCount = (args != null) ? args.length : 0;
             if (args != null) {
                 for (arg in args) {
@@ -553,10 +551,14 @@ class LuaScript implements ScriptInstance {
             if (Lua.pcall(luaState, argCount, 1, 0) != 0) {
                 var err = Lua.tostring(luaState, -1);
                 Logger.error('Lua runtime error in $func ($path): $err', "lua");
+                Lua.pop(luaState, 1);
                 return null;
             }
-            return Lua.tostring(luaState, -1);
+            var ret = Lua.tostring(luaState, -1);
+            Lua.pop(luaState, 1);
+            return ret;
         }
+        Lua.pop(luaState, 1);
         #end
         return null;
     }

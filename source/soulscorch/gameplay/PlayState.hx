@@ -31,6 +31,8 @@ import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.system.engine.EngineOptimizer;
+import soulscorch.backend.system.engine.HardwareConductor;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
@@ -181,6 +183,11 @@ class PlayState extends MusicBeatState {
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
     private var hudConfig:Access = null;
+
+    // Reusable array caches to eliminate per-frame allocations
+    private var _elapsedArgCache:Array<Dynamic> = [0.0];
+    private var _intArgCache:Array<Dynamic> = [0];
+    private var _strumNotesHitCache:Array<Note> = [];
 
     public function new(?songId:String, ?difficulty:String) {
         super();
@@ -641,7 +648,6 @@ class PlayState extends MusicBeatState {
     }
 
     private function setupScriptRuntime():Void {
-        scripts = new ScriptManager();
         var cleanSong = curSong.toLowerCase().trim();
 
         // Core State References
@@ -665,8 +671,8 @@ class PlayState extends MusicBeatState {
         // Strumlines & Notes
         scripts.setAll("playerStrumline", playerStrumline);
         scripts.setAll("opponentStrumline", opponentStrumline);
-        scripts.setAll("playerStrums", playerStrumline.receptors);
-        scripts.setAll("opponentStrums", opponentStrumline.receptors);
+        scripts.setAll("playerStrums", playerStrumline != null ? playerStrumline.receptors : null);
+        scripts.setAll("opponentStrums", opponentStrumline != null ? opponentStrumline.receptors : null);
         scripts.setAll("notes", notes);
         scripts.setAll("sustainsGroup", sustainsGroup);
         scripts.setAll("unspawnNotes", unspawnNotes);
@@ -822,6 +828,7 @@ class PlayState extends MusicBeatState {
     private function startCountdown():Void {
         startedCountdown = true;
         Conductor.songPosition = -(Conductor.crochet * 5);
+        HardwareConductor.start(Conductor.songPosition);
 
         var countdownIndex:Int = 0;
         var introAssets = ["ready", "set", "go"];
@@ -875,12 +882,10 @@ class PlayState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         if (paused || isEnding) return;
 
+        _elapsedArgCache[0] = elapsed;
+
         if (scripts != null) {
-            scripts.setAll("curBeat", Conductor.curBeat);
-            scripts.setAll("curStep", Conductor.curStep);
-            scripts.setAll("songPosition", Conductor.songPosition);
-            scripts.setAll("health", health);
-            scripts.callAll("onUpdate", [elapsed]);
+            scripts.callAll("onUpdate", _elapsedArgCache);
         }
 
         audio.update(elapsed);
@@ -897,12 +902,7 @@ class PlayState extends MusicBeatState {
         }
 
         if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
-            var audioTime:Float = audio.inst.time;
-            if (Math.abs(Conductor.songPosition - audioTime) > 35.0) {
-                Conductor.songPosition = audioTime;
-            } else {
-                Conductor.songPosition = FlxMath.lerp(Conductor.songPosition, audioTime, FlxMath.bound(elapsed * 25.0, 0, 1));
-            }
+            HardwareConductor.update(audio.inst.time, elapsed);
         } else {
             Conductor.songPosition += elapsed * 1000.0;
         }
@@ -941,7 +941,7 @@ class PlayState extends MusicBeatState {
         }
 
         if (scripts != null) {
-            scripts.callAll("onUpdatePost", [elapsed]);
+            scripts.callAll("onUpdatePost", _elapsedArgCache);
         }
     }
 
@@ -1098,22 +1098,23 @@ class PlayState extends MusicBeatState {
         var pStrum = playerStrumline.receptors[dir];
         if (pStrum != null) pStrum.playAnim("pressed");
 
-        var possibleNotes:Array<Note> = [];
+        _strumNotesHitCache.resize(0);
         notes.forEachAlive(function(daNote:Note) {
             if (daNote.mustPress && daNote.noteData == dir && daNote.canBeHit && !daNote.wasGoodHit && !daNote.isSustainNote) {
-                possibleNotes.push(daNote);
+                _strumNotesHitCache.push(daNote);
             }
         });
 
-        if (possibleNotes.length > 0) {
-            possibleNotes.sort(function(a:Note, b:Note):Int {
+        if (_strumNotesHitCache.length > 0) {
+            _strumNotesHitCache.sort(function(a:Note, b:Note):Int {
                 return FlxSort.byValues(FlxSort.ASCENDING, Math.abs(a.strumTime - (Conductor.songPosition - noteOffset)), Math.abs(b.strumTime - (Conductor.songPosition - noteOffset)));
             });
-            goodNoteHit(possibleNotes[0]);
+            goodNoteHit(_strumNotesHitCache[0]);
         } else if (!ghostTapping) {
             noteMiss(dir);
         } else {
-            scripts.callAll("onGhostTap", [dir]);
+            _intArgCache[0] = dir;
+            scripts.callAll("onGhostTap", _intArgCache);
         }
     }
 
@@ -1224,7 +1225,8 @@ class PlayState extends MusicBeatState {
         }
 
         updateScoreText();
-        scripts.callAll("onPlayerMiss", [dir]);
+        _intArgCache[0] = dir;
+        scripts.callAll("onPlayerMiss", _intArgCache);
     }
 
     private function setCamDisplacement(dir:Int):Void {
@@ -1287,7 +1289,7 @@ class PlayState extends MusicBeatState {
         super.beatHit(beat);
 
         if (cameraZoomOnBeat && beat % 4 == 0) {
-            JuiceManager.bumpCamera(camGame, 0.035, 0.02);
+            camGame.zoom += 0.015;
             camHUD.zoom += 0.03;
         }
 
@@ -1312,7 +1314,9 @@ class PlayState extends MusicBeatState {
         if (dad != null && (dad.animation.curAnim == null || dad.animation.curAnim.name.startsWith("idle"))) dad.dance();
         if (boyfriend != null && !holdingNote && (boyfriend.animation.curAnim == null || boyfriend.animation.curAnim.name.startsWith("idle"))) boyfriend.dance();
 
-        scripts.callAll("onBeatHit", [beat]);
+        _intArgCache[0] = beat;
+        scripts.callAll("onBeatHit", _intArgCache);
+        scripts.callAll("beatHit", _intArgCache);
     }
 
     override public function stepHit(step:Int):Void {
@@ -1338,7 +1342,9 @@ class PlayState extends MusicBeatState {
         }
 
         if (currentStage != null) currentStage.stepHit(step);
-        scripts.callAll("onStepHit", [step]);
+        _intArgCache[0] = step;
+        scripts.callAll("onStepHit", _intArgCache);
+        scripts.callAll("stepHit", _intArgCache);
     }
 
     public function triggerEvent(name:String, val1:Dynamic, val2:Dynamic):Void {
