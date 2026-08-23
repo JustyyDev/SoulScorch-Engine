@@ -54,6 +54,7 @@ class StoryMenuState extends MusicBeatState {
     private var grpWeekTitles:FlxTypedGroup<FlxSprite>;
     private var grpWeekPortraits:FlxTypedGroup<FlxSprite>;
     private var diffText:FlxText;
+    private var diffIcon:FlxSprite;
     private var tracklistText:FlxText;
     private var weekNameText:FlxText;
     private var stageBanner:FlxSprite;
@@ -141,6 +142,11 @@ class StoryMenuState extends MusicBeatState {
         diffText.setFormat(Paths.font("vcr"), 22, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
         diffText.borderSize = 1.5;
         add(diffText);
+
+        diffIcon = new FlxSprite(FlxG.width - 385, 432);
+        diffIcon.scrollFactor.set(0, 0);
+        diffIcon.visible = false;
+        add(diffIcon);
 
         tracklistText = new FlxText(40, 430, 320, "TRACKLIST:\n\n", 16);
         tracklistText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
@@ -328,6 +334,7 @@ class StoryMenuState extends MusicBeatState {
 
         var week = weeks[curWeek];
         weekNameText.text = week.name.toUpperCase();
+        updatePortraits(week);
 
         var trackStr = "TRACKLIST:\n\n";
         var currentSongs = week.songs;
@@ -353,7 +360,93 @@ class StoryMenuState extends MusicBeatState {
         var diff = diffs[curDifficulty];
         diffText.text = '< ${diff.toUpperCase()} >';
         diffText.color = Difficulty.getColor(diff);
+        updateDifficultyIcon(diff);
         if (scripts != null) scripts.callAll("onChangeDifficulty", [curDifficulty, diff]);
+    }
+
+    private function updatePortraits(week:WeekData):Void {
+        if (grpWeekPortraits == null) return;
+        for (m in grpWeekPortraits.members) if (m != null) m.destroy();
+        grpWeekPortraits.clear();
+
+        if (week == null || week.characters == null) return;
+
+        var targetH = 300.0;
+        var spacing = 12.0;
+        var sprites:Array<FlxSprite> = [];
+        var totalW = 0.0;
+
+        for (char in week.characters) {
+            if (char == null || char.trim().length == 0) continue;
+            var spr = new FlxSprite();
+            var loaded = AssetHelper.loadSparrowSafely(spr, 'ui/storymenu/characters/$char');
+            if (!loaded) loaded = AssetHelper.loadSparrowSafely(spr, 'storymenu/characters/$char');
+            if (!loaded) loaded = AssetHelper.loadSparrowSafely(spr, 'characters/$char');
+            if (!loaded) continue;
+
+            var fh = (spr.frameHeight > 0) ? spr.frameHeight : spr.height;
+            if (fh <= 0) continue;
+            var scale = targetH / fh;
+            spr.scale.set(scale, scale);
+            spr.updateHitbox();
+            spr.antialiasing = true;
+            spr.scrollFactor.set(0, 0);
+            addIdleAnimation(spr);
+            sprites.push(spr);
+            totalW += spr.width + spacing;
+        }
+
+        if (sprites.length == 0) return;
+        totalW -= spacing;
+
+        var startX = FlxG.width - 40 - totalW;
+        var curX = startX;
+        for (spr in sprites) {
+            spr.x = curX;
+            spr.y = 70 + (targetH - spr.height) * 0.5;
+            curX += spr.width + spacing;
+            grpWeekPortraits.add(spr);
+        }
+    }
+
+    private function addIdleAnimation(spr:FlxSprite):Void {
+        if (spr.frames == null || spr.frames.frames == null) return;
+        var counts = new Map<String, Int>();
+        var re = ~/[0-9]+$/;
+        for (f in spr.frames.frames) {
+            var base = re.replace(f.name, "");
+            counts[base] = (counts.exists(base) ? counts[base] : 0) + 1;
+        }
+        var best = ""; var bestCount = 0;
+        var idleBest = ""; var idleBestCount = 0;
+        for (k in counts.keys()) {
+            var kl = k.toLowerCase();
+            if (kl.indexOf("idle") != -1 || kl.indexOf("dance") != -1) {
+                if (counts[k] > idleBestCount) { idleBestCount = counts[k]; idleBest = k; }
+            }
+            if (counts[k] > bestCount) { bestCount = counts[k]; best = k; }
+        }
+        if (idleBestCount > 0) { best = idleBest; bestCount = idleBestCount; }
+        if (bestCount > 1) {
+            spr.animation.addByPrefix("idle", best, 24, true);
+            spr.animation.play("idle");
+        }
+    }
+
+    private function updateDifficultyIcon(diff:String):Void {
+        if (diffIcon == null) return;
+        var loaded = AssetHelper.loadGraphicSafely(diffIcon, 'ui/storymenu/difficulties/$diff');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(diffIcon, 'storymenu/difficulties/$diff');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(diffIcon, 'difficulties/$diff');
+        if (loaded) {
+            var targetH = 30.0;
+            var s = targetH / diffIcon.height;
+            diffIcon.scale.set(s, s);
+            diffIcon.updateHitbox();
+            diffIcon.visible = true;
+        } else {
+            diffIcon.visible = false;
+        }
     }
 
     override public function destroy():Void {

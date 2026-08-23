@@ -131,11 +131,16 @@ class EngineOptimizer {
             }
         }
 
-        #if cpp
-        Gc.run(false); // Non-blocking generational GC sweep
-        #elseif hl
-        Gc.major();
-        #end
+        // Only sweep the GC when there is real memory pressure. Running a GC
+        // unconditionally every interval causes periodic micro-hitches.
+        var currentMemMB:Float = (System.totalMemory / 1048576.0);
+        if (currentMemMB > maxGCMemoryMB || lowSpecMode) {
+            #if cpp
+            Gc.run(false); // Non-blocking generational GC sweep
+            #elseif hl
+            Gc.major();
+            #end
+        }
     }
     
     public static function runMemorySweep():Void {
@@ -143,20 +148,15 @@ class EngineOptimizer {
     }
 
     public static function performEmergencyCompaction():Void {
-        @:privateAccess {
-            if (Assets.cache != null) {
-                Assets.cache.clear("IMAGE");
-                Assets.cache.clear("SOUND");
-            }
-        }
-
-        FlxG.bitmap.dumpCache();
-        FlxG.bitmap.clearUnused();
+        // IMPORTANT: Never wipe the active asset caches. Clearing IMAGE/SOUND
+        // forces every still-needed graphic/sound to be re-decoded from disk on
+        // next use, which produces massive, repeated lag spikes. Instead we only
+        // release genuinely unused GPU/CPU assets and run an incremental GC.
+        performIncrementalVRAMPurge();
         MemoryUtil.collect();
 
         #if cpp
-        Gc.run(true);
-        Gc.compact();
+        Gc.run(false); // Incremental, non-blocking sweep (no full compact)
         #elseif hl
         Gc.major();
         #elseif java
@@ -167,7 +167,7 @@ class EngineOptimizer {
         trimProcessWorkingSet();
         #end
 
-        Logger.info("[OPTIMIZER] Emergency VRAM and Garbage Collection compaction complete.", "optimizer");
+        Logger.info("[OPTIMIZER] Gentle memory compaction complete (no cache wipe).", "optimizer");
     }
 
     private static function set_enabled(value:Bool):Bool {

@@ -51,6 +51,7 @@ class FreeplayState extends MusicBeatState {
     private static var _chartMetaCache:Map<String, {bpm:Float, speed:Float}> = new Map<String, {bpm:Float, speed:Float}>();
 
     private var bg:FlxSprite;
+    private var selectionHighlight:FlxSprite;
     private var scorePanel:FlxSpriteGroup;
     private var scoreText:FlxText;
     private var diffText:FlxText;
@@ -111,6 +112,13 @@ class FreeplayState extends MusicBeatState {
         grid.dirty = true;
         grid.scrollFactor.set(0, 0);
         add(grid);
+
+        // Single reusable highlight bar behind the selected row (cheap, no per-item sprites)
+        selectionHighlight = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, FlxColor.WHITE);
+        selectionHighlight.alpha = 0.12;
+        selectionHighlight.scrollFactor.set(0, 0);
+        selectionHighlight.visible = false;
+        add(selectionHighlight);
 
         if (songs.length > 0) {
             curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
@@ -254,6 +262,11 @@ class FreeplayState extends MusicBeatState {
                 if (iconPool[i] != null) {
                     iconPool[i].alpha = item.alpha;
                 }
+
+                // Smoothly follow the selected row with the highlight bar
+                if (isSelected && selectionHighlight != null) {
+                    selectionHighlight.y = FlxMath.lerp(selectionHighlight.y, targetY - 30, FlxMath.bound(elapsed * 15.0, 0, 1));
+                }
             }
         }
     }
@@ -329,6 +342,15 @@ class FreeplayState extends MusicBeatState {
                     if (change == 0) {
                         alphabet.y = (offset * ITEM_SPACING) + (FlxG.height * 0.48);
                         alphabet.x = (offset * 20.0) + 90.0;
+                    }
+                }
+
+                // Track the selected (center) slot for the highlight bar
+                if (offset == 0 && selectionHighlight != null) {
+                    selectionHighlight.visible = true;
+                    selectionHighlight.color = songs[songIndex].color;
+                    if (change == 0) {
+                        selectionHighlight.y = (offset * ITEM_SPACING) + (FlxG.height * 0.48) - 30;
                     }
                 }
             } else {
@@ -508,13 +530,12 @@ class FreeplayState extends MusicBeatState {
         super.beatHit(beat);
         if (scripts != null) scripts.callAll("onBeatHit", [beat]);
 
-        var halfWindow = Math.floor(alphabetPool.length / 2);
-        if (halfWindow >= 0 && halfWindow < iconPool.length) {
-            var centerIcon = iconPool[halfWindow];
-            if (centerIcon != null && centerIcon.visible) {
-                centerIcon.scale.set(1.2, 1.2);
-                FlxTween.cancelTweensOf(centerIcon.scale);
-                FlxTween.tween(centerIcon.scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+        // Bop every visible icon cheaply. HealthIcon.beatHit() sets the bop scale/angle
+        // and its own update() lerps back each frame, so no per-beat FlxTween allocation.
+        for (i in 0...iconPool.length) {
+            var icon = iconPool[i];
+            if (icon != null && icon.visible) {
+                icon.beatHit(beat);
             }
         }
     }

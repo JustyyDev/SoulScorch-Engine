@@ -31,6 +31,9 @@ import soulscorch.gameplay.chart.Song;
 import soulscorch.gameplay.chart.events.EventManager;
 import soulscorch.gameplay.chart.events.EventMarker;
 import soulscorch.gameplay.chart.events.SongEvents;
+import soulscorch.gameplay.notes.Note;
+import soulscorch.gameplay.notes.NoteSkinManager;
+import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.gameplay.song.SongLoader;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.menus.editors.editorui.*;
@@ -93,11 +96,10 @@ class ChartingState extends MusicBeatState {
     private var sectionIndicator:FlxSprite;
     private var camFollow:FlxObject;
 
-    // --- Cached Bitmaps ---
+    // --- Cached Note Assets (real note graphics) ---
     private static var _cachedGridBitmap:BitmapData = null;
-    private static var _cachedNoteBitmaps:Array<BitmapData> = [];
-    private static var _cachedSustainBitmaps:Array<BitmapData> = [];
-    private static var _cachedEventBitmap:BitmapData = null;
+    private static var _noteAtlas:FlxAtlasFrames = null;
+    private static var _eventMarker:FlxSprite = null;
 
     // --- Chart Data ---
     private var songData:Song;
@@ -157,6 +159,11 @@ class ChartingState extends MusicBeatState {
         setupCameras();
         setupAudio();
         loadChartData(curSongName, curDifficultyName);
+
+        var vignette = EditorTheme.makeVignette(FlxG.width, FlxG.height);
+        vignette.scrollFactor.set(0, 0);
+        vignette.cameras = [camEditor];
+        add(vignette);
 
         buildPrecachedGraphics();
         rebuildGridGraphics();
@@ -250,35 +257,15 @@ class ChartingState extends MusicBeatState {
     }
 
     private function buildPrecachedGraphics():Void {
-        if (_cachedNoteBitmaps.length > 0) return;
+        if (_noteAtlas != null) return;
 
-        var palette:Array<Int> = [0xFFC24B99, 0xFF00FFFF, 0xFF12FA05, 0xFFF9393F];
+        // Load the real note skin atlas (falls back to NOTE_assets)
+        _noteAtlas = NoteSkinManager.getSkinAtlas(NoteSkinManager.defaultSkin);
+        if (_noteAtlas == null) _noteAtlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
+        if (_noteAtlas == null) _noteAtlas = Paths.getSparrowAtlas("NOTE_assets");
 
-        for (i in 0...4) {
-            var col = palette[i];
-            
-            // Ultra Crisp Note Head Texture
-            var bmp = new BitmapData(GRID_SIZE, GRID_SIZE, true, 0x0);
-            bmp.fillRect(new Rectangle(2, 2, GRID_SIZE - 4, GRID_SIZE - 4), col);
-            bmp.fillRect(new Rectangle(4, 4, GRID_SIZE - 8, 4), 0x88FFFFFF);
-            bmp.fillRect(new Rectangle(0, 0, GRID_SIZE, 2), 0xFFFFFFFF);
-            bmp.fillRect(new Rectangle(0, GRID_SIZE - 2, GRID_SIZE, 2), 0x55000000);
-            bmp.fillRect(new Rectangle(0, 0, 2, GRID_SIZE), 0x44FFFFFF);
-            bmp.fillRect(new Rectangle(GRID_SIZE - 2, 0, 2, GRID_SIZE), 0x44000000);
-            _cachedNoteBitmaps.push(bmp);
-
-            // Sustain Body Texture
-            var susBmp = new BitmapData(14, GRID_SIZE, true, 0x0);
-            susBmp.fillRect(new Rectangle(0, 0, 14, GRID_SIZE), col);
-            susBmp.fillRect(new Rectangle(2, 0, 10, GRID_SIZE), 0x44FFFFFF);
-            _cachedSustainBitmaps.push(susBmp);
-        }
-
-        // Event Diamond Marker
-        _cachedEventBitmap = new BitmapData(GRID_SIZE, GRID_SIZE, true, 0x0);
-        _cachedEventBitmap.fillRect(new Rectangle(4, 4, GRID_SIZE - 8, GRID_SIZE - 8), 0xFFFFCC00);
-        _cachedEventBitmap.fillRect(new Rectangle(8, 8, GRID_SIZE - 16, GRID_SIZE - 16), 0xFF2A233D);
-        _cachedEventBitmap.fillRect(new Rectangle(14, 14, GRID_SIZE - 28, GRID_SIZE - 28), 0xFF00FFCC);
+        // Glowing event-node marker
+        _eventMarker = EditorTheme.makeEventMarker(GRID_SIZE);
     }
 
     private function rebuildGridGraphics():Void {
@@ -291,7 +278,7 @@ class ChartingState extends MusicBeatState {
         var totalGridW = totalCols * GRID_SIZE;
         var gridX = (FlxG.width * 0.5) - (totalGridW * 0.5);
 
-        gridGroup = new FlxSpriteGroup(gridX, 0);
+        gridGroup = new FlxSpriteGroup(gridX, GRID_SIZE);
         add(gridGroup);
 
         _cachedGridBitmap = new BitmapData(totalGridW, STEPS_PER_SECTION * GRID_SIZE, true, 0x0);
@@ -343,18 +330,22 @@ class ChartingState extends MusicBeatState {
             receptorGroup.destroy();
         }
 
-        receptorGroup = new FlxSpriteGroup(gridGroup.x + GRID_SIZE, -GRID_SIZE - 10);
+        receptorGroup = new FlxSpriteGroup(gridGroup.x + GRID_SIZE, gridGroup.y - GRID_SIZE - 10);
         add(receptorGroup);
 
         for (i in 0...currentTotalLanes) {
-            var rec = new FlxSprite(i * GRID_SIZE, 0);
-            rec.loadGraphic(_cachedNoteBitmaps[i % 4]);
+            var rec = new StrumArrow(i * GRID_SIZE, 0, i % 4, (i >= 4), false, NoteSkinManager.defaultSkin);
+            rec.playAnim("static", true);
+            // Scale the receptor down to fit the grid cell
+            rec.scale.set(GRID_SIZE / rec.frameWidth, GRID_SIZE / rec.frameHeight);
+            rec.offset.set(0, 0);
+            rec.updateHitbox();
             rec.alpha = 0.45;
             receptorGroup.add(rec);
         }
 
         var totalGridW = (currentTotalLanes + 1) * GRID_SIZE;
-        var strumLine = new FlxSprite(gridGroup.x - 12, 0).makeGraphic(totalGridW + 24, 3, EditorTheme.ACCENT_CYAN);
+        var strumLine = new FlxSprite(gridGroup.x - 12, gridGroup.y - 12).makeGraphic(totalGridW + 24, 3, EditorTheme.ACCENT_CYAN);
         add(strumLine);
 
         gridCursor = new FlxSprite(0, 0).makeGraphic(GRID_SIZE, GRID_SIZE, FlxColor.TRANSPARENT);
@@ -365,11 +356,11 @@ class ChartingState extends MusicBeatState {
         gridCursor.dirty = true;
         gridGroup.add(gridCursor);
 
-        sectionIndicator = new FlxSprite(gridGroup.x - 22, 0).makeGraphic(14, GRID_SIZE, EditorTheme.ACCENT_MAGENTA);
+        sectionIndicator = new FlxSprite(gridGroup.x - 22, gridGroup.y).makeGraphic(14, GRID_SIZE, EditorTheme.ACCENT_MAGENTA);
         add(sectionIndicator);
 
         if (camFollow != null && gridGroup != null) {
-            camFollow.setPosition(gridGroup.x + (totalGridW * 0.5), (STEPS_PER_SECTION * GRID_SIZE) * 0.5);
+            camFollow.setPosition(gridGroup.x + (totalGridW * 0.5), gridGroup.y + (STEPS_PER_SECTION * GRID_SIZE) * 0.5);
         }
     }
 
@@ -618,7 +609,7 @@ class ChartingState extends MusicBeatState {
 
             var stepRemainder = calculatedStep % STEPS_PER_SECTION;
             if (sectionIndicator != null) {
-                sectionIndicator.y = stepRemainder * GRID_SIZE;
+                sectionIndicator.y = gridGroup.y + stepRemainder * GRID_SIZE;
             }
 
             if (hitsoundsEnabled) checkAndPlayHitsounds();
@@ -788,7 +779,7 @@ class ChartingState extends MusicBeatState {
         var sectionStartTime = curSection * STEPS_PER_SECTION * Conductor.stepCrochet;
         var sectionEndTime = (curSection + 1) * STEPS_PER_SECTION * Conductor.stepCrochet;
 
-        // Render Events in Column 0
+        // Render Events in Column 0 (glowing diamond nodes)
         for (e in chartEvents) {
             if (e.time >= (sectionStartTime - 20) && e.time < (sectionEndTime - 10)) {
                 var stepOffset = (e.time - sectionStartTime) / Conductor.stepCrochet;
@@ -796,43 +787,74 @@ class ChartingState extends MusicBeatState {
                 var evX = gridGroup.x;
 
                 var evSpr = new FlxSprite(evX, evY);
-                evSpr.loadGraphic(_cachedEventBitmap);
+                if (_eventMarker != null && _eventMarker.graphic != null) {
+                    evSpr.loadGraphic(_eventMarker.graphic);
+                } else {
+                    evSpr.makeGraphic(GRID_SIZE, GRID_SIZE, EditorTheme.ACCENT_YELLOW);
+                }
                 renderedEventsGroup.add(evSpr);
             }
         }
 
-        // Render Notes in Columns 1..N
+        // Render Notes in Columns 1..N using real note graphics (heads, holds, hold-ends)
         for (n in chartNotes) {
             if (n.time >= (sectionStartTime - 20) && n.time < (sectionEndTime - 10)) {
                 var stepOffset = (n.time - sectionStartTime) / Conductor.stepCrochet;
                 var noteY = gridGroup.y + (stepOffset * GRID_SIZE);
                 var noteX = gridGroup.x + GRID_SIZE + (n.lane * GRID_SIZE);
+                var isSel = (n == curSelectedNote);
 
-                var sprNote = new FlxSprite(noteX, noteY);
-                sprNote.loadGraphic(_cachedNoteBitmaps[n.lane % 4]);
+                // --- Sustain trail (body + end cap) drawn behind the head ---
+                if (n.sustainLength > 0) {
+                    var holdSteps = n.sustainLength / Conductor.stepCrochet;
+                    var holdHeight = holdSteps * GRID_SIZE;
 
-                if (n == curSelectedNote) {
-                    sprNote.color = 0xFFFFFFFF;
-                    var border = new FlxSprite(noteX, noteY).makeGraphic(GRID_SIZE, GRID_SIZE, FlxColor.TRANSPARENT);
-                    border.pixels.fillRect(new Rectangle(0, 0, GRID_SIZE, 3), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(0, GRID_SIZE - 3, GRID_SIZE, 3), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(0, 0, 3, GRID_SIZE), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(GRID_SIZE - 3, 0, 3, GRID_SIZE), 0xFFFFFFFF);
+                    // End cap is sized to one grid cell and sits at the very bottom of the hold
+                    var holdEnd = new Note(n.time + n.sustainLength, n.lane % 4, 0, null, true, true, n.mustPress, n.type, NoteSkinManager.defaultSkin);
+                    holdEnd.scrollFactor.set(1, 1);
+                    holdEnd.scale.set(GRID_SIZE / holdEnd.frameWidth, GRID_SIZE / holdEnd.frameHeight);
+                    holdEnd.updateHitbox();
+                    holdEnd.x = noteX + (GRID_SIZE - holdEnd.width) * 0.5;
+                    holdEnd.y = noteY + holdHeight - holdEnd.height;
+                    sustainNotesGroup.add(holdEnd);
+
+                    // Body fills the space ABOVE the end cap so they meet flush (no overlap)
+                    var bodyHeight = holdHeight - holdEnd.height;
+                    if (bodyHeight > 1) {
+                        var holdBody = new Note(n.time, n.lane % 4, n.sustainLength, null, true, false, n.mustPress, n.type, NoteSkinManager.defaultSkin);
+                        holdBody.scrollFactor.set(1, 1);
+                        holdBody.scale.set(GRID_SIZE / holdBody.frameWidth, bodyHeight / holdBody.frameHeight);
+                        holdBody.updateHitbox();
+                        holdBody.x = noteX + (GRID_SIZE - holdBody.width) * 0.5;
+                        holdBody.y = noteY;
+                        holdBody.alpha = 0.6;
+                        sustainNotesGroup.add(holdBody);
+                    }
+                }
+
+                // --- Note head ---
+                var sprNote = new Note(n.time, n.lane % 4, 0, null, false, false, n.mustPress, n.type, NoteSkinManager.defaultSkin);
+                sprNote.scrollFactor.set(1, 1);
+                sprNote.scale.set(GRID_SIZE / sprNote.frameWidth, GRID_SIZE / sprNote.frameHeight);
+                sprNote.updateHitbox();
+                sprNote.x = noteX + (GRID_SIZE - sprNote.width) * 0.5;
+                sprNote.y = noteY + (GRID_SIZE - sprNote.height) * 0.5;
+
+                if (isSel) {
+                    var glow = EditorTheme.makeRoundedRect(GRID_SIZE + 12, GRID_SIZE + 12, 0xFFFFFFFF, EditorTheme.CORNER_SM, 0.22);
+                    glow.x = sprNote.x - 6;
+                    glow.y = sprNote.y - 6;
+                    renderedNotesGroup.add(glow);
+
+                    var border = new FlxSprite(sprNote.x, sprNote.y).makeGraphic(Std.int(sprNote.width), Std.int(sprNote.height), FlxColor.TRANSPARENT);
+                    border.pixels.fillRect(new Rectangle(0, 0, sprNote.width, 3), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(0, sprNote.height - 3, sprNote.width, 3), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(0, 0, 3, sprNote.height), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(sprNote.width - 3, 0, 3, sprNote.height), 0xFFFFFFFF);
                     border.dirty = true;
                     renderedNotesGroup.add(border);
                 }
                 renderedNotesGroup.add(sprNote);
-
-                if (n.sustainLength > 0) {
-                    var holdSteps = n.sustainLength / Conductor.stepCrochet;
-                    var holdHeight = holdSteps * GRID_SIZE;
-                    var sustainSpr = new FlxSprite(noteX + ((GRID_SIZE - 14) * 0.5), noteY + GRID_SIZE);
-                    sustainSpr.loadGraphic(_cachedSustainBitmaps[n.lane % 4]);
-                    sustainSpr.setGraphicSize(14, Std.int(holdHeight));
-                    sustainSpr.updateHitbox();
-                    sustainSpr.alpha = 0.65;
-                    sustainNotesGroup.add(sustainSpr);
-                }
             }
         }
     }

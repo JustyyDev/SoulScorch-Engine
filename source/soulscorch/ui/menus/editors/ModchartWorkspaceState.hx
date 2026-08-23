@@ -157,6 +157,11 @@ class ModchartWorkspaceState extends MusicBeatState {
         bg.scrollFactor.set(0, 0);
         add(bg);
 
+        var vignette = EditorTheme.makeVignette(FlxG.width, FlxG.height);
+        vignette.scrollFactor.set(0, 0);
+        vignette.cameras = [camWorkspace];
+        add(vignette);
+
         var centerLine = new FlxSprite(FlxG.width * 0.5 - 1, 0).makeGraphic(2, FlxG.height, EditorTheme.PANEL_BORDER);
         centerLine.scrollFactor.set(0, 0);
         add(centerLine);

@@ -153,6 +153,11 @@ class CharacterEditorState extends MusicBeatState {
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
 
+        var vignette = EditorTheme.makeVignette(FlxG.width, FlxG.height);
+        vignette.scrollFactor.set(0, 0);
+        vignette.cameras = [camEditor];
+        add(vignette);
+
         stageBackdrop = new FlxSprite(-200, -100);
         loadStageGraphic(curStageBackdrop);
         stageBackdrop.scrollFactor.set(0.9, 0.9);

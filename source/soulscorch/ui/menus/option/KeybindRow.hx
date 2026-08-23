@@ -10,10 +10,11 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.InputMap;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 
 class KeybindRow extends FlxSpriteGroup {
-    public var label:FlxText;
+    public var label:Alphabet;
     public var keyText:FlxText;
     public var rowBg:FlxSprite;
     public var activeIndicator:FlxSprite;
@@ -38,9 +39,11 @@ class KeybindRow extends FlxSpriteGroup {
         activeIndicator.alpha = 0.0;
         add(activeIndicator);
 
-        label = new FlxText(22, 16, width * 0.48, displayName, 18);
-        label.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
-        label.borderSize = 1.0;
+        // FNF-style Alphabet label
+        label = new Alphabet(22, 0, displayName, false);
+        label.targetY = 0;
+        label.isMenuItem = false;
+        label.y = (54 - label.height) * 0.5;
         add(label);
 
         keyText = new FlxText(width * 0.45, 16, (width * 0.55) - 20, "", 18);

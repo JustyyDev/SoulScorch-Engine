@@ -1,213 +1,190 @@
-# SoulScorch Engine: Comprehensive Architecture & Modding Guide
+﻿# SoulScorch Engine
 
+Welcome to SoulScorch Engine. This is a free rhythm game engine that you can change and play with. Think of it like a big toy box. You can add your own songs, characters, and even small programs that make the game do cool things.
 
+## What is SoulScorch Engine
 
-SoulScorch Engine is a high-performance, modular rhythm game framework designed for deep XML layout customization, dynamic multi-language scripting, 3D hardware-accelerated rendering, and total-conversion modding.
+SoulScorch is a game engine. A game engine is like the frame of a car. It gives you the wheels, the motor, and the steering. You add the paint and the music.
 
----
+With SoulScorch you can:
+- Play rhythm games with notes that fall down the screen.
+- Add your own songs and charts.
+- Change how the game looks.
+- Write small programs called scripts that change how the game acts.
 
-## 1. Directory Structure
+## Meet the four script friends
 
-Assets, core engine systems, and user modifications follow a strict resolution hierarchy:
+A script is a small set of instructions for the game. SoulScorch understands four kinds of scripts. We call them the four script friends.
 
-```text
-SoulScorch-Engine/
-├── assets/
-│   ├── preload/
-│   │   ├── data/
-│   │   │   ├── characters/       # Character offset & properties (.json / .xmsoul)
-│   │   │   ├── stages/           # Multi-layered stage architecture definitions
-│   │   │   ├── noteskins/        # Lane receptor & tap note XML specifications
-│   │   │   └── config/           # Engine UI, judgments, credits & window settings
-│   │   ├── images/               # Textures, sprite atlases, and UI elements
-│   │   ├── music/                # Menu music, instrumental stems, and loops
-│   │   ├── sounds/               # Sound effects and feedback audio
-│   │   └── songs/                # Base song charts and audio tracks
-├── mods/                         # Dynamic modification packages (Hot-swappable)
-│   └── [ModFolderName]/
-│       ├── data/                 # Mod-specific charts, stages, and characters
-│       ├── images/               # Custom UI atlases and sprites overriding base assets
-│       ├── scripts/              # Mod-scoped SoulScript (.soul), HScript (.hx), and Lua (.lua)
-│       └── soulmod.json          # Mod descriptor (or soulmod.xmsoul / mod.json)
-├── source/                       # Core Haxe engine source files
-│   ├── Main.hx                   # Engine bootstrap, high-performance timing & garbage sweep
-│   └── soulscorch/
-│       ├── backend/              # Audio Conductor, XMSoul parser, AssetResolver, and RPC
-│       ├── gameplay/             # PlayState, note systems, receptors, and stage engines
-│       ├── graphics/             # 3D Away3D manager and custom GPU shader pipelines
-│       ├── scripting/            # SoulScript transpiler, HScript runtime, and ModManager
-│       └── ui/                   # Menus, HUD elements, and in-engine visual editors
-└── build.bat                     # Multi-target compilation suite (MSVC, MinGW, HL, CPPIA)
+1. SoulScript (.soul and .hx files)
+   This is the engine's own language. It is easy to read. You can also use plain Haxe code in .hx files.
+
+2. HScript and Iris (.hscript and .iris files)
+   These are simple script languages that run fast inside the game.
+
+3. Lua (.lua files)
+   Lua is a tiny and famous script language. SoulScorch uses a special helper called linc_luajit to talk to Lua. We made linc_luajit better and moved it to a new home. You can find it here: https://github.com/JustyyDev/linc_luajit
+
+4. Python (.py files)
+   Yes, you can even use Python. That is the language many schools teach.
+
+You can mix and match. One mod can use a SoulScript file and a Lua file at the same time.
+
+## How the engine runs your script
+
+When the game loads your script, it calls a few special functions in order. We call these the lifecycle. It is like the morning routine of the game.
+
+- create: This runs first. Set up your things here.
+- onCreate: This runs right after create. Build your objects here.
+- update: This runs every single frame. Use it to move things or check keys.
+- onBeatHit: This runs when the music hits a beat. Use it to make things bounce to the song.
+
+You do not need to write all of them. Write only the ones you need. The engine now calls create and onCreate for you in one clean step, so your script never runs them twice.
+
+## Global scripts run everywhere
+
+Some scripts are special. They are called global scripts. They keep running even when you move from one screen to another.
+
+SoulScorch now finds global scripts by itself. It looks for .soul, .hx, .hscript, .iris, .lua, and .py files in your mod folder and in the base game folder. You do not need to list them by hand anymore.
+
+A global script can do things like change the window title or watch for a key press.
+
+## The folder map
+
+Here is a simple map of the engine. You do not need to understand all of it. Just know where your mods go.
 
 ```
+SoulScorch-Engine/
+â”œâ”€â”€ assets/        # Pictures, music, and game data
+â”œâ”€â”€ mods/          # Your mods go here (this is the fun folder)
+â”œâ”€â”€ source/        # The engine code (you rarely touch this)
+â””â”€â”€ build.bat      # A button that builds the game
+```
 
----
+Your mod lives inside the mods folder. Make a new folder there with your mod name.
 
-## 2. SoulScript & Scripting Specification
+## Modding guide (very easy)
 
-SoulScorch features **SoulScript**, a transpiled domain-specific language (DSL) combining concise timeline headers and animation tweens with standard HScript execution.
+Let us make a mod together. Follow these steps.
 
-### Core Syntax & Shorthand Features
+### Step 1: Make a mod folder
 
-* **Event Headers:** Clean lifecycle blocks translated directly into functions:
-* `on create:` $\rightarrow$ `function create() {`
+Go to the mods folder. Make a new folder called myfirstmod.
 
-* `on update(elapsed):` $\rightarrow$ `function update(elapsed) {`
+### Step 2: Tell the game about your mod
 
-* `on beatHit(curBeat):` $\rightarrow$ `function onBeatHit(curBeat) {`
-
-* `on preStateSwitch:` $\rightarrow$ `function preStateSwitch() {`
-
-* `on postStateSwitch:` $\rightarrow$ `function postStateSwitch() {`
-
-* `at beat <N>:` $\rightarrow$ `if (curBeat == <N>) {`
-
-* `every <N> beats:` $\rightarrow$ `if (curBeat % <N> == 0) {`
-
-
-
-* **Property & Tween Shorthand:** `target.property -> value in duration(ease)` converts automatically into Flixel tweens.
-
-
-* **Strumline & 3D Tweens:** `strumline.player[0].x -> 412 in 0.5s (cubeOut)` and `model.position -> [0, 5, 10] in 1.2s (quartOut)`.
-
-
-
-### Available Injections in Script Runtime
-
-Every script (`.soul` or `.hx`) automatically receives global bindings:
-
-* **Flixel Core:** `FlxG`, `FlxSprite`, `FlxCamera`, `FlxText`, `FlxMath`, `FlxTween`, `FlxEase`, `FlxTimer`, `FlxColor`.
-
-
-* **Engine Internals:** `Runtime`, `Conductor`, `Paths`, `EventBus`, `Logger`, `ModLoader`, `DiscordRPC`, `ScriptManager`, `ScriptedState`, `ScriptedSubState`.
-
-
-* **Active State Access:** `game` and `state` pointing directly to `FlxG.state`.
-
-
-
----
-
-## 3. Mod Configuration & Metadata
-
-Mods are loaded dynamically from the `mods/` directory. Every mod package declares metadata using `soulmod.json` or `soulmod.xmsoul`:
+Inside myfirstmod, make a file called soulmod.json. Write this inside:
 
 ```json
 {
-  "name": "examplemod",
-  "title": "example mod",
+  "name": "myfirstmod",
+  "title": "My First Mod",
   "version": "1.0.0",
   "api_version": "1.0.0",
-  "author": "SoulScorch Team",
-  "description": "hi",
+  "author": "Your Name",
+  "description": "A fun little mod",
   "color": "#9d5ebd",
   "icon": "windowicon.png",
-  "global_scripts": [
-    "scripts/global.soul"
-  ],
+  "global_scripts": [],
   "dependencies": [],
   "load_priority": 0
 }
-
 ```
 
-### Global Script Redirection (`global.soul` / `global.hx`)
+### Step 3: Write a script
 
-Global scripts run across state switches to hook into transitions, hot-reloading, or state overrides:
+Make a folder called scripts inside myfirstmod. Now write a script. Pick any of the four friends.
 
-```haxe
-function preStateSwitch() {
-    // Intercept default menus and redirect to scripted mod states
-    if (Type.getClassName(Type.getClass(FlxG.game._requestedState)).indexOf("TitleState") != -1) {
-        FlxG.game._requestedState = new ScriptedState("TitleState");
-    }
-}
+SoulScript example (file: scripts/hello.soul):
 
-function postStateSwitch() {
-    lime.app.Application.current.window.title = "SoulScorch // Active Mod";
+```
+on create:
+    print("Hello from my mod")
+
+on update(elapsed):
+    if FlxG.keys.justPressed.SPACE:
+        print("Space was pressed")
+```
+
+Lua example (file: scripts/hello.lua):
+
+```lua
+function create()
+    print("Hello from Lua")
+end
+
+function update(elapsed)
+    -- your code here
+end
+```
+
+To talk to the game from Lua, use add_callback. This lets Lua call a Haxe function by name. The new linc_luajit keeps each Lua world's callbacks separate, so mods never mix up.
+
+```lua
+-- register a callback the engine can call
+add_callback("myCoolThing", function(arg)
+    print("The engine called me with " .. tostring(arg))
+end)
+```
+
+Python example (file: scripts/hello.py):
+
+```python
+def create():
+    print("Hello from Python")
+
+def update(elapsed):
+    pass
+```
+
+HScript example (file: scripts/hello.hscript):
+
+```
+function create() {
+    trace("Hello from HScript");
 }
 
 function update(elapsed) {
-    if (FlxG.keys.justPressed.F5) {
-        ScriptManager.instance.updateHotReload();
-    }
+    // your code here
 }
-
 ```
 
----
+### Step 4: Run the game
 
-## 4. XMSoul XML Specification
+Start the engine. Your mod shows up in the mod list. Turn it on and play. That is it. You made a mod.
 
-SoulScorch uses XML-driven architecture (`XMSoul`) for engine settings, layouts, and noteskins.
+## The linc_luajit library
 
-### Noteskin XML (`assets/preload/data/noteskins/notes/default.xmsoul`)
+Lua support in SoulScorch uses a helper library called linc_luajit. We fixed it and made it better. It now has state scoped callbacks. That means each Lua world keeps its own list of callbacks. This stops bugs where one mod's callbacks leak into another.
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<noteskin name="Default" sprite="ui/game/notes/NOTE_assets" scale="0.7" antialiasing="true">
-    <receptors>
-        <strum lane="0" static="arrowLEFT" pressed="left press" confirm="left confirm" />
-        <strum lane="1" static="arrowDOWN" pressed="down press" confirm="down confirm" />
-        <strum lane="2" static="arrowUP" pressed="up press" confirm="up confirm" />
-        <strum lane="3" static="arrowRIGHT" pressed="right press" confirm="right confirm" />
-    </receptors>
-    <tapNotes>
-        <note lane="0" anim="purple" />
-        <note lane="1" anim="blue" />
-        <note lane="2" anim="green" />
-        <note lane="3" anim="red" />
-    </tapNotes>
-    <sustains alpha="0.6" width="50">
-        <hold lane="0" body="purple hold piece" end="pruple end hold" />
-        <hold lane="1" body="blue hold piece" end="blue hold end" />
-        <hold lane="2" body="green hold piece" end="green hold end" />
-        <hold lane="3" body="red hold piece" end="red hold end" />
-    </sustains>
-</noteskin>
+The new home for the library is here: https://github.com/JustyyDev/linc_luajit
 
-```
+If you build the engine, it will grab the library from that new home by itself.
 
-### Engine Configuration (`assets/preload/data/config/window.xmsoul`)
+## Building the game
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<windowConfig darkMode="true" alpha="1.0" topmost="false" preventSleep="true">
-    <titleBar color="20, 20, 30" borderColor="120, 60, 255" textColor="255, 255, 255" />
-    <performance maxMemoryMB="2048" alertOnLowMemory="true" />
-</windowConfig>
-
-```
-
----
-
-## 5. In-Engine Studio Suites
-
-* **Chart Studio (`chartStudio.xmsoul` / `.soul`):** High-precision chart editor featuring multi-beat quantization snaps (`1/4` through `1/192`), split instrumental/vocal waveforms, hitsounds, hold duration transformers, and dynamic event tracks.
-
-
-* **Actor Studio (`actorStudio.xmsoul` / `.soul`):** Character calibration studio for live animation playback, offset calculation, sprite scaling, sing hold duration tuning, and camera anchor offsets.
-
-
-* **Stage Architect (`stageArchitect.xmsoul` / `.soul`):** Visual scene editor for assembling multi-layered parallax backgrounds, prop scaling, z-indexing, and real-time alpha/antialiasing controls.
-
-
-
----
-
-## 6. Building from Source
-
-The project includes an automated multi-target compiler suite (`build.bat`):
+You can build the game on Windows with the build button.
 
 ```cmd
-# Windows 64-bit (Portable MinGW GCC - No admin rights required)
-build.bat (Option 1)
-
-# Windows 64-bit (Visual Studio MSVC Release)
-build.bat (Option 2)
-
-# Fast HashLink 64-Bit Bytecode Test
-lime test hl
-
+build.bat
 ```
+
+This opens a menu. Pick option 1 for a quick build with no admin rights. Pick option 2 for a faster test build.
+
+## Where to get help and more
+
+Here are the three homes for this project:
+
+- SoulScorch Engine (the game): https://github.com/JustyyDev/SoulScorch-Engine
+- linc_luajit (the Lua helper): https://github.com/JustyyDev/linc_luajit
+- HomeSoulDB (mods and extras): https://github.com/JustyyDev/HomeSoulDB
+
+## Credits
+
+SoulScorch Engine is made by the SoulScorch Team and its modders.
+
+Special thanks to everyone who builds mods and shares them on HomeSoulDB.
+
+The Lua power comes from linc_luajit, now kept at JustyyDev/linc_luajit.
+
+Have fun and make something cool.

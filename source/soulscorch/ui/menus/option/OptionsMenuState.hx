@@ -21,6 +21,7 @@ import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.EngineUtils;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.notes.NoteSkinManager;
+import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.editors.editorui.EditorToast;
 import soulscorch.ui.menus.option.KeybindRow;
@@ -37,13 +38,13 @@ class OptionsMenuState extends MusicBeatState {
 
     private var categories:Array<OptionCategory> = [];
     private var grpRows:FlxTypedGroup<FlxSprite>;
-    private var categoryTabs:Array<FlxText> = [];
 
     private var bg:FlxSprite;
     private var descBox:FlxSprite;
     private var descText:FlxText;
     private var categoryHeader:FlxSprite;
-    private var tabSelectorHighlight:FlxSprite;
+    private var categoryTabs:Array<Alphabet> = [];
+    private var selectorArrow:FlxSprite;
     private var mobileControls:MobilePad;
 
     private var isRebinding:Bool = false;
@@ -84,20 +85,23 @@ class OptionsMenuState extends MusicBeatState {
         topBorder.scrollFactor.set(0, 0);
         add(topBorder);
 
-        tabSelectorHighlight = new FlxSprite(0, 64).makeGraphic(140, 4, EditorTheme.ACCENT_CYAN);
-        tabSelectorHighlight.scrollFactor.set(0, 0);
-        add(tabSelectorHighlight);
-
         var tabWidth = FlxG.width / Math.max(1, categories.length);
         for (i in 0...categories.length) {
-            var tabText = new FlxText(i * tabWidth, 20, tabWidth, categories[i].name.toUpperCase(), 16);
-            tabText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, CENTER, OUTLINE, FlxColor.BLACK);
-            tabText.borderSize = 1.0;
+            var tabText = new Alphabet(0, 34, categories[i].name.toUpperCase(), true);
+            tabText.x = (i * tabWidth) + (tabWidth - tabText.width) * 0.5;
             tabText.scrollFactor.set(0, 0);
             tabText.ID = i;
             categoryTabs.push(tabText);
             add(tabText);
         }
+
+        // FNF-style selection arrow that points at the active category tab
+        selectorArrow = new FlxSprite(0, 60);
+        if (!AssetHelper.loadGraphicSafely(selectorArrow, "ui/menus/arrow")) {
+            selectorArrow.makeGraphic(28, 18, EditorTheme.ACCENT_CYAN);
+        }
+        selectorArrow.scrollFactor.set(0, 0);
+        add(selectorArrow);
 
         grpRows = new FlxTypedGroup<FlxSprite>();
         add(grpRows);
@@ -458,8 +462,9 @@ class OptionsMenuState extends MusicBeatState {
         }
 
         var tabWidth = FlxG.width / Math.max(1, categories.length);
-        FlxTween.cancelTweensOf(tabSelectorHighlight);
-        FlxTween.tween(tabSelectorHighlight, {x: (curCategory * tabWidth) + (tabWidth - 140) * 0.5}, 0.25, {ease: FlxEase.quartOut});
+        FlxTween.cancelTweensOf(selectorArrow);
+        var targetX = (curCategory * tabWidth) + (tabWidth * 0.5);
+        FlxTween.tween(selectorArrow, {x: targetX - (selectorArrow.width * 0.5)}, 0.25, {ease: FlxEase.quartOut});
 
         for (i in 0...categoryTabs.length) {
             categoryTabs[i].color = (i == curCategory ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_PRIMARY);

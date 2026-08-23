@@ -11,6 +11,16 @@ import soulscorch.backend.utils.Logger;
 
 using StringTools;
 
+typedef IconProps = {
+    var bopIntensity:Float;
+    var bopSpeed:Float;
+    var rotationBop:Float;
+    var customOffsetX:Float;
+    var customOffsetY:Float;
+    var pulseOnLowHealth:Bool;
+    var iconScale:Float;
+};
+
 class HealthIcon extends FlxSprite {
     public var sprTracker:FlxSprite;
     public var isPlayer:Bool = false;
@@ -37,6 +47,11 @@ class HealthIcon extends FlxSprite {
     public var customOffsetY:Float = 0.0;
     public var pulseOnLowHealth:Bool = true;
 
+    // Static caches: avoid repeated file I/O, XML parsing and asset lookups on changeIcon
+    private static var _iconPropCache:Map<String, IconProps> = new Map();
+    private static var _iconGraphicCache:Map<String, FlxGraphic> = new Map();
+    private static inline var FALLBACK_ICON:String = "face";
+
     public function new(character:String = "face", isPlayer:Bool = false) {
         super();
         this.isPlayer = isPlayer;
@@ -45,8 +60,8 @@ class HealthIcon extends FlxSprite {
     }
 
     public function changeIcon(char:String):Void {
-        var cleanChar = (char != null && char.trim().length > 0) ? char.trim().toLowerCase() : "face";
-        if (cleanChar == "none") cleanChar = "face";
+        var cleanChar = (char != null && char.trim().length > 0) ? char.trim().toLowerCase() : FALLBACK_ICON;
+        if (cleanChar == "none") cleanChar = FALLBACK_ICON;
         this.character = cleanChar;
 
         bopIntensity = 1.2;
@@ -56,11 +71,36 @@ class HealthIcon extends FlxSprite {
         customOffsetY = 0.0;
         iconScale = 1.0;
 
-        loadIconXMSoul(cleanChar);
+        // Cached XMSoul-derived properties (no file I/O / XML parsing on repeat)
+        var props = _iconPropCache.get(cleanChar);
+        if (props == null) {
+            loadIconXMSoul(cleanChar);
+            props = {
+                bopIntensity: bopIntensity,
+                bopSpeed: bopSpeed,
+                rotationBop: rotationBop,
+                customOffsetX: customOffsetX,
+                customOffsetY: customOffsetY,
+                pulseOnLowHealth: pulseOnLowHealth,
+                iconScale: iconScale
+            };
+            _iconPropCache.set(cleanChar, props);
+        } else {
+            bopIntensity = props.bopIntensity;
+            bopSpeed = props.bopSpeed;
+            rotationBop = props.rotationBop;
+            customOffsetX = props.customOffsetX;
+            customOffsetY = props.customOffsetY;
+            pulseOnLowHealth = props.pulseOnLowHealth;
+            iconScale = props.iconScale;
+        }
 
-        var graphic = getIconGraphic(cleanChar);
+        // Cached resolved graphic (no repeated asset lookups on repeat)
+        var graphic = _iconGraphicCache.get(cleanChar);
         if (graphic == null) {
-            graphic = getIconGraphic("face");
+            graphic = getIconGraphic(cleanChar);
+            if (graphic == null) graphic = getIconGraphic(FALLBACK_ICON);
+            if (graphic != null) _iconGraphicCache.set(cleanChar, graphic);
         }
 
         if (graphic != null) {

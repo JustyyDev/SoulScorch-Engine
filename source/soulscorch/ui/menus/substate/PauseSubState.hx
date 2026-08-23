@@ -23,6 +23,9 @@ import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.option.OptionsMenuState;
 import soulscorch.ui.menus.states.MainMenuState;
+import soulscorch.ui.hud.Alphabet;
+import openfl.display.BitmapData;
+import openfl.display.Shape;
 
 using StringTools;
 
@@ -40,7 +43,9 @@ class PauseSubState extends MusicBeatSubstate {
 
     private var grpMenu:FlxTypedGroup<FlxSpriteGroup>;
     private var itemBgs:Array<FlxSprite> = [];
+    private var itemLabels:Array<Alphabet> = [];
     private var itemIndicators:Array<FlxSprite> = [];
+    private var selectorArrow:FlxSprite;
     private var bg:FlxSprite;
     private var pauseMusic:FlxSound;
 
@@ -70,6 +75,14 @@ class PauseSubState extends MusicBeatSubstate {
         add(bg);
         FlxTween.tween(bg, {alpha: 0.72}, 0.35, {ease: FlxEase.quadOut});
 
+        var pausedText = new Alphabet(0, 0, "PAUSED", true);
+        pausedText.alignment = CENTER;
+        pausedText.text = "PAUSED";
+        pausedText.screenCenter(X);
+        pausedText.y = 44;
+        for (l in pausedText.letters) l.color = EditorTheme.ACCENT_CYAN;
+        add(pausedText);
+
         setupHeaderCard();
         setupStatsCard();
 
@@ -77,6 +90,25 @@ class PauseSubState extends MusicBeatSubstate {
         add(grpMenu);
 
         rebuildMenu();
+
+        selectorArrow = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(selectorArrow, "ui/menus/arrow")) {
+            var arrowBmd = new BitmapData(26, 26, true, 0x00000000);
+            var arrowShape = new Shape();
+            arrowShape.graphics.beginFill(EditorTheme.ACCENT_CYAN, 1);
+            arrowShape.graphics.moveTo(2, 2);
+            arrowShape.graphics.lineTo(24, 13);
+            arrowShape.graphics.lineTo(2, 24);
+            arrowShape.graphics.lineTo(2, 2);
+            arrowShape.graphics.endFill();
+            arrowBmd.draw(arrowShape);
+            selectorArrow.loadGraphic(arrowBmd);
+        }
+        selectorArrow.antialiasing = true;
+        selectorArrow.scrollFactor.set(0, 0);
+        selectorArrow.x = 60 - selectorArrow.width - 10;
+        selectorArrow.y = 186;
+        add(selectorArrow);
 
         var pMusic = Paths.music("breakfast");
         if (pMusic == null) pMusic = Paths.music("pause");
@@ -107,15 +139,16 @@ class PauseSubState extends MusicBeatSubstate {
     }
 
     private function setupHeaderCard():Void {
-        headerCard = new FlxSpriteGroup(60, 40);
+        headerCard = new FlxSpriteGroup(60, 120);
         add(headerCard);
 
         var title = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.title : PlayState.curSong;
         var artist = (PlayState.instance != null && PlayState.instance.songData != null) ? PlayState.instance.songData.artist : "Unknown Artist";
         var diff = PlayState.curDifficulty.toUpperCase();
 
-        var titleTxt = new FlxText(0, 0, 500, title.toUpperCase(), 26);
-        titleTxt.setFormat(Paths.font("vcr"), 26, EditorTheme.ACCENT_CYAN, LEFT, OUTLINE, FlxColor.BLACK);
+        var titleTxt = new Alphabet(0, 0, title.toUpperCase(), true);
+        titleTxt.alignment = LEFT;
+        for (l in titleTxt.letters) l.color = EditorTheme.ACCENT_CYAN;
         headerCard.add(titleTxt);
 
         var subTxt = new FlxText(0, 32, 500, 'By $artist  •  BPM: ${Math.round(Conductor.bpm)}', 14);
@@ -153,6 +186,7 @@ class PauseSubState extends MusicBeatSubstate {
     public function rebuildMenu():Void {
         grpMenu.clear();
         itemBgs = [];
+        itemLabels = [];
         itemIndicators = [];
 
         var itemWidth = 420;
@@ -181,9 +215,10 @@ class PauseSubState extends MusicBeatSubstate {
                 labelText += (PlayState.instance != null && PlayState.instance.botplay) ? " [ON]" : " [OFF]";
             }
 
-            var label = new FlxText(22, 14, itemWidth - 44, labelText, 18);
-            label.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
+            var label = new Alphabet(22, 11, labelText, true);
+            label.alignment = LEFT;
             itemGroup.add(label);
+            itemLabels.push(label);
 
             grpMenu.add(itemGroup);
         }
@@ -217,6 +252,19 @@ class PauseSubState extends MusicBeatSubstate {
             if (itemIndicators[i] != null) itemIndicators[i].alpha = isCur ? 1.0 : 0.0;
             item.x = FlxMath.lerp(item.x, isCur ? 75 : 60, FlxMath.bound(elapsed * 15, 0, 1));
             item.alpha = isCur ? 1.0 : 0.6;
+            var lbl = itemLabels[i];
+            if (lbl != null) {
+                lbl.scale.set(isCur ? 1.08 : 1.0, isCur ? 1.08 : 1.0);
+                for (l in lbl.letters) l.color = isCur ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_PRIMARY;
+            }
+        }
+
+        if (selectorArrow != null && grpMenu.members[curSelected] != null) {
+            var sel = grpMenu.members[curSelected];
+            var targetX = sel.x - selectorArrow.width - 10;
+            var targetY = sel.y + 26 - selectorArrow.height * 0.5;
+            selectorArrow.x = FlxMath.lerp(selectorArrow.x, targetX, FlxMath.bound(elapsed * 15, 0, 1));
+            selectorArrow.y = targetY + Math.sin(FlxG.time.totalTime / 120) * 4;
         }
     }
 

@@ -15,6 +15,7 @@ class EditorToast extends FlxSpriteGroup {
 
     private var bg:FlxSprite;
     private var text:FlxText;
+    private var dot:FlxSprite;
     private var dismissTimer:FlxTimer;
 
     public function new() {
@@ -22,14 +23,19 @@ class EditorToast extends FlxSpriteGroup {
         instance = this;
         scrollFactor.set(0, 0);
 
-        bg = new FlxSprite(0, 0).makeGraphic(420, 44, 0xEE1A1A24);
+        bg = EditorTheme.makeRoundedRect(440, 46, 0xEE1A1A24, EditorTheme.CORNER_MD);
         add(bg);
 
-        var border = new FlxSprite(0, 0).makeGraphic(420, 2, 0xFF00FFCC);
+        var border = EditorTheme.makeRoundedRect(440, 2, 0xFF00FFCC, 1);
+        border.setPosition(0, 0);
         add(border);
 
-        text = new FlxText(16, 12, 388, "", 14);
-        text.setFormat(Paths.font("vcr"), 14, FlxColor.WHITE, CENTER);
+        dot = EditorTheme.makeDot(10, 0xFF00FFCC);
+        dot.setPosition(16, 18);
+        add(dot);
+
+        text = new FlxText(36, 13, 392, "", 14);
+        text.setFormat(Paths.font("vcr"), 14, FlxColor.WHITE, LEFT);
         add(text);
 
         screenCenter(X);
@@ -47,6 +53,7 @@ class EditorToast extends FlxSpriteGroup {
 
         text.text = (message != null) ? message : "";
         text.color = isError ? 0xFFFF3366 : 0xFF00FFCC;
+        dot.color = isError ? 0xFFFF3366 : 0xFF00FFCC;
 
         screenCenter(X);
         FlxTween.cancelTweensOf(this);

@@ -6,6 +6,8 @@ import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
@@ -19,16 +21,19 @@ class EditorCheckbox extends FlxSpriteGroup {
     private var box:FlxSprite;
     private var boxBorder:FlxSprite;
     private var checkmark:FlxSprite;
+    private var checkTween:FlxTween;
 
     public function new(x:Float, y:Float, labelText:String, initialChecked:Bool = false, ?onChange:Bool->Void) {
         super(x, y);
         this.onChange = onChange;
         this.labelText = labelText;
 
-        boxBorder = new FlxSprite(0, 2).makeGraphic(22, 22, 0xFF2F364D);
+        boxBorder = EditorTheme.makeRoundedRect(22, 22, 0xFF2F364D, 5);
+        boxBorder.setPosition(0, 2);
         add(boxBorder);
 
-        box = new FlxSprite(2, 4).makeGraphic(18, 18, 0xFF141722);
+        box = EditorTheme.makeRoundedRect(18, 18, 0xFF141722, 4);
+        box.setPosition(2, 4);
         add(box);
 
         checkmark = new FlxSprite(5, 7).makeGraphic(12, 12, 0xFF00FFCC);
@@ -48,6 +53,9 @@ class EditorCheckbox extends FlxSpriteGroup {
         checked = v;
         if (checkmark != null) {
             checkmark.visible = checked;
+            if (checkTween != null) checkTween.cancel();
+            checkmark.scale.set(checked ? 0.4 : 1.0, checked ? 0.4 : 1.0);
+            checkTween = FlxTween.tween(checkmark.scale, {x: 1.0, y: 1.0}, 0.18, {ease: FlxEase.backOut});
         }
         return checked;
     }

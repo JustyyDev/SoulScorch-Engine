@@ -42,6 +42,7 @@ class DiscordRPC extends ModuleBase {
     public static var currentSmallText:String = "";
 
     private static var lastUpdateTime:Float = 0.0;
+    private static var lastPresenceSignature:String = "";
     private static inline var MIN_UPDATE_INTERVAL:Float = 1.0;
 
     #if (cpp && !mobile && !neko)
@@ -299,6 +300,11 @@ class DiscordRPC extends ModuleBase {
         currentSmallKey = (smallImageKey != null) ? smallImageKey : "";
         currentSmallText = (smallImageKey != null) ? smallImageKey : "";
 
+        // No-op guard: if nothing actually changed, skip building/sending the presence entirely.
+        var signature:String = '$currentDetails|$currentState|$currentLargeKey|$currentLargeText|$currentSmallKey|$hasStartTimestamp|$endTimestamp|$partyId';
+        if (!forced && signature == lastPresenceSignature) return;
+        lastPresenceSignature = signature;
+
         #if (cpp && !mobile && !neko)
         try {
             mutex.acquire();
@@ -330,8 +336,10 @@ class DiscordRPC extends ModuleBase {
                 presence.partyMax = partyMax;
             }
 
+            // NOTE: Do NOT call Discord.RunCallbacks() here. poll() already runs
+            // callbacks every frame from Main.onEnterFrame, so calling it again
+            // on every presence change is redundant cross-thread work.
             Discord.UpdatePresence(cpp.RawConstPointer.addressOf(presence));
-            Discord.RunCallbacks();
             lastUpdateTime = currentTime;
             mutex.release();
         } catch (e:Dynamic) {

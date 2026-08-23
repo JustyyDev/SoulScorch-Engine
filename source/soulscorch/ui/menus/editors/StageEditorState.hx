@@ -140,6 +140,11 @@ class StageEditorState extends MusicBeatState {
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
 
+        var vignette = EditorTheme.makeVignette(FlxG.width, FlxG.height);
+        vignette.scrollFactor.set(0, 0);
+        vignette.cameras = [camStage];
+        add(vignette);
+
         var ground = new FlxSprite(0, FlxG.height * 0.85).makeGraphic(Std.int(FlxG.width * 4), 3, EditorTheme.ACCENT_PURPLE);
         ground.screenCenter(X);
         ground.scrollFactor.set(1, 1);

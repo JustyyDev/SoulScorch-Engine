@@ -30,6 +30,9 @@ class EditorNumericStepper extends FlxSpriteGroup {
     private var repeatTimer:Float = 0.0;
     private var holdingUp:Bool = false;
     private var holdingDown:Bool = false;
+    private var scrubbing:Bool = false;
+    private var scrubStartX:Float = 0.0;
+    private var scrubStartVal:Float = 0.0;
 
     public function new(
         x:Float,
@@ -50,10 +53,12 @@ class EditorNumericStepper extends FlxSpriteGroup {
         this.decimals = decimals;
         this.onChange = onChange;
 
-        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), 32, 0xFF2F364D);
+        var w = Std.int(width);
+        border = EditorTheme.makeRoundedRect(w, 32, 0xFF2F364D, EditorTheme.CORNER_SM);
         add(border);
 
-        bg = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), 30, 0xFF141722);
+        bg = EditorTheme.makeRoundedRect(w - 2, 30, 0xFF141722, EditorTheme.CORNER_SM - 1);
+        bg.setPosition(1, 1);
         add(bg);
 
         label = new FlxText(10, 8, width * 0.45, labelText, 13);
@@ -64,10 +69,12 @@ class EditorNumericStepper extends FlxSpriteGroup {
         valueText.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, RIGHT);
         add(valueText);
 
-        btnUp = new FlxSprite(width - 28, 2).makeGraphic(26, 13, 0xFF22283A);
+        btnUp = EditorTheme.makeRoundedRect(26, 13, 0xFF22283A, 4);
+        btnUp.setPosition(width - 28, 2);
         add(btnUp);
 
-        btnDown = new FlxSprite(width - 28, 17).makeGraphic(26, 13, 0xFF22283A);
+        btnDown = EditorTheme.makeRoundedRect(26, 13, 0xFF22283A, 4);
+        btnDown.setPosition(width - 28, 17);
         add(btnDown);
 
         this.value = initialValue;
@@ -109,6 +116,18 @@ class EditorNumericStepper extends FlxSpriteGroup {
         var mult = 1.0;
         if (FlxG.keys.pressed.SHIFT) mult = 10.0;
         if (FlxG.keys.pressed.CONTROL) mult = 0.1;
+
+        // Drag-to-scrub on the value field
+        if (FlxG.mouse.justPressed && inBox && !inUpBtn && !inDownBtn) {
+            scrubbing = true;
+            scrubStartX = mousePos.x;
+            scrubStartVal = value;
+        }
+        if (scrubbing && FlxG.mouse.pressed) {
+            var delta = (mousePos.x - scrubStartX) * step * mult;
+            value = scrubStartVal + delta;
+        }
+        if (FlxG.mouse.justReleased) scrubbing = false;
 
         if (FlxG.mouse.justPressed) {
             if (inUpBtn) {

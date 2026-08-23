@@ -57,6 +57,7 @@ class EditorPickerMenu extends MusicBeatState {
     private var detailsTitleText:FlxText;
     private var detailsListText:FlxText;
     private var detailsBox:FlxSprite;
+    private var selectorArrow:FlxSprite;
     private var mobileControls:MobilePad;
 
     override public function create():Void {
@@ -95,15 +96,22 @@ class EditorPickerMenu extends MusicBeatState {
         accentTag.scrollFactor.set(0, 0);
         add(accentTag);
 
-        var headerTitle = new FlxText(38, 16, 600, "SOULSCORCH // CREATIVE STUDIO SUITE", 20);
-        headerTitle.setFormat(Paths.font("vcr"), 20, EditorTheme.TEXT_PRIMARY, LEFT);
+        var headerTitle = new Alphabet(38, 14, "SOULSCORCH // CREATIVE STUDIO SUITE", false);
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
 
-        var headerSubtitle = new FlxText(38, 38, 600, "NATIVE COMPILED EDITORS & MODULAR XMSOUL EXTENSIONS", 11);
+        var headerSubtitle = new FlxText(40, 40, 600, "NATIVE COMPILED EDITORS & MODULAR XMSOUL EXTENSIONS", 11);
         headerSubtitle.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         headerSubtitle.scrollFactor.set(0, 0);
         add(headerSubtitle);
+
+        // FNF-style selection arrow that points at the active editor card
+        selectorArrow = new FlxSprite(0, 0);
+        if (!AssetHelper.loadGraphicSafely(selectorArrow, "ui/menus/arrow")) {
+            selectorArrow.makeGraphic(28, 18, EditorTheme.ACCENT_CYAN);
+        }
+        selectorArrow.scrollFactor.set(0, 0);
+        add(selectorArrow);
 
         grpCards = new FlxTypedGroup<FlxSpriteGroup>();
         add(grpCards);
@@ -351,6 +359,12 @@ class EditorPickerMenu extends MusicBeatState {
             cardBorders[i].color = isSel ? curOpt.color : EditorTheme.PANEL_BORDER;
             cardGlows[i].alpha = isSel ? 0.35 : 0.0;
             cardBgs[i].color = isSel ? EditorTheme.BTN_HOVER : EditorTheme.PANEL_BG;
+
+            if (isSel) {
+                selectorArrow.x = card.x - selectorArrow.width - 8;
+                FlxTween.cancelTweensOf(selectorArrow);
+                FlxTween.tween(selectorArrow, {y: card.y + (110 - selectorArrow.height) * 0.5}, 0.2, {ease: FlxEase.cubeOut});
+            }
         }
 
         descText.text = '${curOpt.title.toUpperCase()} — ${curOpt.desc}';

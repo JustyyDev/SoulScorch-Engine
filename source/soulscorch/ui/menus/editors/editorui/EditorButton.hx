@@ -4,8 +4,11 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
@@ -15,6 +18,7 @@ class EditorButton extends FlxSpriteGroup {
     public var bg:FlxSprite;
     public var border:FlxSprite;
     public var accentLine:FlxSprite;
+    public var glow:FlxSprite;
     public var onClick:Void->Void;
     public var isHovered:Bool = false;
     public var isPressed:Bool = false;
@@ -28,21 +32,33 @@ class EditorButton extends FlxSpriteGroup {
     private static inline var COLOR_PRESS:Int = 0xFF10121A;
     private static inline var COLOR_DISABLED:Int = 0xFF0D0F14;
 
+    private var hoverTween:FlxTween;
+
     public function new(x:Float, y:Float, width:Float, height:Float, labelText:String, ?onClick:Void->Void) {
         super(x, y);
         this.buttonWidth = width;
         this.buttonHeight = height;
         this.onClick = onClick;
 
-        // Outer Glow / Border Frame
-        border = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), 0xFF2F364D);
+        var w = Std.int(width);
+        var h = Std.int(height);
+
+        // Soft glow behind the button
+        glow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 10);
+        glow.alpha = 0.0;
+        glow.color = EditorTheme.ACCENT_CYAN;
+        add(glow);
+
+        // Outer border frame (rounded)
+        border = EditorTheme.makeRoundedRect(w, h, 0xFF2F364D, EditorTheme.CORNER_MD);
         add(border);
 
-        // Main Background Body
-        bg = new FlxSprite(1, 1).makeGraphic(Std.int(width - 2), Std.int(height - 2), COLOR_NORMAL);
+        // Main background body (rounded, inset)
+        bg = EditorTheme.makeRoundedRect(w - 2, h - 2, COLOR_NORMAL, EditorTheme.CORNER_MD - 1);
+        bg.setPosition(1, 1);
         add(bg);
 
-        // Modern Accent Bottom Line Indicator
+        // Accent bottom line indicator
         accentLine = new FlxSprite(1, height - 3).makeGraphic(Std.int(width - 2), 2, 0xFF00FFCC);
         add(accentLine);
 
@@ -60,12 +76,19 @@ class EditorButton extends FlxSpriteGroup {
             bg.color = COLOR_DISABLED;
             accentLine.visible = false;
             label.color = 0xFF555555;
+            glow.alpha = 0.0;
         } else {
             bg.color = COLOR_NORMAL;
             accentLine.visible = true;
             label.color = FlxColor.WHITE;
         }
         return enabled;
+    }
+
+    private function animateHover(target:Bool):Void {
+        if (hoverTween != null) hoverTween.cancel();
+        var targetAlpha = target ? 0.55 : 0.0;
+        hoverTween = FlxTween.tween(glow, {alpha: targetAlpha}, 0.18, {ease: FlxEase.quadOut});
     }
 
     override public function update(elapsed:Float):Void {
@@ -75,13 +98,17 @@ class EditorButton extends FlxSpriteGroup {
         var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
+        var wasHovered = isHovered;
         isHovered = (mousePos.x >= x && mousePos.x <= x + buttonWidth && mousePos.y >= y && mousePos.y <= y + buttonHeight);
+
+        if (isHovered != wasHovered) animateHover(isHovered);
 
         if (isHovered) {
             if (FlxG.mouse.pressed) {
                 isPressed = true;
                 bg.color = COLOR_PRESS;
                 accentLine.color = 0xFF009977;
+                border.color = 0xFF00FFCC;
             } else {
                 if (isPressed && FlxG.mouse.justReleased) {
                     isPressed = false;
@@ -90,8 +117,8 @@ class EditorButton extends FlxSpriteGroup {
                 }
                 bg.color = COLOR_HOVER;
                 accentLine.color = 0xFF00FFFF;
+                border.color = 0xFF00FFCC;
             }
-            border.color = 0xFF00FFCC;
         } else {
             isPressed = false;
             bg.color = COLOR_NORMAL;

@@ -8,6 +8,7 @@ import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
+import soulscorch.ui.hud.Alphabet;
 
 class EditorWindow extends FlxSpriteGroup {
     public var windowWidth:Float;
@@ -17,7 +18,8 @@ class EditorWindow extends FlxSpriteGroup {
     private var bg:FlxSprite;
     private var header:FlxSprite;
     private var border:FlxSprite;
-    private var titleTxt:FlxText;
+    private var shadow:FlxSprite;
+    private var titleTxt:Alphabet;
     private var contentGroup:FlxSpriteGroup;
 
     private var isDragging:Bool = false;
@@ -28,24 +30,32 @@ class EditorWindow extends FlxSpriteGroup {
         this.windowWidth = width;
         this.windowHeight = height;
 
-        border = new FlxSprite(-1, -1).makeGraphic(Std.int(width + 2), Std.int(height + 2), EditorTheme.PANEL_BORDER);
+        var w = Std.int(width);
+        var h = Std.int(height);
+
+        shadow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 12);
+        shadow.alpha = 0.5;
+        add(shadow);
+
+        border = EditorTheme.makeRoundedRect(w + 2, h + 2, EditorTheme.PANEL_BORDER, EditorTheme.CORNER_MD);
+        border.setPosition(-1, -1);
         add(border);
 
-        bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), EditorTheme.PANEL_BG);
+        bg = EditorTheme.makeRoundedRect(w, h, EditorTheme.PANEL_BG, EditorTheme.CORNER_MD);
         add(bg);
 
-        header = new FlxSprite(0, 0).makeGraphic(Std.int(width), 26, EditorTheme.PANEL_HEADER);
+        header = EditorTheme.makeRoundedRect(w, 28, EditorTheme.PANEL_HEADER, EditorTheme.CORNER_MD);
         add(header);
 
-        var accentLine = new FlxSprite(0, 25).makeGraphic(Std.int(width), 1, EditorTheme.ACCENT_CYAN);
+        var accentLine = new FlxSprite(0, 27).makeGraphic(Std.int(width), 1, EditorTheme.ACCENT_CYAN);
         accentLine.alpha = 0.6;
         add(accentLine);
 
-        titleTxt = new FlxText(8, 5, width - 16, title, 13);
-        titleTxt.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
+        titleTxt = new Alphabet(8, 6, title, false);
+        titleTxt.scale.set(0.6, 0.6);
         add(titleTxt);
 
-        contentGroup = new FlxSpriteGroup(0, 28);
+        contentGroup = new FlxSpriteGroup(0, 30);
         add(contentGroup);
 
         dragOffset = FlxPoint.get(0, 0);
@@ -64,7 +74,7 @@ class EditorWindow extends FlxSpriteGroup {
         var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
-        if (FlxG.mouse.justPressed && mousePos.x >= x && mousePos.x <= x + windowWidth && mousePos.y >= y && mousePos.y <= y + 26) {
+        if (FlxG.mouse.justPressed && mousePos.x >= x && mousePos.x <= x + windowWidth && mousePos.y >= y && mousePos.y <= y + 28) {
             isDragging = true;
             dragOffset.set(mousePos.x - x, mousePos.y - y);
         }

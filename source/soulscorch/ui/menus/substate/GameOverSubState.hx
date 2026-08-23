@@ -23,6 +23,7 @@ import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
 import soulscorch.ui.menus.states.MainMenuState;
+import soulscorch.ui.hud.Alphabet;
 
 using StringTools;
 
@@ -37,6 +38,9 @@ class GameOverSubState extends MusicBeatSubstate {
     private var letterboxTop:FlxSprite;
     private var letterboxBottom:FlxSprite;
     private var statsCard:FlxSpriteGroup;
+    private var gameOverTitle:Alphabet;
+    private var retryPrompt:Alphabet;
+    private var menuPrompt:Alphabet;
 
     private var isEnding:Bool = false;
     private var isStartedLoop:Bool = false;
@@ -94,6 +98,32 @@ class GameOverSubState extends MusicBeatSubstate {
 
         bfDead.antialiasing = true;
         add(bfDead);
+
+        gameOverTitle = new Alphabet(0, 0, "GAME OVER", true);
+        gameOverTitle.alignment = CENTER;
+        gameOverTitle.screenCenter(X);
+        gameOverTitle.y = 30;
+        for (l in gameOverTitle.letters) l.color = EditorTheme.ACCENT_MAGENTA;
+        gameOverTitle.alpha = 0.0;
+        add(gameOverTitle);
+        FlxTween.tween(gameOverTitle, {alpha: 1.0}, 0.6, {startDelay: 0.4, ease: FlxEase.quadOut});
+
+        retryPrompt = new Alphabet(0, FlxG.height - 70, "Press ACCEPT to Retry", false);
+        retryPrompt.alignment = CENTER;
+        retryPrompt.screenCenter(X);
+        for (l in retryPrompt.letters) l.color = EditorTheme.TEXT_PRIMARY;
+        retryPrompt.alpha = 0.0;
+        add(retryPrompt);
+
+        menuPrompt = new Alphabet(0, FlxG.height - 40, "Press BACK to Main Menu", false);
+        menuPrompt.alignment = CENTER;
+        menuPrompt.screenCenter(X);
+        for (l in menuPrompt.letters) l.color = EditorTheme.TEXT_MUTED;
+        menuPrompt.alpha = 0.0;
+        add(menuPrompt);
+
+        FlxTween.tween(retryPrompt, {alpha: 1.0}, 0.6, {startDelay: 0.8, ease: FlxEase.quadOut});
+        FlxTween.tween(menuPrompt, {alpha: 1.0}, 0.6, {startDelay: 1.0, ease: FlxEase.quadOut});
 
         createRunStatsCard();
         AssetHelper.playSoundSafely(deathSoundName, 0.85);
@@ -174,6 +204,8 @@ class GameOverSubState extends MusicBeatSubstate {
             AssetHelper.playSoundSafely(endSoundName, 0.85);
 
             FlxTween.tween(statsCard, {y: -200, alpha: 0}, 0.5, {ease: FlxEase.cubeIn});
+            if (retryPrompt != null) FlxTween.tween(retryPrompt, {alpha: 0}, 0.3);
+            if (menuPrompt != null) FlxTween.tween(menuPrompt, {alpha: 0}, 0.3);
             if (scripts != null) scripts.callAll("onConfirmRetry");
 
             new FlxTimer().start(2.0, function(_) {
