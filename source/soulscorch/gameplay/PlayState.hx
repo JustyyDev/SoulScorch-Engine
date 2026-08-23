@@ -1346,6 +1346,16 @@ class PlayState extends MusicBeatState {
         var strV2 = Std.string(val2);
 
         switch (name) {
+            case "Camera Flash":
+                var targetCam = (strV1.toLowerCase() == "hud" || strV1.toLowerCase() == "camhud") ? camHUD : camGame;
+                var dur = Std.parseFloat(strV2);
+                targetCam.flash(0xFFFFFFFF, Math.isNaN(dur) || dur <= 0 ? 0.8 : dur);
+
+            case "Camera Bop":
+                var intensity = Std.parseFloat(strV1);
+                var hudIntensity = Std.parseFloat(strV2);
+                JuiceManager.bumpCamera(camGame, Math.isNaN(intensity) ? 0.04 : intensity, Math.isNaN(hudIntensity) ? 0.02 : hudIntensity);
+
             case "Camera Zoom" | "Set Cam Zoom":
                 var zoom = Std.parseFloat(strV1);
                 if (!Math.isNaN(zoom)) defaultCamZoom = zoom;
@@ -1354,6 +1364,10 @@ class PlayState extends MusicBeatState {
                 var intensity = Std.parseFloat(strV1);
                 var duration = Std.parseFloat(strV2);
                 JuiceManager.shake(camGame, Math.isNaN(intensity) ? 0.01 : intensity, Math.isNaN(duration) ? 0.2 : duration);
+
+            case "Camera Movement":
+                if (strV1 == "0" || strV1 == "dad" || strV1 == "opponent") centerCameraOnDad();
+                else if (strV1 == "1" || strV1 == "bf" || strV1 == "boyfriend") centerCameraOnBF();
 
             case "Alt Animation Toggle":
                 var enabled = (val1 == true || strV1 == "true" || strV1 == "1");

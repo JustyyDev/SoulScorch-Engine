@@ -40,8 +40,13 @@ class FreeplayState extends MusicBeatState {
     public static var lastSelectedDifficultyName:String = "normal";
 
     private var songs:Array<RegisteredSong> = [];
-    private var grpSongs:FlxTypedGroup<Alphabet>;
-    private var iconArray:Array<HealthIcon> = [];
+
+    // --- High-Performance Virtual Window Pool ---
+    private static inline var VISIBLE_ITEMS_COUNT:Int = 11;
+    private static inline var ITEM_SPACING:Float = 120.0;
+    private var alphabetPool:Array<Alphabet> = [];
+    private var iconPool:Array<HealthIcon> = [];
+    private var itemSlotIndices:Array<Int> = [];
 
     private static var _chartMetaCache:Map<String, {bpm:Float, speed:Float}> = new Map<String, {bpm:Float, speed:Float}>();
 
@@ -106,23 +111,23 @@ class FreeplayState extends MusicBeatState {
         grid.scrollFactor.set(0, 0);
         add(grid);
 
-        grpSongs = new FlxTypedGroup<Alphabet>();
-        add(grpSongs);
-
         if (songs.length > 0) {
             curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
 
-            for (i in 0...songs.length) {
-                var songText:Alphabet = new Alphabet(0, (75 * i) + 30, songs[i].title, true);
-                songText.isMenuItem = true;
-                songText.targetY = i;
-                songText.snapToPosition();
-                grpSongs.add(songText);
+            // Instantiate only a small pool of items for the viewport
+            var poolSize = Std.int(Math.min(songs.length, VISIBLE_ITEMS_COUNT));
+            for (i in 0...poolSize) {
+                var alphabet = new Alphabet(0, 0, "", true);
+                alphabet.isMenuItem = true;
+                add(alphabet);
+                alphabetPool.push(alphabet);
 
-                var icon:HealthIcon = new HealthIcon(songs[i].character != null ? songs[i].character : "face", false);
-                icon.sprTracker = songText;
-                iconArray.push(icon);
+                var icon = new HealthIcon("face", false);
+                icon.sprTracker = alphabet;
                 add(icon);
+                iconPool.push(icon);
+
+                itemSlotIndices.push(-1);
             }
 
             setupScorePanel();
@@ -237,17 +242,19 @@ class FreeplayState extends MusicBeatState {
             MusicBeatState.switchState(new PlayState());
         }
 
-        for (i in 0...grpSongs.members.length) {
-            var item = grpSongs.members[i];
-            var isSelected = (i == curSelected);
-            item.alpha = (isSelected ? 1.0 : 0.35);
+        // Smooth position interpolation for only the recycled pool members
+        for (i in 0...alphabetPool.length) {
+            var item = alphabetPool[i];
+            if (item.visible) {
+                var targetY = (item.targetY * ITEM_SPACING) + (FlxG.height * 0.48);
+                item.y = FlxMath.lerp(item.y, targetY, FlxMath.bound(elapsed * 15.0, 0, 1));
+                item.x = FlxMath.lerp(item.x, (item.targetY * 20.0) + 90.0, FlxMath.bound(elapsed * 15.0, 0, 1));
 
-            var isOffscreen = (item.y < -150 || item.y > FlxG.height + 150);
-            item.visible = !isOffscreen;
-
-            if (iconArray.length > i && iconArray[i] != null) {
-                iconArray[i].alpha = item.alpha;
-                iconArray[i].visible = item.visible;
+                var isSelected = (item.targetY == 0);
+                item.alpha = isSelected ? 1.0 : 0.4;
+                if (iconPool[i] != null) {
+                    iconPool[i].alpha = item.alpha;
+                }
             }
         }
     }
@@ -301,13 +308,37 @@ class FreeplayState extends MusicBeatState {
             colorTween = FlxTween.color(bg, 0.25, bg.color, targetColor, {ease: FlxEase.quartOut});
         }
 
-        var bullShit:Int = 0;
-        for (item in grpSongs.members) {
-            item.targetY = bullShit - curSelected;
-            bullShit++;
+        // Virtual Window Recycler: rebinds the visible pool slots
+        var halfWindow = Math.floor(alphabetPool.length / 2);
+        for (slot in 0...alphabetPool.length) {
+            var offset = slot - halfWindow;
+            var songIndex = curSelected + offset;
+
+            if (songIndex >= 0 && songIndex < songs.length) {
+                var alphabet = alphabetPool[slot];
+                var icon = iconPool[slot];
+
+                alphabet.visible = true;
+                icon.visible = true;
+                alphabet.targetY = offset;
+
+                if (itemSlotIndices[slot] != songIndex) {
+                    alphabet.text = songs[songIndex].title;
+                    icon.changeIcon(songs[songIndex].character != null ? songs[songIndex].character : "face");
+                    itemSlotIndices[slot] = songIndex;
+
+                    if (change == 0) {
+                        alphabet.y = (offset * ITEM_SPACING) + (FlxG.height * 0.48);
+                        alphabet.x = (offset * 20.0) + 90.0;
+                    }
+                }
+            } else {
+                alphabetPool[slot].visible = false;
+                iconPool[slot].visible = false;
+                itemSlotIndices[slot] = -1;
+            }
         }
 
-        // Retain previous difficulty name if available in the new song
         var selected = songs[curSelected];
         var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
         
@@ -322,7 +353,6 @@ class FreeplayState extends MusicBeatState {
         if (matchingIndex != -1) {
             curDifficulty = matchingIndex;
         } else {
-            // Default to normal or highest available index
             var normalIdx = diffs.indexOf("normal");
             curDifficulty = (normalIdx != -1) ? normalIdx : (diffs.length > 1 ? 1 : 0);
         }
@@ -479,10 +509,11 @@ class FreeplayState extends MusicBeatState {
         super.beatHit(beat);
         if (scripts != null) scripts.callAll("onBeatHit", [beat]);
 
-        if (iconArray.length > curSelected && iconArray[curSelected] != null) {
-            iconArray[curSelected].scale.set(1.2, 1.2);
-            FlxTween.cancelTweensOf(iconArray[curSelected].scale);
-            FlxTween.tween(iconArray[curSelected].scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+        var halfWindow = Math.floor(alphabetPool.length / 2);
+        if (iconPool.length > halfWindow && iconPool[halfWindow] != null && iconPool[halfWindow].visible) {
+            iconPool[halfWindow].scale.set(1.2, 1.2);
+            FlxTween.cancelTweensOf(iconPool[halfWindow].scale);
+            FlxTween.tween(iconPool[halfWindow].scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
         }
     }
 

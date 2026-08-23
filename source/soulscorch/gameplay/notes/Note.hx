@@ -8,6 +8,7 @@ import flixel.math.FlxRect;
 import flixel.util.FlxColor;
 import haxe.xml.Access;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.gameplay.notes.NoteSkinManager;
 
@@ -21,7 +22,7 @@ class Note extends FlxSprite {
     public var isSustainEnd:Bool = false;
     public var mustPress:Bool = false;
     public var noteType:String = "normal";
-    public var skinName:String = "NOTE_assets";
+    public var skinName:String = "default";
 
     public var parent:Note = null;
     public var tail:Array<Note> = [];
@@ -58,7 +59,7 @@ class Note extends FlxSprite {
         isSustainEnd:Bool = false,
         mustPress:Bool = true,
         noteType:String = "normal",
-        skin:String = "NOTE_assets"
+        skin:String = "default"
     ) {
         super();
 
@@ -70,7 +71,7 @@ class Note extends FlxSprite {
         this.isSustainEnd = isSustainEnd;
         this.mustPress = mustPress;
         this.noteType = (noteType != null && noteType.trim().length > 0) ? noteType.trim() : "normal";
-        this.skinName = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
+        this.skinName = (skin != null && skin.trim().length > 0) ? skin.trim() : "default";
 
         var skinConf = NoteSkinManager.getSkinConfig(this.skinName);
         this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : DEFAULT_SCALE;
@@ -94,9 +95,12 @@ class Note extends FlxSprite {
         this.color = FlxColor.WHITE;
     }
 
-    public function loadNoteSkin(skin:String = "NOTE_assets"):Void {
+    public function loadNoteSkin(skin:String = "default"):Void {
         var skinConf = NoteSkinManager.getSkinConfig(skin);
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
+        if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
+
         if (atlas != null) {
             frames = atlas;
             setupAnimation(skinConf);

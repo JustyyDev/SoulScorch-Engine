@@ -65,8 +65,8 @@ class NoteSkinManager {
         var config:NoteSkinConfig = {
             name: cleanSkin,
             type: "sparrow",
-            atlasPath: "ui/game/notes/NOTE_assets",
-            sustainPath: "ui/game/notes/NOTE_assets",
+            atlasPath: "NOTE_assets",
+            sustainPath: "NOTE_assets",
             scale: 0.7,
             antialiasing: true,
             sustainAlpha: 0.6,
@@ -91,10 +91,10 @@ class NoteSkinManager {
         }
 
         var candidateXmls = [
-            'data/noteskins/$cleanSkin',
             'noteskins/$cleanSkin',
-            'data/noteskins/default',
-            'noteskins/default'
+            'data/noteskins/$cleanSkin',
+            'noteskins/default',
+            'data/noteskins/default'
         ];
 
         var access:Access = null;
@@ -107,7 +107,7 @@ class NoteSkinManager {
         if (access != null) {
             config.scale = XMSoul.getFloatAttr(access, "scale", 0.7);
             config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", true);
-            config.atlasPath = XMSoul.getAttr(access, "sprite", "ui/game/notes/NOTE_assets");
+            config.atlasPath = XMSoul.getAttr(access, "sprite", "NOTE_assets");
 
             if (access.hasNode.resolve("strums")) {
                 for (stNode in access.node.resolve("strums").nodes.resolve("strum")) {
@@ -155,7 +155,6 @@ class NoteSkinManager {
         }
 
         var atlas = Paths.getSparrowAtlas(targetSprite);
-        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
         if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
 
         if (atlas != null) {

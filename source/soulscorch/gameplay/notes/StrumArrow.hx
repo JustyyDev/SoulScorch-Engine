@@ -13,7 +13,7 @@ class StrumArrow extends FlxSprite {
     public var resetAnim:Float = 0.0;
     public var isPlayer:Bool = false;
     public var downscroll:Bool = false;
-    public var currentSkin:String = "NOTE_assets";
+    public var currentSkin:String = "default";
 
     public var baseX:Float = 0.0;
     public var baseY:Float = 0.0;
@@ -24,14 +24,14 @@ class StrumArrow extends FlxSprite {
     private static var DIR_STRINGS:Array<String> = ["left", "down", "up", "right"];
     private static var DIR_UPPER:Array<String> = ["LEFT", "DOWN", "UP", "RIGHT"];
 
-    public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "NOTE_assets") {
+    public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "default") {
         super(x, y);
         this.direction = direction % 4;
         this.isPlayer = isPlayer;
         this.downscroll = downscroll;
         this.baseX = x;
         this.baseY = y;
-        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
+        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "default";
 
         loadReceptorSkin(this.currentSkin);
 
@@ -41,13 +41,16 @@ class StrumArrow extends FlxSprite {
         playAnim("static", true);
     }
 
-    public function loadReceptorSkin(skin:String = "NOTE_assets"):Void {
-        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "NOTE_assets";
+    public function loadReceptorSkin(skin:String = "default"):Void {
+        this.currentSkin = (skin != null && skin.trim().length > 0) ? skin.trim() : "default";
         var skinConf = NoteSkinManager.getSkinConfig(this.currentSkin);
         this.skinScale = (skinConf != null && skinConf.scale > 0) ? skinConf.scale : 0.7;
         antialiasing = (skinConf != null) ? skinConf.antialiasing : true;
 
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(this.currentSkin);
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
+        if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
+
         if (atlas != null) {
             frames = atlas;
             setupAnimations();
@@ -69,19 +72,19 @@ class StrumArrow extends FlxSprite {
         var dirUpper = DIR_UPPER[dirIdx];
         var colorName = NoteSkinManager.noteColors[dirIdx];
 
-        // 1. Static Strum (Static arrow receptor)
+        // 1. Static Strum
         animation.addByPrefix("static", 'arrow$dirUpper', 24, false);
         if (animation.getByName("static") == null) animation.addByPrefix("static", 'arrow $dirUpper', 24, false);
         if (animation.getByName("static") == null) animation.addByPrefix("static", '$dirName static', 24, false);
         if (animation.getByName("static") == null) animation.addByPrefix("static", 'static $dirName', 24, false);
 
-        // 2. Pressed Strum (Key down animation)
+        // 2. Pressed Strum
         animation.addByPrefix("pressed", '$dirName press', 24, false);
         if (animation.getByName("pressed") == null) animation.addByPrefix("pressed", '$colorName press', 24, false);
         if (animation.getByName("pressed") == null) animation.addByPrefix("pressed", '$dirName note press', 24, false);
         if (animation.getByName("pressed") == null) animation.addByPrefix("pressed", '$dirUpper press', 24, false);
 
-        // 3. Confirm Strum (Hit / Glow animation)
+        // 3. Confirm Strum
         animation.addByPrefix("confirm", '$dirName confirm', 24, false);
         if (animation.getByName("confirm") == null) animation.addByPrefix("confirm", '$colorName confirm', 24, false);
         if (animation.getByName("confirm") == null) animation.addByPrefix("confirm", '$dirName note confirm', 24, false);
@@ -100,7 +103,6 @@ class StrumArrow extends FlxSprite {
         scale.set(skinScale, skinScale);
         updateHitbox();
 
-        // Exact anchor compensation so confirming and pressing stays centered on the lane
         offset.x += (frameWidth * skinScale - STRUM_SIZE) * 0.5;
         offset.y += (frameHeight * skinScale - STRUM_SIZE) * 0.5;
     }

@@ -2,7 +2,7 @@
 <TextureAtlas imagePath="NOTE_assets.png">
 	<!-- Receptors -->
 	<SubTexture name="arrowLEFT0000" x="1289" y="2" width="154" height="156" frameX="0" frameY="0" frameWidth="154" frameHeight="156"/>
-	<SubTexture name="arrowDOWN0000" x="862" y="600" width="157" height="154" frameX="0" frameY="0" frameWidth="157" height="154"/>
+	<SubTexture name="arrowDOWN0000" x="862" y="600" width="157" height="154" frameX="0" frameY="0" frameWidth="157" frameHeight="154"/>
 	<SubTexture name="arrowUP0000" x="862" y="444" width="157" height="154" frameX="0" frameY="0" frameWidth="157" frameHeight="154"/>
 	<SubTexture name="arrowRIGHT0000" x="1289" y="160" width="154" height="156" frameX="0" frameY="0" frameWidth="154" frameHeight="156"/>
 
