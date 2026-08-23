@@ -162,30 +162,30 @@ echo     ^</compiler^>
 echo ^</xml^>
 ) > "%USERPROFILE%\.hxcpp_config.xml"
 
-echo [*] Compiling Windows 64-Bit with MinGW (Optimized Multithreaded PCH)...
-"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_CPP11
+echo [*] Compiling Windows 64-Bit with MinGW (Lua + Iris Enabled)...
+"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_CPP11 -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_MSVC_RELEASE
 cls
-echo [*] Compiling Windows 64-Bit Release Build (MSVC)...
+echo [*] Compiling Windows 64-Bit Release Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime test windows -release
+"%HAXELIB_CMD%" run lime test windows -release -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_MSVC_DEBUG
 cls
-echo [*] Compiling Windows 64-Bit Debug Build (MSVC)...
+echo [*] Compiling Windows 64-Bit Debug Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER
+"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_LINUX
 cls
-echo [*] Compiling Linux 64-Bit C++ Target...
-"%HAXELIB_CMD%" run lime build linux -release
+echo [*] Compiling Linux 64-Bit C++ Target (Lua + Iris Enabled)...
+"%HAXELIB_CMD%" run lime build linux -release -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_SWITCH

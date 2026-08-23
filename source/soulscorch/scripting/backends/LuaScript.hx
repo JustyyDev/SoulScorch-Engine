@@ -163,7 +163,7 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            llua.Lua_helper.add_callback(luaState, name, func);
+            Lua_helper.add_callback(luaState, name, func);
         }
     }
     #end
