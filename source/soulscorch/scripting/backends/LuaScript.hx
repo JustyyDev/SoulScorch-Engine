@@ -29,7 +29,6 @@ import soulscorch.scripting.mod.SoulGlobalScript;
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
-import llua.Lua_helper;
 import llua.State;
 import llua.Convert;
 #end
@@ -96,16 +95,12 @@ class LuaScript implements ScriptInstance {
         #end
     }
 
-    /**
-     * Parses raw Lua error strings and turns them into clean, human-readable explanations.
-     */
     private function formatHumanError(rawError:String, scriptPath:String):String {
         if (rawError == null) rawError = "Unknown Lua Error";
         
         var cleanErr = rawError.trim();
         var lineNum:String = "Unknown Line";
         
-        // Match common Lua error structures like "[string \"...\"]:14: expected near 'end'"
         var lineRegex = ~/:(\d+):\s*(.*)/;
         if (lineRegex.match(cleanErr)) {
             lineNum = lineRegex.matched(1);
@@ -114,7 +109,6 @@ class LuaScript implements ScriptInstance {
 
         var readableDescription = cleanErr;
         
-        // Translate cryptic syntax errors into beginner-friendly explanations
         if (cleanErr.indexOf("expected 'end'") != -1 || cleanErr.indexOf("near '<eof>'") != -1) {
             readableDescription = "You forgot to close an 'if', 'function', 'for', or block with an 'end'.";
         } else if (cleanErr.indexOf("expected near") != -1) {
@@ -203,7 +197,8 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            Lua_helper.add_callback(luaState, name, func);
+            // Updated for superpowers04/linc_luajit callback registration
+            Lua.add_callback(luaState, name, func);
         }
     }
     #end
@@ -577,7 +572,8 @@ class LuaScript implements ScriptInstance {
         #if (cpp && LUA_ALLOWED)
         if (!active || luaState == null) return null;
         Lua.getglobal(luaState, func);
-        if (Lua.isfunction(luaState, -1) != 0) {
+        // Fixed: cast to boolean check since linc_luajit isfunction returns an integer
+        if ((Lua.isfunction(luaState, -1) : Bool)) {
             var argCount = (args != null) ? args.length : 0;
             if (args != null) {
                 for (arg in args) {
