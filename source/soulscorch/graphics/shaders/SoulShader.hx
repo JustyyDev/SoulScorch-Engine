@@ -199,6 +199,12 @@ class SoulShader extends FlxShader {
             varying vec4 openfl_ColorOffsetv;
             uniform sampler2D bitmap;
             uniform bool openfl_HasColorTransform;
+            // Common uniforms exposed to shaders
+            uniform float iTime;
+            uniform float u_time;
+            uniform float time;
+            uniform vec2 iResolution;
+            uniform vec4 iMouse;
 
             vec4 flixel_texture2D(sampler2D bitmap, vec2 coord) {
                 vec4 color = texture2D(bitmap, coord);

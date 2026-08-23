@@ -96,7 +96,7 @@ jobs:
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
           # Install linc_fmod only when FMOD is enabled on the runner (PowerShell-compatible)
-          if ($env:FMOD_SDK -ne $null -and $env:FMOD_SDK -ne '') -or ($env:ENABLE_FMOD -eq '1') {
+          if ( ($env:FMOD_SDK -ne $null -and $env:FMOD_SDK -ne '') -or ($env:ENABLE_FMOD -eq '1') ) {
             Write-Host 'FMOD enabled on runner; installing linc_fmod'
             haxelib install linc_fmod --quiet --always
           } else {
