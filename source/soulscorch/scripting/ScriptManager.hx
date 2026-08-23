@@ -51,13 +51,29 @@ class ScriptManager {
         var resolved = AssetResolver.resolveFile(path, [".soul", ".hx", ".hscript", ".lua", ".py", ".js", ""]);
         var finalPath = (resolved != null) ? resolved : path;
 
+        var backendType = ScriptBackendType.fromPath(finalPath);
+
+        // If it is explicitly a Lua script, load it via LuaScript backend only
+        if (backendType == ScriptBackendType.LUA) {
+            var luaInst = new soulscorch.scripting.backends.LuaScript(finalPath);
+            for (key => val in presetVariables) {
+                luaInst.set(key, val);
+            }
+            if (luaInst.active) {
+                scripts.push(luaInst);
+                return true;
+            } else {
+                Logger.error('Failed to activate Lua script backend for: $finalPath', "script");
+                return false;
+            }
+        }
+
+        // Standard HScript / SoulScript fallback path for non-Lua files
         var inst = ScriptBackendType.createInstance(finalPath);
         if (inst != null) {
-            // Pre-seed script with all cached variables before executing
             for (key => val in presetVariables) {
                 inst.set(key, val);
             }
-            
             if (inst.active) {
                 scripts.push(inst);
                 return true;
@@ -65,7 +81,6 @@ class ScriptManager {
         }
 
         var script = new Script(finalPath, false);
-        // Pre-seed default HScript instance
         for (key => val in presetVariables) {
             script.set(key, val);
         }
