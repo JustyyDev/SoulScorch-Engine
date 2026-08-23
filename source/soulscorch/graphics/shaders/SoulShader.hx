@@ -107,48 +107,71 @@ class SoulShader extends FlxShader {
     }
 
     public function setSampler2D(name:String, bitmap:BitmapData):Void {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null) prop.input = bitmap;
+        if (this.data == null) return;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop == null) {
+            prop = { input: bitmap };
+            Reflect.setField(this.data, name, prop);
+            return;
         }
+        prop.input = bitmap;
     }
 
     public function getFloat(name:String):Float {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null && prop.value != null && prop.value.length > 0) {
-                return prop.value[0];
-            }
-        }
+        if (this.data == null) return 0.0;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop != null && prop.value != null && prop.value.length > 0) return prop.value[0];
         return 0.0;
     }
 
     public function setFloat(name:String, value:Float):Void {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null) prop.value = [value];
+        if (this.data == null) return;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop == null) {
+            prop = { value: [value] };
+            Reflect.setField(this.data, name, prop);
+            return;
         }
+        prop.value = [value];
     }
 
     public function setFloatArray(name:String, value:Array<Float>):Void {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null) prop.value = value;
+        if (this.data == null) return;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop == null) {
+            prop = { value: value };
+            Reflect.setField(this.data, name, prop);
+            return;
         }
+        prop.value = value;
     }
 
     public function setInt(name:String, value:Int):Void {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null) prop.value = [value];
+        if (this.data == null) return;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop == null) {
+            prop = { value: [value] };
+            Reflect.setField(this.data, name, prop);
+            return;
         }
+        prop.value = [value];
     }
 
     public function setBool(name:String, value:Bool):Void {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
-            var prop:Dynamic = Reflect.field(this.data, name);
-            if (prop != null) prop.value = [value];
+        if (this.data == null) return;
+        var prop:Dynamic = null;
+        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
+        if (prop == null) {
+            prop = { value: [value] };
+            Reflect.setField(this.data, name, prop);
+            return;
         }
+        prop.value = [value];
     }
 
     // Dynamic uniform access so scripts can do: shader.redOff = [x, y];
