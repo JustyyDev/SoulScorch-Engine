@@ -29,7 +29,6 @@ import soulscorch.scripting.mod.SoulGlobalScript;
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
-import llua.Lua_helper;
 import llua.State;
 import llua.Convert;
 #end
@@ -198,7 +197,7 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            Lua_helper.add_callback(luaState, name, func);
+            Lua.add_callback(luaState, name, func);
         }
     }
     #end
