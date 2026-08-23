@@ -161,7 +161,14 @@ class SoulScript implements ScriptInstance {
         set("Note", Note);
         set("StrumArrow", StrumArrow);
 
-        set("BlendMode", BlendMode);
+        set("BlendMode", {
+            ADD: BlendMode.ADD,
+            SUBTRACT: BlendMode.SUBTRACT,
+            MULTIPLY: BlendMode.MULTIPLY,
+            SCREEN: BlendMode.SCREEN,
+            ERASE: BlendMode.ERASE,
+            NORMAL: BlendMode.NORMAL
+        });
 
         // --- Extended API (no limits) ---
         set("add", function(obj:FlxBasic) {
