@@ -39,8 +39,22 @@ class SoulGlobalScript {
             var defaultModGlobals = [
                 'mods/$mod/scripts/global.soul',
                 'mods/$mod/scripts/global.hx',
+                'mods/$mod/scripts/global.hscript',
+                'mods/$mod/scripts/global.iris',
+                'mods/$mod/scripts/global.lua',
+                'mods/$mod/scripts/global.py',
                 'mods/$mod/data/scripts/global.soul',
-                'mods/$mod/data/global.soul'
+                'mods/$mod/data/scripts/global.hx',
+                'mods/$mod/data/scripts/global.hscript',
+                'mods/$mod/data/scripts/global.iris',
+                'mods/$mod/data/scripts/global.lua',
+                'mods/$mod/data/scripts/global.py',
+                'mods/$mod/data/global.soul',
+                'mods/$mod/data/global.hx',
+                'mods/$mod/data/global.hscript',
+                'mods/$mod/data/global.iris',
+                'mods/$mod/data/global.lua',
+                'mods/$mod/data/global.py'
             ];
             for (p in defaultModGlobals) {
                 if (FileSystem.exists(p) && !scriptPaths.contains(p)) {
@@ -51,12 +65,12 @@ class SoulGlobalScript {
         #end
 
         var baseGlobals = [
-            "data/scripts/global.soul",
-            "scripts/global.soul",
-            "data/global.soul"
+            "data/scripts/global",
+            "scripts/global",
+            "data/global"
         ];
         for (bg in baseGlobals) {
-            var resolved = AssetResolver.resolveFile(bg, [".soul", ".hx", ""]);
+            var resolved = AssetResolver.resolveFile(bg, [".soul", ".hx", ".hscript", ".iris", ".lua", ".py", ""]);
             if (resolved != null && !scriptPaths.contains(resolved)) {
                 scriptPaths.push(resolved);
             }
@@ -69,8 +83,8 @@ class SoulGlobalScript {
             if (instance != null && instance.active) {
                 _loadedPaths.push(path);
                 registerScriptGlobals(instance);
-                instance.call("onCreate", []);
                 instance.call("create", []);
+                instance.call("onCreate", []);
                 scripts.push(instance);
             }
         }

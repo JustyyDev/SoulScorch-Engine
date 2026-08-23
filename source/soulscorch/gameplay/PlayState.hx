@@ -795,9 +795,6 @@ class PlayState extends MusicBeatState {
                 soulscorch.backend.utils.Logger.info('Loaded song script: $file', "script");
             }
         }
-
-        scripts.callAll("create", []);
-        scripts.callAll("onCreate", []);
     }
 
     private function prepareChartNotes():Void {

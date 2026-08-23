@@ -29,6 +29,7 @@ import soulscorch.scripting.mod.SoulGlobalScript;
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
+import llua.Lua_helper;
 import llua.State;
 import llua.Convert;
 #end
@@ -73,12 +74,11 @@ class LuaScript implements ScriptInstance {
                 var rawErr = Lua.tostring(luaState, -1);
                 var humanError = formatHumanError(rawErr, path);
                 Logger.error(humanError, "lua");
+                Lua.pop(luaState, 1);
                 active = false;
                 return false;
             }
             active = true;
-            call("create");
-            call("onCreate");
             return true;
         } catch (e:Dynamic) {
             var humanError = '[Lua Exception] Failed to initialize script "$path":\n  -> Reason: $e';
@@ -197,16 +197,7 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            #if (haXe >= version("4.0.0"))
-            try {
-                Reflect.callMethod(Lua, "add_callback", [luaState, name, func]);
-            } catch(e:Dynamic) {
-                // Fallback binding approach if direct static reflection is needed
-            }
-            #else
-            // Safe universal fallback
-            Reflect.callMethod(null, Reflect.field(Lua, "add_callback"), [luaState, name, func]);
-            #end
+            Lua_helper.add_callback(luaState, name, func);
         }
     }
     #end
@@ -580,30 +571,28 @@ class LuaScript implements ScriptInstance {
         #if (cpp && LUA_ALLOWED)
         if (!active || luaState == null) return null;
         Lua.getglobal(luaState, func);
-        var isFunc:Bool = (Std.isOfType(Lua.isfunction(luaState, -1), Bool) ? cast(Lua.isfunction(luaState, -1), Bool) : (Reflect.compare(Lua.isfunction(luaState, -1), 0) != 0));
-        if (isFunc) {
-            var argCount = (args != null) ? args.length : 0;
-            if (args != null) {
-                for (arg in args) {
-                    if (Std.isOfType(arg, String)) Lua.pushstring(luaState, cast arg);
-                    else if (Std.isOfType(arg, Int)) Lua.pushinteger(luaState, cast arg);
-                    else if (Std.isOfType(arg, Float)) Lua.pushnumber(luaState, cast arg);
-                    else if (Std.isOfType(arg, Bool)) Lua.pushboolean(luaState, cast arg);
-                    else Lua.pushnil(luaState);
-                }
-            }
-            if (Lua.pcall(luaState, argCount, 1, 0) != 0) {
-                var rawErr = Lua.tostring(luaState, -1);
-                var humanError = formatHumanError(rawErr, path);
-                Logger.error(humanError, "lua");
-                Lua.pop(luaState, 1);
-                return null;
-            }
-            var ret = Lua.tostring(luaState, -1);
+
+        if (!Lua.isfunction(luaState, -1)) {
             Lua.pop(luaState, 1);
-            return ret;
+            return null;
         }
+
+        var argCount = (args != null) ? args.length : 0;
+        if (args != null) {
+            for (arg in args) {
+                if (!Convert.toLua(luaState, arg)) Lua.pushnil(luaState);
+            }
+        }
+        if (Lua.pcall(luaState, argCount, 1, 0) != 0) {
+            var rawErr = Lua.tostring(luaState, -1);
+            var humanError = formatHumanError(rawErr, path);
+            Logger.error(humanError, "lua");
+            Lua.pop(luaState, 1);
+            return null;
+        }
+        var result = Convert.fromLua(luaState, -1);
         Lua.pop(luaState, 1);
+        return result;
         #end
         return null;
     }
@@ -649,12 +638,15 @@ class LuaScript implements ScriptInstance {
         for (timer in luaTimers) timer.cancel();
         luaTweens.clear();
         luaTimers.clear();
+        for (sprite in luaSprites) sprite.destroy();
+        for (text in luaTexts) text.destroy();
         luaSprites.clear();
         luaTexts.clear();
         variables.clear();
 
         #if (cpp && LUA_ALLOWED)
         if (luaState != null) {
+            Lua_helper.clear_callbacks(luaState);
             Lua.close(luaState);
             luaState = null;
         }

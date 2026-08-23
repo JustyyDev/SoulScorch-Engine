@@ -60,7 +60,7 @@ class ScriptManager {
                 luaInst.set(key, val);
             }
             if (luaInst.active) {
-                scripts.push(luaInst);
+                addActiveScript(luaInst);
                 return true;
             } else {
                 Logger.error('Failed to activate Lua script backend for: $finalPath', "script");
@@ -75,7 +75,7 @@ class ScriptManager {
                 inst.set(key, val);
             }
             if (inst.active) {
-                scripts.push(inst);
+                addActiveScript(inst);
                 return true;
             }
         }
@@ -86,11 +86,17 @@ class ScriptManager {
         }
         
         if (script.load()) {
-            scripts.push(script);
+            addActiveScript(script);
             return true;
         }
 
         return false;
+    }
+
+    private function addActiveScript(script:ScriptInstance):Void {
+        scripts.push(script);
+        script.call("create", []);
+        script.call("onCreate", []);
     }
 
     public function importClass(className:String):Bool {

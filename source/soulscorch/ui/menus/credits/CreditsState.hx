@@ -60,10 +60,10 @@ class CreditsState extends MusicBeatState {
         DiscordRPC.changePresence("Credits Menu", "Browsing Developers");
         #end
 
+        loadCreditsData();
+
         scripts = new ScriptManager();
         initCreditsScripts();
-
-        loadCreditsData();
 
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
@@ -147,18 +147,18 @@ class CreditsState extends MusicBeatState {
     }
 
     private function initCreditsScripts():Void {
+        scripts.setAll("state", this);
+        scripts.setAll("credits", credits);
+
         var paths = [
             "data/scripts/menus/credits",
             "scripts/menus/credits",
             "data/scripts/creditsState"
         ];
         for (p in paths) {
-            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".lua", ".py", ".js"]);
+            var file = AssetResolver.resolveFile(p, [".soul", ".hx", ".hscript", ".iris", ".lua", ".py"]);
             if (file != null) scripts.loadScript(file);
         }
-        scripts.setAll("state", this);
-        scripts.setAll("credits", credits);
-        scripts.callAll("onCreate");
     }
 
     private function loadCreditsData():Void {

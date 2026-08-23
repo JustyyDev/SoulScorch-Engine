@@ -63,7 +63,7 @@ echo.
 
 :: Optional C++ / native dependencies if Git is available
 echo [*] Checking optional git dependencies...
-"%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always --quiet >nul 2>&1
+"%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always --quiet >nul 2>&1
 "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/MAJESTFormat/hxdiscord_rpc.git --always --quiet >nul 2>&1
 
 echo.

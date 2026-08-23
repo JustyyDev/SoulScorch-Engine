@@ -50,8 +50,6 @@ class PythonScript implements ScriptInstance {
         variables.set("Conductor", Conductor);
 
         active = true;
-        call("create", []);
-        call("onCreate", []);
         return true;
     }
 

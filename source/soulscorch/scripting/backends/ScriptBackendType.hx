@@ -21,7 +21,7 @@ enum abstract ScriptBackendType(String) from String to String {
             return LUA;
         } else if (clean.endsWith(".py")) {
             return PYTHON;
-        } else if (clean.endsWith(".hx") || clean.endsWith(".hscript")) {
+        } else if (clean.endsWith(".hx") || clean.endsWith(".hscript") || clean.endsWith(".iris")) {
             return HSCRIPT;
         }
         return UNKNOWN;

@@ -74,7 +74,7 @@ jobs:
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
-          haxelib git linc_luajit https://github.com/superpowers04/linc_luajit.git --always
+          haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
@@ -156,7 +156,7 @@ jobs:
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
-          haxelib git linc_luajit https://github.com/superpowers04/linc_luajit.git --always
+          haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 

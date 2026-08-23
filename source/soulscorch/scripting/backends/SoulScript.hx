@@ -59,8 +59,6 @@ class SoulScript implements ScriptInstance {
             var rawText = AssetResolver.getText(fullPath);
             initScript(rawText, fullPath);
             active = true;
-            call("create");
-            call("onCreate");
             return true;
         } catch (e:Dynamic) {
             Logger.error('Failed to initialize SoulScript ($path): $e', "soulscript");
