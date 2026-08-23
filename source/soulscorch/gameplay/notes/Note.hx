@@ -199,12 +199,20 @@ class Note extends FlxSprite {
                 if (animation.getByName("holdend") != null) animation.play("holdend");
                 scale.set(skinScale, skinScale);
                 updateHitbox();
+                
+                // Align tail smoothly based on resolution space to avoid clipping
+                if (animation.curAnim != null && animation.curAnim.name.endsWith("end")) {
+                    centerOrigin();
+                    offset.y += 1.0; 
+                }
             } else {
                 if (animation.getByName("hold") == null) setupAnimation();
                 if (animation.getByName("hold") != null) animation.play("hold");
                 var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
                 var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                scale.set(skinScale, (stepHeight + 2.0) / baseH);
+                
+                // FIXED: Changed overlapping padding from + 2.0 to + 0.5 to stop the body from bleeding over the tail
+                scale.set(skinScale, (stepHeight + 0.5) / baseH); 
                 updateHitbox();
             }
         } else {
@@ -227,6 +235,10 @@ class Note extends FlxSprite {
 
             if (downscroll) {
                 y = strumY + (StrumArrow.STRUM_SIZE * 0.5) - distance - height + stepHeight + offsetY;
+                // Nudge downscroll flipped tails exactly onto the body line
+                if (isSustainEnd) {
+                    y += 1.5; 
+                }
             } else {
                 y = strumY + (StrumArrow.STRUM_SIZE * 0.5) + distance - stepHeight + offsetY;
             }

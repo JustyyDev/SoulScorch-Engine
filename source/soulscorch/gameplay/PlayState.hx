@@ -199,6 +199,7 @@ class PlayState extends MusicBeatState {
         super.create();
         instance = this;
         defaultCamZoom = 0.9;
+        FlxG.camera.bgColor = FlxColor.BLACK;
 
         if (FlxG.sound.music != null) {
             FlxG.sound.music.stop();
@@ -1401,6 +1402,7 @@ class PlayState extends MusicBeatState {
         paused = true;
         if (audio != null) audio.pause();
         scripts.callAll("onPause", []);
+        DiscordRPC.updateSongPresence(songData != null ? songData.title : curSong, curDifficulty, songLength, Conductor.songPosition, accuracy, songScore, songMisses, true);
         openSubState(new PauseSubState());
     }
 

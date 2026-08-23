@@ -391,12 +391,12 @@ class DiscordRPC extends ModuleBase {
 
         if (isPaused) {
             var stateText = 'Paused | Score: $score | Misses: $misses | Acc: $roundedAcc%';
-            changePresence(detailsText, stateText, "pause", false, 0, lKey, lText, false);
+            changePresence(detailsText, stateText, "pause", false, 0, lKey, lText, 0, 0, null, true);
         } else {
             var stateText = 'Score: $score | Misses: $misses | Acc: $roundedAcc%';
             var remainingSecs:Float = Math.max(0, (duration - songPosition) / 1000.0);
             var endTime:Float = Sys.time() + remainingSecs;
-            changePresence(detailsText, stateText, "playing", false, endTime, lKey, lText, false);
+            changePresence(detailsText, stateText, "playing", true, endTime, lKey, lText, 0, 0, null, false);
         }
     }
 
