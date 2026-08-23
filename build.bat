@@ -283,7 +283,7 @@ if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
 "%HAXELIB_CMD%" install away3d --always
 "%HAXELIB_CMD%" install hxcpp 4.3.2 --always
 "%HAXELIB_CMD%" install hashlink --always
-"%HAXELIB_CMD%" git linc_luajit https://github.com/AndreiRudenko/linc_luajit.git --always
+"%HAXELIB_CMD%" git linc_luajit https://github.com/superpowers04/linc_luajit.git --always
 "%HAXELIB_CMD%" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
 "%HAXELIB_CMD%" run lime setup -y
 goto BUILD_END
