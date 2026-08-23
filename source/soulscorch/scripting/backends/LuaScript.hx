@@ -29,6 +29,7 @@ import soulscorch.scripting.mod.SoulGlobalScript;
 #if (cpp && LUA_ALLOWED)
 import llua.Lua;
 import llua.LuaL;
+import llua.Lua_helper;
 import llua.State;
 import llua.Convert;
 #end
@@ -197,8 +198,7 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            // Updated for superpowers04/linc_luajit callback registration
-            Lua.add_callback(luaState, name, func);
+            Lua_helper.add_callback(luaState, name, func);
         }
     }
     #end
@@ -572,7 +572,6 @@ class LuaScript implements ScriptInstance {
         #if (cpp && LUA_ALLOWED)
         if (!active || luaState == null) return null;
         Lua.getglobal(luaState, func);
-        // Fixed: cast to boolean check since linc_luajit isfunction returns an integer
         if ((Lua.isfunction(luaState, -1) : Bool)) {
             var argCount = (args != null) ? args.length : 0;
             if (args != null) {
