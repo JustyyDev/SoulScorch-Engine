@@ -131,7 +131,7 @@ jobs:
           '
 
       - name: Compile SoulScorch Engine
-        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH
+        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH -DSOULSCORCH_LUA
         env:
           HXCPP_COMPILE_THREADS: 8
 

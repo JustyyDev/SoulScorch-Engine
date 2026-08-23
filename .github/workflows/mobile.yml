@@ -101,7 +101,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DSOULSCORCH_LUA
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -178,7 +178,7 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DSOULSCORCH_LUA
         env:
           HXCPP_COMPILE_THREADS: 8
 
