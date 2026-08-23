@@ -15,6 +15,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxSort;
+import flixel.graphics.frames.FlxAtlasFrames;
 import haxe.Json;
 import openfl.display.BitmapData;
 import openfl.geom.Rectangle;
