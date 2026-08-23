@@ -95,7 +95,12 @@ jobs:
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-          haxelib install linc_fmod --quiet --always
+          # Install linc_fmod only when FMOD is enabled on the runner
+          if [ -n "$FMOD_SDK" ] || [ "$ENABLE_FMOD" = "1" ]; then
+            haxelib install linc_fmod --quiet --always
+          else
+            echo "Skipping linc_fmod (FMOD disabled)"
+          fi
           haxelib install nape --quiet --always
           haxelib install seedyrng --quiet --always
           haxelib install hxbit --quiet --always
@@ -125,7 +130,12 @@ jobs:
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-          haxelib install linc_fmod --quiet --always
+          # Install linc_fmod only when FMOD is enabled on the runner
+          if [ -n "$FMOD_SDK" ] || [ "$ENABLE_FMOD" = "1" ]; then
+            haxelib install linc_fmod --quiet --always
+          else
+            echo "Skipping linc_fmod (FMOD disabled)"
+          fi
           haxelib install nape --quiet --always
           haxelib install seedyrng --quiet --always
           haxelib install hxbit --quiet --always

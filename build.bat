@@ -283,7 +283,16 @@ if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
 "%HAXELIB_CMD%" install away3d --always
 "%HAXELIB_CMD%" install hxcpp 4.3.2 --always
 "%HAXELIB_CMD%" install hashlink --always
-"%HAXELIB_CMD%" install linc_fmod --always
+rem Install linc_fmod only if FMOD_SDK is present or ENABLE_FMOD=1
+if defined FMOD_SDK (
+    echo [*] FMOD_SDK detected, installing linc_fmod haxelib
+    "%HAXELIB_CMD%" install linc_fmod --always
+) else if "%ENABLE_FMOD%"=="1" (
+    echo [*] ENABLE_FMOD=1 set, installing linc_fmod haxelib (you must set FMOD_SDK at build time)
+    "%HAXELIB_CMD%" install linc_fmod --always
+) else (
+    echo [*] Skipping linc_fmod install (FMOD disabled)
+)
 "%HAXELIB_CMD%" git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
 "%HAXELIB_CMD%" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
 "%HAXELIB_CMD%" run lime setup -y
@@ -299,5 +308,16 @@ if %ERRORLEVEL% neq 0 (
     echo [OK] Build completed successfully.
 )
 echo.
+rem Auto-stage FMOD runtime files only if FMOD_SDK is set
+if defined FMOD_SDK (
+    if exist "%ROOT_DIR%tools\stage_fmod_after_build.bat" (
+        echo [*] Staging FMOD runtime files into bin\windows\bin
+        call "%ROOT_DIR%tools\stage_fmod_after_build.bat"
+    ) else (
+        echo [!] stage_fmod_after_build.bat not found in tools\, skipping staging
+    )
+) else (
+    echo [*] FMOD not enabled; skipping runtime staging.
+)
 pause
 goto MENU

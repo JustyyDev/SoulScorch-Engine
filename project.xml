@@ -80,9 +80,10 @@
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
 
 	<!-- Optional FMOD Audio Backend (requires `haxelib install linc_fmod`) -->
-	<!-- Uncomment the line below to build with FMOD audio support enabled -->
-	<haxedef name="SOULSCORCH_FMOD" if="cpp" />
-	<haxelib name="linc_fmod" if="SOULSCORCH_FMOD" />
+	<!-- FMOD support disabled by default. To enable, uncomment the lines below
+	     and ensure the FMOD SDK is available at the FMOD_SDK environment variable. -->
+	<!-- <haxedef name="SOULSCORCH_FMOD" if="cpp" /> -->
+	<!-- <haxelib name="linc_fmod" if="SOULSCORCH_FMOD" /> -->
 
 	<!-- Physics: NAPE (note-hit particles, soft-body UI, debris VFX) -->
 	<!-- The NAPE_RELEASE_BUILD define below is only meaningful once nape is enabled. -->
