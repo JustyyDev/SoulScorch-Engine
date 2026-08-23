@@ -27,8 +27,15 @@ class TitleShaders {
         scanlines = new SoulShader("engine/title/scanlines");
         vignette = new SoulShader("engine/title/vignettePulse");
 
-        hologram.setFloatArray("uTint", [0.4, 0.8, 1.0]);
-        vignette.setFloatArray("uColor", [0.5, 0.3, 1.0]);
+        try {
+            hologram.setFloatArray("uTint", [0.4, 0.8, 1.0]);
+        } catch (e:Dynamic) {
+            // ignore missing uniform until shader is compiled
+        }
+        try {
+            vignette.setFloatArray("uColor", [0.5, 0.3, 1.0]);
+        } catch (e:Dynamic) {
+        }
 
         initialized = true;
     }
@@ -51,19 +58,21 @@ class TitleShaders {
         var beatPulse = Math.abs(Math.sin(beat * Math.PI));
 
         if (scanlines != null) {
-            scanlines.setFloat("uBeat", beatPulse);
-            scanlines.setFloat("uIntensity", 1.0);
+            try { scanlines.setFloat("uBeat", beatPulse); } catch (_) {}
+            try { scanlines.setFloat("uIntensity", 1.0); } catch (_) {}
         }
         if (vignette != null) {
-            vignette.setFloat("uBeat", beatPulse);
+            try { vignette.setFloat("uBeat", beatPulse); } catch (_) {}
         }
         if (hologram != null) {
-            hologram.setFloat("uIntensity", 1.0);
+            try { hologram.setFloat("uIntensity", 1.0); } catch (_) {}
         }
     }
 
     public static function setBootProgress(progress:Float):Void {
-        if (bootGlitch != null) bootGlitch.setFloat("uProgress", progress);
+        if (bootGlitch != null) {
+            try { bootGlitch.setFloat("uProgress", progress); } catch (_) {}
+        }
     }
 
     public static function clear():Void {

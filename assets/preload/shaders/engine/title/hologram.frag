@@ -1,6 +1,6 @@
 #pragma header
 
-uniform float iTime;
+// rely on common uniforms injected by engine header (iTime, etc.)
 uniform float uIntensity;
 uniform vec3 uTint;
 

@@ -1,6 +1,8 @@
 #pragma header
 
-uniform float iTime;
+// shader relies on common uniforms injected by engine header
+// per-shader uniforms below should be declared in the shared header
+// (iTime, iResolution, iMouse, etc.)
 uniform float uProgress; // 0 = hidden, 1 = fully revealed
 uniform float uIntensity;
 
