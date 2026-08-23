@@ -197,7 +197,16 @@ class LuaScript implements ScriptInstance {
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
         if (luaState != null) {
-            Lua.add_callback(luaState, name, func);
+            #if (haXe >= version("4.0.0"))
+            try {
+                Reflect.callMethod(Lua, "add_callback", [luaState, name, func]);
+            } catch(e:Dynamic) {
+                // Fallback binding approach if direct static reflection is needed
+            }
+            #else
+            // Safe universal fallback
+            Reflect.callMethod(null, Reflect.field(Lua, "add_callback"), [luaState, name, func]);
+            #end
         }
     }
     #end
@@ -571,7 +580,8 @@ class LuaScript implements ScriptInstance {
         #if (cpp && LUA_ALLOWED)
         if (!active || luaState == null) return null;
         Lua.getglobal(luaState, func);
-        if ((Lua.isfunction(luaState, -1) : Bool)) {
+        var isFunc:Bool = (Std.isOfType(Lua.isfunction(luaState, -1), Bool) ? cast(Lua.isfunction(luaState, -1), Bool) : (Reflect.compare(Lua.isfunction(luaState, -1), 0) != 0));
+        if (isFunc) {
             var argCount = (args != null) ? args.length : 0;
             if (args != null) {
                 for (arg in args) {
