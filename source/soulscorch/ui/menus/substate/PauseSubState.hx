@@ -54,6 +54,7 @@ class PauseSubState extends MusicBeatSubstate {
     private var subCamera:FlxCamera;
     private var isLeaving:Bool = false;
     private var scripts:ScriptManager;
+    private var animTime:Float = 0.0;
 
     public function new() {
         super();
@@ -227,6 +228,7 @@ class PauseSubState extends MusicBeatSubstate {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
         if (isLeaving) return;
+        animTime += elapsed * 1000.0;
 
         if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
@@ -264,7 +266,7 @@ class PauseSubState extends MusicBeatSubstate {
             var targetX = sel.x - selectorArrow.width - 10;
             var targetY = sel.y + 26 - selectorArrow.height * 0.5;
             selectorArrow.x = FlxMath.lerp(selectorArrow.x, targetX, FlxMath.bound(elapsed * 15, 0, 1));
-            selectorArrow.y = targetY + Math.sin(FlxG.time.totalTime / 120) * 4;
+            selectorArrow.y = targetY + Math.sin(animTime / 120) * 4;
         }
     }
 

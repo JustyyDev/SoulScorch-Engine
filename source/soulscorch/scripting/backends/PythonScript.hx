@@ -1,5 +1,6 @@
 package soulscorch.scripting.backends;
 
+import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -8,6 +9,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
+import openfl.display.BlendMode;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
@@ -48,9 +50,139 @@ class PythonScript implements ScriptInstance {
         variables.set("game", FlxG.state);
         variables.set("state", FlxG.state);
         variables.set("Conductor", Conductor);
+        variables.set("Paths", Paths);
+        variables.set("AssetHelper", AssetHelper);
+        variables.set("FlxColor", {
+            BLACK: 0xFF000000,
+            WHITE: 0xFFFFFFFF,
+            RED: 0xFFFF0000,
+            GREEN: 0xFF00FF00,
+            BLUE: 0xFF0000FF,
+            CYAN: 0xFF00FFFF,
+            MAGENTA: 0xFFFF00FF,
+            YELLOW: 0xFFFFFF00,
+            TRANSPARENT: 0x00000000,
+            fromRGB: FlxColor.fromRGB,
+            fromHSL: FlxColor.fromHSL,
+            fromString: FlxColor.fromString
+        });
+        variables.set("FlxSprite", FlxSprite);
+        variables.set("FlxText", FlxText);
+        variables.set("FlxTimer", FlxTimer);
+        variables.set("FlxTween", FlxTween);
+        variables.set("FlxEase", FlxEase);
+        variables.set("Logger", Logger);
+        variables.set("PlayState", PlayState);
+        variables.set("ModManager", ModManager);
 
         active = true;
         return true;
+    }
+
+    // --- Extended API (no limits) ---
+    public function makeLuaSprite(tag:String, ?image:String, x:Float = 0, y:Float = 0):FlxSprite {
+        var spr = new FlxSprite(x, y);
+        if (image != null && image != "") {
+            if (AssetResolver.exists(image)) AssetHelper.loadGraphicSafely(spr, image);
+            else spr.makeGraphic(1, 1, FlxColor.WHITE);
+        } else {
+            spr.makeGraphic(1, 1, FlxColor.WHITE);
+        }
+        pySprites.set(tag, spr);
+        return spr;
+    }
+
+    public function makeLuaText(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0):FlxText {
+        var txt = new FlxText(x, y, width, text, 16);
+        txt.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+        pyTexts.set(tag, txt);
+        return txt;
+    }
+
+    public function addLuaSprite(tag:String, inFront:Bool = false):Void {
+        var spr = pySprites.get(tag);
+        if (spr != null && FlxG.state != null) {
+            if (inFront) FlxG.state.add(spr); else FlxG.state.insert(0, spr);
+        }
+    }
+
+    public function addLuaText(tag:String, inFront:Bool = false):Void {
+        var txt = pyTexts.get(tag);
+        if (txt != null && FlxG.state != null) {
+            if (inFront) FlxG.state.add(txt); else FlxG.state.insert(0, txt);
+        }
+    }
+
+    public function setTextBorder(tag:String, size:Int, colorStr:String):Void {
+        var txt = pyTexts.get(tag);
+        if (txt != null) {
+            txt.borderSize = size;
+            txt.borderColor = FlxColor.fromString(colorStr);
+            txt.borderStyle = OUTLINE;
+        }
+    }
+
+    public function setTextAlignment(tag:String, align:String):Void {
+        var txt = pyTexts.get(tag);
+        if (txt != null) {
+            txt.alignment = switch (align.toLowerCase().trim()) {
+                case "center" | "centre": CENTER;
+                case "right": RIGHT;
+                default: LEFT;
+            };
+        }
+    }
+
+    public function setTextWidth(tag:String, width:Float):Void {
+        var txt = pyTexts.get(tag);
+        if (txt != null) txt.fieldWidth = width;
+    }
+
+    public function setObjectOrder(tag:String, order:Int):Void {
+        var obj:FlxBasic = pySprites.exists(tag) ? pySprites.get(tag) : pyTexts.get(tag);
+        if (obj != null && FlxG.state != null) {
+            FlxG.state.remove(obj);
+            FlxG.state.insert(order, obj);
+        }
+    }
+
+    public function getObjectOrder(tag:String):Int {
+        var obj:FlxBasic = pySprites.exists(tag) ? pySprites.get(tag) : pyTexts.get(tag);
+        if (obj != null && FlxG.state != null) return FlxG.state.members.indexOf(obj);
+        return -1;
+    }
+
+    public function objectPlayAnim(tag:String, anim:String, forced:Bool = false):Void {
+        var spr = pySprites.get(tag);
+        if (spr != null && spr.animation != null && spr.animation.exists(anim)) spr.animation.play(anim, forced);
+    }
+
+    public function screenCenter(tag:String, axis:String = "xy"):Void {
+        var obj:FlxSprite = pySprites.exists(tag) ? pySprites.get(tag) : pyTexts.get(tag);
+        if (obj != null) {
+            var a = axis.toLowerCase().trim();
+            if (a == "x") obj.screenCenter(X);
+            else if (a == "y") obj.screenCenter(Y);
+            else obj.screenCenter();
+        }
+    }
+
+    public function setBlendMode(tag:String, blend:String):Void {
+        var obj:FlxSprite = pySprites.exists(tag) ? pySprites.get(tag) : pyTexts.get(tag);
+        if (obj != null) {
+            obj.blend = switch (blend.toLowerCase().trim()) {
+                case "add": BlendMode.ADD;
+                case "subtract": BlendMode.SUBTRACT;
+                case "multiply": BlendMode.MULTIPLY;
+                case "screen": BlendMode.SCREEN;
+                case "erase": BlendMode.ERASE;
+                default: BlendMode.NORMAL;
+            };
+        }
+    }
+
+    public function playSound(soundPath:String, volume:Float = 1.0):Void {
+        AssetHelper.playSoundSafely(soundPath, volume);
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {

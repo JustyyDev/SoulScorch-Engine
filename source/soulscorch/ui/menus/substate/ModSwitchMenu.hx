@@ -47,11 +47,15 @@ class ModSwitchMenu extends MusicBeatSubstate {
     private var priorityText:FlxText;
     private var pathText:FlxText;
 
+    private var selectorArrow:FlxSprite;
+    private var modNameAlphabets:Array<Alphabet> = [];
+
     private var initialEnabledMods:Array<String> = [];
     private var hasChanges:Bool = false;
     private var targetListY:Float = 0.0;
     private var curListY:Float = 0.0;
     private var scripts:ScriptManager;
+    private var animTime:Float = 0.0;
 
     override public function create():Void {
         super.create();
@@ -85,13 +89,21 @@ class ModSwitchMenu extends MusicBeatSubstate {
         var accentTag = new FlxSprite(25, 16).makeGraphic(4, 28, EditorTheme.ACCENT_CYAN);
         add(accentTag);
 
-        var titleText = new FlxText(36, 17, 400, "SOULSCORCH // MOD REPOSITORY", 18);
-        titleText.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
+        var titleText = new Alphabet(36, 12, "MODS", true);
+        titleText.alignment = LEFT;
         add(titleText);
 
         var workshopBanner = new FlxText(FlxG.width - 440, 20, 400, "[TAB] Open HomeSoulDB Workshop", 14);
         workshopBanner.setFormat(Paths.font("vcr"), 14, EditorTheme.ACCENT_YELLOW, RIGHT);
         add(workshopBanner);
+
+        selectorArrow = new FlxSprite(0, 0);
+        AssetHelper.loadGraphicSafely(selectorArrow, 'ui/campaign/arrow');
+        if (selectorArrow.width <= 1) {
+            selectorArrow.makeGraphic(20, 20, EditorTheme.ACCENT_CYAN);
+        }
+        selectorArrow.visible = false;
+        add(selectorArrow);
 
         setupInspectorPanel();
 
@@ -172,6 +184,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
         rowBgs = [];
         statusPills = [];
         modIcons = [];
+        modNameAlphabets = [];
 
         var rowW = FlxG.width - 480;
 
@@ -202,9 +215,12 @@ class ModSwitchMenu extends MusicBeatSubstate {
             rowGroup.add(iconSpr);
             modIcons.push(iconSpr);
 
-            var modNameText = new FlxText(80, 10, rowW - 190, modFolder, 16);
-            modNameText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT);
+            var modName = (ModManager.modConfigs.get(modFolder) != null && ModManager.modConfigs.get(modFolder).name != null)
+                ? ModManager.modConfigs.get(modFolder).name : modFolder;
+            var modNameText = new Alphabet(80, 14, modName, false);
+            modNameText.alignment = LEFT;
             rowGroup.add(modNameText);
+            modNameAlphabets.push(modNameText);
 
             var stateLabel = new FlxText(rowW - 130, 20, 110, isEnabled ? "[ ACTIVE ]" : "[ DISABLED ]", 13);
             stateLabel.setFormat(Paths.font("vcr"), 13, isEnabled ? EditorTheme.ACCENT_CYAN : EditorTheme.ACCENT_MAGENTA, RIGHT);
@@ -216,6 +232,7 @@ class ModSwitchMenu extends MusicBeatSubstate {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+        animTime += elapsed * 1000.0;
         if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
         if (Controls.instance.UI_UP_P) changeSelection(-1);
@@ -284,6 +301,21 @@ class ModSwitchMenu extends MusicBeatSubstate {
             row.x = isCur ? 52 : 40;
             row.y = 80 + (i * 68) + curListY;
             row.alpha = isCur ? 1.0 : 0.55;
+
+            if (modNameAlphabets[i] != null) {
+                modNameAlphabets[i].scale.set(isCur ? 1.05 : 0.9);
+                modNameAlphabets[i].color = isCur ? EditorTheme.ACCENT_CYAN : EditorTheme.TEXT_PRIMARY;
+            }
+        }
+
+        if (selectorArrow != null) {
+            if (modList.length > 0 && grpRows.members[curSelected] != null) {
+                selectorArrow.visible = true;
+                var bob = Math.sin(animTime * 0.005) * 8;
+                selectorArrow.setPosition(28, 80 + (curSelected * 68) + curListY + 18 + bob);
+            } else {
+                selectorArrow.visible = false;
+            }
         }
     }
 

@@ -71,7 +71,7 @@ class EditorInputText extends FlxSpriteGroup {
                 cursorTimer = 0.0;
                 cursor.visible = !cursor.visible;
             }
-            cursor.x = 6 + inputText.textWidth;
+            cursor.x = 6 + inputText.width;
         } else {
             cursor.visible = false;
         }

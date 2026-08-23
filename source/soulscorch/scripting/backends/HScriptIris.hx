@@ -86,6 +86,7 @@ import soulscorch.scripting.ScriptedSubState;
 import soulscorch.scripting.mod.ModCustomState;
 import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.mod.ModManager;
+import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.ui.menus.credits.CreditsState;
 import soulscorch.ui.menus.option.OptionsMenuState;
@@ -349,6 +350,179 @@ class HScriptIris implements ScriptInstance {
                 FlxG.state.add(obj);
             }
         });
+
+        // --- Extended API (no limits) ---
+        set("makeLuaSprite", function(tag:String, ?image:String, x:Float = 0, y:Float = 0) {
+            var spr = new FlxSprite(x, y);
+            if (image != null && image != "") {
+                if (AssetResolver.exists(image)) AssetHelper.loadGraphicSafely(spr, image);
+                else spr.makeGraphic(1, 1, FlxColor.WHITE);
+            } else {
+                spr.makeGraphic(1, 1, FlxColor.WHITE);
+            }
+            customSprites.set(tag, spr);
+            return spr;
+        });
+
+        set("makeGraphic", function(tag:String, width:Int, height:Int, colorStr:String = "0xFFFFFFFF") {
+            var spr = customSprites.get(tag);
+            if (spr == null) {
+                spr = new FlxSprite();
+                customSprites.set(tag, spr);
+            }
+            spr.makeGraphic(width, height, FlxColor.fromString(colorStr));
+        });
+
+        set("makeLuaText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0) {
+            var txt = new FlxText(x, y, width, text, 16);
+            txt.setFormat(Paths.font("vcr"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+            customTexts.set(tag, txt);
+            return txt;
+        });
+
+        set("addLuaSprite", function(tag:String, inFront:Bool = false) {
+            var spr = customSprites.get(tag);
+            if (spr != null && FlxG.state != null) {
+                if (inFront) FlxG.state.add(spr); else FlxG.state.insert(0, spr);
+            }
+        });
+
+        set("addLuaText", function(tag:String, inFront:Bool = false) {
+            var txt = customTexts.get(tag);
+            if (txt != null && FlxG.state != null) {
+                if (inFront) FlxG.state.add(txt); else FlxG.state.insert(0, txt);
+            }
+        });
+
+        set("setTextBorder", function(tag:String, size:Int, colorStr:String) {
+            var txt = customTexts.get(tag);
+            if (txt != null) {
+                txt.borderSize = size;
+                txt.borderColor = FlxColor.fromString(colorStr);
+                txt.borderStyle = OUTLINE;
+            }
+        });
+
+        set("setTextAlignment", function(tag:String, align:String) {
+            var txt = customTexts.get(tag);
+            if (txt != null) {
+                txt.alignment = switch (align.toLowerCase().trim()) {
+                    case "center" | "centre": CENTER;
+                    case "right": RIGHT;
+                    default: LEFT;
+                };
+            }
+        });
+
+        set("setTextWidth", function(tag:String, width:Float) {
+            var txt = customTexts.get(tag);
+            if (txt != null) txt.fieldWidth = width;
+        });
+
+        set("setObjectOrder", function(tag:String, order:Int) {
+            var obj:FlxBasic = customSprites.exists(tag) ? customSprites.get(tag) : customTexts.get(tag);
+            if (obj != null && FlxG.state != null) {
+                FlxG.state.remove(obj);
+                FlxG.state.insert(order, obj);
+            }
+        });
+
+        set("getObjectOrder", function(tag:String):Int {
+            var obj:FlxBasic = customSprites.exists(tag) ? customSprites.get(tag) : customTexts.get(tag);
+            if (obj != null && FlxG.state != null) return FlxG.state.members.indexOf(obj);
+            return -1;
+        });
+
+        set("objectPlayAnim", function(tag:String, anim:String, forced:Bool = false) {
+            var spr = customSprites.get(tag);
+            if (spr != null && spr.animation != null && spr.animation.exists(anim)) spr.animation.play(anim, forced);
+        });
+
+        set("setPropertyFromGroup", function(group:String, index:Int, variable:String, value:Dynamic) {
+            var grp:Dynamic = get("game") != null ? get("game") : FlxG.state;
+            var target:Dynamic = (grp != null) ? Reflect.getProperty(grp, group) : null;
+            if (target != null && Reflect.field(target, "members") != null) {
+                var members:Array<Dynamic> = Reflect.field(target, "members");
+                if (index >= 0 && index < members.length) setProperty(members[index], variable, value);
+            }
+        });
+
+        set("getPropertyFromGroup", function(group:String, index:Int, variable:String):Dynamic {
+            var grp:Dynamic = get("game") != null ? get("game") : FlxG.state;
+            var target:Dynamic = (grp != null) ? Reflect.getProperty(grp, group) : null;
+            if (target != null && Reflect.field(target, "members") != null) {
+                var members:Array<Dynamic> = Reflect.field(target, "members");
+                if (index >= 0 && index < members.length) return getProperty(members[index], variable);
+            }
+            return null;
+        });
+
+        set("runTimer", function(tag:String, time:Float, ?func:String = "onTimerCompleted", loops:Int = 1) {
+            this.cancelTimer(tag);
+            var remaining = loops;
+            var cb = function(_:FlxTimer) {
+                call(func, [tag, Std.string(loops - remaining)]);
+                remaining--;
+                if (remaining <= 0) activeTimers.remove(tag);
+            };
+            activeTimers.set(tag, new FlxTimer().start(time, cb, loops));
+        });
+
+        set("cancelTimer", function(tag:String) {
+            this.cancelTimer(tag);
+        });
+
+        set("cancelTween", function(tag:String) {
+            this.cancelTween(tag);
+        });
+
+        set("screenCenter", function(tag:String, axis:String = "xy") {
+            var obj:FlxSprite = customSprites.exists(tag) ? customSprites.get(tag) : customTexts.get(tag);
+            if (obj != null) {
+                var a = axis.toLowerCase().trim();
+                if (a == "x") obj.screenCenter(X);
+                else if (a == "y") obj.screenCenter(Y);
+                else obj.screenCenter();
+            }
+        });
+
+        set("setBlendMode", function(tag:String, blend:String) {
+            var obj:FlxSprite = customSprites.exists(tag) ? customSprites.get(tag) : customTexts.get(tag);
+            if (obj != null) {
+                obj.blend = switch (blend.toLowerCase().trim()) {
+                    case "add": BlendMode.ADD;
+                    case "subtract": BlendMode.SUBTRACT;
+                    case "multiply": BlendMode.MULTIPLY;
+                    case "screen": BlendMode.SCREEN;
+                    case "erase": BlendMode.ERASE;
+                    default: BlendMode.NORMAL;
+                };
+            }
+        });
+
+        set("setPropertyFromState", function(obj:String, prop:String, val:Dynamic) {
+            if (FlxG.state != null) setProperty(FlxG.state, '$obj.$prop', val);
+        });
+
+        set("getPropertyFromState", function(obj:String, prop:String):Dynamic {
+            return (FlxG.state != null) ? getProperty(FlxG.state, '$obj.$prop') : null;
+        });
+
+        set("isModEnabled", function(mod:String):Bool {
+            return ModRegistry.instance.isEnabled(mod);
+        });
+
+        set("getActiveMods", function():Array<String> {
+            return ModRegistry.instance.enabledMods;
+        });
+
+        set("debugPrint", function(msg:Dynamic) {
+            Logger.info('[HSCRIPT] $msg', "hscript");
+        });
+
+        set("playSound", function(soundPath:String, volume:Float = 1.0) {
+            AssetHelper.playSoundSafely(soundPath, volume);
+        });
     }
 
     public function syncStateVariables():Void {
@@ -397,6 +571,42 @@ class HScriptIris implements ScriptInstance {
             return true;
         }
         return false;
+    }
+
+    public static function setProperty(root:Dynamic, dottedPath:String, value:Dynamic):Void {
+        if (root == null || dottedPath == null) return;
+        var parts = dottedPath.split(".");
+        var current = root;
+        for (i in 0...parts.length - 1) {
+            if (current == null) return;
+            current = Reflect.getProperty(current, parts[i]);
+        }
+        if (current != null) Reflect.setProperty(current, parts[parts.length - 1], value);
+    }
+
+    public static function getProperty(root:Dynamic, dottedPath:String):Dynamic {
+        if (root == null || dottedPath == null) return null;
+        var parts = dottedPath.split(".");
+        var current = root;
+        for (p in parts) {
+            if (current == null) return null;
+            current = Reflect.getProperty(current, p);
+        }
+        return current;
+    }
+
+    public function cancelTimer(tag:String):Void {
+        if (activeTimers.exists(tag)) {
+            activeTimers.get(tag).cancel();
+            activeTimers.remove(tag);
+        }
+    }
+
+    public function cancelTween(tag:String):Void {
+        if (activeTweens.exists(tag)) {
+            activeTweens.get(tag).cancel();
+            activeTweens.remove(tag);
+        }
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {

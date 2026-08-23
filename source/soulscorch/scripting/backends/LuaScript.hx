@@ -1,5 +1,6 @@
 package soulscorch.scripting.backends;
 
+import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -10,6 +11,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
+import openfl.display.BlendMode;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
@@ -24,6 +26,7 @@ import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.mod.ModCustomState;
 import soulscorch.scripting.mod.ModManager;
+import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulGlobalScript;
 
 #if (cpp && LUA_ALLOWED)
@@ -193,6 +196,32 @@ class LuaScript implements ScriptInstance {
         setLuaCallback("getSongPosition", function() return Conductor.songPosition);
         setLuaCallback("getCurBeat", function() return Conductor.curBeat);
         setLuaCallback("getCurStep", function() return Conductor.curStep);
+
+        // --- Extended API (no limits) ---
+        setLuaCallback("makeGraphic", makeGraphic);
+        setLuaCallback("addLuaText", addLuaText);
+        setLuaCallback("setTextBorder", setTextBorder);
+        setLuaCallback("setTextAlignment", setTextAlignment);
+        setLuaCallback("setTextWidth", setTextWidth);
+        setLuaCallback("setObjectOrder", setObjectOrder);
+        setLuaCallback("getObjectOrder", getObjectOrder);
+        setLuaCallback("objectPlayAnim", objectPlayAnim);
+        setLuaCallback("setPropertyFromGroup", setPropertyFromGroup);
+        setLuaCallback("getPropertyFromGroup", getPropertyFromGroup);
+        setLuaCallback("runTimer", runTimer);
+        setLuaCallback("cancelTimer", cancelTimer);
+        setLuaCallback("cancelTween", cancelTweenByName);
+        setLuaCallback("debugPrint", function(msg:Dynamic) Logger.info('[LUA] $msg', "lua"));
+        setLuaCallback("screenCenter", screenCenterObject);
+        setLuaCallback("setBlendMode", setBlendMode);
+        setLuaCallback("setPropertyFromState", function(obj:String, prop:String, val:Dynamic) {
+            if (FlxG.state != null) setProperty(FlxG.state, '$obj.$prop', val);
+        });
+        setLuaCallback("getPropertyFromState", function(obj:String, prop:String) {
+            return (FlxG.state != null) ? getProperty(FlxG.state, '$obj.$prop') : null;
+        });
+        setLuaCallback("isModEnabled", function(mod:String) return ModRegistry.instance.isEnabled(mod));
+        setLuaCallback("getActiveMods", function() return ModRegistry.instance.enabledMods);
     }
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
@@ -485,6 +514,129 @@ class LuaScript implements ScriptInstance {
 
     public function playSound(soundPath:String, volume:Float = 1.0):Void {
         AssetHelper.playSoundSafely(soundPath, volume);
+    }
+
+    public function makeGraphic(tag:String, width:Int, height:Int, colorStr:String = "0xFFFFFFFF"):Void {
+        var spr = luaSprites.get(tag);
+        if (spr == null) {
+            spr = new FlxSprite();
+            luaSprites.set(tag, spr);
+        }
+        spr.makeGraphic(width, height, FlxColor.fromString(colorStr));
+    }
+
+    public function addLuaText(tag:String, inFront:Bool = false):Void {
+        var txt = luaTexts.get(tag);
+        if (txt != null && FlxG.state != null) {
+            if (inFront) FlxG.state.add(txt); else FlxG.state.insert(0, txt);
+        }
+    }
+
+    public function setTextBorder(tag:String, size:Int, colorStr:String):Void {
+        var txt = luaTexts.get(tag);
+        if (txt != null) {
+            txt.borderSize = size;
+            txt.borderColor = FlxColor.fromString(colorStr);
+            txt.borderStyle = OUTLINE;
+        }
+    }
+
+    public function setTextAlignment(tag:String, align:String):Void {
+        var txt = luaTexts.get(tag);
+        if (txt != null) {
+            txt.alignment = switch (align.toLowerCase().trim()) {
+                case "center" | "centre": CENTER;
+                case "right": RIGHT;
+                default: LEFT;
+            };
+        }
+    }
+
+    public function setTextWidth(tag:String, width:Float):Void {
+        var txt = luaTexts.get(tag);
+        if (txt != null) txt.fieldWidth = width;
+    }
+
+    public function setObjectOrder(tag:String, order:Int):Void {
+        var obj:FlxBasic = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
+        if (obj != null && FlxG.state != null) {
+            FlxG.state.remove(obj);
+            FlxG.state.insert(order, obj);
+        }
+    }
+
+    public function getObjectOrder(tag:String):Int {
+        var obj:FlxBasic = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
+        if (obj != null && FlxG.state != null) return FlxG.state.members.indexOf(obj);
+        return -1;
+    }
+
+    public function objectPlayAnim(tag:String, anim:String, forced:Bool = false):Void {
+        var spr = luaSprites.get(tag);
+        if (spr != null && spr.animation != null && spr.animation.exists(anim)) spr.animation.play(anim, forced);
+    }
+
+    public function setPropertyFromGroup(group:String, index:Int, variable:String, value:Dynamic):Void {
+        var grp:Dynamic = getProperty((PlayState.instance != null) ? PlayState.instance : FlxG.state, group);
+        if (grp != null && Reflect.field(grp, "members") != null) {
+            var members:Array<Dynamic> = Reflect.field(grp, "members");
+            if (index >= 0 && index < members.length) setProperty(members[index], variable, value);
+        }
+    }
+
+    public function getPropertyFromGroup(group:String, index:Int, variable:String):Dynamic {
+        var grp:Dynamic = getProperty((PlayState.instance != null) ? PlayState.instance : FlxG.state, group);
+        if (grp != null && Reflect.field(grp, "members") != null) {
+            var members:Array<Dynamic> = Reflect.field(grp, "members");
+            if (index >= 0 && index < members.length) return getProperty(members[index], variable);
+        }
+        return null;
+    }
+
+    public function runTimer(tag:String, time:Float, ?func:String = "onTimerCompleted", loops:Int = 1):Void {
+        cancelTimer(tag);
+        var remaining = loops;
+        var cb = function(_:FlxTimer) {
+            call(func, [tag, Std.string(loops - remaining)]);
+            remaining--;
+            if (remaining <= 0) luaTimers.remove(tag);
+        };
+        luaTimers.set(tag, new FlxTimer().start(time, cb, loops));
+    }
+
+    public function cancelTimer(tag:String):Void {
+        if (luaTimers.exists(tag)) {
+            luaTimers.get(tag).cancel();
+            luaTimers.remove(tag);
+        }
+    }
+
+    public function cancelTweenByName(tag:String):Void {
+        cancelTween(tag);
+    }
+
+    public function screenCenterObject(tag:String, axis:String = "xy"):Void {
+        var obj:FlxSprite = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
+        if (obj != null) {
+            var a = axis.toLowerCase().trim();
+            if (a == "x") obj.screenCenter(X);
+            else if (a == "y") obj.screenCenter(Y);
+            else obj.screenCenter();
+        }
+    }
+
+    public function setBlendMode(tag:String, blend:String):Void {
+        var obj:FlxSprite = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
+        if (obj != null) {
+            obj.blend = switch (blend.toLowerCase().trim()) {
+                case "add": BlendMode.ADD;
+                case "subtract": BlendMode.SUBTRACT;
+                case "multiply": BlendMode.MULTIPLY;
+                case "screen": BlendMode.SCREEN;
+                case "erase": BlendMode.ERASE;
+                default: BlendMode.NORMAL;
+            };
+        }
     }
 
     private function cancelTween(tag:String):Void {
