@@ -36,7 +36,7 @@
 	<assets path="art/iconOG.png" id="iconOG" />
 
 	<!-- Window Configuration -->
-	<window width="1280" height="720" background="#000000" hardware="true" vsync="false" fps="120" />
+	<window width="1280" height="720" background="0x000000" hardware="true" vsync="false" fps="120" />
 	<window if="desktop" orientation="landscape" fullscreen="false" resizable="true" />
 	<window if="mobile" orientation="landscape" fullscreen="true" resizable="false" />
 

@@ -98,6 +98,7 @@ class FreeplayState extends MusicBeatState {
         }
         bg.screenCenter();
         bg.antialiasing = true;
+        bg.color = 0xFF282035;
         add(bg);
 
         var grid = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.TRANSPARENT);
@@ -114,7 +115,6 @@ class FreeplayState extends MusicBeatState {
         if (songs.length > 0) {
             curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
 
-            // Instantiate only a small pool of items for the viewport
             var poolSize = Std.int(Math.min(songs.length, VISIBLE_ITEMS_COUNT));
             for (i in 0...poolSize) {
                 var alphabet = new Alphabet(0, 0, "", true);
@@ -242,7 +242,6 @@ class FreeplayState extends MusicBeatState {
             MusicBeatState.switchState(new PlayState());
         }
 
-        // Smooth position interpolation for only the recycled pool members
         for (i in 0...alphabetPool.length) {
             var item = alphabetPool[i];
             if (item.visible) {
@@ -305,10 +304,10 @@ class FreeplayState extends MusicBeatState {
         if (bg != null) {
             var targetColor:FlxColor = songs[curSelected].color;
             if (colorTween != null) colorTween.cancel();
+            bg.color = bg.color;
             colorTween = FlxTween.color(bg, 0.25, bg.color, targetColor, {ease: FlxEase.quartOut});
         }
 
-        // Virtual Window Recycler: rebinds the visible pool slots
         var halfWindow = Math.floor(alphabetPool.length / 2);
         for (slot in 0...alphabetPool.length) {
             var offset = slot - halfWindow;
@@ -510,10 +509,13 @@ class FreeplayState extends MusicBeatState {
         if (scripts != null) scripts.callAll("onBeatHit", [beat]);
 
         var halfWindow = Math.floor(alphabetPool.length / 2);
-        if (iconPool.length > halfWindow && iconPool[halfWindow] != null && iconPool[halfWindow].visible) {
-            iconPool[halfWindow].scale.set(1.2, 1.2);
-            FlxTween.cancelTweensOf(iconPool[halfWindow].scale);
-            FlxTween.tween(iconPool[halfWindow].scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+        if (halfWindow >= 0 && halfWindow < iconPool.length) {
+            var centerIcon = iconPool[halfWindow];
+            if (centerIcon != null && centerIcon.visible) {
+                centerIcon.scale.set(1.2, 1.2);
+                FlxTween.cancelTweensOf(centerIcon.scale);
+                FlxTween.tween(centerIcon.scale, {x: 1.0, y: 1.0}, 0.15, {ease: FlxEase.quadOut});
+            }
         }
     }
 
