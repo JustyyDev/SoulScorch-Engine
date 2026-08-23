@@ -169,7 +169,12 @@ jobs:
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-          haxelib install linc_fmod --quiet --always
+          # Install linc_fmod only when FMOD is enabled on the runner
+          if [ -n "$FMOD_SDK" ] || [ "$ENABLE_FMOD" = "1" ]; then
+            haxelib install linc_fmod --quiet --always
+          else
+            echo "Skipping linc_fmod (FMOD disabled)"
+          fi
           haxelib install nape --quiet --always
           haxelib install seedyrng --quiet --always
           haxelib install hxbit --quiet --always
@@ -185,6 +190,13 @@ jobs:
 
       - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
         run: |
+          # Ensure neko is available for lime native modules
+          if ! command -v neko >/dev/null 2>&1; then
+            brew update || true
+            brew install neko || true
+          fi
+          haxelib setup ~/haxelib
+          haxelib run lime setup -y
           haxelib run lime rebuild mac -release
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
