@@ -166,7 +166,16 @@ class SongRegistry {
                 if (c != null) songColor = c;
             }
             if (metaXml.hasNode.difficulties) {
-                detectedDiffs = XMSoul.getArrayAttr(metaXml.node.difficulties, "names", ",");
+                var difficultiesNode = metaXml.node.difficulties;
+                detectedDiffs = XMSoul.getArrayAttr(difficultiesNode, "names", ",");
+                if (detectedDiffs.length == 0) detectedDiffs = XMSoul.getArrayAttr(difficultiesNode, "list", ",");
+
+                if (detectedDiffs.length == 0) {
+                    for (difficultyNode in difficultiesNode.nodes.difficulty) {
+                        var difficultyName = XMSoul.getAttr(difficultyNode, "name", "").toLowerCase().trim();
+                        if (difficultyName.length > 0 && !detectedDiffs.contains(difficultyName)) detectedDiffs.push(difficultyName);
+                    }
+                }
             }
         } else {
             var metaPaths = [

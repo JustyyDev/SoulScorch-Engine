@@ -496,11 +496,7 @@ class PlayState extends MusicBeatState {
 
     private function generateStrumLines():Void {
         var strumY:Float = downscroll ? FlxG.height - 155 : 50;
-        var noteSkinToUse:String = NoteSkinManager.getNoteSkinName();
-
-        if (Runtime.config != null && Runtime.config.defaultNoteSkin != null && Runtime.config.defaultNoteSkin != "default") {
-            noteSkinToUse = Runtime.config.defaultNoteSkin;
-        }
+        var noteSkinToUse = getActiveNoteSkin();
 
         if (middlescroll) {
             playerStrumline = new Strumline((FlxG.width * 0.5) - (Strumline.STRUM_SPACING * 2), strumY, true, downscroll);
@@ -522,6 +518,19 @@ class PlayState extends MusicBeatState {
         opponentStrumline.changeSkin(noteSkinToUse);
 
         modcharts = new ModchartManager(playerStrumline, opponentStrumline);
+    }
+
+    private function getActiveNoteSkin():String {
+        if (songData != null && songData.noteSkin != null && songData.noteSkin != "default") return songData.noteSkin;
+
+        var flagSkin = GameplayFlags.getString("defaultNoteSkin", "default");
+        if (flagSkin != "default") return flagSkin;
+
+        if (Runtime.config != null && Runtime.config.defaultNoteSkin != null && Runtime.config.defaultNoteSkin != "default") {
+            return Runtime.config.defaultNoteSkin;
+        }
+
+        return NoteSkinManager.getNoteSkinName();
     }
 
     private function setupHUD():Void {
@@ -711,12 +720,14 @@ class PlayState extends MusicBeatState {
         // Modcharts & VFX
         scripts.setAll("modcharts", modcharts);
         scripts.setAll("ModchartManager", soulscorch.gameplay.modchart.ModchartManager);
+        scripts.setAll("PLAYER", soulscorch.gameplay.modchart.ModchartTypes.ModTarget.PLAYER);
+        scripts.setAll("OPPONENT", soulscorch.gameplay.modchart.ModchartTypes.ModTarget.OPPONENT);
+        scripts.setAll("BOTH", soulscorch.gameplay.modchart.ModchartTypes.ModTarget.BOTH);
         scripts.setAll("ShaderManager", soulscorch.graphics.shaders.ShaderManager.instance);
         scripts.setAll("SoulShader", soulscorch.graphics.shaders.SoulShader);
         scripts.setAll("CustomShader", soulscorch.graphics.shaders.SoulShader);
         scripts.setAll("ShaderFilter", openfl.filters.ShaderFilter);
         scripts.setAll("JuiceManager", soulscorch.graphics.JuiceManager);
-        scripts.setAll("TitleShaders", soulscorch.ui.menus.states.TitleShaders);
 
         // Flixel Standard
         scripts.setAll("FlxG", flixel.FlxG);
@@ -795,10 +806,14 @@ class PlayState extends MusicBeatState {
         ];
 
         for (s in scriptPaths) {
-            var file = soulscorch.backend.assets.AssetResolver.resolveFile(s, [".hx", ".soul", ".lua", ".py", ".hscript"]);
+            var scriptExtensions = #if (cpp && LUA_ALLOWED) [".hx", ".lua", ".soul", ".py", ".hscript"] #else [".hx", ".soul", ".lua", ".py", ".hscript"] #end;
+            var file = soulscorch.backend.assets.AssetResolver.resolveFile(s, scriptExtensions);
             if (file != null) {
-                scripts.loadScript(file);
-                soulscorch.backend.utils.Logger.info('Loaded song script: $file', "script");
+                if (scripts.loadScript(file)) {
+                    soulscorch.backend.utils.Logger.info('Loaded song script: $file', "script");
+                } else {
+                    soulscorch.backend.utils.Logger.error('Failed to load song script: $file', "script");
+                }
             }
         }
     }
@@ -806,9 +821,10 @@ class PlayState extends MusicBeatState {
     private function prepareChartNotes():Void {
         unspawnNotes = [];
         if (songData == null || songData.chart == null) return;
+        var noteSkin = getActiveNoteSkin();
 
         for (n in songData.chart.notes) {
-            var mainNote = new Note(n.time, n.direction, n.sustainLength, null, false, false, n.mustPress, n.type);
+            var mainNote = new Note(n.time, n.direction, n.sustainLength, null, false, false, n.mustPress, n.type, noteSkin);
             unspawnNotes.push(mainNote);
 
             if (n.sustainLength > 0) {
@@ -817,7 +833,7 @@ class PlayState extends MusicBeatState {
                 for (sus in 0...totalSustains) {
                     var susTime = n.time + (stepCrochet * (sus + 1));
                     var isEnd = (sus == totalSustains - 1);
-                    var sustainNode = new Note(susTime, n.direction, n.sustainLength, mainNote, true, isEnd, n.mustPress, n.type);
+                    var sustainNode = new Note(susTime, n.direction, n.sustainLength, mainNote, true, isEnd, n.mustPress, n.type, noteSkin);
                     mainNote.tail.push(sustainNode);
                     unspawnNotes.push(sustainNode);
                 }
@@ -1205,6 +1221,8 @@ class PlayState extends MusicBeatState {
 
     private function spawnSplash(x:Float, y:Float, dir:Int):Void {
         var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+        var splashSkin = GameplayFlags.getString("defaultSplashSkin", "default");
+        if (splash.splashSkin != splashSkin) splash.loadSplashSkin(splashSkin);
         splash.spawnSplash(x, y, dir);
         grpNoteSplashes.add(splash);
     }

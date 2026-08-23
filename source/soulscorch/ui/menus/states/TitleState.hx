@@ -19,8 +19,6 @@ import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.states.MainMenuState;
-import soulscorch.ui.menus.states.TitleShaders;
-import soulscorch.graphics.shaders.SoulShader;
 
 using StringTools;
 
@@ -39,10 +37,7 @@ class TitleState extends MusicBeatState {
     private var transitioning:Bool = false;
     private var scripts:ScriptManager;
 
-    // Cool built-in effects
     private var fmodLogo:FlxSprite;
-    private var bootProgress:Float = 0.0;
-    private var bootGlitchShader:SoulShader;
 
     override public function create():Void {
         super.create();
@@ -52,15 +47,6 @@ class TitleState extends MusicBeatState {
         #end
 
         FlxG.camera.bgColor = FlxColor.BLACK;
-
-        TitleShaders.init();
-        TitleShaders.applyAtmosphere(camGame);
-        bootGlitchShader = TitleShaders.bootGlitch;
-        if (bootGlitchShader != null) {
-            bootGlitchShader.setFloat("uProgress", 0.0);
-            bootGlitchShader.setFloat("uIntensity", 1.0);
-            camGame.addShader(bootGlitchShader);
-        }
 
         scripts = new ScriptManager();
         initTitleScripts();
@@ -131,7 +117,6 @@ class TitleState extends MusicBeatState {
             fmodLogo.updateHitbox();
             fmodLogo.screenCenter(X);
             fmodLogo.alpha = 0.0;
-            TitleShaders.applyHologram(fmodLogo);
             add(fmodLogo);
         }
         #else
@@ -256,17 +241,6 @@ class TitleState extends MusicBeatState {
                 #end
             }
 
-            // Reveal the whole screen from the boot glitch
-            if (bootGlitchShader != null) {
-                FlxTween.tween(this, {bootProgress: 1.0}, 0.6, {
-                    ease: FlxEase.circOut,
-                    onUpdate: function(_) { TitleShaders.setBootProgress(bootProgress); },
-                    onComplete: function(_) {
-                        if (camGame != null && bootGlitchShader != null) camGame.removeShader(bootGlitchShader);
-                    }
-                });
-            }
-
             skippedIntro = true;
             if (scripts != null) scripts.callAll("onSkipIntro");
         }
@@ -300,12 +274,6 @@ class TitleState extends MusicBeatState {
         }
         
         Conductor.update(elapsed);
-
-        TitleShaders.update(elapsed, curBeat);
-        if (bootGlitchShader != null && !skippedIntro) {
-            bootProgress = Math.min(1.0, bootProgress + elapsed * 0.35);
-            TitleShaders.setBootProgress(bootProgress);
-        }
 
         if (scripts != null) scripts.callAll("onUpdate", [elapsed]);
 
@@ -385,7 +353,6 @@ class TitleState extends MusicBeatState {
     }
 
     override public function destroy():Void {
-        TitleShaders.clear();
         if (scripts != null) {
             scripts.callAll("onDestroy");
             scripts.clear();

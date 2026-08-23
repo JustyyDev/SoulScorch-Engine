@@ -32,12 +32,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    env:
-      # Extra haxedefs injected into desktop builds. Empty by default.
-      # Set to "-DSOULSCORCH_FMOD" (and provide the FMOD low-level SDK on the
-      # runner) to build with the optional FMOD audio backend enabled.
-      SOULSCORCH_EXTRA_DEFS: ""
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -46,6 +40,11 @@ jobs:
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Install Native Linux Libraries
         if: matrix.os == 'ubuntu-latest'
@@ -90,28 +89,11 @@ jobs:
           haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
-          haxelib install hscript-iris --quiet --always
+          haxelib install hscript-iris 1.1.0 --quiet --always
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-          # Install linc_fmod only when FMOD is enabled on the runner (PowerShell-compatible)
-          if ( ($env:FMOD_SDK -ne $null -and $env:FMOD_SDK -ne '') -or ($env:ENABLE_FMOD -eq '1') ) {
-            Write-Host 'FMOD enabled on runner; installing linc_fmod'
-            haxelib install linc_fmod --quiet --always
-          } else {
-            Write-Host 'Skipping linc_fmod (FMOD disabled)'
-          }
-          haxelib install nape --quiet --always
-          haxelib install seedyrng --quiet --always
-          haxelib install hxbit --quiet --always
-          haxelib install haxe-strings --quiet --always
-          haxelib install actuate --quiet --always
-          haxelib install thx.core --quiet --always
-          haxelib install hxhttp --quiet --always
-          haxelib install systools --quiet --always
-          haxelib install markdown --quiet --always
-          haxelib install heaps --quiet --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
@@ -126,27 +108,11 @@ jobs:
           haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
-          haxelib install hscript-iris --quiet --always
+          haxelib install hscript-iris 1.1.0 --quiet --always
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-          # Install linc_fmod only when FMOD is enabled on the runner
-          if [ -n "$FMOD_SDK" ] || [ "$ENABLE_FMOD" = "1" ]; then
-            haxelib install linc_fmod --quiet --always
-          else
-            echo "Skipping linc_fmod (FMOD disabled)"
-          fi
-          haxelib install nape --quiet --always
-          haxelib install seedyrng --quiet --always
-          haxelib install hxbit --quiet --always
-          haxelib install haxe-strings --quiet --always
-          haxelib install actuate --quiet --always
-          haxelib install thx.core --quiet --always
-          haxelib install hxhttp --quiet --always
-          haxelib install systools --quiet --always
-          haxelib install markdown --quiet --always
-          haxelib install heaps --quiet --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
@@ -164,7 +130,7 @@ jobs:
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
-          python3 -c '
+          python -c '
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "flixel"], capture_output=True, text=True)
           flixel_path = res.stdout.strip().splitlines()[-1]
@@ -179,15 +145,13 @@ jobs:
           '
 
       - name: Compile SoulScorch Engine
-        # -DSOULSCORCH_LUAJIT enables the native Lua scripting backend (matches project.xml).
-        # SOULSCORCH_EXTRA_DEFS is empty by default; set it to -DSOULSCORCH_FMOD to opt into FMOD.
-        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH -DSOULSCORCH_LUAJIT ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH
         env:
           HXCPP_COMPILE_THREADS: 8
 
       - name: Package Executable Archive (Universal Python Packager)
         run: |
-          python3 -c '
+          python -c '
           import os, sys, zipfile
 
           target = "${{ matrix.target }}".lower()

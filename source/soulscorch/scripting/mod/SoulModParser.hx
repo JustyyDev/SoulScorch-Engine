@@ -53,6 +53,7 @@ class SoulModParser {
 
             var globalScripts:Array<String> = [];
             var deps:Array<String> = [];
+            var nestedDescription:String = "";
 
             for (section in xml.elements) {
                 switch (section.name.toLowerCase()) {
@@ -70,6 +71,8 @@ class SoulModParser {
                                 if (n.length > 0) deps.push(n);
                             }
                         }
+                    case "description":
+                        nestedDescription = XMSoul.getAttr(section, "text", section.innerData != null ? section.innerData.trim() : "");
                 }
             }
 
@@ -81,7 +84,7 @@ class SoulModParser {
                 version: XMSoul.getAttr(xml, "version", "1.0.0"),
                 author: XMSoul.getAttr(xml, "author", "Unknown"),
                 api_version: XMSoul.getAttr(xml, "apiVersion", XMSoul.getAttr(xml, "api_version", "1.0.0")),
-                description: XMSoul.getAttr(xml, "description", ""),
+                description: XMSoul.getAttr(xml, "description", nestedDescription),
                 color: XMSoul.getAttr(xml, "color", "#FFFFFF"),
                 icon: XMSoul.getAttr(xml, "icon", "icon.png"),
                 global_scripts: globalScripts,

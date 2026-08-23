@@ -45,7 +45,7 @@ class Note extends FlxSprite {
     public var multSpeed:Float = 1.0;
     public var skinScale:Float = 0.7;
 
-    private static var _sharedClipRect:FlxRect = new FlxRect();
+    private var sustainClipRect:FlxRect = new FlxRect();
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -192,7 +192,7 @@ class Note extends FlxSprite {
         }
     }
 
-    public function playAnim(?songSpeed:Float = 2.0):Void {
+    public function playAnim(?songSpeed:Float = 1.0):Void {
         if (isSustainNote) {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") == null) setupAnimation();
@@ -208,12 +208,7 @@ class Note extends FlxSprite {
             } else {
                 if (animation.getByName("hold") == null) setupAnimation();
                 if (animation.getByName("hold") != null) animation.play("hold");
-                var stepHeight:Float = (Conductor.stepCrochet * 0.45 * (songSpeed * multSpeed));
-                var baseH:Float = (frameHeight > 0) ? frameHeight : 44.0;
-                
-                // FIXED: Changed overlapping padding from + 2.0 to + 0.5 to stop the body from bleeding over the tail
-                scale.set(skinScale, (stepHeight + 0.5) / baseH); 
-                updateHitbox();
+                resizeSustainBody(songSpeed);
             }
         } else {
             if (animation.getByName("scroll") == null) setupAnimation();
@@ -223,10 +218,18 @@ class Note extends FlxSprite {
         }
     }
 
+    private function resizeSustainBody(songSpeed:Float):Void {
+        var stepHeight:Float = Conductor.stepCrochet * 0.45 * songSpeed * multSpeed;
+        var baseHeight:Float = (frameHeight > 0) ? frameHeight : 44.0;
+        scale.set(skinScale, (stepHeight + 0.5) / baseHeight);
+        updateHitbox();
+    }
+
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
         var currentSpeed:Float = songSpeed * multSpeed;
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * currentSpeed);
-        var stepHeight:Float = (Conductor.stepCrochet * 0.45 * currentSpeed);
+
+        if (isSustainNote && !isSustainEnd) resizeSustainBody(songSpeed);
 
         x = strumX + ((StrumArrow.STRUM_SIZE - width) * 0.5) + offsetX;
 
@@ -234,26 +237,21 @@ class Note extends FlxSprite {
             flipY = downscroll;
 
             if (downscroll) {
-                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) - distance - height + stepHeight + offsetY;
-                // Nudge downscroll flipped tails exactly onto the body line
-                if (isSustainEnd) {
-                    y += 1.5; 
-                }
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) - distance + offsetY;
             } else {
-                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) + distance - stepHeight + offsetY;
+                y = strumY + (StrumArrow.STRUM_SIZE * 0.5) + distance - height + offsetY;
             }
 
             if (parent != null && parent.wasGoodHit && strumTime <= Conductor.songPosition + Conductor.stepCrochet) {
                 var strumCenterY = strumY + (StrumArrow.STRUM_SIZE * 0.5);
                 if (downscroll) {
-                    var clipHeight:Float = Math.max(0, (strumCenterY - y) / scale.y);
-                    _sharedClipRect.set(0, 0, frameWidth, clipHeight);
-                    clipRect = _sharedClipRect;
+                    var clipHeight:Float = FlxMath.bound((strumCenterY - y) / scale.y, 0, frameHeight);
+                    sustainClipRect.set(0, 0, frameWidth, clipHeight);
                 } else {
-                    var clipHeight:Float = Math.max(0, (y + height - strumCenterY) / scale.y);
-                    _sharedClipRect.set(0, frameHeight - clipHeight, frameWidth, clipHeight);
-                    clipRect = _sharedClipRect;
+                    var clipTop:Float = FlxMath.bound((strumCenterY - y) / scale.y, 0, frameHeight);
+                    sustainClipRect.set(0, clipTop, frameWidth, frameHeight - clipTop);
                 }
+                clipRect = sustainClipRect;
             } else {
                 clipRect = null;
             }

@@ -123,8 +123,9 @@ class GameplayFlags {
         var key:String = rawKey.trim();
         if (key.indexOf(".") != -1) {
             var parts:Array<String> = key.split(".");
-            return parts[parts.length - 1];
+            key = parts[parts.length - 1];
         }
+        if (key.toLowerCase() == "middlescroll") return "middlescroll";
         return key;
     }
 
@@ -155,19 +156,7 @@ class GameplayFlags {
             if (FileSystem.exists(xp)) {
                 try {
                     var access = new Access(Xml.parse(File.getContent(xp)).firstElement());
-                    for (node in access.elements) {
-                        if (node.name.toLowerCase() == "flag") {
-                            var name = XMSoul.getAttr(node, "name", "");
-                            var val = XMSoul.getAttr(node, "value", "true");
-                            if (name.length > 0) set(name, val);
-                        } else if (node.name.toLowerCase() == "notecolors") {
-                            for (cNode in node.elements) {
-                                var lane = XMSoul.getIntAttr(cNode, "lane", -1);
-                                var colorVal = XMSoul.getColorAttr(cNode, "color", FlxColor.WHITE);
-                                if (lane >= 0) set('forcedLaneColor_$lane', colorVal);
-                            }
-                        }
-                    }
+                    loadFlagNodes(access);
                 } catch (e:Dynamic) {
                     Logger.warn('Failed parsing flags in $xp: $e', "flags");
                 }
@@ -175,5 +164,24 @@ class GameplayFlags {
             }
         }
         #end
+    }
+
+    private static function loadFlagNodes(parent:Access):Void {
+        for (node in parent.elements) {
+            switch (node.name.toLowerCase()) {
+                case "flag":
+                    var name = XMSoul.getAttr(node, "name", "");
+                    var val = XMSoul.getAttr(node, "value", "true");
+                    if (name.length > 0) set(name, val);
+                case "notecolors":
+                    for (colorNode in node.elements) {
+                        var lane = XMSoul.getIntAttr(colorNode, "lane", -1);
+                        var colorVal = XMSoul.getColorAttr(colorNode, "color", FlxColor.WHITE);
+                        if (lane >= 0) set('forcedLaneColor_$lane', colorVal);
+                    }
+                default:
+                    loadFlagNodes(node);
+            }
+        }
     }
 }

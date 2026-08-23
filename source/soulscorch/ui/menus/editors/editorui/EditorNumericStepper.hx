@@ -25,6 +25,8 @@ class EditorNumericStepper extends FlxSpriteGroup {
     private var border:FlxSprite;
     private var btnUp:FlxSprite;
     private var btnDown:FlxSprite;
+    private var btnUpText:FlxText;
+    private var btnDownText:FlxText;
 
     private var holdTimer:Float = 0.0;
     private var repeatTimer:Float = 0.0;
@@ -54,10 +56,10 @@ class EditorNumericStepper extends FlxSpriteGroup {
         this.onChange = onChange;
 
         var w = Std.int(width);
-        border = EditorTheme.makeRoundedRect(w, 32, 0xFF2F364D, EditorTheme.CORNER_SM);
+        border = EditorTheme.makeRoundedRect(w, 32, EditorTheme.PANEL_BORDER, EditorTheme.CORNER_SM);
         add(border);
 
-        bg = EditorTheme.makeRoundedRect(w - 2, 30, 0xFF141722, EditorTheme.CORNER_SM - 1);
+        bg = EditorTheme.makeRoundedRect(w - 2, 30, EditorTheme.BG_DARK, EditorTheme.CORNER_SM - 1);
         bg.setPosition(1, 1);
         add(bg);
 
@@ -66,16 +68,24 @@ class EditorNumericStepper extends FlxSpriteGroup {
         add(label);
 
         valueText = new FlxText(width * 0.45, 8, width * 0.55 - 34, Std.string(initialValue), 13);
-        valueText.setFormat(Paths.font("vcr"), 13, 0xFF00FFCC, RIGHT);
+        valueText.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_HIGHLIGHT, RIGHT);
         add(valueText);
 
-        btnUp = EditorTheme.makeRoundedRect(26, 13, 0xFF22283A, 4);
+        btnUp = EditorTheme.makeRoundedRect(26, 13, EditorTheme.BTN_IDLE, 4);
         btnUp.setPosition(width - 28, 2);
         add(btnUp);
 
-        btnDown = EditorTheme.makeRoundedRect(26, 13, 0xFF22283A, 4);
+        btnDown = EditorTheme.makeRoundedRect(26, 13, EditorTheme.BTN_IDLE, 4);
         btnDown.setPosition(width - 28, 17);
         add(btnDown);
+
+        btnUpText = new FlxText(width - 28, 0, 26, "+", 11);
+        btnUpText.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_PRIMARY, CENTER);
+        add(btnUpText);
+
+        btnDownText = new FlxText(width - 28, 15, 26, "-", 11);
+        btnDownText.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_PRIMARY, CENTER);
+        add(btnDownText);
 
         this.value = initialValue;
         scrollFactor.set(0, 0);
@@ -110,8 +120,8 @@ class EditorNumericStepper extends FlxSpriteGroup {
         var inUpBtn = (mousePos.x >= x + bg.width - 28 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 2 && mousePos.y <= y + 15);
         var inDownBtn = (mousePos.x >= x + bg.width - 28 && mousePos.x <= x + bg.width - 2 && mousePos.y >= y + 17 && mousePos.y <= y + 30);
 
-        if (btnUp != null) btnUp.color = inUpBtn ? 0xFF00FFCC : 0xFF22283A;
-        if (btnDown != null) btnDown.color = inDownBtn ? 0xFF00FFCC : 0xFF22283A;
+        if (btnUp != null) btnUp.color = inUpBtn ? EditorTheme.ACCENT_CYAN : EditorTheme.BTN_IDLE;
+        if (btnDown != null) btnDown.color = inDownBtn ? EditorTheme.ACCENT_CYAN : EditorTheme.BTN_IDLE;
 
         var mult = 1.0;
         if (FlxG.keys.pressed.SHIFT) mult = 10.0;

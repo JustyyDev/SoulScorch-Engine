@@ -141,6 +141,20 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                 var tag = node.name.toLowerCase();
 
                 switch (tag) {
+                    case "positions":
+                        for (positionNode in node.elements) {
+                            var targetPosition = switch (positionNode.name.toLowerCase()) {
+                                case "girlfriend", "gf": gfPosition;
+                                case "dad", "opponent": dadPosition;
+                                case "boyfriend", "bf", "player": boyfriendPosition;
+                                default: null;
+                            };
+                            if (targetPosition != null) {
+                                if (positionNode.has.x) targetPosition.x = Std.parseFloat(positionNode.att.x);
+                                if (positionNode.has.y) targetPosition.y = Std.parseFloat(positionNode.att.y);
+                            }
+                        }
+
                     case "girlfriend", "gf":
                         if (node.has.x) gfPosition.x = Std.parseFloat(node.att.x);
                         if (node.has.y) gfPosition.y = Std.parseFloat(node.att.y);

@@ -114,6 +114,7 @@ class HScriptIris implements ScriptInstance {
     public var customTexts:Map<String, FlxText> = new Map<String, FlxText>();
     public var activeTweens:Map<String, FlxTween> = new Map<String, FlxTween>();
     public var activeTimers:Map<String, FlxTimer> = new Map<String, FlxTimer>();
+    private var failedCallbacks:Map<String, Bool> = new Map<String, Bool>();
 
     #if SOULSCORCH_IRIS
     private var iris:Iris;
@@ -610,7 +611,7 @@ class HScriptIris implements ScriptInstance {
     }
 
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
-        if (!active) return null;
+        if (!active || failedCallbacks.exists(func)) return null;
 
         set("curBeat", Conductor.curBeat);
         set("curStep", Conductor.curStep);
@@ -631,6 +632,7 @@ class HScriptIris implements ScriptInstance {
                 }
                 return null;
             } catch (e:Dynamic) {
+                failedCallbacks.set(func, true);
                 Logger.warn('Iris call warning in $func ($path): $e', "iris");
                 return null;
             }
@@ -642,6 +644,7 @@ class HScriptIris implements ScriptInstance {
                 try {
                     return Reflect.callMethod(null, fn, (args != null) ? args : []);
                 } catch (e:Dynamic) {
+                    failedCallbacks.set(func, true);
                     Logger.warn('HScript call warning in $func ($path): $e', "hscript");
                     return null;
                 }
@@ -676,6 +679,7 @@ class HScriptIris implements ScriptInstance {
         for (tm in activeTimers) tm.cancel();
         activeTweens.clear();
         activeTimers.clear();
+        failedCallbacks.clear();
 
         for (s in customSprites) s.destroy();
         for (txt in customTexts) txt.destroy();

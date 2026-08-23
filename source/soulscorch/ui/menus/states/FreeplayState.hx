@@ -175,12 +175,12 @@ class FreeplayState extends MusicBeatState {
         scorePanel = new FlxSpriteGroup(FlxG.width - 440, 20);
         add(scorePanel);
 
+        var pBorder = new FlxSprite(-1, -1).makeGraphic(412, 127, EditorTheme.PANEL_BORDER);
+        scorePanel.add(pBorder);
+
         var pBg = new FlxSprite(0, 0).makeGraphic(410, 125, EditorTheme.PANEL_BG);
         pBg.alpha = 0.88;
         scorePanel.add(pBg);
-
-        var pBorder = new FlxSprite(-1, -1).makeGraphic(412, 127, EditorTheme.PANEL_BORDER);
-        scorePanel.add(pBorder);
 
         var accent = new FlxSprite(0, 0).makeGraphic(4, 125, EditorTheme.ACCENT_CYAN);
         scorePanel.add(accent);
@@ -335,7 +335,8 @@ class FreeplayState extends MusicBeatState {
                 alphabet.targetY = offset;
 
                 if (itemSlotIndices[slot] != songIndex) {
-                    alphabet.scrambleTo(songs[songIndex].title);
+                    // Song names are navigation data and should remain immediately readable.
+                    alphabet.text = songs[songIndex].title;
                     icon.changeIcon(songs[songIndex].character != null ? songs[songIndex].character : "face");
                     itemSlotIndices[slot] = songIndex;
 

@@ -15,13 +15,15 @@
 	<!-- Flixel 5.6.2 ConsoleUtil Private Access Fix for hscript 2.5.0+ -->
 	<haxeflag name="--macro" value="addGlobalMetadata('flixel.system.debug.console.ConsoleUtil', '@:access(hscript.Interp)')" />
 
-	<!-- Scripting Backends (Iris + Native LuaJIT Support) -->
+	<!-- Scripting Backends (Iris + Desktop Native LuaJIT Support) -->
     <haxelib name="hscript-iris" />
     <haxedef name="SOULSCORCH_IRIS" />
 
-    <haxelib name="linc_luajit" if="cpp" />
-    <haxedef name="LUA_ALLOWED" if="cpp" />
-    <haxedef name="SOULSCORCH_LUA" if="cpp" />
+	<section if="desktop" unless="mobile">
+		<haxelib name="linc_luajit" if="cpp" />
+		<haxedef name="LUA_ALLOWED" if="cpp" />
+		<haxedef name="SOULSCORCH_LUA" if="cpp" />
+	</section>
 	
 	<!-- Optional Video Codecs -->
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />

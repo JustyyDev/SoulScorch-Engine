@@ -9,6 +9,7 @@ import soulscorch.backend.utils.Logger;
 
 using StringTools;
 
+@:access(openfl.display.Shader)
 class SoulShader extends FlxShader {
     public var shaderName:String = "SoulShader";
     public var filter(get, null):ShaderFilter;
@@ -47,8 +48,8 @@ class SoulShader extends FlxShader {
                 'shaders/$rawFrag.frag',
                 '$rawFrag.frag',
                 'assets/shaders/$rawFrag.frag',
-                'data/shaders/$rawFrag.frag',
-                'mods/funkinsania/shaders/$rawFrag.frag'
+                'assets/preload/shaders/$rawFrag.frag',
+                'data/shaders/$rawFrag.frag'
             ];
 
             for (p in pathCandidates) {
@@ -69,6 +70,7 @@ class SoulShader extends FlxShader {
                 'shaders/$rawVert.vert',
                 '$rawVert.vert',
                 'assets/shaders/$rawVert.vert',
+                'assets/preload/shaders/$rawVert.vert',
                 'data/shaders/$rawVert.vert'
             ];
 
@@ -89,9 +91,19 @@ class SoulShader extends FlxShader {
 
         super();
 
+        __isGenerated = false;
+        __initGL();
+
         setFloatArray("iResolution", [FlxG.width, FlxG.height]);
         setFloat("iTime", 0.0);
         setFloat("u_time", 0.0);
+        setFloat("time", 0.0);
+    }
+
+    @:noCompletion
+    override function __initGL():Void {
+        __isGenerated = false;
+        super.__initGL();
     }
 
     public function update(elapsed:Float):Void {
@@ -108,83 +120,64 @@ class SoulShader extends FlxShader {
 
     public function setSampler2D(name:String, bitmap:BitmapData):Void {
         if (this.data == null) return;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop == null) {
-            prop = { input: bitmap };
-            Reflect.setField(this.data, name, prop);
-            return;
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null) {
+            prop.input = bitmap;
         }
-        prop.input = bitmap;
     }
 
     public function getFloat(name:String):Float {
         if (this.data == null) return 0.0;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop != null && prop.value != null && prop.value.length > 0) return prop.value[0];
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null && prop.value != null && prop.value.length > 0) {
+            return prop.value[0];
+        }
         return 0.0;
     }
 
     public function setFloat(name:String, value:Float):Void {
         if (this.data == null) return;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop == null) {
-            prop = { value: [value] };
-            Reflect.setField(this.data, name, prop);
-            return;
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null) {
+            prop.value = [value];
         }
-        prop.value = [value];
     }
 
     public function setFloatArray(name:String, value:Array<Float>):Void {
         if (this.data == null) return;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop == null) {
-            prop = { value: value };
-            Reflect.setField(this.data, name, prop);
-            return;
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null) {
+            prop.value = value;
         }
-        prop.value = value;
     }
 
     public function setInt(name:String, value:Int):Void {
         if (this.data == null) return;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop == null) {
-            prop = { value: [value] };
-            Reflect.setField(this.data, name, prop);
-            return;
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null) {
+            prop.value = [value];
         }
-        prop.value = [value];
     }
 
     public function setBool(name:String, value:Bool):Void {
         if (this.data == null) return;
-        var prop:Dynamic = null;
-        if (Reflect.hasField(this.data, name)) prop = Reflect.field(this.data, name);
-        if (prop == null) {
-            prop = { value: [value] };
-            Reflect.setField(this.data, name, prop);
-            return;
+        var prop:Dynamic = Reflect.field(this.data, name);
+        if (prop != null) {
+            prop.value = [value];
         }
-        prop.value = [value];
     }
 
     // Dynamic uniform access so scripts can do: shader.redOff = [x, y];
     public function __setField(name:String, value:Dynamic):Bool {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
+        if (this.data != null) {
             var prop:Dynamic = Reflect.field(this.data, name);
             if (prop != null) {
                 if (Std.isOfType(value, Array)) {
                     prop.value = value;
-                } else if (Std.isOfType(value, Float) || Std.isOfType(value, Int)) {
+                } else if (Std.isOfType(value, Float) || Std.isOfType(value, Int) || Std.isOfType(value, Bool)) {
                     prop.value = [value];
-                } else if (Std.isOfType(value, Bool)) {
-                    prop.value = [value];
+                } else if (Std.isOfType(value, BitmapData)) {
+                    prop.input = value;
                 } else {
                     prop.value = value;
                 }
@@ -195,7 +188,7 @@ class SoulShader extends FlxShader {
     }
 
     public function __getField(name:String):Dynamic {
-        if (this.data != null && Reflect.hasField(this.data, name)) {
+        if (this.data != null) {
             var prop:Dynamic = Reflect.field(this.data, name);
             if (prop != null) return prop.value;
         }
@@ -212,46 +205,72 @@ class SoulShader extends FlxShader {
     }
 
     public static function expandPragmas(src:String, isFragment:Bool):String {
-        var header = "
-            #ifdef GL_ES
-            precision mediump float;
-            #endif
-            varying vec2 openfl_TextureCoordv;
-            varying vec4 openfl_Alphav;
+        var header = isFragment ? "
+            varying float openfl_Alphav;
             varying vec4 openfl_ColorMultiplierv;
             varying vec4 openfl_ColorOffsetv;
+            varying vec2 openfl_TextureCoordv;
+
+            uniform bool hasTransform;
+            uniform bool hasColorTransform;
             uniform sampler2D bitmap;
-            uniform bool openfl_HasColorTransform;
-            // Common uniforms exposed to shaders
+
             uniform float iTime;
             uniform float u_time;
             uniform float time;
             uniform vec2 iResolution;
             uniform vec4 iMouse;
 
-            vec4 flixel_texture2D(sampler2D bitmap, vec2 coord) {
-                vec4 color = texture2D(bitmap, coord);
-                if (!openfl_HasColorTransform) {
-                    return color;
-                }
-                if (color.a == 0.0) {
-                    return vec4(0.0, 0.0, 0.0, 0.0);
-                }
-                vec4 transformed = color * openfl_ColorMultiplierv + openfl_ColorOffsetv;
-                return transformed;
+            vec4 flixel_texture2D(sampler2D source, vec2 coord) {
+                vec4 color = texture2D(source, coord);
+                if (!hasTransform) return color;
+                if (color.a == 0.0) return vec4(0.0);
+                if (!hasColorTransform) return color * openfl_Alphav;
+
+                color = vec4(color.rgb / color.a, color.a);
+                mat4 colorMultiplier = mat4(0.0);
+                colorMultiplier[0][0] = openfl_ColorMultiplierv.x;
+                colorMultiplier[1][1] = openfl_ColorMultiplierv.y;
+                colorMultiplier[2][2] = openfl_ColorMultiplierv.z;
+                colorMultiplier[3][3] = openfl_ColorMultiplierv.w;
+                color = clamp(openfl_ColorOffsetv + color * colorMultiplier, 0.0, 1.0);
+
+                if (color.a <= 0.0) return vec4(0.0);
+                return vec4(color.rgb * color.a * openfl_Alphav, color.a * openfl_Alphav);
             }
 
-            // Camera-space helpers used by engine shaders (chromatic aberration, vignette, etc.)
             vec2 getCamPos(vec2 uv) {
                 return uv;
             }
 
-            vec4 textureCam(sampler2D bitmap, vec2 uv) {
-                return flixel_texture2D(bitmap, uv);
+            vec4 textureCam(sampler2D source, vec2 uv) {
+                return flixel_texture2D(source, uv);
             }
+        " : "
+            attribute float openfl_Alpha;
+            attribute vec4 openfl_ColorMultiplier;
+            attribute vec4 openfl_ColorOffset;
+            attribute vec4 openfl_Position;
+            attribute vec2 openfl_TextureCoord;
+
+            varying float openfl_Alphav;
+            varying vec4 openfl_ColorMultiplierv;
+            varying vec4 openfl_ColorOffsetv;
+            varying vec2 openfl_TextureCoordv;
+
+            uniform mat4 openfl_Matrix;
+            uniform bool openfl_HasColorTransform;
         ";
 
-        var body = isFragment ? "gl_FragColor = flixel_texture2D(bitmap, openfl_TextureCoordv);" : "gl_Position = openfl_Matrix * openfl_Position;";
+        var body = isFragment ?
+            "gl_FragColor = flixel_texture2D(bitmap, openfl_TextureCoordv);" :
+            "openfl_Alphav = openfl_Alpha;
+            openfl_TextureCoordv = openfl_TextureCoord;
+            if (openfl_HasColorTransform) {
+                openfl_ColorMultiplierv = openfl_ColorMultiplier;
+                openfl_ColorOffsetv = openfl_ColorOffset / 255.0;
+            }
+            gl_Position = openfl_Matrix * openfl_Position;";
 
         var result = src;
         if (result.indexOf("#pragma header") != -1) {

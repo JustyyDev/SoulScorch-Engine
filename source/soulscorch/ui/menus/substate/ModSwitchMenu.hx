@@ -20,7 +20,6 @@ import soulscorch.backend.system.modules.workshop.HomeSoulDBModule;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
-import soulscorch.scripting.mod.SoulGlobalScript;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
@@ -338,7 +337,6 @@ class ModSwitchMenu extends MusicBeatSubstate {
             Paths.clearStoredMemory();
             Paths.clearUnusedMemory();
             ModManager.reloadMods();
-            SoulGlobalScript.init();
             FlxG.resetState();
         } else {
             close();

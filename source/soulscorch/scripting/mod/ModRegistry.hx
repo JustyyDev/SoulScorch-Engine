@@ -53,7 +53,7 @@ class ModRegistry {
             }
         }
 
-        if (enabledMods.length == 0 && ModManager.allMods != null && ModManager.allMods.length > 0) {
+        if (rawList == null && ModManager.allMods != null && ModManager.allMods.length > 0) {
             enabledMods = ModManager.allMods.copy();
         }
 

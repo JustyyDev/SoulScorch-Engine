@@ -57,6 +57,8 @@ class AssetResolver {
             "",
             "images/ui/game/notes/",
             "ui/game/notes/",
+            "images/ui/game/splashes/",
+            "ui/game/splashes/",
             "images/ui/game/",
             "ui/game/",
             "data/ui/",

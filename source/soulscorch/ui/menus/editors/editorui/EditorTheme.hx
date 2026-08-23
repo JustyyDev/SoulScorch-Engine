@@ -7,38 +7,38 @@ import openfl.display.BitmapData;
 
 class EditorTheme {
     // --- Core surfaces ---
-    public static inline var BG_DARK:FlxColor = 0xFF0B0910;
-    public static inline var PANEL_BG:FlxColor = 0xEE16121F;
-    public static inline var PANEL_HEADER:FlxColor = 0xFF1E1830;
-    public static inline var PANEL_BORDER:FlxColor = 0xFF322A47;
+    public static inline var BG_DARK:FlxColor = 0xFF101417;
+    public static inline var PANEL_BG:FlxColor = 0xF21A2024;
+    public static inline var PANEL_HEADER:FlxColor = 0xFF222A2F;
+    public static inline var PANEL_BORDER:FlxColor = 0xFF3A474E;
 
     // --- Accents ---
-    public static inline var ACCENT_CYAN:FlxColor = 0xFF20F1C8;
-    public static inline var ACCENT_MAGENTA:FlxColor = 0xFFFF0055;
-    public static inline var ACCENT_PURPLE:FlxColor = 0xFF8A3FFC;
-    public static inline var ACCENT_YELLOW:FlxColor = 0xFFFFD700;
-    public static inline var ACCENT_BLUE:FlxColor = 0xFF2D9BFF;
+    public static inline var ACCENT_CYAN:FlxColor = 0xFF35D0BA;
+    public static inline var ACCENT_MAGENTA:FlxColor = 0xFFFF5C77;
+    public static inline var ACCENT_PURPLE:FlxColor = 0xFF9B8AFB;
+    public static inline var ACCENT_YELLOW:FlxColor = 0xFFF4C95D;
+    public static inline var ACCENT_BLUE:FlxColor = 0xFF64A8FF;
 
     // --- Buttons ---
-    public static inline var BTN_IDLE:FlxColor = 0xFF231E33;
-    public static inline var BTN_HOVER:FlxColor = 0xFF352D4D;
-    public static inline var BTN_ACTIVE:FlxColor = 0xFF00FFCC;
+    public static inline var BTN_IDLE:FlxColor = 0xFF252D32;
+    public static inline var BTN_HOVER:FlxColor = 0xFF303B41;
+    public static inline var BTN_ACTIVE:FlxColor = 0xFF35D0BA;
 
     // --- Text ---
     public static inline var TEXT_PRIMARY:FlxColor = 0xFFFFFFFF;
-    public static inline var TEXT_MUTED:FlxColor = 0xFF9F9BAA;
-    public static inline var TEXT_HIGHLIGHT:FlxColor = 0xFF00FFCC;
-    public static inline var TEXT_DANGER:FlxColor = 0xFFFF3366;
+    public static inline var TEXT_MUTED:FlxColor = 0xFFAAB5BA;
+    public static inline var TEXT_HIGHLIGHT:FlxColor = 0xFF35D0BA;
+    public static inline var TEXT_DANGER:FlxColor = 0xFFFF6B7F;
 
     // --- Grid ---
-    public static inline var GRID_EVEN:FlxColor = 0xFF171321;
-    public static inline var GRID_ODD:FlxColor = 0xFF1D192B;
-    public static inline var GRID_SEPARATOR:FlxColor = 0xFF2F2845;
+    public static inline var GRID_EVEN:FlxColor = 0xFF171D20;
+    public static inline var GRID_ODD:FlxColor = 0xFF1D2529;
+    public static inline var GRID_SEPARATOR:FlxColor = 0xFF344047;
 
     // --- Geometry helpers ---
     public static inline var CORNER_SM:Int = 6;
-    public static inline var CORNER_MD:Int = 10;
-    public static inline var CORNER_LG:Int = 14;
+    public static inline var CORNER_MD:Int = 8;
+    public static inline var CORNER_LG:Int = 8;
 
     /**
      * Creates a FlxSprite containing a rounded-rectangle filled with `color`.

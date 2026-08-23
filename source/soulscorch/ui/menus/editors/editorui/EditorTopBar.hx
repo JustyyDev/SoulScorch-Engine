@@ -9,26 +9,26 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
-import soulscorch.ui.hud.Alphabet;
 
 class EditorTopBar extends FlxSpriteGroup {
-    public var titleText:Alphabet;
+    public var titleText:FlxText;
     private var buttons:Array<{name:String, callback:Void->Void, x:Float, w:Float, spr:FlxSprite}> = [];
 
     public function new(editorTitle:String) {
         super(0, 0);
 
-        var bg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 36, EditorTheme.PANEL_HEADER);
+        var bg = new FlxSprite(0, 0).makeGraphic(FlxG.width, 40, EditorTheme.PANEL_HEADER);
         add(bg);
 
-        var bottomBorder = new FlxSprite(0, 35).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
+        var bottomBorder = new FlxSprite(0, 39).makeGraphic(FlxG.width, 1, EditorTheme.ACCENT_CYAN);
+        bottomBorder.alpha = 0.7;
         add(bottomBorder);
 
-        var brandTag = new FlxSprite(10, 10).makeGraphic(4, 16, EditorTheme.ACCENT_CYAN);
+        var brandTag = new FlxSprite(10, 9).makeGraphic(3, 22, EditorTheme.ACCENT_CYAN);
         add(brandTag);
 
-        titleText = new Alphabet(20, 9, 'SOULSCORCH // $editorTitle', false);
-        titleText.scale.set(0.7, 0.7);
+        titleText = new FlxText(22, 10, FlxG.width * 0.42, 'SOULSCORCH  /  $editorTitle', 14);
+        titleText.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_PRIMARY, LEFT);
         add(titleText);
 
         scrollFactor.set(0, 0);
@@ -41,11 +41,11 @@ class EditorTopBar extends FlxSpriteGroup {
         var btnWidth:Float = Math.max(70, (name.length * 9.0) + 16.0);
         var btnX:Float = startX - btnWidth;
 
-        var buttonSprite = EditorTheme.makeRoundedRect(Std.int(btnWidth), 24, EditorTheme.BTN_IDLE, EditorTheme.CORNER_SM);
-        buttonSprite.setPosition(btnX, 6);
+        var buttonSprite = EditorTheme.makeRoundedRect(Std.int(btnWidth), 26, EditorTheme.BTN_IDLE, EditorTheme.CORNER_SM);
+        buttonSprite.setPosition(btnX, 7);
         add(buttonSprite);
 
-        var txt = new FlxText(btnX, 9, btnWidth, name, 12);
+        var txt = new FlxText(btnX, 11, btnWidth, name, 12);
         txt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, CENTER);
         add(txt);
 
@@ -59,7 +59,7 @@ class EditorTopBar extends FlxSpriteGroup {
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
         for (btn in buttons) {
-            var hovered = (mousePos.x >= btn.x && mousePos.x <= btn.x + btn.w && mousePos.y >= 4 && mousePos.y <= 30);
+            var hovered = (mousePos.x >= btn.x && mousePos.x <= btn.x + btn.w && mousePos.y >= 7 && mousePos.y <= 33);
             btn.spr.color = hovered ? EditorTheme.BTN_HOVER : EditorTheme.BTN_IDLE;
 
             if (hovered && FlxG.mouse.justPressed) {

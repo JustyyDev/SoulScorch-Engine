@@ -55,6 +55,7 @@ class SongLoader {
             song.title = XMSoul.getAttr(metaXml, "displayName", XMSoul.getAttr(metaXml, "title", song.title));
             song.bpm = XMSoul.getFloatAttr(metaXml, "bpm", song.bpm > 0 ? song.bpm : 100.0);
             song.needsVoices = XMSoul.getBoolAttr(metaXml, "needsVoices", false);
+            song.noteSkin = XMSoul.getAttr(metaXml, "noteSkin", song.noteSkin);
 
             if (metaXml.has.resolve("color")) {
                 var c:Null<FlxColor> = SongMetadataHelper.parseColor(metaXml.att.resolve("color"));
@@ -117,7 +118,16 @@ class SongLoader {
 
         if (chartXml == null) return false;
 
-        song.scrollSpeed = XMSoul.getFloatAttr(chartXml, "speed", song.scrollSpeed > 0 ? song.scrollSpeed : 1.0);
+        song.scrollSpeed = XMSoul.getFloatAttr(chartXml, "scrollSpeed",
+            XMSoul.getFloatAttr(chartXml, "speed", song.scrollSpeed > 0 ? song.scrollSpeed : 1.0));
+        song.stage = XMSoul.getAttr(chartXml, "stage", song.stage);
+
+        for (strumNode in chartXml.nodes.resolve("strumLine")) {
+            var strumSkin = XMSoul.getAttr(strumNode, "noteSkin", "");
+            if (strumSkin.length > 0 && song.noteSkin == "default") {
+                song.noteSkin = strumSkin;
+            }
+        }
         song.chart = new Chart(song.bpm, song.scrollSpeed);
 
         for (strumNode in chartXml.nodes.resolve("strumLine")) {

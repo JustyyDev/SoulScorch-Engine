@@ -27,10 +27,10 @@ class EditorButton extends FlxSpriteGroup {
     public var buttonWidth:Float;
     public var buttonHeight:Float;
 
-    private static inline var COLOR_NORMAL:Int = 0xFF1A1C28;
-    private static inline var COLOR_HOVER:Int = 0xFF25293C;
-    private static inline var COLOR_PRESS:Int = 0xFF10121A;
-    private static inline var COLOR_DISABLED:Int = 0xFF0D0F14;
+    private static inline var COLOR_NORMAL:Int = EditorTheme.BTN_IDLE;
+    private static inline var COLOR_HOVER:Int = EditorTheme.BTN_HOVER;
+    private static inline var COLOR_PRESS:Int = 0xFF171C1F;
+    private static inline var COLOR_DISABLED:Int = 0xFF171B1E;
 
     private var hoverTween:FlxTween;
 
@@ -44,27 +44,26 @@ class EditorButton extends FlxSpriteGroup {
         var h = Std.int(height);
 
         // Soft glow behind the button
-        glow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 10);
+        glow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_SM, 6);
         glow.alpha = 0.0;
         glow.color = EditorTheme.ACCENT_CYAN;
         add(glow);
 
         // Outer border frame (rounded)
-        border = EditorTheme.makeRoundedRect(w, h, 0xFF2F364D, EditorTheme.CORNER_MD);
+        border = EditorTheme.makeRoundedRect(w, h, EditorTheme.PANEL_BORDER, EditorTheme.CORNER_SM);
         add(border);
 
         // Main background body (rounded, inset)
-        bg = EditorTheme.makeRoundedRect(w - 2, h - 2, COLOR_NORMAL, EditorTheme.CORNER_MD - 1);
+        bg = EditorTheme.makeRoundedRect(w - 2, h - 2, COLOR_NORMAL, EditorTheme.CORNER_SM - 1);
         bg.setPosition(1, 1);
         add(bg);
 
         // Accent bottom line indicator
-        accentLine = new FlxSprite(1, height - 3).makeGraphic(Std.int(width - 2), 2, 0xFF00FFCC);
+        accentLine = new FlxSprite(1, height - 2).makeGraphic(Std.int(width - 2), 1, EditorTheme.ACCENT_CYAN);
         add(accentLine);
 
         label = new FlxText(4, (height - 16) * 0.5 - 1, width - 8, labelText, 13);
-        label.setFormat(Paths.font("vcr"), 13, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        label.borderSize = 1.0;
+        label.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, CENTER);
         add(label);
 
         scrollFactor.set(0, 0);
@@ -122,8 +121,8 @@ class EditorButton extends FlxSpriteGroup {
         } else {
             isPressed = false;
             bg.color = COLOR_NORMAL;
-            accentLine.color = 0xFF00FFCC;
-            border.color = 0xFF2F364D;
+            accentLine.color = EditorTheme.ACCENT_CYAN;
+            border.color = EditorTheme.PANEL_BORDER;
         }
 
         if (FlxG.mouse.justReleased) {

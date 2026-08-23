@@ -28,21 +28,21 @@ class EditorCheckbox extends FlxSpriteGroup {
         this.onChange = onChange;
         this.labelText = labelText;
 
-        boxBorder = EditorTheme.makeRoundedRect(22, 22, 0xFF2F364D, 5);
+        boxBorder = EditorTheme.makeRoundedRect(22, 22, EditorTheme.PANEL_BORDER, 5);
         boxBorder.setPosition(0, 2);
         add(boxBorder);
 
-        box = EditorTheme.makeRoundedRect(18, 18, 0xFF141722, 4);
+        box = EditorTheme.makeRoundedRect(18, 18, EditorTheme.BG_DARK, 4);
         box.setPosition(2, 4);
         add(box);
 
-        checkmark = new FlxSprite(5, 7).makeGraphic(12, 12, 0xFF00FFCC);
+        checkmark = EditorTheme.makeRoundedRect(12, 12, EditorTheme.ACCENT_CYAN, 3);
+        checkmark.setPosition(5, 7);
         checkmark.visible = initialChecked;
         add(checkmark);
 
         label = new FlxText(32, 4, 0, labelText, 13);
-        label.setFormat(Paths.font("vcr"), 13, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-        label.borderSize = 1.0;
+        label.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, LEFT);
         add(label);
 
         this.checked = initialChecked;
@@ -77,7 +77,7 @@ class EditorCheckbox extends FlxSpriteGroup {
 
         var isHovered:Bool = (mousePos.x >= x && mousePos.x <= x + totalWidth && mousePos.y >= y && mousePos.y <= y + 26);
         if (boxBorder != null) {
-            boxBorder.color = isHovered ? 0xFF00FFCC : 0xFF2F364D;
+            boxBorder.color = isHovered ? EditorTheme.ACCENT_CYAN : EditorTheme.PANEL_BORDER;
         }
 
         if (isHovered && FlxG.mouse.justPressed) {

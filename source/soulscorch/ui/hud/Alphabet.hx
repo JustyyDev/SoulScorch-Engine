@@ -247,6 +247,11 @@ class AlphaCharacter extends FlxSprite {
         this.character = char;
         this.isBold = bold;
         animation.destroyAnimations();
+
+        // A fallback glyph replaces this sprite's atlas frames. Restore the
+        // requested atlas before reusing the pooled character.
+        loadAtlasFrames(bold);
+        isValid = false;
         if (frames == null) {
             createFallbackCharacter(char, bold);
             return;
@@ -305,6 +310,7 @@ class Alphabet extends FlxSpriteGroup {
     private var typingTimer:FlxTimer;
     private var fullTextBuffer:String = "";
     private var visibleCharCount:Int = 0;
+    private var letterTextIndices:Array<Int> = [];
 
     public static inline var X_SPACING:Float = 2.0;
     public static inline var Y_SPACING:Float = 75.0;
@@ -319,12 +325,20 @@ class Alphabet extends FlxSpriteGroup {
 
     public function set_text(newText:String):String {
         newText = newText != null ? newText : "";
-        if (isTyping) {
-            // A scramble is in progress; remember the final text for when it finishes.
-            fullTextBuffer = newText;
-            return text;
+
+        var wasTyping = isTyping;
+        if (typingTimer != null) {
+            typingTimer.cancel();
+            typingTimer.destroy();
+            typingTimer = null;
         }
-        if (newText == text) return text;
+        isTyping = false;
+        fullTextBuffer = "";
+        visibleCharCount = 0;
+
+        // Rebuild even when the string is unchanged if a scramble was active,
+        // because the visible glyphs may still contain temporary characters.
+        if (newText == text && !wasTyping) return text;
         text = newText;
         clearLetters();
         createAlphabet(text);
@@ -346,6 +360,14 @@ class Alphabet extends FlxSpriteGroup {
         text = newText;
         clearLetters();
         createAlphabet(newText);
+
+        if (newText.length == 0) {
+            isTyping = false;
+            if (onTypingComplete != null) onTypingComplete();
+            return;
+        }
+
+        updateScramble();
         typingTimer = new FlxTimer().start(speed, function(tmr:FlxTimer) {
             visibleCharCount++;
             updateScramble();
@@ -357,20 +379,18 @@ class Alphabet extends FlxSpriteGroup {
                 }
                 if (onTypingComplete != null) onTypingComplete();
             }
-        });
+        }, newText.length);
     }
 
     private function updateScramble():Void {
         for (i in 0...letters.length) {
             var letter = letters[i];
-            if (i < visibleCharCount) {
-                var c = fullTextBuffer.charAt(i);
-                if (c == " " || c == "\n") {
-                    letter.visible = false;
-                } else {
-                    letter.visible = true;
-                    // Only re-setup the freshly revealed character; already-revealed ones stay put.
-                    if (i == visibleCharCount - 1) letter.setCharacter(c, bold);
+            var textIndex = letterTextIndices[i];
+            if (textIndex < visibleCharCount) {
+                letter.visible = true;
+                // Only update the newly revealed glyph; settled glyphs stay untouched.
+                if (textIndex == visibleCharCount - 1 || visibleCharCount >= fullTextBuffer.length) {
+                    letter.setCharacter(fullTextBuffer.charAt(textIndex), bold);
                 }
             } else {
                 var rc = AlphaCharacter.scrambleChars.charAt(FlxG.random.int(0, AlphaCharacter.scrambleChars.length - 1));
@@ -390,6 +410,7 @@ class Alphabet extends FlxSpriteGroup {
             remove(letter, true);
             letter.destroy();
         }
+        letterTextIndices = [];
         rows = 0;
     }
 
@@ -422,6 +443,7 @@ class Alphabet extends FlxSpriteGroup {
             letter.color = this.color;
             letter.letterOffset.x = curX;
             letters.push(letter);
+            letterTextIndices.push(i);
             rowLetters[rows].push(letter);
             add(letter);
 

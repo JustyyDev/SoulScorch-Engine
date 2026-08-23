@@ -6,9 +6,7 @@ import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
-import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
-import soulscorch.ui.hud.Alphabet;
 
 class EditorWindow extends FlxSpriteGroup {
     public var windowWidth:Float;
@@ -19,7 +17,7 @@ class EditorWindow extends FlxSpriteGroup {
     private var header:FlxSprite;
     private var border:FlxSprite;
     private var shadow:FlxSprite;
-    private var titleTxt:Alphabet;
+    private var titleTxt:FlxText;
     private var contentGroup:FlxSpriteGroup;
 
     private var isDragging:Bool = false;
@@ -33,8 +31,9 @@ class EditorWindow extends FlxSpriteGroup {
         var w = Std.int(width);
         var h = Std.int(height);
 
-        shadow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 12);
-        shadow.alpha = 0.5;
+        shadow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 8);
+        shadow.setPosition(2, 3);
+        shadow.alpha = 0.35;
         add(shadow);
 
         border = EditorTheme.makeRoundedRect(w + 2, h + 2, EditorTheme.PANEL_BORDER, EditorTheme.CORNER_MD);
@@ -44,18 +43,17 @@ class EditorWindow extends FlxSpriteGroup {
         bg = EditorTheme.makeRoundedRect(w, h, EditorTheme.PANEL_BG, EditorTheme.CORNER_MD);
         add(bg);
 
-        header = EditorTheme.makeRoundedRect(w, 28, EditorTheme.PANEL_HEADER, EditorTheme.CORNER_MD);
+        header = new FlxSprite(0, 0).makeGraphic(w, 32, EditorTheme.PANEL_HEADER);
         add(header);
 
-        var accentLine = new FlxSprite(0, 27).makeGraphic(Std.int(width), 1, EditorTheme.ACCENT_CYAN);
-        accentLine.alpha = 0.6;
+        var accentLine = new FlxSprite(0, 31).makeGraphic(Std.int(width), 1, EditorTheme.PANEL_BORDER);
         add(accentLine);
 
-        titleTxt = new Alphabet(8, 6, title, false);
-        titleTxt.scale.set(0.6, 0.6);
+        titleTxt = new FlxText(12, 8, width - 24, title.toUpperCase(), 12);
+        titleTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         add(titleTxt);
 
-        contentGroup = new FlxSpriteGroup(0, 30);
+        contentGroup = new FlxSpriteGroup(0, 34);
         add(contentGroup);
 
         dragOffset = FlxPoint.get(0, 0);
@@ -93,7 +91,7 @@ class EditorWindow extends FlxSpriteGroup {
 
     private function set_title(val:String):String {
         title = val;
-        if (titleTxt != null) titleTxt.text = val;
+        if (titleTxt != null) titleTxt.text = val.toUpperCase();
         return val;
     }
 

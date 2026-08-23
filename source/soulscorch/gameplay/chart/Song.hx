@@ -44,6 +44,7 @@ class Song {
     public var player1:String = "bf";
     public var player2:String = "dad";
     public var gfVersion:String = "gf";
+    public var noteSkin:String = "default";
     public var needsVoices:Bool = true;
     public var color:Null<FlxColor> = null;
     public var chart:Chart;
