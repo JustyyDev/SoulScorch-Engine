@@ -71,8 +71,9 @@ class LuaScript implements ScriptInstance {
             var code = AssetResolver.getText(fullPath);
             var result = LuaL.dostring(luaState, code);
             if (result != 0) {
-                var err = Lua.tostring(luaState, -1);
-                Logger.error('Lua compile error ($path): $err', "lua");
+                var rawErr = Lua.tostring(luaState, -1);
+                var humanError = formatHumanError(rawErr, path);
+                Logger.error(humanError, "lua");
                 active = false;
                 return false;
             }
@@ -81,7 +82,8 @@ class LuaScript implements ScriptInstance {
             call("onCreate");
             return true;
         } catch (e:Dynamic) {
-            Logger.error('Failed to initialize Lua state for $path: $e', "lua");
+            var humanError = '[Lua Exception] Failed to initialize script "$path":\n  -> Reason: $e';
+            Logger.error(humanError, "lua");
             active = false;
             return false;
         }
@@ -92,6 +94,44 @@ class LuaScript implements ScriptInstance {
         active = false;
         return false;
         #end
+    }
+
+    /**
+     * Parses raw Lua error strings and turns them into clean, human-readable explanations.
+     */
+    private function formatHumanError(rawError:String, scriptPath:String):String {
+        if (rawError == null) rawError = "Unknown Lua Error";
+        
+        var cleanErr = rawError.trim();
+        var lineNum:String = "Unknown Line";
+        
+        // Match common Lua error structures like "[string \"...\"]:14: expected near 'end'"
+        var lineRegex = ~/:(\d+):\s*(.*)/;
+        if (lineRegex.match(cleanErr)) {
+            lineNum = lineRegex.matched(1);
+            cleanErr = lineRegex.matched(2);
+        }
+
+        var readableDescription = cleanErr;
+        
+        // Translate cryptic syntax errors into beginner-friendly explanations
+        if (cleanErr.indexOf("expected 'end'") != -1 || cleanErr.indexOf("near '<eof>'") != -1) {
+            readableDescription = "You forgot to close an 'if', 'function', 'for', or block with an 'end'.";
+        } else if (cleanErr.indexOf("expected near") != -1) {
+            readableDescription = 'Syntax or punctuation error near this spot (check for missing commas, quotes, or brackets). Original: "$cleanErr"';
+        } else if (cleanErr.indexOf("attempt to index") != -1) {
+            readableDescription = "Tried to read a property or function on a variable/object that doesn't exist (it might be nil/null).";
+        } else if (cleanErr.indexOf("attempt to call") != -1) {
+            readableDescription = "Tried to call something as a function that isn't actually a function (check your spelling).";
+        }
+
+        return '\n==================================================' +
+               '\n [LUA SCRIPT ERROR]' +
+               '\n File Path : $scriptPath' +
+               '\n Line Number: $lineNum' +
+               '\n Issue     : $readableDescription' +
+               '\n Raw Error : $rawError' +
+               '\n==================================================';
     }
 
     #if (cpp && LUA_ALLOWED)
@@ -549,8 +589,9 @@ class LuaScript implements ScriptInstance {
                 }
             }
             if (Lua.pcall(luaState, argCount, 1, 0) != 0) {
-                var err = Lua.tostring(luaState, -1);
-                Logger.error('Lua runtime error in $func ($path): $err', "lua");
+                var rawErr = Lua.tostring(luaState, -1);
+                var humanError = formatHumanError(rawErr, path);
+                Logger.error(humanError, "lua");
                 Lua.pop(luaState, 1);
                 return null;
             }

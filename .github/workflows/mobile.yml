@@ -101,7 +101,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DSOULSCORCH_LUA
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUA
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -151,6 +151,7 @@ jobs:
           haxelib install flixel-ui 2.6.1 --quiet --always --skip-dependencies
           haxelib install hscript 2.4.0 --quiet --always
           haxelib set hscript 2.4.0
+          haxelib install hscript-iris --quiet --always
           haxelib install away3d --quiet --always
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
@@ -178,7 +179,7 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DSOULSCORCH_LUA
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUA
         env:
           HXCPP_COMPILE_THREADS: 8
 

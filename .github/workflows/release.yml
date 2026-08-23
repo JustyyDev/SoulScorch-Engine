@@ -109,10 +109,10 @@ jobs:
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
-      - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
+      - name: Rebuild Host Lime NDLL (macOS Fix)
         if: matrix.os == 'macos-14'
         run: |
-          haxelib run lime rebuild mac
+          haxelib run lime rebuild mac -release
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |

@@ -15,14 +15,13 @@
 	<!-- Flixel 5.6.2 ConsoleUtil Private Access Fix for hscript 2.5.0+ -->
 	<haxeflag name="--macro" value="addGlobalMetadata('flixel.system.debug.console.ConsoleUtil', '@:access(hscript.Interp)')" />
 
-	<!-- Scripting Backends (Iris + Optional LuaJIT Support) -->
+	<!-- Scripting Backends (Iris + Native LuaJIT Support) -->
     <haxelib name="hscript-iris" />
     <haxedef name="SOULSCORCH_IRIS" />
 
-    <!-- Optional LuaJIT Backend (Only compiles if linc_luajit is installed and allowed) -->
-    <haxelib name="linc_luajit" if="cpp and SOULSCORCH_LUA" />
-    <haxedef name="LUA_ALLOWED" if="cpp and SOULSCORCH_LUA" />
-    <haxedef name="SOULSCORCH_LUAJIT" if="cpp and SOULSCORCH_LUA" />
+    <haxelib name="linc_luajit" if="cpp" />
+    <haxedef name="LUA_ALLOWED" if="cpp" />
+    <haxedef name="SOULSCORCH_LUAJIT" if="cpp" />
 	
 	<!-- Optional Video Codecs -->
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
@@ -68,6 +67,10 @@
 
 	<!-- Completely Disable PCH to Avoid Stale Collisions -->
 	<set name="HXCPP_NO_PCH" value="1" />
+
+	<!-- Mobile Size & Symbol Stripping Optimizations -->
+	<haxedef name="HXCPP_STRIP_SYMBOLS" if="release" />
+	<haxedef name="NO_PRELOAD_ALL" if="mobile" />
 
 	<!-- Custom SoulScorch Defines -->
 	<haxedef name="SOULSCORCH_MODS_ENABLED" />
