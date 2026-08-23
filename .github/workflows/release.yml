@@ -58,9 +58,9 @@ jobs:
           path: |
             C:/haxelib
             C:/Users/runneradmin/.hxcpp
-          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-${{ hashFiles('project.xml', '**/*.hx') }}
           restore-keys: |
-            ${{ runner.os }}-haxelib-
+            ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-
 
       - name: Cache Haxelibs (Unix)
         if: matrix.os != 'windows-latest'

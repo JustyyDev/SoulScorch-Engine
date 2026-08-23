@@ -138,9 +138,9 @@ jobs:
           path: |
             ~/haxelib
             ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-ios-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-${{ hashFiles('project.xml', '**/*.hx') }}
           restore-keys: |
-            ${{ runner.os }}-haxelib-ios-
+            ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-
 
       - name: Install Haxelib Dependencies
         run: |
@@ -162,7 +162,7 @@ jobs:
 
       - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
         run: |
-          haxelib run lime rebuild mac
+          haxelib run lime rebuild mac -release
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
