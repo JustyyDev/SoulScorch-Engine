@@ -3,6 +3,7 @@ package soulscorch.backend.system;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxState;
+import soulscorch.graphics.shaders.SoulCamera;
 import flixel.FlxSubState;
 import flixel.util.FlxColor;
 import haxe.xml.Access;
@@ -28,9 +29,9 @@ class Scene extends FlxState implements IBeatReceiver {
     public var sceneName:String = "UnnamedScene";
 
     // Standard Multi-Camera Layout (Inherited by all sub-states)
-    public var camGame:FlxCamera;
-    public var camHUD:FlxCamera;
-    public var camOther:FlxCamera;
+    public var camGame:SoulCamera;
+    public var camHUD:SoulCamera;
+    public var camOther:SoulCamera;
 
     // Configurable Scene Parameters from .xmsoul
     public var defaultCamZoom:Float = 1.0;
@@ -97,9 +98,9 @@ class Scene extends FlxState implements IBeatReceiver {
     }
 
     public function setupCameras():Void {
-        camGame = new FlxCamera();
-        camHUD = new FlxCamera();
-        camOther = new FlxCamera();
+        camGame = new SoulCamera();
+        camHUD = new SoulCamera();
+        camOther = new SoulCamera();
 
         camGame.bgColor = defaultBgColor;
         camHUD.bgColor.alpha = 0;

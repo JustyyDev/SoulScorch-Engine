@@ -19,6 +19,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
+import soulscorch.gameplay.modchart.ModchartTypes.ModTarget;
 import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
@@ -222,6 +223,62 @@ class LuaScript implements ScriptInstance {
         });
         setLuaCallback("isModEnabled", function(mod:String) return ModRegistry.instance.isEnabled(mod));
         setLuaCallback("getActiveMods", function() return ModRegistry.instance.enabledMods);
+
+        // --- Modchart API ---
+        setLuaCallback("modchartSet", function(name:String, value:Float, ?target:String = "both", ?lane:Int = -1) {
+            if (PlayState.instance != null && PlayState.instance.modcharts != null) {
+                var tgt = (target == "opponent") ? OPPONENT : (target == "player") ? PLAYER : BOTH;
+                PlayState.instance.modcharts.set(name, value, tgt, lane);
+            }
+        });
+        setLuaCallback("modchartGet", function(name:String, ?target:String = "player", ?lane:Int = 0):Float {
+            if (PlayState.instance != null && PlayState.instance.modcharts != null) {
+                var tgt = (target == "opponent") ? OPPONENT : (target == "player") ? PLAYER : BOTH;
+                return PlayState.instance.modcharts.get(name, tgt, lane);
+            }
+            return 0.0;
+        });
+        setLuaCallback("modchartEvent", function(step:Float, name:String, value:Float, ?duration:Float = 0, ?ease:String = "linear", ?target:String = "both", ?lane:Int = -1) {
+            if (PlayState.instance != null && PlayState.instance.modcharts != null) {
+                var tgt = (target == "opponent") ? OPPONENT : (target == "player") ? PLAYER : BOTH;
+                PlayState.instance.modcharts.queueEvent(step, name, value, duration, ease, tgt, lane);
+            }
+        });
+
+        // --- Shader API ---
+        setLuaCallback("createShader", function(name:String):Dynamic {
+            return ShaderManager.instance.getShader(name);
+        });
+        setLuaCallback("setShaderFloatArray", function(shaderName:String, uniform:String, value:Array<Float>):Void {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s != null) s.setFloatArray(uniform, value);
+        });
+        setLuaCallback("setShaderInt", function(shaderName:String, uniform:String, value:Int):Void {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s != null) s.setInt(uniform, value);
+        });
+        setLuaCallback("addShaderToCam", function(shaderName:String, cameraName:String):Void {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s == null) return;
+            var cam:FlxCamera = switch (cameraName.toLowerCase()) {
+                case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
+                case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
+                case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
+                default: FlxG.camera;
+            };
+            if (cam != null) ShaderManager.instance.addShader(s, cam);
+        });
+        setLuaCallback("removeShaderFromCam", function(shaderName:String, cameraName:String):Void {
+            var s = ShaderManager.instance.getShader(shaderName);
+            if (s == null) return;
+            var cam:FlxCamera = switch (cameraName.toLowerCase()) {
+                case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
+                case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
+                case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
+                default: FlxG.camera;
+            };
+            if (cam != null) ShaderManager.instance.removeShader(s, cam);
+        });
     }
 
     private function setLuaCallback(name:String, func:Dynamic):Void {

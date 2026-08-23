@@ -43,6 +43,16 @@ class ModchartManager {
         registerModifier(new StealthModifier());
         registerModifier(new InvertModifier());
         registerModifier(new FlipModifier());
+        registerModifier(new MiniModifier());
+        registerModifier(new SpinModifier());
+        registerModifier(new WaveModifier());
+        registerModifier(new SquareModifier());
+        registerModifier(new CrossoverModifier());
+        registerModifier(new XModifier());
+        registerModifier(new YModifier());
+        registerModifier(new AlphaModifier());
+        registerModifier(new DrawDistanceModifier());
+        registerModifier(new PulseModifier());
     }
 
     public function registerModifier(mod:Modifier):Void {

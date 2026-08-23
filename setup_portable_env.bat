@@ -60,6 +60,7 @@ echo.
 "%HAXE_DIR%\haxelib.exe" set hscript 2.4.0
 "%HAXE_DIR%\haxelib.exe" install hscript-iris 1.1.0 --always --quiet
 "%HAXE_DIR%\haxelib.exe" install away3d --always --quiet
+"%HAXE_DIR%\haxelib.exe" install linc_fmod --always --quiet
 
 :: Optional C++ / native dependencies if Git is available
 echo [*] Checking optional git dependencies...

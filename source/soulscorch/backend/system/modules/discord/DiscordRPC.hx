@@ -65,7 +65,7 @@ class DiscordRPC extends ModuleBase {
         super("discord_rpc");
         instance = this;
         
-        #if (cpp || hl)
+        #if ((cpp && !mobile && !neko) || (hl && sys))
         if (mutex == null) mutex = new Mutex();
         #end
 

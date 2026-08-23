@@ -16,6 +16,9 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
 
+    env:
+      SOULSCORCH_EXTRA_DEFS: ""
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -56,7 +59,7 @@ jobs:
           path: |
             ~/haxelib
             ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-android-${{ hashFiles('**/Project.xml', '**/*.hx') }}
+          key: ${{ runner.os }}-haxelib-android-${{ hashFiles('**/project.xml', '**/*.hx') }}
           restore-keys: |
             ${{ runner.os }}-haxelib-android-
 
@@ -102,7 +105,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUA
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUAJIT ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -123,6 +126,9 @@ jobs:
     name: Build iOS Xcode Project
     runs-on: macos-14
 
+    env:
+      SOULSCORCH_EXTRA_DEFS: ""
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -138,7 +144,7 @@ jobs:
           path: |
             ~/haxelib
             ~/.cache/hxcpp
-          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-${{ hashFiles('project.xml', '**/*.hx') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-${{ hashFiles('**/project.xml', '**/*.hx') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-
 
@@ -157,6 +163,17 @@ jobs:
           haxelib install hxcpp 4.3.2 --quiet --always
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
+          haxelib install linc_fmod --quiet --always
+          haxelib install nape --quiet --always
+          haxelib install seedyrng --quiet --always
+          haxelib install hxbit --quiet --always
+          haxelib install haxe-strings --quiet --always
+          haxelib install actuate --quiet --always
+          haxelib install thx.core --quiet --always
+          haxelib install hxhttp --quiet --always
+          haxelib install systools --quiet --always
+          haxelib install markdown --quiet --always
+          haxelib install heaps --quiet --always
           haxelib run lime setup -y
           haxelib run lime setup flixel -y
 
@@ -181,7 +198,7 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUA
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DSOULSCORCH_LUAJIT ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           HXCPP_COMPILE_THREADS: 8
 

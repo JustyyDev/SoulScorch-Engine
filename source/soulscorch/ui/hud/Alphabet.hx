@@ -2,6 +2,7 @@ package soulscorch.ui.hud;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.FlxGraphic;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
@@ -23,6 +24,11 @@ enum abstract Alignment(String) from String to String {
 class AlphaCharacter extends FlxSprite {
     public static var cachedFrames:FlxAtlasFrames = null;
     public static var cachedBoldFrames:FlxAtlasFrames = null;
+
+    // Cached rendered fallback glyphs (avoids re-rendering FlxText on every character).
+    private static var fallbackCache:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
+    // Characters cycled through during the scramble/typewriter intro effect.
+    public static var scrambleChars:String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@%&*?!$";
 
     public var character:String = "";
     public var row:Int = 0;
@@ -210,6 +216,13 @@ class AlphaCharacter extends FlxSprite {
     }
 
     private function createFallbackCharacter(char:String, bold:Bool):Void {
+        var cacheKey = (bold ? "b_" : "n_") + char;
+        if (fallbackCache.exists(cacheKey) && fallbackCache.get(cacheKey) != null) {
+            loadGraphic(fallbackCache.get(cacheKey));
+            isValid = true;
+            return;
+        }
+
         var size:Int = bold ? 48 : 36;
         var renderText = new FlxText(0, 0, 0, char, size);
         renderText.setFormat(Paths.font("vcr"), size, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
@@ -218,12 +231,30 @@ class AlphaCharacter extends FlxSprite {
 
         if (renderText.framePixels != null) {
             loadGraphic(renderText.framePixels);
+            if (graphic != null && !fallbackCache.exists(cacheKey)) {
+                fallbackCache.set(cacheKey, graphic);
+            }
         } else {
             makeGraphic(Std.int(Math.max(24, size * 0.6)), size, FlxColor.TRANSPARENT);
         }
 
         renderText.destroy();
         isValid = true;
+    }
+
+    // Reconfigure this sprite to display a different character WITHOUT allocating a new object.
+    public function setCharacter(char:String, bold:Bool = false):Void {
+        this.character = char;
+        this.isBold = bold;
+        animation.destroyAnimations();
+        if (frames == null) {
+            createFallbackCharacter(char, bold);
+            return;
+        }
+        if (bold) setupBold(char); else setupNormal(char);
+        if (!isValid) createFallbackCharacter(char, bold);
+        scale.set(0.85, 0.85);
+        updateHitbox();
     }
 
     private static inline function isAlpha(char:String):Bool {
@@ -264,6 +295,7 @@ class Alphabet extends FlxSpriteGroup {
 
     public var letters:Array<AlphaCharacter> = [];
     public var rows:Int = 0;
+    private var _rowLetters:Array<Array<AlphaCharacter>> = [[]];
 
     public var isTyping:Bool = false;
     public var typingSpeed:Float = 0.05;
@@ -286,12 +318,70 @@ class Alphabet extends FlxSpriteGroup {
     }
 
     public function set_text(newText:String):String {
-        text = newText != null ? newText : "";
-        if (!isTyping) {
-            clearLetters();
-            createAlphabet(text);
+        newText = newText != null ? newText : "";
+        if (isTyping) {
+            // A scramble is in progress; remember the final text for when it finishes.
+            fullTextBuffer = newText;
+            return text;
         }
+        if (newText == text) return text;
+        text = newText;
+        clearLetters();
+        createAlphabet(text);
         return text;
+    }
+
+    // The "cool" randomized character intro. Reuses the existing letter sprites and only
+    // swaps glyphs on a timer, so it never allocates or destroys sprites per frame.
+    public function scrambleTo(newText:String, ?speed:Float = 0.022):Void {
+        newText = newText != null ? newText : "";
+        if (typingTimer != null) {
+            typingTimer.cancel();
+            typingTimer.destroy();
+            typingTimer = null;
+        }
+        isTyping = true;
+        fullTextBuffer = newText;
+        visibleCharCount = 0;
+        text = newText;
+        clearLetters();
+        createAlphabet(newText);
+        typingTimer = new FlxTimer().start(speed, function(tmr:FlxTimer) {
+            visibleCharCount++;
+            updateScramble();
+            if (visibleCharCount >= newText.length) {
+                isTyping = false;
+                if (typingTimer != null) {
+                    typingTimer.destroy();
+                    typingTimer = null;
+                }
+                if (onTypingComplete != null) onTypingComplete();
+            }
+        });
+    }
+
+    private function updateScramble():Void {
+        for (i in 0...letters.length) {
+            var letter = letters[i];
+            if (i < visibleCharCount) {
+                var c = fullTextBuffer.charAt(i);
+                if (c == " " || c == "\n") {
+                    letter.visible = false;
+                } else {
+                    letter.visible = true;
+                    // Only re-setup the freshly revealed character; already-revealed ones stay put.
+                    if (i == visibleCharCount - 1) letter.setCharacter(c, bold);
+                }
+            } else {
+                var rc = AlphaCharacter.scrambleChars.charAt(FlxG.random.int(0, AlphaCharacter.scrambleChars.length - 1));
+                letter.visible = true;
+                letter.setCharacter(rc, bold);
+            }
+        }
+        // Re-align once the reveal completes so centered/right text settles cleanly.
+        if (visibleCharCount >= fullTextBuffer.length) {
+            applyAlignment(_rowLetters);
+        }
     }
 
     public function clearLetters():Void {
@@ -330,6 +420,7 @@ class Alphabet extends FlxSpriteGroup {
             letter.row = rows;
             letter.alpha = this.alpha;
             letter.color = this.color;
+            letter.letterOffset.x = curX;
             letters.push(letter);
             rowLetters[rows].push(letter);
             add(letter);
@@ -337,6 +428,7 @@ class Alphabet extends FlxSpriteGroup {
             curX += letter.width + X_SPACING;
         }
 
+        _rowLetters = rowLetters;
         applyAlignment(rowLetters);
     }
 
@@ -346,11 +438,11 @@ class Alphabet extends FlxSpriteGroup {
         for (row in rowLetters) {
             if (row.length == 0) continue;
 
-            var rowWidth:Float = (row[row.length - 1].x + row[row.length - 1].width) - row[0].x;
+            var rowWidth:Float = (row[row.length - 1].letterOffset.x + row[row.length - 1].width) - row[0].letterOffset.x;
             var offset:Float = (alignment == CENTER) ? -(rowWidth * 0.5) : -rowWidth;
 
             for (letter in row) {
-                letter.x += offset;
+                letter.x = letter.letterOffset.x + offset;
             }
         }
     }

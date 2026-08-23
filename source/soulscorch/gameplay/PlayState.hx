@@ -59,6 +59,7 @@ import soulscorch.gameplay.stage.Stage;
 import soulscorch.graphics.FunkinSprite;
 import soulscorch.graphics.JuiceManager;
 import soulscorch.graphics.shaders.ShaderManager;
+import soulscorch.graphics.shaders.SoulCamera;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.menus.states.ResultsState;
 import soulscorch.ui.menus.substate.GameOverSubState;
@@ -92,7 +93,7 @@ class PlayState extends MusicBeatState {
     public var judgementManager:JudgementManager;
 
     // --- Cameras & Viewports ---
-    public var camControls:FlxCamera;
+    public var camControls:SoulCamera;
     public var defaultHUDZoom:Float = 1.0;
     public var camFollow:FlxObject;
     public var camFollowPos:FlxObject;
@@ -290,14 +291,14 @@ class PlayState extends MusicBeatState {
     }
 
     override public function setupCameras():Void {
-        camGame = new FlxCamera();
-        camHUD = new FlxCamera();
+        camGame = new SoulCamera();
+        camHUD = new SoulCamera();
         camHUD.bgColor = FlxColor.TRANSPARENT;
 
-        camControls = new FlxCamera();
+        camControls = new SoulCamera();
         camControls.bgColor = FlxColor.TRANSPARENT;
 
-        camOther = new FlxCamera();
+        camOther = new SoulCamera();
         camOther.bgColor = FlxColor.TRANSPARENT;
 
         FlxG.cameras.reset(camGame);
@@ -709,8 +710,13 @@ class PlayState extends MusicBeatState {
 
         // Modcharts & VFX
         scripts.setAll("modcharts", modcharts);
+        scripts.setAll("ModchartManager", soulscorch.gameplay.modchart.ModchartManager);
         scripts.setAll("ShaderManager", soulscorch.graphics.shaders.ShaderManager.instance);
+        scripts.setAll("SoulShader", soulscorch.graphics.shaders.SoulShader);
+        scripts.setAll("CustomShader", soulscorch.graphics.shaders.SoulShader);
+        scripts.setAll("ShaderFilter", openfl.filters.ShaderFilter);
         scripts.setAll("JuiceManager", soulscorch.graphics.JuiceManager);
+        scripts.setAll("TitleShaders", soulscorch.ui.menus.states.TitleShaders);
 
         // Flixel Standard
         scripts.setAll("FlxG", flixel.FlxG);

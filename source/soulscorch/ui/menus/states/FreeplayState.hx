@@ -335,7 +335,7 @@ class FreeplayState extends MusicBeatState {
                 alphabet.targetY = offset;
 
                 if (itemSlotIndices[slot] != songIndex) {
-                    alphabet.text = songs[songIndex].title;
+                    alphabet.scrambleTo(songs[songIndex].title);
                     icon.changeIcon(songs[songIndex].character != null ? songs[songIndex].character : "face");
                     itemSlotIndices[slot] = songIndex;
 

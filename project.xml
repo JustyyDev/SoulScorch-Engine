@@ -21,7 +21,7 @@
 
     <haxelib name="linc_luajit" if="cpp" />
     <haxedef name="LUA_ALLOWED" if="cpp" />
-    <haxedef name="SOULSCORCH_LUAJIT" if="cpp" />
+    <haxedef name="SOULSCORCH_LUA" if="cpp" />
 	
 	<!-- Optional Video Codecs -->
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
@@ -57,12 +57,14 @@
 	<!-- External Mods Folder (Kept at Root for Modders) -->
 	<assets path="mods" rename="mods" embed="false" unless="mobile" />
 
+	<!-- Shared Engine Assets (logos, built-in art, etc.) -->
+	<assets path="assets/shared" rename="assets/shared" embed="false" unless="mobile" />
+
 	<!-- Engine Optimization & Crash Prevention Flags -->
 	<haxedef name="FLX_NO_DEBUG" unless="debug" />
 	<haxedef name="FLX_NO_FOCUS_LOST_SCREEN" />
 	<haxedef name="analyzer-optimize" unless="debug" />
 	<haxedef name="message.reporting" value="pretty" />
-	<haxedef name="NAPE_RELEASE_BUILD" unless="debug" />
 	<haxedef name="hscriptPos" />
 
 	<!-- Completely Disable PCH to Avoid Stale Collisions -->
@@ -76,6 +78,58 @@
 	<haxedef name="SOULSCORCH_MODS_ENABLED" />
 	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
+
+	<!-- Optional FMOD Audio Backend (requires `haxelib install linc_fmod`) -->
+	<!-- Uncomment the line below to build with FMOD audio support enabled -->
+	<haxedef name="SOULSCORCH_FMOD" if="cpp" />
+	<haxelib name="linc_fmod" if="SOULSCORCH_FMOD" />
+
+	<!-- Physics: NAPE (note-hit particles, soft-body UI, debris VFX) -->
+	<!-- The NAPE_RELEASE_BUILD define below is only meaningful once nape is enabled. -->
+	<!-- <haxedef name="SOULSCORCH_PHYSICS" /> -->
+	<!-- <haxelib name="nape" if="SOULSCORCH_PHYSICS" /> -->
+	<haxedef name="NAPE_RELEASE_BUILD" if="SOULSCORCH_PHYSICS" unless="debug" />
+
+	<!-- Deterministic RNG: seedyrng (seeded modcharts, replay/ghost support) -->
+	<!-- <haxedef name="SOULSCORCH_SEEDY" /> -->
+	<!-- <haxelib name="seedyrng" if="SOULSCORCH_SEEDY" /> -->
+
+	<!-- Serialization: hxbit (compact, fast save/replay/network state) -->
+	<!-- <haxedef name="SOULSCORCH_HXBIT" /> -->
+	<!-- <haxelib name="hxbit" if="SOULSCORCH_HXBIT" /> -->
+
+	<!-- String/parsing utils: haxe-strings (script arg parsing, chart text) -->
+	<!-- <haxedef name="SOULSCORCH_STRINGS" /> -->
+	<!-- <haxelib name="haxe-strings" if="SOULSCORCH_STRINGS" /> -->
+
+	<!-- Tweening: actuate (alternative to FlxTween for UI/transition polish) -->
+	<!-- <haxedef name="SOULSCORCH_ACTUATE" /> -->
+	<!-- <haxelib name="actuate" if="SOULSCORCH_ACTUATE" /> -->
+
+	<!-- Functional helpers: thx.core (math, option/either, ranges) -->
+	<!-- <haxedef name="SOULSCORCH_THX" /> -->
+	<!-- <haxelib name="thx.core" if="SOULSCORCH_THX" /> -->
+
+	<!-- Networking: hxhttp (online scores, mod download, update checks) -->
+	<!-- <haxedef name="SOULSCORCH_NET" /> -->
+	<!-- <haxelib name="hxhttp" if="SOULSCORCH_NET" /> -->
+
+	<!-- System integration: systools (registry/shortcuts, desktop launchers) -->
+	<!-- <haxedef name="SOULSCORCH_SYSTOOLS" if="desktop" /> -->
+	<!-- <haxelib name="systools" if="SOULSCORCH_SYSTOOLS" /> -->
+
+	<!-- Markdown: render mod READMEs / changelogs in-engine -->
+	<!-- <haxedef name="SOULSCORCH_MARKDOWN" /> -->
+	<!-- <haxelib name="markdown" if="SOULSCORCH_MARKDOWN" /> -->
+
+	<!-- 3D Rendering: soul3d (custom engine 3D layer) or away3d (already core) -->
+	<!-- away3d is already a core lib; use it for 3D title backdrops / stages. -->
+	<!-- <haxedef name="SOULSCORCH_3D" /> -->
+	<!-- <haxelib name="soul3d" if="SOULSCORCH_3D" /> -->
+
+	<!-- GPU Particles: heaps / hxsl for advanced VFX (title sparks, stage dust) -->
+	<!-- <haxedef name="SOULSCORCH_PARTICLES" /> -->
+	<!-- <haxelib name="heaps" if="SOULSCORCH_PARTICLES" /> -->
 
 	<!-- Warning Suppressions -->
 	<haxeflag name="-w" value="-WDeprecated" />

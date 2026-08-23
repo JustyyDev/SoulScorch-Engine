@@ -9,6 +9,10 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.utils.Logger;
 
+#if SOULSCORCH_FMOD
+import soulscorch.backend.audio.FmodAudioBackend;
+#end
+
 using StringTools;
 
 class AudioManager {
@@ -21,7 +25,18 @@ class AudioManager {
 
     public function new() {}
 
+    #if SOULSCORCH_FMOD
+    private inline function fmod():FmodAudioBackend {
+        FmodAudioBackend.instance.onSongComplete = onSongComplete;
+        return FmodAudioBackend.instance;
+    }
+    #end
+
     public function loadSong(songId:String):Bool {
+        #if SOULSCORCH_FMOD
+        if (fmod().loadSong(songId)) { isLoaded = true; return true; }
+        return false;
+        #else
         clear();
 
         var cleanSong = (songId != null && songId.trim().length > 0) ? songId.toLowerCase().trim() : "tutorial";
@@ -59,8 +74,14 @@ class AudioManager {
 
         isLoaded = true;
         return true;
+        #end
     }
 
+    #if SOULSCORCH_FMOD
+    public function loadVocalStem(path:String, isPlayer:Bool):Void {
+        fmod().loadVocalStem(path, isPlayer);
+    }
+    #else
     public function loadVocalStem(path:String, isPlayer:Bool):Void {
         var soundObj:Sound = Paths.sound(path);
 
@@ -89,7 +110,17 @@ class AudioManager {
             }
         }
     }
+    #end
 
+    #if SOULSCORCH_FMOD
+    public function play():Void { fmod().play(); }
+    public function pause():Void { fmod().pause(); }
+    public function resume():Void { fmod().resume(); }
+    public function stop():Void { fmod().stop(); }
+    public function fadeOut(duration:Float = 0.5, ?onComplete:Void->Void):Void { fmod().fadeOut(duration, onComplete); }
+    public function muteVocal(isPlayer:Bool, mute:Bool):Void { fmod().muteVocal(isPlayer, mute); }
+    public function update(elapsed:Float):Void { fmod().update(elapsed); }
+    #else
     public function play():Void {
         if (inst != null) {
             FlxTween.cancelTweensOf(inst);
@@ -179,6 +210,7 @@ class AudioManager {
     public function update(elapsed:Float):Void {
         syncVocals();
     }
+    #end
 
     public function cancelAudioTweens():Void {
         if (inst != null) FlxTween.cancelTweensOf(inst);
@@ -187,6 +219,9 @@ class AudioManager {
     }
 
     public function clear():Void {
+        #if SOULSCORCH_FMOD
+        fmod().clear();
+        #end
         cancelAudioTweens();
 
         if (inst != null) {

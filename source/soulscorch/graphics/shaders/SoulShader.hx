@@ -151,6 +151,43 @@ class SoulShader extends FlxShader {
         }
     }
 
+    // Dynamic uniform access so scripts can do: shader.redOff = [x, y];
+    public function __setField(name:String, value:Dynamic):Bool {
+        if (this.data != null && Reflect.hasField(this.data, name)) {
+            var prop:Dynamic = Reflect.field(this.data, name);
+            if (prop != null) {
+                if (Std.isOfType(value, Array)) {
+                    prop.value = value;
+                } else if (Std.isOfType(value, Float) || Std.isOfType(value, Int)) {
+                    prop.value = [value];
+                } else if (Std.isOfType(value, Bool)) {
+                    prop.value = [value];
+                } else {
+                    prop.value = value;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function __getField(name:String):Dynamic {
+        if (this.data != null && Reflect.hasField(this.data, name)) {
+            var prop:Dynamic = Reflect.field(this.data, name);
+            if (prop != null) return prop.value;
+        }
+        return null;
+    }
+
+    // Convenience helpers so scripts can do: shader.addTo(camGame); shader.removeFrom(camHUD);
+    public function addTo(camera:flixel.FlxCamera):Void {
+        soulscorch.graphics.shaders.ShaderManager.instance.addShader(this, camera);
+    }
+
+    public function removeFrom(camera:flixel.FlxCamera):Void {
+        soulscorch.graphics.shaders.ShaderManager.instance.removeShader(this, camera);
+    }
+
     public static function expandPragmas(src:String, isFragment:Bool):String {
         var header = "
             #ifdef GL_ES
@@ -162,7 +199,7 @@ class SoulShader extends FlxShader {
             varying vec4 openfl_ColorOffsetv;
             uniform sampler2D bitmap;
             uniform bool openfl_HasColorTransform;
-            
+
             vec4 flixel_texture2D(sampler2D bitmap, vec2 coord) {
                 vec4 color = texture2D(bitmap, coord);
                 if (!openfl_HasColorTransform) {
@@ -173,6 +210,15 @@ class SoulShader extends FlxShader {
                 }
                 vec4 transformed = color * openfl_ColorMultiplierv + openfl_ColorOffsetv;
                 return transformed;
+            }
+
+            // Camera-space helpers used by engine shaders (chromatic aberration, vignette, etc.)
+            vec2 getCamPos(vec2 uv) {
+                return uv;
+            }
+
+            vec4 textureCam(sampler2D bitmap, vec2 uv) {
+                return flixel_texture2D(bitmap, uv);
             }
         ";
 
