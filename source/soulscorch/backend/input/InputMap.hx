@@ -4,6 +4,9 @@ import flixel.FlxG;
 import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.keyboard.FlxKey;
+import openfl.Lib;
+import openfl.events.Event;
+import openfl.events.KeyboardEvent;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.utils.Logger;
 
@@ -13,6 +16,10 @@ class InputMap {
     public static var keyBinds:Map<String, Array<FlxKey>> = new Map<String, Array<FlxKey>>();
     public static var padBinds:Map<String, Array<FlxGamepadInputID>> = new Map<String, Array<FlxGamepadInputID>>();
     public static var mobilePad:MobilePad = null;
+    private static var nativeBound:Bool = false;
+    private static var nativeKeysHeld:Map<Int, Bool> = new Map<Int, Bool>();
+    private static var nativeKeysPressed:Map<Int, Bool> = new Map<Int, Bool>();
+    private static var nativeKeysReleased:Map<Int, Bool> = new Map<Int, Bool>();
 
     public static var defaultKeyBinds:Map<String, Array<FlxKey>> = [
         "note_left"   => [D, LEFT],
@@ -51,6 +58,37 @@ class InputMap {
 
     public static function init():Void {
         loadBindings();
+        bindNativeKeyboard();
+    }
+
+    private static function bindNativeKeyboard():Void {
+        if (nativeBound || Lib.current == null || Lib.current.stage == null) return;
+        nativeBound = true;
+        Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onNativeKeyDown);
+        Lib.current.stage.addEventListener(KeyboardEvent.KEY_UP, onNativeKeyUp);
+        Lib.current.stage.addEventListener(Event.DEACTIVATE, onNativeFocusLost);
+    }
+
+    private static function onNativeKeyDown(event:KeyboardEvent):Void {
+        if (!nativeKeysHeld.exists(event.keyCode)) nativeKeysPressed.set(event.keyCode, true);
+        nativeKeysReleased.remove(event.keyCode);
+        nativeKeysHeld.set(event.keyCode, true);
+    }
+
+    private static function onNativeKeyUp(event:KeyboardEvent):Void {
+        nativeKeysHeld.remove(event.keyCode);
+        nativeKeysPressed.remove(event.keyCode);
+        nativeKeysReleased.set(event.keyCode, true);
+    }
+
+    private static function onNativeFocusLost(_):Void {
+        nativeKeysHeld.clear();
+        clearNativeEdges();
+    }
+
+    private static function clearNativeEdges():Void {
+        nativeKeysPressed.clear();
+        nativeKeysReleased.clear();
     }
 
     public static function bindMobilePad(pad:MobilePad):Void {
@@ -167,6 +205,19 @@ class InputMap {
     private static function checkKeys(action:String, state:Int):Bool {
         var keys = keyBinds.get(action);
         if (keys == null || keys.length == 0) return false;
+
+        for (key in keys) {
+            var keyCode:Int = cast key;
+            if (state == 0 && nativeKeysHeld.exists(keyCode)) return true;
+            if (state == 1 && nativeKeysPressed.exists(keyCode)) {
+                nativeKeysPressed.remove(keyCode);
+                return true;
+            }
+            if (state == 2 && nativeKeysReleased.exists(keyCode)) {
+                nativeKeysReleased.remove(keyCode);
+                return true;
+            }
+        }
 
         return switch (state) {
             case 0: FlxG.keys.anyPressed(keys);

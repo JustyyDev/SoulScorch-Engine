@@ -28,6 +28,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.AudioManager;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.InputMap;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
@@ -1142,24 +1143,24 @@ class PlayState extends MusicBeatState {
         if (botplay) return;
 
         var keyPressed:Array<Bool> = [
-            FlxG.keys.pressed.LEFT || FlxG.keys.pressed.A || Controls.instance.notePressed(0),
-            FlxG.keys.pressed.DOWN || FlxG.keys.pressed.S || Controls.instance.notePressed(1),
-            FlxG.keys.pressed.UP || FlxG.keys.pressed.W || Controls.instance.notePressed(2),
-            FlxG.keys.pressed.RIGHT || FlxG.keys.pressed.D || Controls.instance.notePressed(3)
+            Controls.instance.notePressed(0),
+            Controls.instance.notePressed(1),
+            Controls.instance.notePressed(2),
+            Controls.instance.notePressed(3)
         ];
 
         var keyJustPressed:Array<Bool> = [
-            FlxG.keys.justPressed.LEFT || FlxG.keys.justPressed.A || Controls.instance.noteJustPressed(0),
-            FlxG.keys.justPressed.DOWN || FlxG.keys.justPressed.S || Controls.instance.noteJustPressed(1),
-            FlxG.keys.justPressed.UP || FlxG.keys.justPressed.W || Controls.instance.noteJustPressed(2),
-            FlxG.keys.justPressed.RIGHT || FlxG.keys.justPressed.D || Controls.instance.noteJustPressed(3)
+            Controls.instance.noteJustPressed(0),
+            Controls.instance.noteJustPressed(1),
+            Controls.instance.noteJustPressed(2),
+            Controls.instance.noteJustPressed(3)
         ];
 
         var keyJustReleased:Array<Bool> = [
-            FlxG.keys.justReleased.LEFT || FlxG.keys.justReleased.A || Controls.instance.noteJustReleased(0),
-            FlxG.keys.justReleased.DOWN || FlxG.keys.justReleased.S || Controls.instance.noteJustReleased(1),
-            FlxG.keys.justReleased.UP || FlxG.keys.justReleased.W || Controls.instance.noteJustReleased(2),
-            FlxG.keys.justReleased.RIGHT || FlxG.keys.justReleased.D || Controls.instance.noteJustReleased(3)
+            Controls.instance.noteJustReleased(0),
+            Controls.instance.noteJustReleased(1),
+            Controls.instance.noteJustReleased(2),
+            Controls.instance.noteJustReleased(3)
         ];
 
         for (i in 0...4) {
