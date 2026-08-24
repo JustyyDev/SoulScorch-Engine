@@ -116,6 +116,7 @@ class HScriptIris implements ScriptInstance {
     public var activeTweens:Map<String, FlxTween> = new Map<String, FlxTween>();
     public var activeTimers:Map<String, FlxTimer> = new Map<String, FlxTimer>();
     private var failedCallbacks:Map<String, Bool> = new Map<String, Bool>();
+    private var lastTimingSyncPosition:Float = Math.NaN;
 
     #if SOULSCORCH_IRIS
     private var iris:Iris;
@@ -615,9 +616,12 @@ class HScriptIris implements ScriptInstance {
     public function call(func:String, ?args:Array<Dynamic>):Dynamic {
         if (!active || failedCallbacks.exists(func)) return null;
 
-        set("curBeat", Conductor.curBeat);
-        set("curStep", Conductor.curStep);
-        set("songPosition", Conductor.songPosition);
+        if (lastTimingSyncPosition != Conductor.songPosition) {
+            lastTimingSyncPosition = Conductor.songPosition;
+            set("curBeat", Conductor.curBeat);
+            set("curStep", Conductor.curStep);
+            set("songPosition", Conductor.songPosition);
+        }
 
         #if SOULSCORCH_IRIS
         if (iris != null) {

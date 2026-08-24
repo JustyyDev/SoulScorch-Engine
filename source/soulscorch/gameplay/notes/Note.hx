@@ -48,6 +48,7 @@ class Note extends FlxSprite {
     public var skinScale:Float = 0.7;
 
     private var sustainClipRect:FlxRect = new FlxRect();
+    private var lastSustainSpeed:Float = -1.0;
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -218,6 +219,7 @@ class Note extends FlxSprite {
         var baseHeight:Float = (frameHeight > 0) ? frameHeight : 44.0;
         scale.set(skinScale, (stepHeight + SUSTAIN_OVERLAP) / baseHeight);
         updateHitbox();
+        lastSustainSpeed = songSpeed * multSpeed;
     }
 
     private function resizeSustainEnd(songSpeed:Float):Void {
@@ -226,13 +228,14 @@ class Note extends FlxSprite {
         var endScaleY:Float = Math.max(skinScale, (stepHeight + SUSTAIN_OVERLAP) / baseHeight);
         scale.set(skinScale, endScaleY);
         updateHitbox();
+        lastSustainSpeed = songSpeed * multSpeed;
     }
 
     public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
         var currentSpeed:Float = songSpeed * multSpeed;
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * currentSpeed);
 
-        if (isSustainNote) {
+        if (isSustainNote && lastSustainSpeed != currentSpeed) {
             if (isSustainEnd) resizeSustainEnd(songSpeed); else resizeSustainBody(songSpeed);
         }
 

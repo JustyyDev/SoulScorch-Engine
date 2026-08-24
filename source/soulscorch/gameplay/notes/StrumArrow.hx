@@ -103,8 +103,10 @@ class StrumArrow extends FlxSprite {
         scale.set(skinScale, skinScale);
         updateHitbox();
 
-        offset.x += (frameWidth * skinScale - STRUM_SIZE) * 0.5;
-        offset.y += (frameHeight * skinScale - STRUM_SIZE) * 0.5;
+        offset.set(
+            (frameWidth - (STRUM_SIZE / skinScale)) * 0.5,
+            (frameHeight - (STRUM_SIZE / skinScale)) * 0.5
+        );
     }
 
     override public function update(elapsed:Float):Void {

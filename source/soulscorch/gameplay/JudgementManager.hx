@@ -3,6 +3,7 @@ package soulscorch.gameplay;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.graphics.FlxGraphic;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.text.FlxText;
@@ -10,7 +11,6 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import haxe.xml.Access;
-import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.XMSoul;
@@ -51,6 +51,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
 
     public var targetCamera:FlxCamera;
     private var activeTweens:Map<FlxSprite, FlxTween> = new Map<FlxSprite, FlxTween>();
+    private var popupGraphics:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
 
     public function new(?camera:FlxCamera) {
         super();
@@ -58,6 +59,34 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         maxHealth = GameplayFlags.getFloat("maxHealth", 2.0);
         loadConfigFromXMSoul();
         updateWindows();
+        preloadPopupGraphics();
+    }
+
+    private function preloadPopupGraphics():Void {
+        for (name in ["marvelous", "sick", "good", "bad", "shit"]) {
+            cachePopupGraphic(name, ['ui/game/ratings/$name', 'ui/game/score/$name', 'ui/ratings/$name', name]);
+        }
+        for (digit in 0...10) {
+            var name = 'num$digit';
+            cachePopupGraphic(name, ['ui/game/ratings/$name', 'ui/game/score/$name', 'ui/ratings/$name', name]);
+        }
+    }
+
+    private function cachePopupGraphic(name:String, candidates:Array<String>):Void {
+        for (candidate in candidates) {
+            var graphic = Paths.graphic(candidate);
+            if (graphic != null) {
+                popupGraphics.set(name, graphic);
+                return;
+            }
+        }
+    }
+
+    private inline function loadPopupGraphic(sprite:FlxSprite, name:String):Bool {
+        var graphic = popupGraphics.get(name);
+        if (graphic == null) return false;
+        sprite.loadGraphic(graphic);
+        return true;
     }
 
     public function loadConfigFromXMSoul():Void {
@@ -126,7 +155,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         return result;
     }
 
-    public function registerHit(note:Note, result:Judgment, difference:Float = 0.0):Void {
+    public function registerHit(note:Note, result:Judgment, difference:Float = 0.0, ?healthGain:Null<Float>):Void {
         if (note == null || note.wasGoodHit || result == MISS) return;
 
         note.wasGoodHit = true;
@@ -151,7 +180,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         totalWeight += weight;
         accuracy = (totalWeight / totalNotesJudged) * 100.0;
 
-        health = Math.min(maxHealth, health + Judgment.healthModifier(result));
+        health = Math.min(maxHealth, health + (healthGain != null ? healthGain : Judgment.healthModifier(result)));
         if (onHealthChange != null) onHealthChange(health);
 
         showPopup(result, combo);
@@ -161,10 +190,16 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
     }
 
     public function miss(note:Note):Void {
-        if (note == null || (note.tooLate && note.wasGoodHit)) return;
+        registerMiss(note);
+    }
 
-        note.tooLate = true;
-        note.wasGoodHit = false;
+    public function registerMiss(?note:Note, ?healthPenalty:Null<Float>):Void {
+        if (note != null && note.tooLate && note.wasGoodHit) return;
+
+        if (note != null) {
+            note.tooLate = true;
+            note.wasGoodHit = false;
+        }
 
         combo = 0;
         misses++;
@@ -174,14 +209,14 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         // Apply penalty and deduct score slightly on miss
         score = Std.int(Math.max(0, score - 10));
 
-        var penalty:Float = GameplayFlags.getFloat("missPenalty", 0.085);
+        var penalty:Float = healthPenalty != null ? healthPenalty : GameplayFlags.getFloat("missPenalty", 0.085);
         health = Math.max(0.0, health - penalty);
         if (onHealthChange != null) onHealthChange(health);
 
         showPopup(MISS, 0);
         dispatchMiss();
 
-        if (onMiss != null) onMiss(note);
+        if (onMiss != null && note != null) onMiss(note);
     }
 
     private function showPopup(result:Judgment, currentCombo:Int):Void {
@@ -195,10 +230,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
             case MISS: "bad";
         };
 
-        var loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/ratings/$ratingName');
-        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/game/score/$ratingName');
-        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, 'ui/ratings/$ratingName');
-        if (!loaded) loaded = AssetHelper.loadGraphicSafely(ratingSpr, ratingName);
+        loadPopupGraphic(ratingSpr, ratingName);
 
         ratingSpr.cameras = (targetCamera != null) ? [targetCamera] : (cameras != null ? cameras : null);
         ratingSpr.scrollFactor.set(0, 0);
@@ -243,10 +275,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
                 var digit = comboStr.charAt(i);
                 var numSpr:FlxSprite = recycle(FlxSprite);
 
-                var numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/ratings/num$digit');
-                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/game/score/num$digit');
-                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'ui/ratings/num$digit');
-                if (!numLoaded) numLoaded = AssetHelper.loadGraphicSafely(numSpr, 'num$digit');
+                loadPopupGraphic(numSpr, 'num$digit');
 
                 numSpr.cameras = (targetCamera != null) ? [targetCamera] : (cameras != null ? cameras : null);
                 numSpr.scrollFactor.set(0, 0);
@@ -321,6 +350,7 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
             if (twn != null) twn.cancel();
         }
         activeTweens.clear();
+        popupGraphics.clear();
         targetCamera = null;
         super.destroy();
     }

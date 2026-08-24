@@ -64,9 +64,17 @@ class InputMap {
     private static function bindNativeKeyboard():Void {
         if (nativeBound || Lib.current == null || Lib.current.stage == null) return;
         nativeBound = true;
-        Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onNativeKeyDown);
-        Lib.current.stage.addEventListener(KeyboardEvent.KEY_UP, onNativeKeyUp);
+        Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onNativeKeyDown, true, 1000);
+        Lib.current.stage.addEventListener(KeyboardEvent.KEY_UP, onNativeKeyUp, true, 1000);
         Lib.current.stage.addEventListener(Event.DEACTIVATE, onNativeFocusLost);
+    }
+
+    public static function claimKeyboardFocus():Void {
+        bindNativeKeyboard();
+        nativeKeysHeld.clear();
+        clearNativeEdges();
+        if (Lib.current != null && Lib.current.stage != null) Lib.current.stage.focus = null;
+        if (FlxG.keys != null) FlxG.keys.reset();
     }
 
     private static function onNativeKeyDown(event:KeyboardEvent):Void {

@@ -30,6 +30,12 @@ class ScriptManager {
     
     // Cached global variable dictionary to inject into any new script
     public var presetVariables:Map<String, Dynamic> = new Map<String, Dynamic>();
+    private var syncedBeat:Int = -0x3FFFFFFF;
+    private var syncedStep:Int = -0x3FFFFFFF;
+    private var syncedSongPosition:Float = Math.NaN;
+    private var syncedBpm:Float = Math.NaN;
+    private var syncedStepCrochet:Float = Math.NaN;
+    private var syncedCrochet:Float = Math.NaN;
 
     public var isValid(get, never):Bool;
     public var active(get, never):Bool;
@@ -156,20 +162,36 @@ class ScriptManager {
     }
 
     private function syncTimingGlobals():Void {
-        var timingValues:Array<{key:String, value:Dynamic}> = [
-            {key: "curBeat", value: Conductor.curBeat},
-            {key: "curStep", value: Conductor.curStep},
-            {key: "songPosition", value: Conductor.songPosition},
-            {key: "bpm", value: Conductor.bpm},
-            {key: "stepCrochet", value: Conductor.stepCrochet},
-            {key: "crochet", value: Conductor.crochet}
-        ];
+        if (syncedBeat != Conductor.curBeat) {
+            syncedBeat = Conductor.curBeat;
+            syncTimingValue("curBeat", syncedBeat);
+        }
+        if (syncedStep != Conductor.curStep) {
+            syncedStep = Conductor.curStep;
+            syncTimingValue("curStep", syncedStep);
+        }
+        if (syncedSongPosition != Conductor.songPosition) {
+            syncedSongPosition = Conductor.songPosition;
+            syncTimingValue("songPosition", syncedSongPosition);
+        }
+        if (syncedBpm != Conductor.bpm) {
+            syncedBpm = Conductor.bpm;
+            syncTimingValue("bpm", syncedBpm);
+        }
+        if (syncedStepCrochet != Conductor.stepCrochet) {
+            syncedStepCrochet = Conductor.stepCrochet;
+            syncTimingValue("stepCrochet", syncedStepCrochet);
+        }
+        if (syncedCrochet != Conductor.crochet) {
+            syncedCrochet = Conductor.crochet;
+            syncTimingValue("crochet", syncedCrochet);
+        }
+    }
 
-        for (entry in timingValues) {
-            presetVariables.set(entry.key, entry.value);
-            for (script in scripts) {
-                if (script != null && script.active) script.set(entry.key, entry.value);
-            }
+    private function syncTimingValue(key:String, value:Dynamic):Void {
+        presetVariables.set(key, value);
+        for (script in scripts) {
+            if (script != null && script.active) script.set(key, value);
         }
     }
 

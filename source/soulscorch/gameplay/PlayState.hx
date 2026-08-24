@@ -183,6 +183,9 @@ class PlayState extends MusicBeatState {
     public var healthDrainFloor:Float = 0.1;
 
     private var keysHeld:Array<Bool> = [false, false, false, false];
+    private var keysPressed:Array<Bool> = [false, false, false, false];
+    private var keysReleased:Array<Bool> = [false, false, false, false];
+    private var pausePressed:Bool = false;
     private var countdownTimer:FlxTimer;
     private var hudConfig:Access = null;
     private var lastScriptSection:Int = -1;
@@ -201,6 +204,8 @@ class PlayState extends MusicBeatState {
     override public function create():Void {
         super.create();
         instance = this;
+        Controls.instance.enabled = true;
+        InputMap.claimKeyboardFocus();
         defaultCamZoom = 0.9;
         FlxG.camera.bgColor = FlxColor.BLACK;
 
@@ -217,11 +222,12 @@ class PlayState extends MusicBeatState {
         GameplayFlags.resolveModFlags();
         applyGameplayFlags();
 
-        setupCameras();
         initializeSystems();
 
         loadSongData(curSong, curDifficulty);
         loadSongModifiers(curSong);
+        judgementManager.maxHealth = maxHealth;
+        judgementManager.health = Math.min(judgementManager.health, maxHealth);
         loadExternalEvents(curSong);
         spawnStageAndCharacters();
         generateStrumLines();
@@ -324,6 +330,7 @@ class PlayState extends MusicBeatState {
 
         judgementManager = new JudgementManager(camHUD);
         judgementManager.onHealthChange = function(newHealth:Float) {
+            syncJudgementState();
             if (scripts != null) scripts.callAll("onHealthChange", [newHealth, maxHealth]);
             if (newHealth <= 0 && !isEnding && !practiceMode) {
                 gameOver();
@@ -857,15 +864,7 @@ class PlayState extends MusicBeatState {
             unspawnNotes.push(mainNote);
 
             if (n.sustainLength > 0) {
-                var stepCrochet = Conductor.stepCrochet;
-                var totalSustains = Math.floor(n.sustainLength / stepCrochet);
-                for (sus in 0...totalSustains) {
-                    var susTime = n.time + (stepCrochet * (sus + 1));
-                    var isEnd = (sus == totalSustains - 1);
-                    var sustainNode = new Note(susTime, n.direction, n.sustainLength, mainNote, true, isEnd, n.mustPress, n.type, noteSkin);
-                    mainNote.tail.push(sustainNode);
-                    unspawnNotes.push(sustainNode);
-                }
+                appendSustainTail(mainNote, n.time, n.direction, n.sustainLength, n.mustPress, n.type, noteSkin);
             }
         }
 
@@ -951,6 +950,7 @@ class PlayState extends MusicBeatState {
 
         if (health <= 0.0 && !isEnding && !practiceMode && countdownEnded) {
             gameOver();
+            return;
         }
 
         if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
@@ -965,6 +965,14 @@ class PlayState extends MusicBeatState {
         if (modcharts != null) modcharts.update(elapsed);
 
         super.update(elapsed);
+
+        captureInput();
+        if (pausePressed && allowPause && startedCountdown) {
+            openPauseMenu();
+            return;
+        }
+
+        if (paused || isEnding) return;
 
         var camLerpRatio:Float = FlxMath.bound(elapsed * 4.0 * cameraSpeed, 0, 1);
         camFollowPos.setPosition(
@@ -983,17 +991,32 @@ class PlayState extends MusicBeatState {
 
         updateEvents();
         updateNoteSpawns();
-        handleInput(elapsed);
         updateNotePositions();
+        handleInput();
+        resolveAutomaticNotes();
         updateIconPositions();
         updateTimeBar();
 
-        if (Controls.instance.PAUSE && allowPause && countdownEnded) {
-            openPauseMenu();
-        }
-
         if (scripts != null) {
             scripts.callAll("onUpdatePost", _elapsedArgCache);
+        }
+    }
+
+    private function captureInput():Void {
+        pausePressed = Controls.instance.PAUSE;
+        if (ReplayManager.playing || botplay) {
+            for (lane in 0...4) {
+                keysHeld[lane] = false;
+                keysPressed[lane] = false;
+                keysReleased[lane] = false;
+            }
+            return;
+        }
+
+        for (lane in 0...4) {
+            keysHeld[lane] = Controls.instance.notePressed(lane);
+            keysPressed[lane] = Controls.instance.noteJustPressed(lane);
+            keysReleased[lane] = Controls.instance.noteJustReleased(lane);
         }
     }
 
@@ -1046,28 +1069,28 @@ class PlayState extends MusicBeatState {
         unspawnNotes.push(mainNote);
 
         if (sustainLength > 0) {
-            var totalSustains = Math.floor(sustainLength / Conductor.stepCrochet);
-            for (index in 0...totalSustains) {
-                var sustainNode = new Note(
-                    time + (Conductor.stepCrochet * (index + 1)),
-                    direction,
-                    sustainLength,
-                    mainNote,
-                    true,
-                    index == totalSustains - 1,
-                    mustPress,
-                    type,
-                    noteSkin
-                );
-                mainNote.tail.push(sustainNode);
-                unspawnNotes.push(sustainNode);
-            }
+            appendSustainTail(mainNote, time, direction, sustainLength, mustPress, type, noteSkin);
         }
 
         unspawnNotes.sort(function(a:Note, b:Note):Int {
             return FlxSort.byValues(FlxSort.ASCENDING, a.strumTime, b.strumTime);
         });
         return mainNote;
+    }
+
+    private function appendSustainTail(parent:Note, startTime:Float, direction:Int, length:Float, mustPress:Bool, type:String, skin:String):Void {
+        var step = Math.max(Conductor.stepCrochet, 1.0);
+        var fullSteps = Math.floor(length / step);
+
+        for (index in 1...fullSteps) {
+            var body = new Note(startTime + (step * index), direction, length, parent, true, false, mustPress, type, skin);
+            parent.tail.push(body);
+            unspawnNotes.push(body);
+        }
+
+        var end = new Note(startTime + length, direction, length, parent, true, true, mustPress, type, skin);
+        parent.tail.push(end);
+        unspawnNotes.push(end);
     }
 
     public function queueScriptEvent(time:Float, name:String, val1:Dynamic = "", val2:Dynamic = ""):Void {
@@ -1078,10 +1101,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function updateNotePositions():Void {
-        var songPos = Conductor.songPosition;
-        var safeZone = Conductor.safeZoneOffset;
-
-        var processNote = function(daNote:Note) {
+        var positionNote = function(daNote:Note) {
             var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
 
             if (targetStrum != null) {
@@ -1091,47 +1111,55 @@ class PlayState extends MusicBeatState {
                 if (modcharts != null) {
                     modcharts.modifyNote(daNote, daNote.noteData, daNote.mustPress ? PLAYER : OPPONENT, daNote.strumTime);
                 }
-
-                if (daNote.mustPress && botplay && daNote.strumTime <= songPos) {
-                    goodNoteHit(daNote);
-                    return;
-                }
-
-                if (!daNote.mustPress && daNote.strumTime <= songPos) {
-                    if (scripts.callAllCancelable("onBeforeOpponentNoteHit", [daNote])) {
-                        targetStrum.playAnim("confirm", true);
-                        targetStrum.resetAnim = 0.15;
-
-                        if (dad != null && daNote.playSingAnim) {
-                            dad.playSingAnim(daNote.noteData);
-                            setCamDisplacement(daNote.noteData);
-                            centerCameraOnDad();
-                        }
-
-                        if (audio != null) audio.muteVocal(false, false);
-                    }
-                    scripts.callAll("onOpponentNoteHit", [daNote]);
-                    daNote.kill();
-                    if (daNote.isSustainNote) sustainsGroup.remove(daNote, false); else notes.remove(daNote, false);
-                    daNote.destroy();
-                    return;
-                }
-            }
-
-            if (daNote.mustPress && !botplay && daNote.strumTime < songPos - safeZone && !daNote.wasGoodHit) {
-                daNote.tooLate = true;
-                noteMiss(daNote.noteData);
-                daNote.kill();
-                if (daNote.isSustainNote) sustainsGroup.remove(daNote, false); else notes.remove(daNote, false);
-                daNote.destroy();
             }
         };
 
-        sustainsGroup.forEachAlive(processNote);
-        notes.forEachAlive(processNote);
+        sustainsGroup.forEachAlive(positionNote);
+        notes.forEachAlive(positionNote);
     }
 
-    private function handleInput(elapsed:Float):Void {
+    private function resolveAutomaticNotes():Void {
+        var songPos = Conductor.songPosition;
+        var safeZone = Conductor.safeZoneOffset;
+
+        var resolveNote = function(daNote:Note) {
+            var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
+            if (targetStrum == null) return;
+
+            if (daNote.mustPress && botplay && daNote.strumTime <= songPos) {
+                goodNoteHit(daNote, SICK);
+                return;
+            }
+
+            if (!daNote.mustPress && daNote.strumTime <= songPos) {
+                if (scripts.callAllCancelable("onBeforeOpponentNoteHit", [daNote])) {
+                    targetStrum.playAnim("confirm", true);
+                    targetStrum.resetAnim = 0.15;
+
+                    if (dad != null && daNote.playSingAnim) {
+                        dad.playSingAnim(daNote.noteData);
+                        setCamDisplacement(daNote.noteData);
+                        centerCameraOnDad();
+                    }
+
+                    if (audio != null) audio.muteVocal(false, false);
+                }
+                scripts.callAll("onOpponentNoteHit", [daNote]);
+                removeResolvedNote(daNote);
+                return;
+            }
+
+            if (daNote.mustPress && !botplay && daNote.strumTime < songPos - safeZone && !daNote.wasGoodHit) {
+                noteMiss(daNote.noteData, daNote);
+                removeResolvedNote(daNote);
+            }
+        };
+
+        sustainsGroup.forEachAlive(resolveNote);
+        notes.forEachAlive(resolveNote);
+    }
+
+    private function handleInput():Void {
         if (ReplayManager.playing) {
             var replayEvents = ReplayManager.getNextPlaybackEvents();
             for (ev in replayEvents) {
@@ -1142,35 +1170,12 @@ class PlayState extends MusicBeatState {
 
         if (botplay) return;
 
-        var keyPressed:Array<Bool> = [
-            Controls.instance.notePressed(0),
-            Controls.instance.notePressed(1),
-            Controls.instance.notePressed(2),
-            Controls.instance.notePressed(3)
-        ];
-
-        var keyJustPressed:Array<Bool> = [
-            Controls.instance.noteJustPressed(0),
-            Controls.instance.noteJustPressed(1),
-            Controls.instance.noteJustPressed(2),
-            Controls.instance.noteJustPressed(3)
-        ];
-
-        var keyJustReleased:Array<Bool> = [
-            Controls.instance.noteJustReleased(0),
-            Controls.instance.noteJustReleased(1),
-            Controls.instance.noteJustReleased(2),
-            Controls.instance.noteJustReleased(3)
-        ];
-
         for (i in 0...4) {
-            keysHeld[i] = keyPressed[i];
-
-            if (keyJustPressed[i]) {
+            if (keysPressed[i]) {
                 pressStrum(i);
                 ReplayManager.recordInput(i, true);
             }
-            if (keyJustReleased[i]) {
+            if (keysReleased[i]) {
                 releaseStrum(i);
                 ReplayManager.recordInput(i, false);
             }
@@ -1222,7 +1227,7 @@ class PlayState extends MusicBeatState {
         if (pStrum != null) pStrum.playAnim("static");
     }
 
-    private function goodNoteHit(note:Note):Void {
+    private function goodNoteHit(note:Note, ?forcedJudgment:Judgment):Void {
         if (!scripts.callAllCancelable("onBeforeNoteHit", [note])) {
             note.wasGoodHit = true;
             note.kill();
@@ -1231,10 +1236,8 @@ class PlayState extends MusicBeatState {
             return;
         }
 
-        note.wasGoodHit = true;
-
         if (note.causesMiss) {
-            noteMiss(note.noteData);
+            noteMiss(note.noteData, note);
             note.kill();
             if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
             note.destroy();
@@ -1242,46 +1245,34 @@ class PlayState extends MusicBeatState {
         }
 
         var diff = Math.abs(note.strumTime - (Conductor.songPosition - noteOffset));
-        var accuracyMod:Float = 1.0;
-        var scoreAdd:Int = 350;
-
-        if (diff <= 45.0) {
-            sicks++;
-            accuracyMod = 1.0;
-            scoreAdd = 350;
-        } else if (diff <= 90.0) {
-            goods++;
-            accuracyMod = 0.75;
-            scoreAdd = 200;
-        } else if (diff <= 135.0) {
-            bads++;
-            accuracyMod = 0.45;
-            scoreAdd = 100;
-        } else {
-            shits++;
-            accuracyMod = 0.15;
-            scoreAdd = 50;
-        }
 
         if (!note.isSustainNote) {
-            songHits++;
-            combo++;
+            var judgment = forcedJudgment != null ? forcedJudgment : Judgment.fromDifference(diff, Conductor.safeZoneOffset);
+            if (judgment == MISS) {
+                noteMiss(note.noteData, note);
+                removeResolvedNote(note);
+                return;
+            }
+
+            judgementManager.registerHit(note, judgment, diff, note.hitHealth);
+            switch (judgment) {
+                case MARVELOUS, SICK: sicks++;
+                case GOOD: goods++;
+                case BAD: bads++;
+                case SHIT: shits++;
+                case MISS:
+            }
+            syncJudgementState();
             if (combo > maxCombo) maxCombo = combo;
 
-            totalNotesPassed++;
-            totalAccuracyScore += accuracyMod;
-            accuracy = (totalAccuracyScore / totalNotesPassed) * 100.0;
-            songScore += scoreAdd;
-
-            if (diff <= 45.0 && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
+            if (Judgment.triggersSplash(judgment) && noteSplashEnabled && note.noteSplashes && playerStrumline.receptors[note.noteData] != null) {
                 spawnSplash(playerStrumline.receptors[note.noteData].x, playerStrumline.receptors[note.noteData].y, note.noteData);
             }
         } else {
-            songScore += 20;
-        }
-
-        if (health < maxHealth) {
+            note.wasGoodHit = true;
+            judgementManager.score += 20;
             health = Math.min(maxHealth, health + (note.isSustainNote ? 0.0125 : note.hitHealth));
+            syncJudgementState();
         }
 
         if (audio != null) audio.muteVocal(true, false);
@@ -1301,9 +1292,7 @@ class PlayState extends MusicBeatState {
         updateScoreText();
         scripts.callAll("onNoteHit", [note]);
 
-        note.kill();
-        if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
-        note.destroy();
+        removeResolvedNote(note);
     }
 
     private function spawnSplash(x:Float, y:Float, dir:Int):Void {
@@ -1314,19 +1303,13 @@ class PlayState extends MusicBeatState {
         grpNoteSplashes.add(splash);
     }
 
-    private function noteMiss(dir:Int):Void {
+    private function noteMiss(dir:Int, ?note:Note):Void {
         _intArgCache[0] = dir;
         if (!scripts.callAllCancelable("onBeforePlayerMiss", _intArgCache)) return;
 
-        songMisses++;
-        combo = 0;
-        totalNotesPassed++;
-        accuracy = (totalAccuracyScore / totalNotesPassed) * 100.0;
-        songScore = Std.int(Math.max(0, songScore - 10));
-
-        if (health > 0) {
-            health = Math.max(0.0, health - 0.0475);
-        }
+        var penalty = note != null ? note.missHealth : GameplayFlags.getFloat("missPenalty", 0.085);
+        judgementManager.registerMiss(note, penalty);
+        syncJudgementState();
 
         if (audio != null) audio.muteVocal(true, true);
 
@@ -1339,6 +1322,22 @@ class PlayState extends MusicBeatState {
         updateScoreText();
         _intArgCache[0] = dir;
         scripts.callAll("onPlayerMiss", _intArgCache);
+    }
+
+    private function syncJudgementState():Void {
+        songScore = judgementManager.score;
+        songMisses = judgementManager.misses;
+        songHits = judgementManager.totalNotesHit;
+        combo = judgementManager.combo;
+        totalNotesPassed = judgementManager.totalNotesJudged;
+        totalAccuracyScore = judgementManager.totalWeight;
+        accuracy = judgementManager.accuracy;
+    }
+
+    private function removeResolvedNote(note:Note):Void {
+        note.kill();
+        if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
+        note.destroy();
     }
 
     private function setCamDisplacement(dir:Int):Void {
@@ -1527,7 +1526,11 @@ class PlayState extends MusicBeatState {
     public function resumeSong():Void {
         if (paused) {
             paused = false;
+            Controls.instance.enabled = true;
+            InputMap.claimKeyboardFocus();
             keysHeld = [false, false, false, false];
+            keysPressed = [false, false, false, false];
+            keysReleased = [false, false, false, false];
             if (audio != null) audio.resume();
             scripts.callAll("onResume", []);
         }
@@ -1536,6 +1539,7 @@ class PlayState extends MusicBeatState {
     public function gameOver():Void {
         if (!scripts.callAllCancelable("onBeforeGameOver", [])) return;
 
+        isEnding = true;
         paused = true;
         if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
@@ -1575,6 +1579,7 @@ class PlayState extends MusicBeatState {
     }
 
     override public function destroy():Void {
+        if (instance == this) instance = null;
         Controls.instance.unbindMobilePad();
         if (ReplayManager.playing) ReplayManager.stopPlayback();
         if (countdownTimer != null) countdownTimer.cancel();
