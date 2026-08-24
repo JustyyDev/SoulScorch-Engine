@@ -62,6 +62,7 @@ import soulscorch.graphics.JuiceManager;
 import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulCamera;
 import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.mod.ModFeatureRegistry;
 import soulscorch.ui.menus.states.ResultsState;
 import soulscorch.ui.menus.substate.GameOverSubState;
 import soulscorch.ui.menus.substate.PauseSubState;
@@ -191,6 +192,7 @@ class PlayState extends MusicBeatState {
     private var countdownTimer:FlxTimer;
     private var hudConfig:Access = null;
     private var lastScriptSection:Int = -1;
+    private var forcedSongNoteSkin:String = null;
 
     // Reusable array caches to eliminate per-frame allocations
     private var _elapsedArgCache:Array<Dynamic> = [0.0];
@@ -225,9 +227,11 @@ class PlayState extends MusicBeatState {
         applyGameplayFlags();
 
         initializeSystems();
+        ModFeatureRegistry.preloadForSong(curSong);
 
         loadSongData(curSong, curDifficulty);
         loadSongModifiers(curSong);
+        applyModSongRulePack();
         judgementManager.maxHealth = maxHealth;
         judgementManager.health = Math.min(judgementManager.health, maxHealth);
         loadExternalEvents(curSong);
@@ -384,6 +388,7 @@ class PlayState extends MusicBeatState {
             for (event in songData.chart.events) {
                 eventNotes.push({time: event.time, name: event.name, val1: event.val1, val2: event.val2});
             }
+            expandEventMacros();
             eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
                 return (a.time < b.time) ? -1 : (a.time > b.time ? 1 : 0);
             });
@@ -404,6 +409,7 @@ class PlayState extends MusicBeatState {
                     val2: XMSoul.getAttr(evNode, "anim", XMSoul.getAttr(evNode, "val2", ""))
                 });
             }
+            expandEventMacros();
             eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
                 return (a.time < b.time) ? -1 : 1;
             });
@@ -444,9 +450,33 @@ class PlayState extends MusicBeatState {
             }
         }
 
+        expandEventMacros();
         eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
             return (a.time < b.time) ? -1 : 1;
         });
+    }
+
+    private function expandEventMacros():Void {
+        if (eventNotes == null || eventNotes.length == 0) return;
+
+        var expanded:Array<ParsedChartEvent> = [];
+        for (event in eventNotes) {
+            var macroSteps = ModFeatureRegistry.getEventMacro(event.name);
+            if (macroSteps != null && macroSteps.length > 0) {
+                for (step in macroSteps) {
+                    expanded.push({
+                        time: event.time + step.delay,
+                        name: step.name,
+                        val1: (step.val1 != null && Std.string(step.val1).length > 0) ? step.val1 : event.val1,
+                        val2: (step.val2 != null && Std.string(step.val2).length > 0) ? step.val2 : event.val2
+                    });
+                }
+            } else {
+                expanded.push(event);
+            }
+        }
+
+        eventNotes = expanded;
     }
 
     private function checkAndRunCutscenes(onComplete:Void->Void):Void {
@@ -548,6 +578,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function getActiveNoteSkin():String {
+        if (forcedSongNoteSkin != null && forcedSongNoteSkin.length > 0 && forcedSongNoteSkin != "default") return forcedSongNoteSkin;
         if (songData != null && songData.noteSkin != null && songData.noteSkin != "default") return songData.noteSkin;
 
         var flagSkin = GameplayFlags.getString("defaultNoteSkin", "default");
@@ -558,6 +589,71 @@ class PlayState extends MusicBeatState {
         }
 
         return NoteSkinManager.getNoteSkinName();
+    }
+
+    private function applyModSongRulePack():Void {
+        var rule = ModFeatureRegistry.getSongRule(curSong);
+        if (rule == null) return;
+
+        if (rule.noteSkin != null && rule.noteSkin.length > 0) {
+            forcedSongNoteSkin = rule.noteSkin;
+        }
+        if (rule.defaultCamZoom != null && !Math.isNaN(rule.defaultCamZoom)) {
+            defaultCamZoom = rule.defaultCamZoom;
+        }
+        if (rule.defaultHUDZoom != null && !Math.isNaN(rule.defaultHUDZoom)) {
+            defaultHUDZoom = rule.defaultHUDZoom;
+            camHUD.zoom = defaultHUDZoom;
+        }
+        if (rule.cameraZoomBeatInterval != null && rule.cameraZoomBeatInterval > 0) {
+            cameraZoomBeatInterval = rule.cameraZoomBeatInterval;
+        }
+        if (rule.cameraZoomBeatOffset != null) {
+            cameraZoomBeatOffset = rule.cameraZoomBeatOffset;
+        }
+        if (rule.allowPause != null) {
+            allowPause = rule.allowPause;
+        }
+        if (rule.judgeProfile != null && judgementManager != null) {
+            judgementManager.applyModJudgmentProfile(rule.judgeProfile);
+        }
+    }
+
+    private function applyRuntimeNoteSkin(skin:String):Void {
+        if (skin == null || skin.trim().length == 0) return;
+        var cleanSkin = skin.trim();
+
+        forcedSongNoteSkin = cleanSkin;
+        if (songData != null) songData.noteSkin = cleanSkin;
+
+        if (playerStrumline != null) playerStrumline.changeSkin(cleanSkin);
+        if (opponentStrumline != null) opponentStrumline.changeSkin(cleanSkin);
+
+        if (notes != null) {
+            notes.forEachAlive(function(n:Note) {
+                n.skinName = cleanSkin;
+                n.loadNoteSkin(cleanSkin);
+                n.playAnim();
+            });
+        }
+
+        if (sustainsGroup != null) {
+            sustainsGroup.forEachAlive(function(n:Note) {
+                n.skinName = cleanSkin;
+                n.loadNoteSkin(cleanSkin);
+                n.playAnim();
+            });
+        }
+
+        if (unspawnNotes != null) {
+            for (n in unspawnNotes) {
+                if (n != null) {
+                    n.skinName = cleanSkin;
+                    n.loadNoteSkin(cleanSkin);
+                    n.playAnim();
+                }
+            }
+        }
     }
 
     private function setupHUD():Void {
@@ -620,6 +716,17 @@ class PlayState extends MusicBeatState {
 
         var p2Color:FlxColor = (dad != null) ? dad.healthColor : 0xFFFF0000;
         var p1Color:FlxColor = (boyfriend != null) ? boyfriend.healthColor : 0xFF66FF33;
+        var activeUiSkin = ModFeatureRegistry.activeUiSkin;
+        if (activeUiSkin != null) {
+            if (activeUiSkin.healthP2Color != null) {
+                var parsed = FlxColor.fromString(activeUiSkin.healthP2Color);
+                if (parsed != null) p2Color = parsed;
+            }
+            if (activeUiSkin.healthP1Color != null) {
+                var parsed = FlxColor.fromString(activeUiSkin.healthP1Color);
+                if (parsed != null) p1Color = parsed;
+            }
+        }
 
         healthBar = new FlxBar(
             healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT,
@@ -650,8 +757,18 @@ class PlayState extends MusicBeatState {
             fontName = XMSoul.getAttr(stNode, "font", "vcr");
         }
 
+        if (activeUiSkin != null && activeUiSkin.font != null && activeUiSkin.font.length > 0) {
+            fontName = activeUiSkin.font;
+        }
+
+        var scoreColor:FlxColor = FlxColor.WHITE;
+        if (activeUiSkin != null && activeUiSkin.scoreColor != null) {
+            var parsedScore = FlxColor.fromString(activeUiSkin.scoreColor);
+            if (parsedScore != null) scoreColor = parsedScore;
+        }
+
         scoreTxt = new FlxText(0, healthBarBG.y + scoreYOffset, FlxG.width, "Score: 0 | Misses: 0 | Accuracy: 0% [?]", scoreFontSize);
-        scoreTxt.setFormat(Paths.font(fontName), scoreFontSize, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        scoreTxt.setFormat(Paths.font(fontName), scoreFontSize, scoreColor, CENTER, OUTLINE, FlxColor.BLACK);
         scoreTxt.borderSize = 1.5;
         scoreTxt.scrollFactor.set(0, 0);
         scoreTxt.cameras = [camHUD];
@@ -695,6 +812,8 @@ class PlayState extends MusicBeatState {
         scripts.setAll("songData", songData);
         scripts.setAll("curSong", curSong);
         scripts.setAll("curDifficulty", curDifficulty);
+        scripts.setAll("modFeatureRegistry", ModFeatureRegistry);
+        scripts.setAll("modUiSkin", ModFeatureRegistry.activeUiSkin);
 
         // Audio & Time
         scripts.setAll("audio", audio);
@@ -1478,6 +1597,17 @@ class PlayState extends MusicBeatState {
     }
 
     public function triggerEvent(name:String, val1:Dynamic, val2:Dynamic):Void {
+        var macroSteps = ModFeatureRegistry.getEventMacro(name);
+        if (macroSteps != null && macroSteps.length > 0) {
+            for (step in macroSteps) {
+                var outV1 = (step.val1 != null && Std.string(step.val1).length > 0) ? step.val1 : val1;
+                var outV2 = (step.val2 != null && Std.string(step.val2).length > 0) ? step.val2 : val2;
+                queueScriptEvent(Conductor.songPosition + step.delay, step.name, outV1, outV2);
+            }
+            scripts.callAll("onEvent", [name, val1, val2]);
+            return;
+        }
+
         var strV1 = Std.string(val1);
         var strV2 = Std.string(val2);
 
@@ -1528,6 +1658,14 @@ class PlayState extends MusicBeatState {
                     boyfriend.loadCharacter();
                     iconP1.changeIcon(boyfriend.healthIcon);
                     if (healthBar != null) healthBar.createFilledBar(dad.healthColor, boyfriend.healthColor);
+                }
+
+            case "Set Noteskin" | "Change Noteskin":
+                applyRuntimeNoteSkin(strV1);
+
+            case "Set Judge Profile" | "Change Judge Profile":
+                if (judgementManager != null) {
+                    judgementManager.applyModJudgmentProfile(strV1);
                 }
         }
         scripts.callAll("onEvent", [name, val1, val2]);

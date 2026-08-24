@@ -17,6 +17,7 @@ import soulscorch.backend.system.XMSoul;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
+import soulscorch.scripting.mod.ModFeatureRegistry;
 
 class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public static var MARVELOUS_WINDOW:Float = 22.5;
@@ -134,6 +135,18 @@ class JudgementManager extends FlxTypedGroup<FlxSprite> {
         GOOD_WINDOW = 90.0 * scale;
         BAD_WINDOW = 135.0 * scale;
         SHIT_WINDOW = 160.0 * scale;
+    }
+
+    public function applyModJudgmentProfile(profileId:String):Void {
+        if (profileId == null || profileId.trim().length == 0) return;
+        var profile = ModFeatureRegistry.getJudgmentProfile(profileId);
+        if (profile == null) return;
+
+        if (profile.marvelous != null && !Math.isNaN(profile.marvelous)) MARVELOUS_WINDOW = profile.marvelous;
+        if (profile.sick != null && !Math.isNaN(profile.sick)) SICK_WINDOW = profile.sick;
+        if (profile.good != null && !Math.isNaN(profile.good)) GOOD_WINDOW = profile.good;
+        if (profile.bad != null && !Math.isNaN(profile.bad)) BAD_WINDOW = profile.bad;
+        if (profile.shit != null && !Math.isNaN(profile.shit)) SHIT_WINDOW = profile.shit;
     }
 
     public function judge(note:Note, songPosition:Float):Judgment {

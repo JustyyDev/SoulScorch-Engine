@@ -2,6 +2,7 @@ package soulscorch.scripting.mod;
 
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.mod.ModFeatureRegistry;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.scripting.mod.SoulModParser;
 import soulscorch.scripting.mod.SoulGlobalScript;
@@ -56,6 +57,10 @@ class ModManager {
         return modRoots.length > 0 ? modRoots[0] : "mods";
     }
 
+    public static function getModFolderRootPath(mod:String):String {
+        return getModFolderRoot(mod);
+    }
+
     public static function reloadMods():Void {
         allMods = [];
         activeMods = [];
@@ -94,6 +99,8 @@ class ModManager {
 
         Logger.info('Discovered ${allMods.length} mod(s), ${activeMods.length} active.', "mods");
         SoulGlobalScript.init();
+        ModFeatureRegistry.reload();
+        ModFeatureRegistry.applyStateRedirects();
     }
 
     public static function getPath(filePath:String):String {

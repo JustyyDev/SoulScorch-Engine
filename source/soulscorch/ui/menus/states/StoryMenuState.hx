@@ -24,6 +24,7 @@ import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
 import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.mod.ModFeatureRegistry;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.editorui.EditorTheme;
@@ -259,6 +260,33 @@ class StoryMenuState extends MusicBeatState {
             }
         }
         #end
+
+        var campaignLists = ModFeatureRegistry.getCampaignPlaylists();
+        if (campaignLists != null && campaignLists.length > 0) {
+            for (campaign in campaignLists) {
+                if (campaign == null || campaign.id == null) continue;
+                var id = campaign.id.trim();
+                if (id.length == 0) continue;
+
+                var exists = false;
+                for (w in weeks) {
+                    if (w != null && w.id != null && w.id.toLowerCase() == id.toLowerCase()) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (exists) continue;
+
+                weeks.push({
+                    id: id,
+                    name: (campaign.title != null && campaign.title.length > 0) ? campaign.title : id,
+                    sprite: id,
+                    songs: campaign.songs != null ? campaign.songs.copy() : [],
+                    characters: ["dad", "bf", "gf"],
+                    difficulties: campaign.difficulties
+                });
+            }
+        }
 
         if (weeks.length == 0) {
             weeks = [

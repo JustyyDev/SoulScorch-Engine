@@ -10,6 +10,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
+import haxe.Timer;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
@@ -36,6 +37,13 @@ class ScriptManager {
     private var syncedBpm:Float = Math.NaN;
     private var syncedStepCrochet:Float = Math.NaN;
     private var syncedCrochet:Float = Math.NaN;
+    private var perfThrottleUntil:Map<String, Float> = new Map<String, Float>();
+    private var perfWarnCooldownUntil:Map<String, Float> = new Map<String, Float>();
+
+    private static inline var FRAME_HOOK_WARN_MS:Float = 5.0;
+    private static inline var FRAME_HOOK_THROTTLE_MS:Float = 16.0;
+    private static inline var FRAME_HOOK_THROTTLE_SECONDS:Float = 0.25;
+    private static inline var WARN_COOLDOWN_SECONDS:Float = 1.0;
 
     public var isValid(get, never):Bool;
     public var active(get, never):Bool;
@@ -139,11 +147,36 @@ class ScriptManager {
         if (args == null) args = [];
         syncTimingGlobals();
         var lastResult:Dynamic = null;
+        var isFrameHook = isPerFrameHook(func);
+        var now = Timer.stamp();
+        var idx = 0;
         for (s in scripts) {
             if (s != null && s.active) {
+                var key = func + "#" + idx;
+                if (isFrameHook && perfThrottleUntil.exists(key) && perfThrottleUntil.get(key) > now) {
+                    idx++;
+                    continue;
+                }
+
+                var started = isFrameHook ? Timer.stamp() : 0.0;
                 var res = s.call(func, args);
                 if (res != null) lastResult = res;
+
+                if (isFrameHook) {
+                    var elapsedMs = (Timer.stamp() - started) * 1000.0;
+                    if (elapsedMs >= FRAME_HOOK_THROTTLE_MS) {
+                        perfThrottleUntil.set(key, now + FRAME_HOOK_THROTTLE_SECONDS);
+                    }
+                    if (elapsedMs >= FRAME_HOOK_WARN_MS) {
+                        var warnUntil = perfWarnCooldownUntil.exists(key) ? perfWarnCooldownUntil.get(key) : 0.0;
+                        if (now >= warnUntil) {
+                            Logger.warn('Slow script callback "$func" took ${Std.int(elapsedMs * 100) / 100}ms (script index: $idx).', "script");
+                            perfWarnCooldownUntil.set(key, now + WARN_COOLDOWN_SECONDS);
+                        }
+                    }
+                }
             }
+            idx++;
         }
         return lastResult;
     }
@@ -152,13 +185,43 @@ class ScriptManager {
         if (args == null) args = [];
         syncTimingGlobals();
         var allowDefault = true;
+        var isFrameHook = isPerFrameHook(func);
+        var now = Timer.stamp();
+        var idx = 0;
         for (s in scripts) {
             if (s != null && s.active) {
+                var key = func + "#" + idx;
+                if (isFrameHook && perfThrottleUntil.exists(key) && perfThrottleUntil.get(key) > now) {
+                    idx++;
+                    continue;
+                }
+
+                var started = isFrameHook ? Timer.stamp() : 0.0;
                 var result = s.call(func, args);
                 if (result == false) allowDefault = false;
+
+                if (isFrameHook) {
+                    var elapsedMs = (Timer.stamp() - started) * 1000.0;
+                    if (elapsedMs >= FRAME_HOOK_THROTTLE_MS) {
+                        perfThrottleUntil.set(key, now + FRAME_HOOK_THROTTLE_SECONDS);
+                    }
+                    if (elapsedMs >= FRAME_HOOK_WARN_MS) {
+                        var warnUntil = perfWarnCooldownUntil.exists(key) ? perfWarnCooldownUntil.get(key) : 0.0;
+                        if (now >= warnUntil) {
+                            Logger.warn('Slow script callback "$func" took ${Std.int(elapsedMs * 100) / 100}ms (script index: $idx).', "script");
+                            perfWarnCooldownUntil.set(key, now + WARN_COOLDOWN_SECONDS);
+                        }
+                    }
+                }
             }
+            idx++;
         }
         return allowDefault;
+    }
+
+    private static inline function isPerFrameHook(func:String):Bool {
+        if (func == null) return false;
+        return func == "update" || func == "onUpdate" || func == "updatePost" || func == "onUpdatePost";
     }
 
     private function syncTimingGlobals():Void {
@@ -201,5 +264,7 @@ class ScriptManager {
         }
         scripts = [];
         presetVariables.clear();
+        perfThrottleUntil.clear();
+        perfWarnCooldownUntil.clear();
     }
 }
