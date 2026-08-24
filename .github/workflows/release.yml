@@ -41,6 +41,7 @@ jobs:
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.6
+          cache-dependency-path: project.xml
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -57,32 +58,27 @@ jobs:
             libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
 
-      - name: Cache Haxelibs (Windows)
+      - name: Cache hxcpp Compiler Data (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/cache@v4
         with:
-          path: |
-            C:/haxelib
-            C:/Users/runneradmin/.hxcpp
-          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-${{ hashFiles('project.xml', '**/*.hx') }}
+          path: C:/Users/runneradmin/.hxcpp
+          key: ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-${{ hashFiles('project.xml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-
+            ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-
 
-      - name: Cache Haxelibs (Unix)
+      - name: Cache hxcpp Compiler Data (Unix)
         if: matrix.os != 'windows-latest'
         uses: actions/cache@v4
         with:
-          path: |
-            ~/haxelib
-            ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-${{ hashFiles('**/project.xml', '**/*.hx') }}
+          path: ~/.cache/hxcpp
+          key: ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-${{ hashFiles('project.xml') }}
           restore-keys: |
-            ${{ runner.os }}-haxelib-
+            ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-
 
       - name: Install Haxelib Dependencies (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          haxelib setup C:/haxelib
           haxelib install lime 8.1.3 --quiet --always --skip-dependencies
           haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
@@ -99,7 +95,6 @@ jobs:
       - name: Install Haxelib Dependencies (Unix)
         if: matrix.os != 'windows-latest'
         run: |
-          haxelib setup ~/haxelib
           haxelib install lime 8.1.3 --quiet --always --skip-dependencies
           haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
@@ -116,7 +111,6 @@ jobs:
       - name: Rebuild Host Lime NDLL (macOS Fix)
         if: matrix.os == 'macos-14'
         run: |
-          haxelib setup ~/haxelib
           haxelib run lime rebuild mac -release
 
           LIME_PATH="$(haxelib libpath lime)"

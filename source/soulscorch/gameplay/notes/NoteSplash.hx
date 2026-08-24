@@ -153,8 +153,7 @@ class NoteSplash extends FlxSprite {
         scale.set(splashScale, splashScale);
         updateHitbox();
 
-        offset.x += width * 0.25;
-        offset.y += height * 0.25;
+        offset.set(width * 0.25, height * 0.25);
 
         if (animOffsets.exists(animName)) {
             var off = animOffsets.get(animName);

@@ -99,6 +99,8 @@ class PlayState extends MusicBeatState {
     public var camFollow:FlxObject;
     public var camFollowPos:FlxObject;
     public var camZooming:Bool = true;
+    public var cameraZoomBeatInterval:Int = 4;
+    public var cameraZoomBeatOffset:Int = 0;
     public var cameraSpeed:Float = 1.0;
 
     public var camDisplaceX:Float = 0.0;
@@ -377,6 +379,17 @@ class PlayState extends MusicBeatState {
     }
 
     private function loadExternalEvents(songId:String):Void {
+        eventNotes = [];
+        if (songData != null && songData.chart != null && songData.chart.events.length > 0) {
+            for (event in songData.chart.events) {
+                eventNotes.push({time: event.time, name: event.name, val1: event.val1, val2: event.val2});
+            }
+            eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
+                return (a.time < b.time) ? -1 : (a.time > b.time ? 1 : 0);
+            });
+            return;
+        }
+
         var cleanSong = songId.toLowerCase().trim();
 
         var eventsXml:Access = XMSoul.parse('songs/$cleanSong/events');
@@ -1399,7 +1412,8 @@ class PlayState extends MusicBeatState {
     override public function beatHit(beat:Int):Void {
         super.beatHit(beat);
 
-        if (cameraZoomOnBeat && beat % 4 == 0) {
+        if (cameraZoomOnBeat && cameraZoomBeatInterval > 0
+            && beat % cameraZoomBeatInterval == cameraZoomBeatOffset % cameraZoomBeatInterval) {
             camGame.zoom += 0.015;
             camHUD.zoom += 0.03;
         }
@@ -1477,6 +1491,12 @@ class PlayState extends MusicBeatState {
                 var intensity = Std.parseFloat(strV1);
                 var hudIntensity = Std.parseFloat(strV2);
                 JuiceManager.bumpCamera(camGame, Math.isNaN(intensity) ? 0.04 : intensity, Math.isNaN(hudIntensity) ? 0.02 : hudIntensity);
+
+            case "Camera Modulo Change":
+                var interval = Std.parseInt(strV1);
+                var offset = Std.parseInt(strV2);
+                if (interval != null && interval > 0) cameraZoomBeatInterval = interval;
+                cameraZoomBeatOffset = offset != null ? offset : 0;
 
             case "Camera Zoom" | "Set Cam Zoom":
                 var zoom = Std.parseFloat(strV1);

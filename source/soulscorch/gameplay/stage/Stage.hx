@@ -49,7 +49,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
     public function new(stageId:String = "stage") {
         super();
-        this.stageId = (stageId != null && stageId.trim().length > 0) ? stageId.toLowerCase().trim() : "stage";
+        this.stageId = (stageId != null && stageId.trim().length > 0) ? stageId.trim() : "stage";
         initLayers();
     }
 

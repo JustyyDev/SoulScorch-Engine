@@ -166,12 +166,15 @@ class TitleState extends MusicBeatState {
 
     private function getIntroText():Array<Array<String>> {
         var customLines = XMSoul.loadIntroLines("data/intros");
+        if (customLines.length == 0) customLines = XMSoul.loadIntroLines("data/config/intros");
         if (customLines.length > 0) {
             var parsed:Array<Array<String>> = [];
             for (line in customLines) {
                 if (line.contains("--")) {
                     var parts = line.split("--");
                     parsed.push([parts[0].trim(), parts[1].trim()]);
+                } else if (line.trim().length > 0) {
+                    parsed.push([line.trim(), ""]);
                 }
             }
             if (parsed.length > 0) return parsed;

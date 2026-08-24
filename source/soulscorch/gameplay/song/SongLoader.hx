@@ -131,7 +131,11 @@ class SongLoader {
         song.chart = new Chart(song.bpm, song.scrollSpeed);
 
         for (strumNode in chartXml.nodes.resolve("strumLine")) {
-            var isPlayer = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase() == "player" 
+            var strumType = XMSoul.getAttr(strumNode, "type", "opponent").toLowerCase();
+            var visible = XMSoul.getBoolAttr(strumNode, "visible", true);
+            if (!visible || (strumType != "player" && strumType != "opponent")) continue;
+
+            var isPlayer = strumType == "player"
                 || XMSoul.getAttr(strumNode, "position", "").toLowerCase() == "boyfriend";
 
             for (noteNode in strumNode.nodes.resolve("note")) {
@@ -142,6 +146,18 @@ class SongLoader {
 
                 song.chart.addNote(t, dir, len, type, isPlayer);
             }
+        }
+
+        if (chartXml.hasNode.resolve("events")) {
+            for (evNode in chartXml.node.resolve("events").nodes.resolve("event")) {
+                song.chart.addEvent(
+                    XMSoul.getFloatAttr(evNode, "time", 0.0),
+                    XMSoul.getAttr(evNode, "name", ""),
+                    XMSoul.getAttr(evNode, "val1", XMSoul.getAttr(evNode, "target", "")),
+                    XMSoul.getAttr(evNode, "val2", XMSoul.getAttr(evNode, "anim", ""))
+                );
+            }
+            song.chart.sortEvents();
         }
 
         Logger.info('Successfully parsed .xmsoul chart: songs/$cleanSong/charts/$cleanDiff.xmsoul', "song");
@@ -197,6 +213,7 @@ class SongLoader {
         if (eventsXml == null) eventsXml = XMSoul.parse('data/$cleanSong/events');
 
         if (eventsXml != null && song.chart != null) {
+            song.chart.events = [];
             for (evNode in eventsXml.nodes.resolve("event")) {
                 var time = XMSoul.getFloatAttr(evNode, "time", 0.0);
                 var name = XMSoul.getAttr(evNode, "name", "");
@@ -205,6 +222,7 @@ class SongLoader {
 
                 song.chart.addEvent(time, name, target, anim);
             }
+            song.chart.sortEvents();
         }
     }
 }

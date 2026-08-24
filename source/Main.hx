@@ -139,6 +139,8 @@ class Main extends Sprite {
     }
 
     private function applyWindowConfiguration():Void {
+        XMSoul.applyWindowSettings("config/window");
+
         #if windows
         var access = XMSoul.parse("config/window", true, false);
         if (access == null) access = XMSoul.parse("data/config/window", true, false);
@@ -177,6 +179,7 @@ class Main extends Sprite {
 
     private function setupStateSwitchOptimization():Void {
         FlxG.signals.preStateSwitch.add(function() {
+            SoulGlobalScript.call("onPreStateSwitch", []);
             Paths.clearUnusedMemory();
             EngineOptimizer.runMemorySweep();
         });

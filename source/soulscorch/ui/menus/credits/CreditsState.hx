@@ -110,6 +110,7 @@ class CreditsState extends MusicBeatState {
             var iconKey = (credits[i].icon != null && credits[i].icon.length > 0) ? credits[i].icon : "default";
             var loaded = AssetHelper.loadGraphicSafely(iconSpr, 'ui/credits/$iconKey');
             if (!loaded) loaded = AssetHelper.loadGraphicSafely(iconSpr, 'credits/$iconKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(iconSpr, 'ui/game/icons/icon-$iconKey');
             if (!loaded) iconSpr.makeGraphic(48, 48, EditorTheme.ACCENT_CYAN);
             iconSpr.setGraphicSize(48, 48);
             iconSpr.updateHitbox();
@@ -166,6 +167,8 @@ class CreditsState extends MusicBeatState {
 
         #if sys
         var searchPaths = [
+            "data/config/credits.xmsoul",
+            "data/config/credits.xml",
             "data/credits.xmsoul",
             "data/credits.xml",
             "data/credits.json",
@@ -174,6 +177,8 @@ class CreditsState extends MusicBeatState {
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
+                searchPaths.unshift('mods/$m/data/config/credits.xmsoul');
+                searchPaths.unshift('mods/$m/data/config/credits.xml');
                 searchPaths.unshift('mods/$m/data/credits.xmsoul');
                 searchPaths.unshift('mods/$m/data/credits.xml');
                 searchPaths.unshift('mods/$m/data/credits.json');
@@ -189,13 +194,25 @@ class CreditsState extends MusicBeatState {
                         var access = new Access(xml.firstElement());
                         for (entry in access.nodes.resolve("credit")) {
                             credits.push({
-                                name: access.has.name ? entry.att.name : "Unknown",
+                                name: entry.has.name ? entry.att.name : "Unknown",
                                 role: entry.has.role ? entry.att.role : "Contributor",
                                 description: entry.has.description ? entry.att.description : "",
                                 icon: entry.has.icon ? entry.att.icon : "default",
                                 color: entry.has.color ? entry.att.color : null,
-                                url: entry.has.url ? entry.att.url : null
+                                url: entry.has.url ? entry.att.url : (entry.has.link ? entry.att.link : null)
                             });
+                        }
+                        for (category in access.nodes.resolve("category")) {
+                            for (entry in category.nodes.resolve("dev")) {
+                                credits.push({
+                                    name: entry.has.name ? entry.att.name : "Unknown",
+                                    role: entry.has.role ? entry.att.role : (category.has.name ? category.att.name : "Contributor"),
+                                    description: entry.has.description ? entry.att.description : "",
+                                    icon: entry.has.icon ? entry.att.icon : "default",
+                                    color: entry.has.color ? entry.att.color : (category.has.color ? category.att.color : null),
+                                    url: entry.has.url ? entry.att.url : (entry.has.link ? entry.att.link : null)
+                                });
+                            }
                         }
                     } else {
                         var parsed:Array<CreditEntry> = cast Json.parse(content);

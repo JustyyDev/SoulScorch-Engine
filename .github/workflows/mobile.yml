@@ -53,20 +53,18 @@ jobs:
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.6
+          cache-dependency-path: project.xml
 
-      - name: Cache Haxelibs
+      - name: Cache hxcpp Compiler Data
         uses: actions/cache@v4
         with:
-          path: |
-            ~/haxelib
-            ~/.cache/hxcpp
-          key: ${{ runner.os }}-haxelib-android-${{ hashFiles('**/project.xml', '**/*.hx') }}
+          path: ~/.cache/hxcpp
+          key: ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-android-${{ hashFiles('project.xml') }}
           restore-keys: |
-            ${{ runner.os }}-haxelib-android-
+            ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-android-
 
       - name: Install Haxelib Dependencies
         run: |
-          haxelib setup ~/haxelib
           haxelib install lime 8.1.3 --quiet --always --skip-dependencies
           haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
@@ -136,20 +134,18 @@ jobs:
         uses: krdlab/setup-haxe@v2
         with:
           haxe-version: 4.3.6
+          cache-dependency-path: project.xml
 
-      - name: Cache Haxelibs
+      - name: Cache hxcpp Compiler Data
         uses: actions/cache@v4
         with:
-          path: |
-            ~/haxelib
-            ~/.cache/hxcpp
-          key: ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-${{ hashFiles('**/project.xml', '**/*.hx') }}
+          path: ~/.cache/hxcpp
+          key: ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-ios-${{ hashFiles('project.xml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-haxe-4.3.6-haxelib-ios-
+            ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-ios-
 
       - name: Install Haxelib Dependencies
         run: |
-          haxelib setup ~/haxelib
           haxelib install lime 8.1.3 --quiet --always --skip-dependencies
           haxelib install openfl 9.3.3 --quiet --always --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --always --skip-dependencies
@@ -163,7 +159,6 @@ jobs:
 
       - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
         run: |
-          haxelib setup ~/haxelib
           haxelib run lime rebuild mac -release
 
           LIME_PATH="$(haxelib libpath lime)"

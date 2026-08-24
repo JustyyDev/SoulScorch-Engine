@@ -16,6 +16,7 @@ import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Engine;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
+import soulscorch.scripting.mod.SoulGlobalScript;
 
 using StringTools;
 
@@ -76,6 +77,7 @@ class Scene extends FlxState implements IBeatReceiver {
         } catch (e:Dynamic) {}
         #end
 
+        SoulGlobalScript.call("onStateSwitch", []);
         Logger.info('[SCENE] Initialized scene: $sceneName', "scene");
     }
 
@@ -119,6 +121,7 @@ class Scene extends FlxState implements IBeatReceiver {
     }
 
     override public function update(elapsed:Float):Void {
+        SoulGlobalScript.call("onUpdate", [elapsed]);
         super.update(elapsed);
 
         if (Scheduler.instance != null) Scheduler.instance.update(elapsed);
@@ -134,6 +137,8 @@ class Scene extends FlxState implements IBeatReceiver {
         if (enableBeatTracking) {
             updateConductorTrackers();
         }
+
+        SoulGlobalScript.call("onUpdatePost", [elapsed]);
     }
 
     private function updateConductorTrackers():Void {
@@ -144,11 +149,13 @@ class Scene extends FlxState implements IBeatReceiver {
         if (curStep != _lastStep) {
             _lastStep = curStep;
             stepHit(curStep);
+            SoulGlobalScript.call("onStepHit", [curStep]);
         }
 
         if (curBeat != _lastBeat) {
             _lastBeat = curBeat;
             beatHit(curBeat);
+            SoulGlobalScript.call("onBeatHit", [curBeat]);
         }
 
         if (curMeasure != _lastMeasure) {
