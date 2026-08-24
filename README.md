@@ -6,7 +6,7 @@ Think of it like a giant game toolbox.
 You can add songs, characters, stages, and scripts.
 You can also change menus, effects, and gameplay rules.
 
-This guide is written to be easy for beginners around age 10 or 11.
+This guide is written to be easy for beginners around age 10 or 11 for example, EVEN KIDS CAN UNDERSTAND THIS OKAY??
 
 ## What is a game engine?
 
