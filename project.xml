@@ -43,7 +43,6 @@
 
 	<!-- Android Configuration -->
 	<config:android minimum-sdk-version="21" target-sdk-version="34" if="android" />
-	<setenv name="ANDROID_PERMISSIONS" value="android.permission.INTERNET,android.permission.VIBRATE,android.permission.WAKE_LOCK,android.permission.ACCESS_NETWORK_STATE" if="android" />
 
 	<!-- iOS Configuration -->
 	<ios deployment="13.0" devices="universal" if="ios" />

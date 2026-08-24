@@ -167,14 +167,20 @@ jobs:
 
       - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
         run: |
-          # Ensure neko is available for lime native modules
-          if ! command -v neko >/dev/null 2>&1; then
-            brew update || true
-            brew install neko || true
-          fi
           haxelib setup ~/haxelib
           haxelib run lime setup -y
           haxelib run lime rebuild mac -release
+
+          LIME_PATH="$(haxelib libpath lime)"
+          if [ "$(uname -m)" = "arm64" ]; then
+            LIME_NDLL_PATH="$LIME_PATH/ndll/MacArm64"
+          else
+            LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
+          fi
+
+          test -f "$LIME_NDLL_PATH/lime.ndll"
+          echo "NEKOPATH=$LIME_NDLL_PATH:$NEKOPATH" >> "$GITHUB_ENV"
+          echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:$DYLD_FALLBACK_LIBRARY_PATH" >> "$GITHUB_ENV"
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
@@ -205,18 +211,18 @@ jobs:
           workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
           output_zip = os.path.join(workspace, "SoulScorch-iOS-XcodeProject.zip")
 
-            found_dir = None
-            for search_root in ("export", "bin"):
-              if not os.path.isdir(search_root):
+          found_dir = None
+          for search_root in ("export", "bin"):
+            if not os.path.isdir(search_root):
+              continue
+            for root, dirs, files in os.walk(search_root):
+              if "obj" in root or "haxe" in root or "ios" not in root.lower():
                 continue
-              for root, dirs, files in os.walk(search_root):
-                if "obj" in root or "haxe" in root or "ios" not in root.lower():
-                  continue
-                if any(d.endswith(".xcodeproj") for d in dirs):
-                  found_dir = root
-                  break
-              if found_dir:
+              if any(d.endswith(".xcodeproj") for d in dirs):
+                found_dir = root
                 break
+            if found_dir:
+              break
 
           if not found_dir:
               print("Error: Could not locate Xcode project directory.")
