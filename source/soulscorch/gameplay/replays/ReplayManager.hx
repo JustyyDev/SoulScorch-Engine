@@ -49,9 +49,15 @@ class ReplayManager {
 
     public static function startRecording(song:String, diff:String):Void {
         recording = true;
-        playing = false;
+        stopPlayback();
         recordedEvents = [];
         Logger.info('[REPLAY] Started recording replay for $song ($diff)', "replay");
+    }
+
+    public static function stopPlayback():Void {
+        playing = false;
+        playbackIndex = 0;
+        currentReplay = null;
     }
 
     public static function recordInput(dir:Int, pressed:Bool):Void {
@@ -155,6 +161,7 @@ class ReplayManager {
                 break;
             }
         }
+
         return triggered;
     }
 

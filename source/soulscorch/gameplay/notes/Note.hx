@@ -15,6 +15,8 @@ import soulscorch.gameplay.notes.NoteSkinManager;
 using StringTools;
 
 class Note extends FlxSprite {
+    private static inline var SUSTAIN_OVERLAP:Float = 2.0;
+
     public var strumTime:Float = 0.0;
     public var noteData:Int = 0;
     public var sustainLength:Float = 0.0;
@@ -197,14 +199,7 @@ class Note extends FlxSprite {
             if (isSustainEnd) {
                 if (animation.getByName("holdend") == null) setupAnimation();
                 if (animation.getByName("holdend") != null) animation.play("holdend");
-                scale.set(skinScale, skinScale);
-                updateHitbox();
-                
-                // Align tail smoothly based on resolution space to avoid clipping
-                if (animation.curAnim != null && animation.curAnim.name.endsWith("end")) {
-                    centerOrigin();
-                    offset.y += 1.0; 
-                }
+                resizeSustainEnd(songSpeed);
             } else {
                 if (animation.getByName("hold") == null) setupAnimation();
                 if (animation.getByName("hold") != null) animation.play("hold");
@@ -221,7 +216,15 @@ class Note extends FlxSprite {
     private function resizeSustainBody(songSpeed:Float):Void {
         var stepHeight:Float = Conductor.stepCrochet * 0.45 * songSpeed * multSpeed;
         var baseHeight:Float = (frameHeight > 0) ? frameHeight : 44.0;
-        scale.set(skinScale, (stepHeight + 0.5) / baseHeight);
+        scale.set(skinScale, (stepHeight + SUSTAIN_OVERLAP) / baseHeight);
+        updateHitbox();
+    }
+
+    private function resizeSustainEnd(songSpeed:Float):Void {
+        var stepHeight:Float = Conductor.stepCrochet * 0.45 * songSpeed * multSpeed;
+        var baseHeight:Float = (frameHeight > 0) ? frameHeight : 44.0;
+        var endScaleY:Float = Math.max(skinScale, (stepHeight + SUSTAIN_OVERLAP) / baseHeight);
+        scale.set(skinScale, endScaleY);
         updateHitbox();
     }
 
@@ -229,7 +232,9 @@ class Note extends FlxSprite {
         var currentSpeed:Float = songSpeed * multSpeed;
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * currentSpeed);
 
-        if (isSustainNote && !isSustainEnd) resizeSustainBody(songSpeed);
+        if (isSustainNote) {
+            if (isSustainEnd) resizeSustainEnd(songSpeed); else resizeSustainBody(songSpeed);
+        }
 
         x = strumX + ((StrumArrow.STRUM_SIZE - width) * 0.5) + offsetX;
 

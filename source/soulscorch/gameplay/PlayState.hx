@@ -1575,6 +1575,7 @@ class PlayState extends MusicBeatState {
 
     override public function destroy():Void {
         Controls.instance.unbindMobilePad();
+        if (ReplayManager.playing) ReplayManager.stopPlayback();
         if (countdownTimer != null) countdownTimer.cancel();
         if (scripts != null) {
             scripts.callAll("onDestroy", []);
