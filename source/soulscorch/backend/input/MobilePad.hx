@@ -4,6 +4,7 @@ import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
@@ -37,6 +38,8 @@ class MobileButton extends FlxSpriteGroup {
     private var bg:FlxSprite;
     private var border:FlxSprite;
     private var label:FlxText;
+    private var hitWidth:Float;
+    private var hitHeight:Float;
 
     private var _lastPressed:Bool = false;
     private var _activeTouchId:Int = -1;
@@ -45,6 +48,8 @@ class MobileButton extends FlxSpriteGroup {
         super(x, y);
         this.baseColor = color;
         this.labelText = labelText;
+        this.hitWidth = width;
+        this.hitHeight = height;
 
         border = new FlxSprite(0, 0).makeGraphic(width, height, 0xFF3F557A);
         add(border);
@@ -70,18 +75,26 @@ class MobileButton extends FlxSpriteGroup {
         var currentlyTouched:Bool = false;
 
         #if mobile
+        var activeTouchFound = false;
         for (touch in FlxG.touches.list) {
             var point = touch.getPositionInCameraView(targetCamera);
-            if (point.x >= x && point.x <= x + bg.width && point.y >= y && point.y <= y + bg.height) {
+            if (_activeTouchId == touch.touchPointID) {
                 currentlyTouched = true;
+                activeTouchFound = true;
+                break;
+            }
+            if (_activeTouchId == -1 && point.x >= x && point.x <= x + hitWidth && point.y >= y && point.y <= y + hitHeight) {
                 _activeTouchId = touch.touchPointID;
+                currentlyTouched = true;
+                activeTouchFound = true;
                 break;
             }
         }
+        if (!activeTouchFound) _activeTouchId = -1;
         #end
 
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(targetCamera);
-        if (FlxG.mouse.pressed && (mousePos.x >= x && mousePos.x <= x + bg.width && mousePos.y >= y && mousePos.y <= y + bg.height)) {
+        if (FlxG.mouse.pressed && (mousePos.x >= x && mousePos.x <= x + hitWidth && mousePos.y >= y && mousePos.y <= y + hitHeight)) {
             currentlyTouched = true;
         }
 
@@ -91,7 +104,7 @@ class MobileButton extends FlxSpriteGroup {
         _lastPressed = isPressed;
 
         alpha = isPressed ? 0.85 : 0.45;
-        scale.set(isPressed ? 0.95 : 1.0, isPressed ? 0.95 : 1.0);
+        bg.color = isPressed ? FlxColor.WHITE : baseColor;
     }
 }
 
@@ -110,13 +123,28 @@ class MobilePad extends FlxSpriteGroup {
     public function new(mode:MobilePadMode = FULL, action:MobilePadAction = A_B) {
         super();
 
-        var btnSize:Int = 110;
+        var btnSize:Int = Std.int(FlxMath.bound(screenH * 0.16, 82, 116));
         var padding:Float = 18.0;
         var screenH:Float = FlxG.height;
         var screenW:Float = FlxG.width;
 
         switch (mode) {
-            case FULL | ARROWS_ONLY:
+            case ARROWS_ONLY:
+                var laneGap = 8.0;
+                var laneWidth = Std.int(Math.min(150, (screenW - (padding * 2) - (laneGap * 3)) / 4));
+                var laneY = screenH - btnSize - padding;
+                var laneStartX = (screenW - ((laneWidth * 4) + (laneGap * 3))) * 0.5;
+                buttonLeft = new MobileButton(laneStartX, laneY, laneWidth, btnSize, 0xFFC24B99, "<");
+                buttonDown = new MobileButton(laneStartX + laneWidth + laneGap, laneY, laneWidth, btnSize, 0xFF00FFFF, "v");
+                buttonUp = new MobileButton(laneStartX + ((laneWidth + laneGap) * 2), laneY, laneWidth, btnSize, 0xFF12FA05, "^");
+                buttonRight = new MobileButton(laneStartX + ((laneWidth + laneGap) * 3), laneY, laneWidth, btnSize, 0xFFF9393F, ">");
+
+                add(buttonLeft);
+                add(buttonDown);
+                add(buttonUp);
+                add(buttonRight);
+
+            case FULL:
                 buttonLeft = new MobileButton(padding, screenH - (btnSize * 2) - padding, btnSize, btnSize, 0xFFC24B99, "<");
                 buttonDown = new MobileButton(buttonLeft.x + btnSize + 6, screenH - btnSize - padding, btnSize, btnSize, 0xFF00FFFF, "v");
                 buttonUp = new MobileButton(buttonLeft.x + btnSize + 6, screenH - (btnSize * 2) - 12 - padding, btnSize, btnSize, 0xFF12FA05, "^");

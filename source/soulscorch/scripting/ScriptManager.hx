@@ -131,6 +131,7 @@ class ScriptManager {
 
     public function callAll(func:String, ?args:Array<Dynamic>):Dynamic {
         if (args == null) args = [];
+        syncTimingGlobals();
         var lastResult:Dynamic = null;
         for (s in scripts) {
             if (s != null && s.active) {
@@ -139,6 +140,37 @@ class ScriptManager {
             }
         }
         return lastResult;
+    }
+
+    public function callAllCancelable(func:String, ?args:Array<Dynamic>):Bool {
+        if (args == null) args = [];
+        syncTimingGlobals();
+        var allowDefault = true;
+        for (s in scripts) {
+            if (s != null && s.active) {
+                var result = s.call(func, args);
+                if (result == false) allowDefault = false;
+            }
+        }
+        return allowDefault;
+    }
+
+    private function syncTimingGlobals():Void {
+        var timingValues:Array<{key:String, value:Dynamic}> = [
+            {key: "curBeat", value: Conductor.curBeat},
+            {key: "curStep", value: Conductor.curStep},
+            {key: "songPosition", value: Conductor.songPosition},
+            {key: "bpm", value: Conductor.bpm},
+            {key: "stepCrochet", value: Conductor.stepCrochet},
+            {key: "crochet", value: Conductor.crochet}
+        ];
+
+        for (entry in timingValues) {
+            presetVariables.set(entry.key, entry.value);
+            for (script in scripts) {
+                if (script != null && script.active) script.set(entry.key, entry.value);
+            }
+        }
     }
 
     public function clear():Void {

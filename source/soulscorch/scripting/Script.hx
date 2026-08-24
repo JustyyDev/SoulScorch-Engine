@@ -38,6 +38,7 @@ import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.mod.ModLoader;
 import soulscorch.scripting.mod.ModManager;
 
@@ -230,6 +231,7 @@ class Script implements ScriptInstance {
         set("AssetHelper", AssetHelper);
         set("AudioManager", AudioManager);
         set("JuiceManager", soulscorch.graphics.JuiceManager);
+        set("ScriptTools", ScriptTools);
 
         // Gameplay Types
         set("Character", soulscorch.gameplay.actors.Character);

@@ -95,6 +95,7 @@ class ChartingState extends MusicBeatState {
     private var receptorGroup:FlxSpriteGroup;
     private var gridCursor:FlxSprite;
     private var sectionIndicator:FlxSprite;
+    private var strumLine:FlxSprite;
     private var camFollow:FlxObject;
 
     // --- Cached Note Assets (real note graphics) ---
@@ -108,6 +109,8 @@ class ChartingState extends MusicBeatState {
     private var chartEvents:Array<ChartEditorEvent> = [];
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
+    private var sectionClipboardNotes:Array<ChartEditorNote> = [];
+    private var sectionClipboardEvents:Array<ChartEditorEvent> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 50;
 
     // --- UI Modals & Panels ---
@@ -124,6 +127,7 @@ class ChartingState extends MusicBeatState {
     private var checkHitsounds:EditorCheckbox;
     private var infoText:FlxText;
     private var statsText:FlxText;
+    private var btnQuantization:EditorButton;
 
     // Metadata Fields
     private var inputPlayer1:EditorInputText;
@@ -297,10 +301,16 @@ class ChartingState extends MusicBeatState {
 
                 _cachedGridBitmap.fillRect(new Rectangle(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, GRID_SIZE), cellColor);
 
-                var isBeat = (row % 4 == 0);
-                var lineColor = isBeat ? 0x6600FFCC : 0x22FFFFFF;
-                _cachedGridBitmap.fillRect(new Rectangle(col * GRID_SIZE, row * GRID_SIZE, GRID_SIZE, isBeat ? 2 : 1), lineColor);
             }
+        }
+
+        var gridHeight = STEPS_PER_SECTION * GRID_SIZE;
+        var divisionsPerBeat = Std.int(activeQuantization / 4);
+        for (division in 0...activeQuantization) {
+            var guideY = Std.int(division * gridHeight / activeQuantization);
+            var isBeat = division % divisionsPerBeat == 0;
+            var lineColor = isBeat ? 0x6600FFCC : 0x22FFFFFF;
+            _cachedGridBitmap.fillRect(new Rectangle(0, guideY, totalGridW, isBeat ? 2 : 1), lineColor);
         }
 
         _cachedGridBitmap.fillRect(new Rectangle(GRID_SIZE - 1, 0, 2, STEPS_PER_SECTION * GRID_SIZE), 0xFFFFCC00);
@@ -330,6 +340,14 @@ class ChartingState extends MusicBeatState {
             remove(receptorGroup, true);
             receptorGroup.destroy();
         }
+        if (strumLine != null) {
+            remove(strumLine, true);
+            strumLine.destroy();
+        }
+        if (sectionIndicator != null) {
+            remove(sectionIndicator, true);
+            sectionIndicator.destroy();
+        }
 
         receptorGroup = new FlxSpriteGroup(gridGroup.x + GRID_SIZE, gridGroup.y - GRID_SIZE - 10);
         add(receptorGroup);
@@ -346,15 +364,11 @@ class ChartingState extends MusicBeatState {
         }
 
         var totalGridW = (currentTotalLanes + 1) * GRID_SIZE;
-        var strumLine = new FlxSprite(gridGroup.x - 12, gridGroup.y - 12).makeGraphic(totalGridW + 24, 3, EditorTheme.ACCENT_CYAN);
+        strumLine = new FlxSprite(gridGroup.x - 12, gridGroup.y - 12).makeGraphic(totalGridW + 24, 3, EditorTheme.ACCENT_CYAN);
         add(strumLine);
 
-        gridCursor = new FlxSprite(0, 0).makeGraphic(GRID_SIZE, GRID_SIZE, FlxColor.TRANSPARENT);
-        gridCursor.pixels.fillRect(new Rectangle(0, 0, GRID_SIZE, 3), 0xFF00FFFF);
-        gridCursor.pixels.fillRect(new Rectangle(0, GRID_SIZE - 3, GRID_SIZE, 3), 0xFF00FFFF);
-        gridCursor.pixels.fillRect(new Rectangle(0, 0, 3, GRID_SIZE), 0xFF00FFFF);
-        gridCursor.pixels.fillRect(new Rectangle(GRID_SIZE - 3, 0, 3, GRID_SIZE), 0xFF00FFFF);
-        gridCursor.dirty = true;
+        gridCursor = new FlxSprite(0, 0);
+        refreshGridCursor();
         gridGroup.add(gridCursor);
 
         sectionIndicator = new FlxSprite(gridGroup.x - 22, gridGroup.y).makeGraphic(14, GRID_SIZE, EditorTheme.ACCENT_MAGENTA);
@@ -365,66 +379,96 @@ class ChartingState extends MusicBeatState {
         }
     }
 
+    private function refreshGridCursor():Void {
+        if (gridCursor == null) return;
+        var cursorHeight = Std.int(Math.max(4, GRID_SIZE * STEPS_PER_SECTION / activeQuantization));
+        gridCursor.makeGraphic(GRID_SIZE, cursorHeight, FlxColor.TRANSPARENT);
+        gridCursor.pixels.fillRect(new Rectangle(0, 0, GRID_SIZE, 3), 0xFF00FFFF);
+        gridCursor.pixels.fillRect(new Rectangle(0, cursorHeight - 3, GRID_SIZE, 3), 0xFF00FFFF);
+        gridCursor.pixels.fillRect(new Rectangle(0, 0, 3, cursorHeight), 0xFF00FFFF);
+        gridCursor.pixels.fillRect(new Rectangle(GRID_SIZE - 3, 0, 3, cursorHeight), 0xFF00FFFF);
+        gridCursor.dirty = true;
+    }
+
     private function setupUI():Void {
-        topBar = new EditorTopBar("CHART STUDIO ULTRA // [PEAK MATRIX]");
+        topBar = new EditorTopBar("CHART EDITOR");
         topBar.cameras = [camUI];
-        topBar.addAction("Play (Space)", togglePlayback);
-        topBar.addAction("Songs", function() songPickerModal.visible = !songPickerModal.visible);
-        topBar.addAction("Meta", function() metadataWindow.visible = !metadataWindow.visible);
-        topBar.addAction("Events", function() eventConfigWindow.visible = !eventConfigWindow.visible);
-        topBar.addAction("Save .xmsoul", saveChartToXMSoul);
-        topBar.addAction("Save .json", saveChartDirectly);
-        topBar.addAction("Test (Enter)", testInGame);
-        topBar.addAction("Exit (Esc)", function() MusicBeatState.switchState(new MainMenuState()));
+        topBar.addAction("Play", togglePlayback);
+        topBar.addAction("Songs", function() toggleAuxiliaryWindow(songPickerModal));
+        topBar.addAction("Meta", function() toggleAuxiliaryWindow(metadataWindow));
+        topBar.addAction("Events", function() toggleAuxiliaryWindow(eventConfigWindow));
+        topBar.addAction("XMSoul", saveChartToXMSoul);
+        topBar.addAction("JSON", saveChartDirectly);
+        topBar.addAction("Test", testInGame);
+        topBar.addAction("Exit", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
         // --- Left Panel ---
-        songPropertiesWindow = new EditorWindow(15, 45, 260, 440, "Master Controls");
+        songPropertiesWindow = new EditorWindow(15, 45, 260, 440, "Chart Setup");
         songPropertiesWindow.cameras = [camUI];
         add(songPropertiesWindow);
 
+        var propertiesLayout = new EditorVStack(10, 8, 240, 8);
+        songPropertiesWindow.addElement(propertiesLayout);
+
         // --- Right Panel ---
-        sectionWindow = new EditorWindow(FlxG.width - 275, 45, 260, 340, "Section & Note Details");
+        sectionWindow = new EditorWindow(FlxG.width - 275, 45, 260, 380, "Section & Note Details");
         sectionWindow.cameras = [camUI];
         add(sectionWindow);
 
-        infoText = new FlxText(10, 8, 240, "", 12);
+        var sectionLayout = new EditorVStack(10, 8, 240, 8);
+        sectionWindow.addElement(sectionLayout);
+
+        sectionLayout.addSection("Position");
+
+        infoText = new FlxText(0, 0, 240, "", 12);
         infoText.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
-        sectionWindow.addElement(infoText);
+        sectionLayout.addItem(infoText, 76);
 
-        statsText = new FlxText(10, 105, 240, "", 11);
+        statsText = new FlxText(0, 0, 240, "", 11);
         statsText.setFormat(Paths.font("vcr"), 11, EditorTheme.ACCENT_CYAN, LEFT);
-        sectionWindow.addElement(statsText);
+        sectionLayout.addItem(statsText, 42);
 
-        stepperBPM = new EditorNumericStepper(10, 10, 240, "Tempo (BPM)", (songData != null && songData.bpm > 0) ? songData.bpm : 120.0, 30.0, 500.0, 1.0, 1, function(v) {
+        sectionLayout.addSection("Selected Note");
+
+        propertiesLayout.addSection("Timing");
+
+        stepperBPM = new EditorNumericStepper(0, 0, 240, "Tempo (BPM)", (songData != null && songData.bpm > 0) ? songData.bpm : 120.0, 30.0, 500.0, 1.0, 1, function(v) {
             pushUndoSnapshot();
             if (songData != null) songData.bpm = v;
             Conductor.changeBPM(v);
             updateDisplayInfo();
         });
-        songPropertiesWindow.addElement(stepperBPM);
+        propertiesLayout.addItem(stepperBPM, 32);
 
-        stepperSpeed = new EditorNumericStepper(10, 50, 240, "Scroll Speed", (songData != null && songData.scrollSpeed > 0) ? songData.scrollSpeed : 2.0, 0.5, 8.0, 0.1, 2, function(v) {
+        stepperSpeed = new EditorNumericStepper(0, 0, 240, "Scroll Speed", (songData != null && songData.scrollSpeed > 0) ? songData.scrollSpeed : 2.0, 0.5, 8.0, 0.1, 2, function(v) {
             pushUndoSnapshot();
             if (songData != null) songData.scrollSpeed = v;
         });
-        songPropertiesWindow.addElement(stepperSpeed);
+        propertiesLayout.addItem(stepperSpeed, 32);
 
-        btnCycleType = new EditorButton(10, 92, 240, 26, "Type: " + currentNoteType, function() {
+        propertiesLayout.addSection("Note Placement");
+
+        btnCycleType = new EditorButton(0, 0, 240, 26, "Type: " + currentNoteType, function() {
             curNoteTypeIdx = (curNoteTypeIdx + 1) % noteTypes.length;
             currentNoteType = noteTypes[curNoteTypeIdx];
             btnCycleType.label.text = "Type: " + currentNoteType;
             EditorToast.show('Note Type: $currentNoteType');
         });
-        songPropertiesWindow.addElement(btnCycleType);
+        propertiesLayout.addItem(btnCycleType, 26);
 
-        checkHitsounds = new EditorCheckbox(10, 126, "Metronome & Hitsounds", hitsoundsEnabled, function(c) {
+        checkHitsounds = new EditorCheckbox(0, 0, "Metronome & Hitsounds", hitsoundsEnabled, function(c) {
             hitsoundsEnabled = c;
             EditorToast.show("Hitsounds: " + (hitsoundsEnabled ? "ON" : "OFF"));
         });
-        songPropertiesWindow.addElement(checkHitsounds);
+        propertiesLayout.addItem(checkHitsounds, 26);
 
-        var btnAddLane = new EditorButton(10, 158, 115, 26, "+ Add Lane", function() {
+        btnQuantization = new EditorButton(0, 0, 240, 26, getQuantizationLabel(), cycleQuantization);
+        propertiesLayout.addItem(btnQuantization, 26);
+
+        propertiesLayout.addSection("Section Tools");
+
+        var btnAddLane = new EditorButton(0, 0, 115, 26, "+ Add Lane", function() {
             if (currentTotalLanes < 16) {
                 currentTotalLanes += 4;
                 rebuildGridGraphics();
@@ -433,9 +477,8 @@ class ChartingState extends MusicBeatState {
                 EditorToast.show('Strumline expanded to $currentTotalLanes Lanes');
             }
         });
-        songPropertiesWindow.addElement(btnAddLane);
 
-        var btnRemLane = new EditorButton(135, 158, 115, 26, "- Rem Lane", function() {
+        var btnRemLane = new EditorButton(125, 0, 115, 26, "- Remove Lane", function() {
             if (currentTotalLanes > 4) {
                 currentTotalLanes -= 4;
                 rebuildGridGraphics();
@@ -444,28 +487,34 @@ class ChartingState extends MusicBeatState {
                 EditorToast.show('Strumline reduced to $currentTotalLanes Lanes');
             }
         });
-        songPropertiesWindow.addElement(btnRemLane);
+        propertiesLayout.addRow([btnAddLane, btnRemLane], 26);
 
-        var btnSwapSides = new EditorButton(10, 192, 240, 26, "Swap Opponent <-> Player", swapCurrentSectionNotes);
-        songPropertiesWindow.addElement(btnSwapSides);
+        var btnSwapSides = new EditorButton(0, 0, 240, 26, "Swap Opponent / Player", swapCurrentSectionNotes);
+        propertiesLayout.addItem(btnSwapSides, 26);
 
-        var btnMirror = new EditorButton(10, 224, 240, 26, "Mirror Section Lanes", mirrorSectionLanes);
-        songPropertiesWindow.addElement(btnMirror);
+        var btnMirror = new EditorButton(0, 0, 240, 26, "Mirror Section Lanes", mirrorSectionLanes);
+        propertiesLayout.addItem(btnMirror, 26);
 
-        var btnClearSec = new EditorButton(10, 256, 240, 26, "Clear Current Section", clearCurrentSection);
-        songPropertiesWindow.addElement(btnClearSec);
+        var btnClearSec = new EditorButton(0, 0, 240, 26, "Clear Current Section", clearCurrentSection);
+        propertiesLayout.addItem(btnClearSec, 26, 0);
 
-        stepperSustain = new EditorNumericStepper(10, 150, 240, "Sustain Length (Steps)", 0, 0, 64, 0.5, 1, function(v) {
+        stepperSustain = new EditorNumericStepper(0, 0, 240, "Sustain Length (Steps)", 0, 0, 64, 0.5, 1, function(v) {
             if (curSelectedNote != null) {
                 pushUndoSnapshot();
                 curSelectedNote.sustainLength = v * Conductor.stepCrochet;
                 updateSectionView();
             }
         });
-        sectionWindow.addElement(stepperSustain);
+        sectionLayout.addItem(stepperSustain, 32);
 
-        var btnDel = new EditorButton(10, 195, 240, 26, "Delete Selected (Del)", deleteSelectedElement);
-        sectionWindow.addElement(btnDel);
+        var btnDel = new EditorButton(0, 0, 240, 26, "Delete Selected (Del)", deleteSelectedElement);
+        sectionLayout.addItem(btnDel, 26);
+
+        sectionLayout.addSection("Clipboard");
+
+        var btnCopySection = new EditorButton(0, 0, 115, 26, "Copy Section", copyCurrentSection);
+        var btnPasteSection = new EditorButton(125, 0, 115, 26, "Paste Section", pasteSection);
+        sectionLayout.addRow([btnCopySection, btnPasteSection], 26, 0);
 
         // Metadata Window
         metadataWindow = new EditorWindow((FlxG.width - 320) * 0.5, 60, 320, 380, "Song Metadata & Characters");
@@ -527,10 +576,33 @@ class ChartingState extends MusicBeatState {
                 curSelectedEvent.val1 = inputEventVal1.text.trim();
                 curSelectedEvent.val2 = inputEventVal2.text.trim();
                 updateSectionView();
+                eventConfigWindow.visible = false;
                 EditorToast.show('Updated Event: ${curSelectedEvent.name}');
             }
         });
         eventConfigWindow.addElement(btnUpdateEv);
+
+        var btnCloseEvent = new EditorButton(10, 221, 240, 26, "Close", function() eventConfigWindow.visible = false);
+        eventConfigWindow.addElement(btnCloseEvent);
+    }
+
+    private function toggleAuxiliaryWindow(target:EditorWindow):Void {
+        var shouldOpen = target != null && !target.visible;
+        if (songPickerModal != null) songPickerModal.visible = false;
+        if (metadataWindow != null) metadataWindow.visible = false;
+        if (eventConfigWindow != null) eventConfigWindow.visible = false;
+        if (shouldOpen) target.visible = true;
+    }
+
+    private function isTextInputFocused():Bool {
+        return (inputPlayer1 != null && inputPlayer1.isFocused)
+            || (inputPlayer2 != null && inputPlayer2.isFocused)
+            || (inputGF != null && inputGF.isFocused)
+            || (inputStage != null && inputStage.isFocused)
+            || (inputDifficulty != null && inputDifficulty.isFocused)
+            || (inputEventName != null && inputEventName.isFocused)
+            || (inputEventVal1 != null && inputEventVal1.isFocused)
+            || (inputEventVal2 != null && inputEventVal2.isFocused);
     }
 
     private function buildSongPickerModal():Void {
@@ -583,9 +655,10 @@ class ChartingState extends MusicBeatState {
     }
 
     override public function update(elapsed:Float):Void {
+        var textInputWasFocused = isTextInputFocused();
         super.update(elapsed);
 
-        handleKeyboardShortcuts();
+        if (!textInputWasFocused) handleKeyboardShortcuts();
         handleMouseGridInput();
 
         if (isPlaying) {
@@ -634,7 +707,10 @@ class ChartingState extends MusicBeatState {
     }
 
     private function handleKeyboardShortcuts():Void {
-        if (metadataWindow.visible || songPickerModal.visible) return;
+        if (songPickerModal.visible || metadataWindow.visible || eventConfigWindow.visible) {
+            if (FlxG.keys.justPressed.ESCAPE) toggleAuxiliaryWindow(null);
+            return;
+        }
 
         if (FlxG.keys.justPressed.SPACE) togglePlayback();
 
@@ -652,12 +728,15 @@ class ChartingState extends MusicBeatState {
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Z) undo();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.Y) redo();
         if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.S) saveChartToXMSoul();
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.C) copyCurrentSection();
+        if (FlxG.keys.pressed.CONTROL && FlxG.keys.justPressed.V) pasteSection();
+        if (FlxG.keys.justPressed.Q) cycleQuantization();
         if (FlxG.keys.justPressed.ENTER) testInGame();
         if (FlxG.keys.justPressed.ESCAPE) MusicBeatState.switchState(new MainMenuState());
     }
 
     private function handleMouseGridInput():Void {
-        if (gridGroup == null || isPlaying || metadataWindow.visible || songPickerModal.visible) return;
+        if (gridGroup == null || isPlaying || metadataWindow.visible || songPickerModal.visible || eventConfigWindow.visible) return;
 
         var mx = FlxG.mouse.x - gridGroup.x;
         var my = FlxG.mouse.y - gridGroup.y;
@@ -665,7 +744,9 @@ class ChartingState extends MusicBeatState {
 
         if (mx >= 0 && mx < totalGridW && my >= 0 && my < (STEPS_PER_SECTION * GRID_SIZE)) {
             var hoveredCol = Math.floor(mx / GRID_SIZE);
-            var hoveredStep = Math.floor(my / GRID_SIZE);
+            var rawStep = my / GRID_SIZE;
+            var quantStep = STEPS_PER_SECTION / activeQuantization;
+            var hoveredStep = FlxMath.bound(Math.floor(rawStep / quantStep) * quantStep, 0, STEPS_PER_SECTION - quantStep);
 
             if (gridCursor != null) {
                 gridCursor.visible = true;
@@ -680,7 +761,7 @@ class ChartingState extends MusicBeatState {
                     if (existingEv != null) {
                         curSelectedEvent = existingEv;
                         curSelectedNote = null;
-                        eventConfigWindow.visible = true;
+                        toggleAuxiliaryWindow(eventConfigWindow);
                         inputEventName.text = existingEv.name;
                         inputEventVal1.text = existingEv.val1;
                         inputEventVal2.text = existingEv.val2;
@@ -695,7 +776,7 @@ class ChartingState extends MusicBeatState {
                         };
                         chartEvents.push(newEv);
                         curSelectedEvent = newEv;
-                        eventConfigWindow.visible = true;
+                        toggleAuxiliaryWindow(eventConfigWindow);
                         AssetHelper.playSoundSafely("scrollMenu", 0.4);
                     }
                 } else {
@@ -757,7 +838,7 @@ class ChartingState extends MusicBeatState {
     }
 
     private function findNoteAt(lane:Int, time:Float):Null<ChartEditorNote> {
-        var threshold = Conductor.stepCrochet * 0.45;
+        var threshold = Conductor.stepCrochet * (STEPS_PER_SECTION / activeQuantization) * 0.45;
         for (n in chartNotes) {
             if (n.lane == lane && Math.abs(n.time - time) < threshold) return n;
         }
@@ -765,7 +846,7 @@ class ChartingState extends MusicBeatState {
     }
 
     private function findEventAt(time:Float):Null<ChartEditorEvent> {
-        var threshold = Conductor.stepCrochet * 0.45;
+        var threshold = Conductor.stepCrochet * (STEPS_PER_SECTION / activeQuantization) * 0.45;
         for (e in chartEvents) {
             if (Math.abs(e.time - time) < threshold) return e;
         }
@@ -983,6 +1064,83 @@ class ChartingState extends MusicBeatState {
         updateSectionView();
         updateDisplayInfo();
         EditorToast.show("Cleared Section Data");
+    }
+
+    private function getQuantizationLabel():String {
+        return 'Snap: 1/$activeQuantization (Q)';
+    }
+
+    private function cycleQuantization():Void {
+        var quantizations = [4, 8, 12, 16, 24, 32];
+        var index = quantizations.indexOf(activeQuantization);
+        activeQuantization = quantizations[(index + 1) % quantizations.length];
+        if (btnQuantization != null) btnQuantization.label.text = getQuantizationLabel();
+        rebuildGridGraphics();
+        createReceptorsAndIndicators();
+        updateSectionView();
+        EditorToast.show('Grid snap set to 1/$activeQuantization');
+    }
+
+    private function copyCurrentSection():Void {
+        var sectionStartTime = curSection * STEPS_PER_SECTION * Conductor.stepCrochet;
+        var sectionEndTime = sectionStartTime + (STEPS_PER_SECTION * Conductor.stepCrochet);
+        sectionClipboardNotes = [];
+        sectionClipboardEvents = [];
+
+        for (note in chartNotes) {
+            if (note.time >= sectionStartTime && note.time < sectionEndTime) {
+                sectionClipboardNotes.push({
+                    time: note.time - sectionStartTime,
+                    lane: note.lane,
+                    sustainLength: note.sustainLength,
+                    type: note.type,
+                    mustPress: note.mustPress
+                });
+            }
+        }
+        for (event in chartEvents) {
+            if (event.time >= sectionStartTime && event.time < sectionEndTime) {
+                sectionClipboardEvents.push({
+                    time: event.time - sectionStartTime,
+                    name: event.name,
+                    val1: event.val1,
+                    val2: event.val2
+                });
+            }
+        }
+
+        EditorToast.show('Copied ${sectionClipboardNotes.length} notes and ${sectionClipboardEvents.length} events');
+    }
+
+    private function pasteSection():Void {
+        if (sectionClipboardNotes.length == 0 && sectionClipboardEvents.length == 0) {
+            EditorToast.show("Section clipboard is empty", true);
+            return;
+        }
+
+        pushUndoSnapshot();
+        var sectionStartTime = curSection * STEPS_PER_SECTION * Conductor.stepCrochet;
+        for (note in sectionClipboardNotes) {
+            chartNotes.push({
+                time: sectionStartTime + note.time,
+                lane: note.lane,
+                sustainLength: note.sustainLength,
+                type: note.type,
+                mustPress: note.mustPress
+            });
+        }
+        for (event in sectionClipboardEvents) {
+            chartEvents.push({
+                time: sectionStartTime + event.time,
+                name: event.name,
+                val1: event.val1,
+                val2: event.val2
+            });
+        }
+
+        updateSectionView();
+        updateDisplayInfo();
+        EditorToast.show("Pasted section contents");
     }
 
     private function pushUndoSnapshot():Void {

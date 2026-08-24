@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   build-binaries:
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +146,7 @@ jobs:
           '
 
       - name: Compile SoulScorch Engine
-        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH
+        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS
         env:
           HXCPP_COMPILE_THREADS: 8
 
@@ -173,7 +174,7 @@ jobs:
                       candidates.append(root)
                   elif target == "mac" and (any(d.endswith(".app") for d in dirs) or any(f.endswith(".app") for f in files) or "mac" in root.lower()):
                       candidates.append(root)
-                  elif target == "linux" and ("linux" in root.lower() or any(os.access(os.path.join(root, f), os.X_OK) for f in files)):
+                  elif target == "linux" and any(f == "SoulScorch" and os.access(os.path.join(root, f), os.X_OK) for f in files):
                       candidates.append(root)
 
           for c in candidates:

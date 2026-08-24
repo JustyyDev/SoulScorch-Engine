@@ -44,6 +44,7 @@ import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.gameplay.notes.Strumline;
 import soulscorch.graphics.JuiceManager;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.soul.SoulScriptParser;
@@ -124,6 +125,7 @@ class SoulScript implements ScriptInstance {
         set("Conductor", Conductor);
         set("Paths", Paths);
         set("AssetHelper", AssetHelper);
+        set("ScriptTools", ScriptTools);
 
         set("Reflect", Reflect);
         set("Type", Type);

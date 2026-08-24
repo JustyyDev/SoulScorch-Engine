@@ -16,6 +16,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.MobilePad;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
@@ -55,6 +56,8 @@ class PauseSubState extends MusicBeatSubstate {
     private var isLeaving:Bool = false;
     private var scripts:ScriptManager;
     private var animTime:Float = 0.0;
+    private var mobileControls:MobilePad;
+    private var returningToGame:Bool = false;
 
     public function new() {
         super();
@@ -121,6 +124,13 @@ class PauseSubState extends MusicBeatSubstate {
         }
 
         changeSelection(0);
+
+        #if (mobile || debug)
+        mobileControls = new MobilePad(UP_DOWN, A_B);
+        mobileControls.cameras = [subCamera];
+        add(mobileControls);
+        Controls.instance.bindMobilePad(mobileControls);
+        #end
 
         if (scripts != null) scripts.callAll("onPostCreate");
     }
@@ -278,6 +288,7 @@ class PauseSubState extends MusicBeatSubstate {
 
     private function resumeGame():Void {
         isLeaving = true;
+        returningToGame = true;
         stopPauseMusic();
         if (PlayState.instance != null) PlayState.instance.resumeSong();
         if (scripts != null) scripts.callAll("onResume");
@@ -359,6 +370,10 @@ class PauseSubState extends MusicBeatSubstate {
     override public function destroy():Void {
         stopPauseMusic();
         cleanupCamera();
+        Controls.instance.unbindMobilePad();
+        if (returningToGame && PlayState.instance != null && PlayState.instance.mobileControls != null) {
+            Controls.instance.bindMobilePad(PlayState.instance.mobileControls);
+        }
         if (scripts != null) {
             scripts.callAll("onDestroy");
             scripts.clear();

@@ -15,6 +15,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     env:
       SOULSCORCH_EXTRA_DEFS: ""
@@ -30,7 +31,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Setup Android SDK Tools
         uses: android-actions/setup-android@v3
@@ -103,7 +104,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -118,11 +119,13 @@ jobs:
             bin/android/**/*.apk
             export/android/**/*.apk
             export/release/android/**/*.apk
+            export/**/android/bin/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
   build-ios:
     name: Build iOS Xcode Project
     runs-on: macos-14
+    timeout-minutes: 60
 
     env:
       SOULSCORCH_EXTRA_DEFS: ""
@@ -190,7 +193,7 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           HXCPP_COMPILE_THREADS: 8
 
@@ -202,19 +205,18 @@ jobs:
           workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
           output_zip = os.path.join(workspace, "SoulScorch-iOS-XcodeProject.zip")
 
-          found_dir = None
-          for root, dirs, files in os.walk("."):
-              if "obj" in root or ".git" in root or "haxe" in root:
+            found_dir = None
+            for search_root in ("export", "bin"):
+              if not os.path.isdir(search_root):
+                continue
+              for root, dirs, files in os.walk(search_root):
+                if "obj" in root or "haxe" in root or "ios" not in root.lower():
                   continue
-              if any(d.endswith(".xcodeproj") for d in dirs):
+                if any(d.endswith(".xcodeproj") for d in dirs):
                   found_dir = root
                   break
-
-          if not found_dir:
-              for root, dirs, files in os.walk("."):
-                  if "ios" in root.lower() and ("bin" in root.lower() or "export" in root.lower()):
-                      found_dir = root
-                      break
+              if found_dir:
+                break
 
           if not found_dir:
               print("Error: Could not locate Xcode project directory.")

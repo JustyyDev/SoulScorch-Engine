@@ -81,6 +81,7 @@ import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptManager;
+import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.ScriptedSubState;
 import soulscorch.scripting.mod.ModCustomState;
@@ -281,6 +282,7 @@ class HScriptIris implements ScriptInstance {
         set("DevConsole", DevConsole);
         set("AssetResolver", AssetResolver);
         set("AssetHelper", AssetHelper);
+        set("ScriptTools", ScriptTools);
         set("AudioManager", AudioManager);
         set("Framerate", Framerate);
         set("GameConfig", GameConfig);

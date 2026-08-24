@@ -9,6 +9,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
+import haxe.Json;
 import openfl.display.BlendMode;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
@@ -202,7 +203,13 @@ class PythonScript implements ScriptInstance {
             var proc = new Process(procArgs[0], procArgs.slice(1));
             var output = proc.stdout.readAll().toString();
             proc.close();
-            return output.trim();
+            var cleanOutput = output.trim();
+            if (cleanOutput.length == 0) return null;
+            try {
+                return Json.parse(cleanOutput);
+            } catch (_:Dynamic) {
+                return cleanOutput;
+            }
         } catch (e:Dynamic) {
             Logger.warn('Python execution notice in $func ($path): $e', "python");
         }

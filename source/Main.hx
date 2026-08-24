@@ -81,6 +81,9 @@ class Main extends Sprite {
             // Retrieve saved framerate from save file
             var savedFPS = SaveData.instance.getInt("framerate", 120);
             framerate = (savedFPS >= 30 && savedFPS <= 360) ? savedFPS : 120;
+            #if mobile
+            framerate = Std.int(Math.min(framerate, 60));
+            #end
 
             var game = new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen);
             addChild(game);

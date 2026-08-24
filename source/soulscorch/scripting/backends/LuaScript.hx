@@ -25,6 +25,7 @@ import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptedState;
+import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.mod.ModCustomState;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
@@ -197,6 +198,41 @@ class LuaScript implements ScriptInstance {
         setLuaCallback("getSongPosition", function() return Conductor.songPosition);
         setLuaCallback("getCurBeat", function() return Conductor.curBeat);
         setLuaCallback("getCurStep", function() return Conductor.curStep);
+        setLuaCallback("screenToWorldX", function(x:Float, y:Float, ?cameraName:String = "game") {
+            var point = ScriptTools.screenToWorld(x, y, resolveCameraByName(cameraName));
+            var result = point.x;
+            point.put();
+            return result;
+        });
+        setLuaCallback("screenToWorldY", function(x:Float, y:Float, ?cameraName:String = "game") {
+            var point = ScriptTools.screenToWorld(x, y, resolveCameraByName(cameraName));
+            var result = point.y;
+            point.put();
+            return result;
+        });
+        setLuaCallback("worldToScreenX", function(x:Float, y:Float, ?cameraName:String = "game") {
+            var point = ScriptTools.worldToScreen(x, y, resolveCameraByName(cameraName));
+            var result = point.x;
+            point.put();
+            return result;
+        });
+        setLuaCallback("worldToScreenY", function(x:Float, y:Float, ?cameraName:String = "game") {
+            var point = ScriptTools.worldToScreen(x, y, resolveCameraByName(cameraName));
+            var result = point.y;
+            point.put();
+            return result;
+        });
+        setLuaCallback("setCameraAnchor", function(x:Float, y:Float, immediate:Bool = false) {
+            ScriptTools.setCameraAnchor(x, y, immediate);
+        });
+        setLuaCallback("addToStageLayer", function(tag:String, layerName:String):Bool {
+            var object:FlxBasic = luaSprites.exists(tag) ? luaSprites.get(tag) : luaTexts.get(tag);
+            return ScriptTools.addToStageLayer(object, layerName);
+        });
+        setLuaCallback("fitObjectToCamera", function(tag:String, ?cameraName:String = "game", cover:Bool = true):Void {
+            var sprite = luaSprites.get(tag);
+            if (sprite != null) ScriptTools.fitToCamera(sprite, resolveCameraByName(cameraName), cover);
+        });
 
         // --- Extended API (no limits) ---
         setLuaCallback("makeGraphic", makeGraphic);
@@ -708,6 +744,17 @@ class LuaScript implements ScriptInstance {
         if (luaTexts.exists(name)) return luaTexts.get(name);
         var target:Dynamic = (PlayState.instance != null) ? PlayState.instance : FlxG.state;
         return getProperty(target, name);
+    }
+
+    private function resolveCameraByName(name:String):FlxCamera {
+        var game = PlayState.instance;
+        if (game == null) return FlxG.camera;
+        return switch (name == null ? "game" : name.toLowerCase().trim()) {
+            case "hud", "camhud": game.camHUD;
+            case "other", "camother": game.camOther;
+            case "controls", "camcontrols": game.camControls;
+            default: game.camGame;
+        };
     }
 
     private function resolveEase(ease:String):flixel.tweens.FlxEase.EaseFunction {

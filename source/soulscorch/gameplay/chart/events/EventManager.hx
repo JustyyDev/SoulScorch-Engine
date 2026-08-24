@@ -152,8 +152,10 @@ class EventManager {
 
     private function dispatch(name:String, val1:String, val2:String, ?data:Dynamic):Void {
         var cleanName:String = name.toLowerCase().trim();
+        var runDefault = ScriptManager.instance == null
+            || ScriptManager.instance.callAllCancelable("onBeforeEvent", [name, val1, val2, data]);
 
-        switch (cleanName) {
+        if (runDefault) switch (cleanName) {
             case "camera movement", "camera pan", "camera_pan", "camerapan", "focus camera":
                 var target = (val1.length > 0) ? val1 : "stage";
                 var duration = parseFloatSafe(val2, 0.4);

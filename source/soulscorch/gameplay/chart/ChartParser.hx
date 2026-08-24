@@ -48,7 +48,11 @@ class ChartParser {
             var chart = new Chart(bpm, speed);
 
             for (strumLine in access.nodes.resolve("strumLine")) {
-                var isPlayer = XMSoul.getAttr(strumLine, "type", "opponent").toLowerCase() == "player"
+                var lineType = XMSoul.getAttr(strumLine, "type", "opponent").toLowerCase();
+                var isVisible = XMSoul.getBoolAttr(strumLine, "visible", true);
+                if (!isVisible || lineType == "ambient") continue;
+
+                var isPlayer = lineType == "player"
                     || XMSoul.getAttr(strumLine, "position", "").toLowerCase() == "boyfriend";
 
                 for (noteNode in strumLine.nodes.resolve("note")) {

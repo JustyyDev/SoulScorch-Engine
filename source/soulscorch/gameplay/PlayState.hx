@@ -184,6 +184,7 @@ class PlayState extends MusicBeatState {
     private var keysHeld:Array<Bool> = [false, false, false, false];
     private var countdownTimer:FlxTimer;
     private var hudConfig:Access = null;
+    private var lastScriptSection:Int = -1;
 
     // Reusable array caches to eliminate per-frame allocations
     private var _elapsedArgCache:Array<Dynamic> = [0.0];
@@ -322,6 +323,7 @@ class PlayState extends MusicBeatState {
 
         judgementManager = new JudgementManager(camHUD);
         judgementManager.onHealthChange = function(newHealth:Float) {
+            if (scripts != null) scripts.callAll("onHealthChange", [newHealth, maxHealth]);
             if (newHealth <= 0 && !isEnding && !practiceMode) {
                 gameOver();
             }
@@ -488,7 +490,11 @@ class PlayState extends MusicBeatState {
         dad.cameras = [camGame];
         boyfriend.cameras = [camGame];
 
-        centerCameraOnDad();
+        if (currentStage.startCamPos != null) {
+            camFollow.setPosition(currentStage.startCamPos.x, currentStage.startCamPos.y);
+        } else {
+            centerCameraOnDad();
+        }
         camFollowPos.setPosition(camFollow.x, camFollow.y);
         camGame.zoom = defaultCamZoom;
         camGame.focusOn(camFollow.getPosition());
@@ -759,8 +765,30 @@ class PlayState extends MusicBeatState {
         scripts.setAll("Paths", soulscorch.backend.assets.Paths);
         scripts.setAll("AssetHelper", soulscorch.backend.assets.AssetHelper);
         scripts.setAll("Logger", soulscorch.backend.utils.Logger);
+        scripts.setAll("SaveData", SaveData);
+        scripts.setAll("Runtime", Runtime);
 
         // Advanced Scripting Helpers
+        scripts.setAll("triggerEvent", function(name:String, ?val1:Dynamic = "", ?val2:Dynamic = "") {
+            triggerEvent(name, val1, val2);
+        });
+
+        scripts.setAll("getGameplayFlag", function(name:String, ?fallback:Dynamic = null) {
+            return GameplayFlags.get(name, fallback);
+        });
+
+        scripts.setAll("setGameplayFlag", function(name:String, value:Dynamic) {
+            return GameplayFlags.set(name, value);
+        });
+
+        scripts.setAll("spawnNote", function(time:Float, direction:Int, ?mustPress:Bool = true, ?type:String = "normal", ?sustainLength:Float = 0.0) {
+            return queueScriptNote(time, direction, mustPress, type, sustainLength);
+        });
+
+        scripts.setAll("queueEvent", function(time:Float, name:String, ?val1:Dynamic = "", ?val2:Dynamic = "") {
+            queueScriptEvent(time, name, val1, val2);
+        });
+
         scripts.setAll("setCameraZoom", function(zoom:Float) {
             defaultCamZoom = zoom;
             camGame.zoom = zoom;
@@ -855,6 +883,9 @@ class PlayState extends MusicBeatState {
         var introSounds = ["intro3", "intro2", "intro1", "introGo"];
 
         countdownTimer = new FlxTimer().start(Conductor.crochet / 1000.0, function(tmr:FlxTimer) {
+            _intArgCache[0] = countdownIndex;
+            scripts.callAll("onCountdownTick", _intArgCache);
+
             if (countdownIndex < 4) {
                 AssetHelper.playSoundSafely(introSounds[countdownIndex], 0.7);
 
@@ -1004,7 +1035,45 @@ class PlayState extends MusicBeatState {
             } else {
                 notes.add(note);
             }
+            scripts.callAll("onNoteSpawn", [note]);
         }
+    }
+
+    public function queueScriptNote(time:Float, direction:Int, mustPress:Bool = true, type:String = "normal", sustainLength:Float = 0.0):Note {
+        var noteSkin = getActiveNoteSkin();
+        var mainNote = new Note(time, direction, sustainLength, null, false, false, mustPress, type, noteSkin);
+        unspawnNotes.push(mainNote);
+
+        if (sustainLength > 0) {
+            var totalSustains = Math.floor(sustainLength / Conductor.stepCrochet);
+            for (index in 0...totalSustains) {
+                var sustainNode = new Note(
+                    time + (Conductor.stepCrochet * (index + 1)),
+                    direction,
+                    sustainLength,
+                    mainNote,
+                    true,
+                    index == totalSustains - 1,
+                    mustPress,
+                    type,
+                    noteSkin
+                );
+                mainNote.tail.push(sustainNode);
+                unspawnNotes.push(sustainNode);
+            }
+        }
+
+        unspawnNotes.sort(function(a:Note, b:Note):Int {
+            return FlxSort.byValues(FlxSort.ASCENDING, a.strumTime, b.strumTime);
+        });
+        return mainNote;
+    }
+
+    public function queueScriptEvent(time:Float, name:String, val1:Dynamic = "", val2:Dynamic = ""):Void {
+        eventNotes.push({time: time, name: name, val1: val1, val2: val2});
+        eventNotes.sort(function(a:ParsedChartEvent, b:ParsedChartEvent):Int {
+            return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+        });
     }
 
     private function updateNotePositions():Void {
@@ -1028,16 +1097,19 @@ class PlayState extends MusicBeatState {
                 }
 
                 if (!daNote.mustPress && daNote.strumTime <= songPos) {
-                    targetStrum.playAnim("confirm", true);
-                    targetStrum.resetAnim = 0.15;
+                    if (scripts.callAllCancelable("onBeforeOpponentNoteHit", [daNote])) {
+                        targetStrum.playAnim("confirm", true);
+                        targetStrum.resetAnim = 0.15;
 
-                    if (dad != null && daNote.playSingAnim) {
-                        dad.playSingAnim(daNote.noteData);
-                        setCamDisplacement(daNote.noteData);
-                        centerCameraOnDad();
+                        if (dad != null && daNote.playSingAnim) {
+                            dad.playSingAnim(daNote.noteData);
+                            setCamDisplacement(daNote.noteData);
+                            centerCameraOnDad();
+                        }
+
+                        if (audio != null) audio.muteVocal(false, false);
                     }
-
-                    if (audio != null) audio.muteVocal(false, false);
+                    scripts.callAll("onOpponentNoteHit", [daNote]);
                     daNote.kill();
                     if (daNote.isSustainNote) sustainsGroup.remove(daNote, false); else notes.remove(daNote, false);
                     daNote.destroy();
@@ -1115,6 +1187,9 @@ class PlayState extends MusicBeatState {
     }
 
     private function pressStrum(dir:Int):Void {
+        _intArgCache[0] = dir;
+        scripts.callAll("onKeyPress", _intArgCache);
+
         var pStrum = playerStrumline.receptors[dir];
         if (pStrum != null) pStrum.playAnim("pressed");
 
@@ -1139,11 +1214,22 @@ class PlayState extends MusicBeatState {
     }
 
     private function releaseStrum(dir:Int):Void {
+        _intArgCache[0] = dir;
+        scripts.callAll("onKeyRelease", _intArgCache);
+
         var pStrum = playerStrumline.receptors[dir];
         if (pStrum != null) pStrum.playAnim("static");
     }
 
     private function goodNoteHit(note:Note):Void {
+        if (!scripts.callAllCancelable("onBeforeNoteHit", [note])) {
+            note.wasGoodHit = true;
+            note.kill();
+            if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
+            note.destroy();
+            return;
+        }
+
         note.wasGoodHit = true;
 
         if (note.causesMiss) {
@@ -1228,6 +1314,9 @@ class PlayState extends MusicBeatState {
     }
 
     private function noteMiss(dir:Int):Void {
+        _intArgCache[0] = dir;
+        if (!scripts.callAllCancelable("onBeforePlayerMiss", _intArgCache)) return;
+
         songMisses++;
         combo = 0;
         totalNotesPassed++;
@@ -1355,6 +1444,11 @@ class PlayState extends MusicBeatState {
                     var secObj:Dynamic = secArray[curSecIdx];
                     var isBfFocus:Bool = Reflect.hasField(secObj, "mustHitSection") ? Reflect.field(secObj, "mustHitSection") == true : (Reflect.hasField(secObj, "mustHit") ? Reflect.field(secObj, "mustHit") == true : false);
 
+                    if (curSecIdx != lastScriptSection) {
+                        lastScriptSection = curSecIdx;
+                        scripts.callAll("onSectionChange", [curSecIdx, isBfFocus]);
+                    }
+
                     if (isBfFocus != mustHitSection) {
                         mustHitSection = isBfFocus;
                         if (mustHitSection) centerCameraOnBF(); else centerCameraOnDad();
@@ -1373,7 +1467,7 @@ class PlayState extends MusicBeatState {
         var strV1 = Std.string(val1);
         var strV2 = Std.string(val2);
 
-        switch (name) {
+        if (scripts.callAllCancelable("onBeforeEvent", [name, val1, val2])) switch (name) {
             case "Camera Flash":
                 var targetCam = (strV1.toLowerCase() == "hud" || strV1.toLowerCase() == "camhud") ? camHUD : camGame;
                 var dur = Std.parseFloat(strV2);
@@ -1420,6 +1514,8 @@ class PlayState extends MusicBeatState {
     }
 
     public function openPauseMenu():Void {
+        if (!scripts.callAllCancelable("onBeforePause", [])) return;
+
         paused = true;
         if (audio != null) audio.pause();
         scripts.callAll("onPause", []);
@@ -1437,6 +1533,8 @@ class PlayState extends MusicBeatState {
     }
 
     public function gameOver():Void {
+        if (!scripts.callAllCancelable("onBeforeGameOver", [])) return;
+
         paused = true;
         if (audio != null) audio.stop();
         scripts.callAll("onGameOver", []);
