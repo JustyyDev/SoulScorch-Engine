@@ -123,10 +123,10 @@ class MobilePad extends FlxSpriteGroup {
     public function new(mode:MobilePadMode = FULL, action:MobilePadAction = A_B) {
         super();
 
-        var btnSize:Int = Std.int(FlxMath.bound(screenH * 0.16, 82, 116));
-        var padding:Float = 18.0;
         var screenH:Float = FlxG.height;
         var screenW:Float = FlxG.width;
+        var btnSize:Int = Std.int(FlxMath.bound(screenH * 0.16, 82, 116));
+        var padding:Float = 18.0;
 
         switch (mode) {
             case ARROWS_ONLY:
