@@ -30,6 +30,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.InputMap;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.EngineOptimizer;
@@ -862,8 +863,8 @@ class PlayState extends MusicBeatState {
         judgementCounterTxt.cameras = [camHUD];
         add(judgementCounterTxt);
 
-        botplayTxt = new FlxText(0, healthBarBG.y + (downscroll ? 58 : -38), FlxG.width, "BOTPLAY", 24);
-        botplayTxt.setFormat(Paths.font(fontName), 24, 0xFFFFCC00, CENTER, OUTLINE, FlxColor.BLACK);
+        botplayTxt = new FlxText(0, healthBarBG.y + (downscroll ? 58 : -38), FlxG.width, LanguageManager.getString("game.botplay", "BOTPLAY"), 24);
+        botplayTxt.setFormat(Paths.font(fontName), 24, 0xFFFFFFFF, CENTER, OUTLINE, FlxColor.BLACK);
         botplayTxt.borderSize = 1.5;
         botplayTxt.scrollFactor.set(0, 0);
         botplayTxt.cameras = [camHUD];
@@ -1761,7 +1762,9 @@ class PlayState extends MusicBeatState {
     private function updateScoreText():Void {
         var acc = totalNotesPassed > 0 ? (Math.round(accuracy * 100) / 100) : 0.0;
         var rank = getRatingString(acc);
-        scoreTxt.text = 'Score: $songScore | Misses: $songMisses | Accuracy: $acc% [$rank]';
+        
+        var scoreFormat = LanguageManager.getString("game.scoreHUD", "Score: {0} | Misses: {1} | Accuracy: {2}% [{3}]", [songScore, songMisses, acc, rank]);
+        scoreTxt.text = scoreFormat;
 
         if (judgementCounterTxt != null) {
             judgementCounterTxt.text = 'Sicks: $sicks\nGoods: $goods\nBads: $bads\nShits: $shits\nCombo: $combo (Max: $maxCombo)';

@@ -16,6 +16,7 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
@@ -89,7 +90,7 @@ class CreditsState extends MusicBeatState {
         accentTag.scrollFactor.set(0, 0);
         add(accentTag);
 
-        var headerTitle = new FlxText(38, 17, 450, "SOULSCORCH // CREDITS & COLLABORATORS", 18);
+        var headerTitle = new FlxText(38, 17, 450, LanguageManager.getString("credits.header", null), 18);
         headerTitle.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
@@ -102,7 +103,10 @@ class CreditsState extends MusicBeatState {
 
         for (i in 0...credits.length) {
             var item = new FlxText(160, (i * 80) + 120, 0, credits[i].name, 32);
-            item.setFormat(Paths.font("vcr"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+            var entryColor = credits[i].color != null && credits[i].color.length > 0
+                ? ColorUtil.fromHexSafe(credits[i].color, FlxColor.WHITE)
+                : FlxColor.WHITE;
+            item.setFormat(Paths.font("vcr"), 32, entryColor, LEFT, OUTLINE, FlxColor.BLACK);
             item.borderSize = 2.0;
             item.ID = i;
             grpCredits.add(item);
@@ -112,8 +116,15 @@ class CreditsState extends MusicBeatState {
             var loaded = AssetHelper.loadGraphicSafely(iconSpr, 'ui/credits/$iconKey');
             if (!loaded) loaded = AssetHelper.loadGraphicSafely(iconSpr, 'credits/$iconKey');
             if (!loaded) loaded = AssetHelper.loadGraphicSafely(iconSpr, 'ui/game/icons/icon-$iconKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(iconSpr, 'icons/icon-$iconKey');
             if (!loaded) iconSpr.makeGraphic(48, 48, EditorTheme.ACCENT_CYAN);
-            iconSpr.setGraphicSize(48, 48);
+
+            // Auto-shrink high-resolution credit icons (e.g., 512x512, 1024x1024) to standard 48x48 bounds in the menu list
+            if (iconSpr.graphic != null && (iconSpr.graphic.width > 48 || iconSpr.graphic.height > 48)) {
+                iconSpr.setGraphicSize(48, 48);
+            } else {
+                iconSpr.setGraphicSize(48, 48);
+            }
             iconSpr.updateHitbox();
             iconSpr.antialiasing = true;
             iconSpr.ID = i;
@@ -168,6 +179,8 @@ class CreditsState extends MusicBeatState {
 
         #if sys
         var searchPaths = [
+            "assets/preload/data/config/credits.xmsoul",
+            "assets/preload/data/config/credits.xml",
             "data/config/credits.xmsoul",
             "data/config/credits.xml",
             "data/credits.xmsoul",
@@ -178,6 +191,8 @@ class CreditsState extends MusicBeatState {
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
+                searchPaths.unshift('mods/$m/assets/preload/data/config/credits.xmsoul');
+                searchPaths.unshift('mods/$m/assets/preload/data/config/credits.xml');
                 searchPaths.unshift('mods/$m/data/config/credits.xmsoul');
                 searchPaths.unshift('mods/$m/data/config/credits.xml');
                 searchPaths.unshift('mods/$m/data/credits.xmsoul');
@@ -302,8 +317,15 @@ class CreditsState extends MusicBeatState {
         if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.7);
 
         var entry = credits[curSelected];
-        roleText.text = entry.role.toUpperCase();
-        descText.text = entry.description;
+        roleText.text = entry.role != null ? entry.role.toUpperCase() : LanguageManager.getString("credits.roleFallback", null);
+        descText.text = entry.description != null ? entry.description : "";
+
+        var entryColor = entry.color != null && entry.color.length > 0
+            ? ColorUtil.fromHexSafe(entry.color, FlxColor.WHITE)
+            : FlxColor.WHITE;
+        if (grpCredits.members[curSelected] != null) {
+            grpCredits.members[curSelected].color = entryColor;
+        }
 
         if (entry.color != null && entry.color.length > 0) {
             var targetColor = ColorUtil.fromHexSafe(entry.color, bg.color);

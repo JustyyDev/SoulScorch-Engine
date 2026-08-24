@@ -8,6 +8,7 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.chart.events.SongEvents.QueuedEvent;
 import soulscorch.graphics.JuiceManager;
@@ -253,7 +254,6 @@ class EventManager {
 
     private static inline function parseColorSafe(val:String, fallback:FlxColor):FlxColor {
         if (val == null || val.trim().length == 0) return fallback;
-        var parsed = FlxColor.fromString(val.trim());
-        return parsed != null ? parsed : fallback;
+        return ColorUtil.fromHexSafe(val.trim(), fallback);
     }
 }

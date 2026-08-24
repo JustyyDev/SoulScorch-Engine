@@ -14,6 +14,12 @@ class Difficulty {
         return clean.substr(0, 1).toUpperCase() + clean.substr(1).toLowerCase();
     }
 
+    public static function getLocalizedName(diff:String):String {
+        if (diff == null || diff.trim().length == 0) return "NORMAL";
+        var clean = diff.toLowerCase().trim();
+        return soulscorch.backend.localization.LanguageManager.getString('diff.$clean', format(diff));
+    }
+
     public static inline function getSuffix(diff:String):String {
         var clean = (diff == null || diff.trim().length == 0) ? "normal" : diff.toLowerCase().trim();
         return (clean == "normal") ? "" : '-$clean';

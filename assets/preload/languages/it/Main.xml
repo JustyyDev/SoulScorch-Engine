@@ -6,15 +6,22 @@
 		<str id="game.comboBreaks">Interruzioni combo:{0}</str>
 		<str id="game.accuracy">Precisione:{0} - {1}</str>
 		<str id="game.combo">Combo:{0}</str>
+		<str id="game.scoreHUD">Punteggio: {0} | Mancati: {1} | Precisione: {2}% [{3}]</str>
+		<str id="game.botplay">BOTPLAY</str>
 	</group>
 
 	<group name="StoryMenu">
+		<str id="story.header">SOULSCORCH // MODALITÀ STORIA</str>
 		<str id="story.score">PUNTEGGIO SETTIMANA:{0}</str>
 		<str id="story.tracks">TRACCE</str>
 	</group>
 
 	<group name="Freeplay">
-		<str id="freeplay.score">MASSIMO PERSONALE:{0}</str>
+		<str id="freeplay.score">MASSIMO PERSONALE: {0}</str>
+		<str id="freeplay.tempo">TEMPO: {0} BPM</str>
+		<str id="freeplay.scrollSpeed">VELOCITÀ: {0}x  |  CASUALE[{1}:{2}]  |  [SPAZIO] ANTEPRIMA</str>
+		<str id="freeplay.shuffleMode">MODALITÀ CASUALE</str>
+		<str id="freeplay.noSongs">NESSUNA CANZONE TROVATA</str>
 		<str id="freeplay.solo">Solo</str>
 		<str id="freeplay.opponentMode">Modalità Avversario</str>
 		<str id="freeplay.coopMode">Modalità Cooperativa</str>
@@ -22,11 +29,14 @@
 	</group>
 
 	<group name="Pause">
+		<str id="pause.header">IN PAUSA</str>
 		<group name="PauseOptions">
 			<str id="pause.resume">Riprendi</str>
 			<str id="pause.restartSong">Ricomincia Canzone</str>
+			<str id="pause.togglePractice">Modalità Pratica</str>
+			<str id="pause.toggleBotplay">Modalità Botplay</str>
 			<str id="pause.changeControls">Cambia Controlli</str>
-			<str id="pause.changeOptions">Cambia Opzioni</str>
+			<str id="pause.changeOptions">Opzioni</str>
 			<str id="pause.exitToMenu">Esci al menù</str>
 			<str id="pause.exitToCharter">Esci al charter</str>
 			<str id="pause.resumeCutscene">Riprendi Cutscene</str>
@@ -39,8 +49,32 @@
 		<str id="pause.opponentMode">MODALITÀ AVVERSARIO</str>
 	</group>
 
+	<group name="GameOver">
+		<str id="gameover.title">GAME OVER</str>
+		<str id="gameover.retry">Premi ACCETTA per Riprovare</str>
+		<str id="gameover.menu">Premi INDIETRO per Tornare al Menù</str>
+	</group>
+
+	<group name="Results">
+		<str id="results.summary">METRICHE DI PRESTAZIONE E RIEPILOGO</str>
+		<str id="results.accuracyScore">CONTEGGIO PRECISIONE E PUNTEGGIO</str>
+		<str id="results.totalScore">PUNTEGGIO TOTALE: {0}</str>
+		<str id="results.accuracyRating">PRECISIONE: {0}%</str>
+		<str id="results.comboBreaks">ERRORI (MANCATI): {0}</str>
+		<str id="results.breakdown">DETTAGLIO GIUDIZI:</str>
+		<str id="results.finalRank">CLASSIFICA FINALE</str>
+		<str id="results.continue">PREMI [INVIO] PER TORNARE AL FREEPLAY</str>
+	</group>
+
+	<group name="Replays">
+		<str id="replay.header">ARCHIVIO REPLAY ({0} Salvati)</str>
+		<str id="replay.help">[INVIO] Riproduci  •  [S] Esporta .soulvid  •  [O] Apri Cartella  •  [ESC] Indietro</str>
+	</group>
+
 	<group name="Credits">
-		<group name="CreditsCodename">
+		<str id="credits.header">SOULSCORCH // CREDITI E COLLABORATORI</str>
+		<str id="credits.roleFallback">COLLABORATORE</str>
+		<group name="CreditsSoulScorch">
 			<str id="credits.mainDev" notrim="true"> *- Membro pubblico dei Devs principali!*</str>
 			<str id="credits.totalContributions">Contributi totali: ~{0}~ / *{1}* (~{2}%~) - Seleziona per aprire l'account GitHub</str>
 			<str id="credits.downloadingList">Download dell'elenco...</str>
@@ -49,18 +83,26 @@
 		<group name="CreditsMain">
 			<str id="credits.name">Crediti</str>
 			<str id="credits.madePossible">Le persone che hanno reso tutto questo possibile!</str>
-			<str id="credits.selectCodename">Seleziona qui per vedere tutti i collaboratori dell'engine!</str>
+			<str id="credits.selectSoulScorch">Seleziona qui per vedere tutti i collaboratori di SoulScorch Engine!</str>
 			<str id="credits.selectBase">Seleziona qui per aprire la pagina itch.io del gioco originale e fare una donazione!</str>
 		</group>
 	</group>
 
 	<group name="Mods">
+		<str id="mods.title">MODS</str>
+		<str id="mods.workshop">[TAB] Apri Workshop HomeSoulDB</str>
+		<str id="mods.help">[SPAZIO] Attiva  |  [W/S] Priorità  |  [TAB] Workshop  |  [SHIFT+S] Invia  |  [ESC] Salva</str>
 		<str id="mods.disableMods">Disabilita Mods</str>
 	</group>
 
 	<group name="MainMenu">
 		<str id="mainMenu.commit">Commit: {0} ({1})</str>
 		<str id="mainMenu.openMods">[{0}] Menù Mods</str>
+		<str id="mainMenu.modsHint">[TAB] Mods e HomeSoulDB</str>
+	</group>
+
+	<group name="Options">
+		<str id="options.languageChanged">Lingua Aggiornata: {0}</str>
 	</group>
 
 	<group name="Updater">

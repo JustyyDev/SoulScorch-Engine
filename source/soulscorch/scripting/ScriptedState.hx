@@ -14,6 +14,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.Scene;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.backends.ScriptBackendType;
 import soulscorch.scripting.mod.ModLoader;
@@ -130,7 +131,7 @@ class ScriptedState extends Scene {
             var fast = new Access(xml.firstElement());
 
             if (fast.has.bgColor) {
-                FlxG.camera.bgColor = FlxColor.fromString(fast.att.bgColor);
+                FlxG.camera.bgColor = ColorUtil.fromHexSafe(fast.att.bgColor, FlxColor.BLACK);
             }
 
             for (node in fast.elements) {
@@ -159,7 +160,7 @@ class ScriptedState extends Scene {
                         var size = node.has.size ? Std.parseInt(node.att.size) : 16;
                         var width = node.has.width ? Std.parseFloat(node.att.width) : 0;
                         var txt = new FlxText(x, y, width, content, size);
-                        var col = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                        var col = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
                         txt.setFormat(Paths.font("vcr"), size, col, LEFT);
                         txt.alpha = alpha;
                         add(txt);
@@ -170,7 +171,7 @@ class ScriptedState extends Scene {
                         var labelSize = node.has.size ? Std.parseInt(node.att.size) : 16;
                         var labelWidth = node.has.width ? Std.parseFloat(node.att.width) : 0;
                         var label = new FlxText(x, y, labelWidth, labelText, labelSize);
-                        var labelCol = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                        var labelCol = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
                         label.setFormat(Paths.font("vcr"), labelSize, labelCol, LEFT);
                         label.alpha = alpha;
                         add(label);

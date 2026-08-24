@@ -17,6 +17,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.song.Difficulty;
@@ -79,9 +80,10 @@ class PauseSubState extends MusicBeatSubstate {
         add(bg);
         FlxTween.tween(bg, {alpha: 0.72}, 0.35, {ease: FlxEase.quadOut});
 
-        var pausedText = new Alphabet(0, 0, "PAUSED", true);
+        var pauseTitle = LanguageManager.getString("pause.header", "PAUSED");
+        var pausedText = new Alphabet(0, 0, pauseTitle, true);
         pausedText.alignment = CENTER;
-        pausedText.text = "PAUSED";
+        pausedText.text = pauseTitle;
         pausedText.screenCenter(X);
         pausedText.y = 44;
         for (l in pausedText.letters) l.color = EditorTheme.ACCENT_CYAN;
@@ -219,10 +221,11 @@ class PauseSubState extends MusicBeatSubstate {
             itemGroup.add(indicator);
             itemIndicators.push(indicator);
 
-            var labelText = menuItems[i];
-            if (labelText == "Toggle Practice Mode") {
+            var rawItem = menuItems[i];
+            var labelText = getMenuItemLabel(rawItem);
+            if (rawItem == "Toggle Practice Mode") {
                 labelText += GameplayFlags.getBool("practiceMode", false) ? " [ON]" : " [OFF]";
-            } else if (labelText == "Toggle Botplay") {
+            } else if (rawItem == "Toggle Botplay") {
                 labelText += (PlayState.instance != null && PlayState.instance.botplay) ? " [ON]" : " [OFF]";
             }
 
@@ -233,6 +236,18 @@ class PauseSubState extends MusicBeatSubstate {
 
             grpMenu.add(itemGroup);
         }
+    }
+
+    private function getMenuItemLabel(raw:String):String {
+        return switch (raw.toLowerCase().trim()) {
+            case "resume": LanguageManager.getString("pause.resume", "Resume");
+            case "restart song" | "restart": LanguageManager.getString("pause.restartSong", "Restart Song");
+            case "toggle practice mode" | "practice mode": LanguageManager.getString("pause.togglePractice", "Toggle Practice Mode");
+            case "toggle botplay" | "botplay": LanguageManager.getString("pause.toggleBotplay", "Toggle Botplay");
+            case "options" | "change options": LanguageManager.getString("pause.changeOptions", "Options");
+            case "exit to main menu" | "exit to menu": LanguageManager.getString("pause.exitToMenu", "Exit to Main Menu");
+            default: raw;
+        };
     }
 
     override public function update(elapsed:Float):Void {

@@ -267,70 +267,71 @@ jobs:
               print("No Lime export patch needed:", system_hx)
           '
 
-      - name: Rebuild Host Lime NDLL (macOS arm64 Fix)
+      - name: Setup Host Lime NDLL (macOS arm64 Fix)
         run: |
-          resolve_lime_path() {
-            haxelib libpath lime | awk 'NF{last=$0} END{print last}'
-          }
+          # 1. Ensure lime is installed and set up
+          haxelib run lime setup -y || true
 
-          resolve_ndll_dir() {
-            local lp="$1"
-            local host_arch
-            host_arch="$(uname -m)"
-
-            if [ "$host_arch" = "arm64" ]; then
-              if [ -f "$lp/ndll/MacArm64/lime.ndll" ] && file "$lp/ndll/MacArm64/lime.ndll" | grep -Eq 'arm64|arm64e'; then
-                echo "$lp/ndll/MacArm64"
-                return 0
-              fi
-              return 1
-            fi
-
-            if [ -f "$lp/ndll/Mac64/lime.ndll" ]; then
-              echo "$lp/ndll/Mac64"
-              return 0
-            fi
-            local found
-            found="$(find "$lp/ndll" -name lime.ndll -print 2>/dev/null | head -n 1)"
-            if [ -n "$found" ]; then
-              dirname "$found"
-              return 0
-            fi
-            return 1
-          }
-
-          LIME_PATH="$(resolve_lime_path)"
+          LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
           if [ -z "$LIME_PATH" ] || [ ! -d "$LIME_PATH" ]; then
-            echo "Error: Could not resolve Lime library path."
-            exit 1
-          fi
-
-          if ! LIME_NDLL_PATH="$(resolve_ndll_dir "$LIME_PATH")"; then
-            echo "Host lime.ndll missing. Reinstalling lime and rebuilding host NDLL..."
+            echo "Lime path not found, reinstalling lime..."
             haxelib install lime 8.1.3 --quiet --skip-dependencies || true
-            haxelib run lime rebuild mac -release -arm64 || true
-            haxelib run lime rebuild mac -release || true
-            LIME_PATH="$(resolve_lime_path)"
+            LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
           fi
 
-          if ! LIME_NDLL_PATH="$(resolve_ndll_dir "$LIME_PATH")"; then
-            echo "Error: lime.ndll is still missing after recovery attempts."
-            exit 1
+          echo "Using Lime at: $LIME_PATH"
+
+          # 2. Check if host arm64 NDLL exists or needs building from source
+          NEED_REBUILD=0
+          if [ -f "$LIME_PATH/ndll/MacArm64/lime.ndll" ]; then
+            if ! file "$LIME_PATH/ndll/MacArm64/lime.ndll" | grep -Eq 'arm64|arm64e'; then
+              NEED_REBUILD=1
+            fi
+          else
+            NEED_REBUILD=1
           fi
 
-          export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
-          export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
-          echo "NEKOPATH=$NEKOPATH" >> "$GITHUB_ENV"
-          echo "DYLD_FALLBACK_LIBRARY_PATH=$DYLD_FALLBACK_LIBRARY_PATH" >> "$GITHUB_ENV"
-          echo "Configured host NDLL path: $LIME_NDLL_PATH"
-
-          NEKO_BIN="$(command -v neko || true)"
-          if [ -n "$NEKO_BIN" ]; then
-            NEKO_DIR="$(dirname "$NEKO_BIN")"
-            cp -f "$LIME_NDLL_PATH/lime.ndll" "$NEKO_DIR/lime.ndll" || true
+          if [ $NEED_REBUILD -eq 1 ]; then
+            echo "Host arm64 lime.ndll missing or invalid architecture. Building lime NDLL from source for mac arm64..."
+            if [ -d "$LIME_PATH/project" ]; then
+              pushd "$LIME_PATH/project"
+              haxelib run hxcpp Build.xml -Dmac -DHXCPP_ARM64 -DHXCPP_M64 || haxelib run hxcpp Build.xml -Dmac || true
+              popd
+            fi
+            haxelib run lime rebuild mac -release -arm64 || haxelib run lime rebuild mac -release || true
           fi
 
-          haxelib run lime config MAC_USE_CURRENT_SDK 1
+          # 3. Locate the best matching lime.ndll
+          LIME_NDLL_PATH=""
+          if [ -f "$LIME_PATH/ndll/MacArm64/lime.ndll" ]; then
+            LIME_NDLL_PATH="$LIME_PATH/ndll/MacArm64"
+          elif [ -f "$LIME_PATH/ndll/Mac64/lime.ndll" ]; then
+            LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
+          else
+            FOUND_NDLL="$(find "$LIME_PATH/ndll" -name "lime.ndll" 2>/dev/null | head -n 1)"
+            if [ -n "$FOUND_NDLL" ]; then
+              LIME_NDLL_PATH="$(dirname "$FOUND_NDLL")"
+            fi
+          fi
+
+          if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
+            echo "Found lime.ndll at: $LIME_NDLL_PATH"
+            export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
+            export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+            echo "NEKOPATH=$LIME_NDLL_PATH:${NEKOPATH:-}" >> "$GITHUB_ENV"
+            echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
+            NEKO_BIN="$(command -v neko || true)"
+            if [ -n "$NEKO_BIN" ]; then
+              NEKO_DIR="$(dirname "$NEKO_BIN")"
+              cp -f "$LIME_NDLL_PATH/lime.ndll" "$NEKO_DIR/lime.ndll" || true
+              echo "Copied lime.ndll to neko binary dir: $NEKO_DIR"
+            fi
+          else
+            echo "Warning: lime.ndll could not be located, continuing build..."
+          fi
+
+          haxelib run lime config MAC_USE_CURRENT_SDK 1 || true
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
@@ -353,13 +354,14 @@ jobs:
         env:
           HXCPP_COMPILE_THREADS: 8
 
-      - name: Package Xcode Build Output
+      - name: Locate Xcode Project Output
+        id: stage_xcode
         run: |
           python3 -c '
-          import os, sys, zipfile
+          import os, sys, shutil
 
           workspace = os.environ.get("GITHUB_WORKSPACE", os.getcwd())
-          output_zip = os.path.join(workspace, "SoulScorch-iOS-XcodeProject.zip")
+          staging_dir = os.path.join(workspace, "dist", "SoulScorch-iOS-XcodeProject")
 
           found_dir = None
           for search_root in ("export", "bin"):
@@ -378,20 +380,25 @@ jobs:
               print("Error: Could not locate Xcode project directory.")
               sys.exit(1)
 
-          print(f"Packaging iOS build from: {found_dir} -> {output_zip}")
-          with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
-              for root, dirs, files in os.walk(found_dir):
-                  for file in files:
-                      file_path = os.path.join(root, file)
-                      arcname = os.path.relpath(file_path, found_dir)
-                      zipf.write(file_path, arcname)
+          print(f"Staging iOS build from: {found_dir} -> {staging_dir}")
+          if os.path.exists(staging_dir):
+              shutil.rmtree(staging_dir)
+          os.makedirs(staging_dir, exist_ok=True)
 
-          print("Successfully created archive:", output_zip)
+          for item in os.listdir(found_dir):
+              s = os.path.join(found_dir, item)
+              d = os.path.join(staging_dir, item)
+              if os.path.isdir(s):
+                  shutil.copytree(s, d, dirs_exist_ok=True)
+              else:
+                  shutil.copy2(s, d)
+
+          print("Successfully staged iOS project:", staging_dir)
           '
 
       - name: Upload iOS Xcode Project Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SoulScorch-iOS-XcodeProject
-          path: SoulScorch-iOS-XcodeProject.zip
+          path: dist/SoulScorch-iOS-XcodeProject
           if-no-files-found: error

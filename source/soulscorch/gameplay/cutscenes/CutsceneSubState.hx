@@ -14,6 +14,7 @@ import flixel.util.FlxTimer;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.gameplay.PlayState;
 import soulscorch.graphics.FunkinSprite;
 import soulscorch.graphics.shaders.SoulShader;
@@ -38,7 +39,7 @@ class CutsceneSubState extends MusicBeatSubstate {
 
         script = new ScriptManager();
         script.loadScript(scriptPath);
-
+            fromString: function(str:String) return ColorUtil.fromHexSafe(str, FlxColor.WHITE),
         script.setAll("game", PlayState.instance);
         script.setAll("self", this);
         script.setAll("PlayState", PlayState);
@@ -88,7 +89,7 @@ class CutsceneSubState extends MusicBeatSubstate {
             CYAN: 0x00FFFF,
             MAGENTA: 0xFF00FF,
             ORANGE: 0xFFA500,
-            fromString: function(str:String) return FlxColor.fromString(str),
+            fromString: function(str:String) return ColorUtil.fromHexSafe(str, FlxColor.WHITE),
             fromRGB: function(r:Int, g:Int, b:Int, a:Int = 255) return FlxColor.fromRGB(r, g, b, a)
         });
 

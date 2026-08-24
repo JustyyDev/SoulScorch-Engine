@@ -14,6 +14,7 @@ import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.replays.ReplayManager;
 import soulscorch.gameplay.replays.SoulVidEncoder;
@@ -56,11 +57,13 @@ class ReplayGallerySubState extends MusicBeatSubstate {
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);
         add(topBar);
 
-        headerText = new FlxText(30, 16, FlxG.width - 60, 'SOULSCORCH REPLAY & SOULVID ARCHIVE (${replays.length} Saved)', 22);
+        var headerStr = LanguageManager.getString("replay.header", "SOULSCORCH REPLAY & SOULVID ARCHIVE ({0} Saved)", [replays.length]);
+        headerText = new FlxText(30, 16, FlxG.width - 60, headerStr, 22);
         headerText.setFormat(Paths.font("vcr"), 22, EditorTheme.ACCENT_CYAN, LEFT);
         add(headerText);
 
-        infoText = new FlxText(30, FlxG.height - 45, FlxG.width - 60, "[ENTER] Play Replay  •  [S] Export .soulvid  •  [O] Open Folder  •  [ESC] Back", 16);
+        var infoStr = LanguageManager.getString("replay.help", "[ENTER] Play Replay  •  [S] Export .soulvid  •  [O] Open Folder  •  [ESC] Back");
+        infoText = new FlxText(30, FlxG.height - 45, FlxG.width - 60, infoStr, 16);
         infoText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_MUTED, CENTER);
         add(infoText);
 

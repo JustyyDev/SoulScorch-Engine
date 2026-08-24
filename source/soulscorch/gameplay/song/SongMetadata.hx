@@ -1,6 +1,7 @@
 package soulscorch.gameplay.song;
 
 import flixel.util.FlxColor;
+import soulscorch.backend.utils.ColorUtil;
 
 using StringTools;
 
@@ -69,26 +70,6 @@ class SongMetadataHelper {
     }
 
     public static function parseColor(rawColor:String):FlxColor {
-        if (rawColor == null) return 0xFF9900FF;
-        var clean = rawColor.trim();
-        if (clean.startsWith("#")) {
-            return FlxColor.fromString(clean);
-        } else if (clean.startsWith("0x") || clean.startsWith("0X")) {
-            var hex = clean.substr(2);
-            if (hex.length == 6) {
-                return FlxColor.fromString("#FF" + hex);
-            }
-            if (hex.length == 8) {
-                return FlxColor.fromString("#" + hex);
-            }
-            var val = Std.parseInt(clean);
-            return val != null ? cast val : 0xFF9900FF;
-        } else if (clean.contains(",")) {
-            var parts = clean.split(",").map(function(s) return Std.parseInt(s.trim()));
-            if (parts.length >= 3) {
-                return FlxColor.fromRGB(parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : 255);
-            }
-        }
-        return FlxColor.fromString("#" + clean);
+        return ColorUtil.fromHexSafe(rawColor, 0xFF9900FF);
     }
 }

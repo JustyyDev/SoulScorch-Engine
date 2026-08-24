@@ -518,6 +518,13 @@ class Alphabet extends FlxSpriteGroup {
     }
 
     override public function update(elapsed:Float):Void {
+        if (isMenuItem && changeX && changeY && tracker == null) {
+            // If FreeplayState is already controlling x, y and targetY lerp directly,
+            // skip the redundant duplicate lerp calculation here.
+            super.update(elapsed);
+            return;
+        }
+
         if (isMenuItem) {
             var scaledY = FlxMath.remapToRange(targetY, 0, 1, 0, 1.3);
             var lerpFactor = FlxMath.bound(elapsed * 9.6, 0, 1);

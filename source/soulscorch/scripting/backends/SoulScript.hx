@@ -35,6 +35,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.actors.Character;
@@ -201,7 +202,7 @@ class SoulScript implements ScriptInstance {
                 spr = new FlxSprite();
                 customSprites.set(tag, spr);
             }
-            spr.makeGraphic(width, height, FlxColor.fromString(colorStr));
+            spr.makeGraphic(width, height, ColorUtil.fromHexSafe(colorStr, FlxColor.WHITE));
         });
 
         set("makeLuaText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0) {
@@ -229,7 +230,7 @@ class SoulScript implements ScriptInstance {
             var txt = customTexts.get(tag);
             if (txt != null) {
                 txt.borderSize = size;
-                txt.borderColor = FlxColor.fromString(colorStr);
+                txt.borderColor = ColorUtil.fromHexSafe(colorStr, txt.borderColor);
                 txt.borderStyle = OUTLINE;
             }
         });

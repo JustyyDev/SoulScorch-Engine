@@ -18,6 +18,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -104,7 +105,7 @@ class StoryMenuState extends MusicBeatState {
         accentTag.scrollFactor.set(0, 0);
         add(accentTag);
 
-        var headerTitle = new FlxText(38, 17, 450, "SOULSCORCH // STORY CAMPAIGN", 18);
+        var headerTitle = new FlxText(38, 17, 450, LanguageManager.getString("story.header", "SOULSCORCH // STORY CAMPAIGN"), 18);
         headerTitle.setFormat(Paths.font("vcr"), 18, EditorTheme.TEXT_PRIMARY, LEFT);
         headerTitle.scrollFactor.set(0, 0);
         add(headerTitle);
@@ -150,7 +151,8 @@ class StoryMenuState extends MusicBeatState {
         diffIcon.visible = false;
         add(diffIcon);
 
-        tracklistText = new FlxText(40, 430, 320, "TRACKLIST:\n\n", 16);
+        var trackHeader = LanguageManager.getString("story.tracks", "TRACKLIST");
+        tracklistText = new FlxText(40, 430, 320, '$trackHeader:\n\n', 16);
         tracklistText.setFormat(Paths.font("vcr"), 16, EditorTheme.TEXT_PRIMARY, LEFT, OUTLINE, FlxColor.BLACK);
         tracklistText.borderSize = 1.0;
         add(tracklistText);
@@ -365,7 +367,8 @@ class StoryMenuState extends MusicBeatState {
         weekNameText.text = week.name.toUpperCase();
         updatePortraits(week);
 
-        var trackStr = "TRACKLIST:\n\n";
+        var trackHeader = LanguageManager.getString("story.tracks", "TRACKLIST");
+        var trackStr = '$trackHeader:\n\n';
         var currentSongs = week.songs;
         if (currentSongs != null) {
             for (song in currentSongs) trackStr += '• ' + song.toUpperCase() + "\n";
@@ -387,7 +390,8 @@ class StoryMenuState extends MusicBeatState {
         var diffs = (weeks[curWeek].difficulties != null && weeks[curWeek].difficulties.length > 0) ? weeks[curWeek].difficulties : Difficulty.defaultList;
         curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
         var diff = diffs[curDifficulty];
-        diffText.text = '< ${diff.toUpperCase()} >';
+        var diffDisplayName = Difficulty.getLocalizedName(diff);
+        diffText.text = '< ${diffDisplayName.toUpperCase()} >';
         diffText.color = Difficulty.getColor(diff);
         updateDifficultyIcon(diff);
         if (scripts != null) scripts.callAll("onChangeDifficulty", [curDifficulty, diff]);

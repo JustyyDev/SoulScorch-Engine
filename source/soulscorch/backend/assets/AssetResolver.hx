@@ -96,6 +96,27 @@ class AssetResolver {
         ];
 
         #if sys
+        var curLang = (soulscorch.backend.localization.LanguageManager.instance != null) ? soulscorch.backend.localization.LanguageManager.instance.currentLanguage : "en";
+        if (curLang != null && curLang.length > 0 && curLang != "en") {
+            var langPrefixes = [
+                'assets/preload/languages/$curLang/assets/images/',
+                'assets/preload/languages/$curLang/images/',
+                'assets/preload/languages/$curLang/',
+                'languages/$curLang/assets/images/',
+                'languages/$curLang/images/',
+                'languages/$curLang/'
+            ];
+            for (ext in exts) {
+                var pathWithExt = (clean.endsWith(ext) && ext.length > 0) ? clean : clean + ext;
+                for (lp in langPrefixes) {
+                    var testPath = lp + pathWithExt;
+                    if (FileSystem.exists(testPath) && !FileSystem.isDirectory(testPath)) {
+                        return testPath;
+                    }
+                }
+            }
+        }
+
         if (ModManager.activeMods != null) {
             for (mod in ModManager.activeMods) {
                 for (ext in exts) {

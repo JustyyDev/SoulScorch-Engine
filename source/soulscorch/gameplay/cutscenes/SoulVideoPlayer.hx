@@ -7,6 +7,7 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.graphics.JuiceManager;
 
@@ -81,7 +82,7 @@ class SoulVideoPlayer extends flixel.FlxSubState {
             videoSprite.antialiasing = smoothing;
 
             if (access.has.bgColor) {
-                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(access.att.bgColor));
+                    var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, ColorUtil.fromHexSafe(access.att.bgColor, FlxColor.BLACK));
                 add(bg);
                 remove(bg);
                 insert(0, bg); // Put background behind video sprite

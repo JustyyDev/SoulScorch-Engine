@@ -6,6 +6,8 @@
 		<str id="game.comboBreaks">Combo Breaks:{0}</str>
 		<str id="game.accuracy">Accuracy:{0} - {1}</str>
 		<str id="game.combo">Combo:{0}</str>
+		<str id="game.scoreHUD">Score: {0} | Misses: {1} | Accuracy: {2}% [{3}]</str>
+		<str id="game.botplay">BOTPLAY</str>
 
 		<str id="game.rating.[N/A]">[N/A]</str>
 		<str id="game.rating.F">F</str>
@@ -19,12 +21,17 @@
 	</group>
 
 	<group name="StoryMenu">
+		<str id="story.header">SOULSCORCH // STORY CAMPAIGN</str>
 		<str id="story.score">WEEK SCORE:{0}</str>
-		<str id="story.tracks">TRACKS</str>
+		<str id="story.tracks">TRACKLIST</str>
 	</group>
 
 	<group name="Freeplay">
-		<str id="freeplay.score">PERSONAL BEST:{0}</str>
+		<str id="freeplay.score">PERSONAL BEST: {0}</str>
+		<str id="freeplay.tempo">TEMPO: {0} BPM</str>
+		<str id="freeplay.scrollSpeed">SCROLL SPEED: {0}x  |  SHUFFLE[{1}:{2}]  |  [SPACE] PREVIEW</str>
+		<str id="freeplay.shuffleMode">SHUFFLE MODE</str>
+		<str id="freeplay.noSongs">NO SONGS FOUND IN ASSETS OR MODS</str>
 		<str id="freeplay.solo">Solo</str>
 		<str id="freeplay.opponentMode">Opponent Mode</str>
 		<str id="freeplay.coopMode">Co-Op Mode</str>
@@ -32,12 +39,15 @@
 	</group>
 
 	<group name="Pause">
+		<str id="pause.header">PAUSED</str>
 		<group name="PauseOptions">
 			<str id="pause.resume">Resume</str>
 			<str id="pause.restartSong">Restart Song</str>
+			<str id="pause.togglePractice">Toggle Practice Mode</str>
+			<str id="pause.toggleBotplay">Toggle Botplay</str>
 			<str id="pause.changeControls">Change Controls</str>
-			<str id="pause.changeOptions">Change Options</str>
-			<str id="pause.exitToMenu">Exit to menu</str>
+			<str id="pause.changeOptions">Options</str>
+			<str id="pause.exitToMenu">Exit to Main Menu</str>
 			<str id="pause.exitToCharter">Exit to charter</str>
 			<str id="pause.resumeCutscene">Resume Cutscene</str>
 			<str id="pause.skipCutscene">Skip Cutscene</str>
@@ -49,8 +59,32 @@
 		<str id="pause.opponentMode">OPPONENT MODE</str>
 	</group>
 
+	<group name="GameOver">
+		<str id="gameover.title">GAME OVER</str>
+		<str id="gameover.retry">Press ACCEPT to Retry</str>
+		<str id="gameover.menu">Press BACK to Main Menu</str>
+	</group>
+
+	<group name="Results">
+		<str id="results.summary">PERFORMANCE METRICS &amp; CLEAR SUMMARY</str>
+		<str id="results.accuracyScore">ACCURACY &amp; SCORE TALLY</str>
+		<str id="results.totalScore">TOTAL SCORE: {0}</str>
+		<str id="results.accuracyRating">ACCURACY RATING: {0}%</str>
+		<str id="results.comboBreaks">COMBO BREAKS (MISSES): {0}</str>
+		<str id="results.breakdown">JUDGMENT BREAKDOWN:</str>
+		<str id="results.finalRank">FINAL CLEAR RANK</str>
+		<str id="results.continue">PRESS [ENTER] TO RETURN TO FREEPLAY MENU</str>
+	</group>
+
+	<group name="Replays">
+		<str id="replay.header">SOULSCORCH REPLAY &amp; SOULVID ARCHIVE ({0} Saved)</str>
+		<str id="replay.help">[ENTER] Play Replay  •  [S] Export .soulvid  •  [O] Open Folder  •  [ESC] Back</str>
+	</group>
+
 	<group name="Credits">
-		<group name="CreditsCodename">
+		<str id="credits.header">SOULSCORCH // CREDITS &amp; COLLABORATORS</str>
+		<str id="credits.roleFallback">CONTRIBUTOR</str>
+		<group name="CreditsSoulScorch">
 			<str id="credits.mainDev" notrim="true"> *- Public member of the main Devs!*</str>
 			<str id="credits.totalContributions">Total Contributions: ~{0}~ / *{1}* (~{2}%~) - Select to open GitHub account</str>
 			<str id="credits.downloadingList">Downloading List...</str>
@@ -59,18 +93,26 @@
 		<group name="CreditsMain">
 			<str id="credits.name">Credits</str>
 			<str id="credits.madePossible">The people who made this possible!</str>
-			<str id="credits.selectCodename">Select this to see all the contributors of the engine!</str>
+			<str id="credits.selectSoulScorch">Select this to see all the contributors of SoulScorch Engine!</str>
 			<str id="credits.selectBase">Select this to open the itch.io page of the original game to donate!</str>
 		</group>
 	</group>
 
 	<group name="Mods">
+		<str id="mods.title">MODS</str>
+		<str id="mods.workshop">[TAB] Open HomeSoulDB Workshop</str>
+		<str id="mods.help">[SPACE] Toggle  |  [W/S] Shift Priority  |  [TAB] Workshop  |  [SHIFT+S] Submit  |  [ESC] Save &amp; Apply</str>
 		<str id="mods.disableMods">Disable Mods</str>
 	</group>
 
 	<group name="MainMenu">
 		<str id="mainMenu.commit">Commit: {0} ({1})</str>
 		<str id="mainMenu.openMods">[{0}] Open Mods menu</str>
+		<str id="mainMenu.modsHint">[TAB] Mods &amp; HomeSoulDB</str>
+	</group>
+
+	<group name="Options">
+		<str id="options.languageChanged">Language Updated: {0}</str>
 	</group>
 
 	<group name="Updater">

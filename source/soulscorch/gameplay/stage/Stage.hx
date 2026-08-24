@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.actors.Character;
@@ -266,7 +267,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                         var by = node.has.y ? Std.parseFloat(node.att.y) : 0.0;
                         var bw = node.has.width ? Std.parseInt(node.att.width) : 100;
                         var bh = node.has.height ? Std.parseInt(node.att.height) : 100;
-                        var bColor = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                        var bColor = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
 
                         var boxSpr = acquireStageSprite(bx, by);
                         boxSpr.makeGraphic(bw, bh, bColor, true);

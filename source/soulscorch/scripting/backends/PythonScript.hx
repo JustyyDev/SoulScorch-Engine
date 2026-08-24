@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptInstance;
@@ -121,7 +122,7 @@ class PythonScript implements ScriptInstance {
         var txt = pyTexts.get(tag);
         if (txt != null) {
             txt.borderSize = size;
-            txt.borderColor = FlxColor.fromString(colorStr);
+            txt.borderColor = ColorUtil.fromHexSafe(colorStr, txt.borderColor);
             txt.borderStyle = OUTLINE;
         }
     }

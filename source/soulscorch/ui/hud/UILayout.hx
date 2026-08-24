@@ -9,6 +9,7 @@ import haxe.xml.Access;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 
@@ -76,7 +77,7 @@ class UILayout extends FlxGroup {
             case "box":
                 var w:Int = node.has.width ? Std.parseInt(node.att.width) : 100;
                 var h:Int = node.has.height ? Std.parseInt(node.att.height) : 100;
-                var col:FlxColor = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                var col:FlxColor = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
                 var box = new FlxSprite(x, y).makeGraphic(w, h, col);
                 sprites.set(id, box);
                 add(box);

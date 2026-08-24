@@ -13,6 +13,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.scoring.SongStats;
 import soulscorch.ui.hud.Alphabet;
@@ -86,7 +87,7 @@ class ResultsState extends MusicBeatState {
         headerTitle.setFormat(Paths.font("vcr"), 20, EditorTheme.TEXT_PRIMARY, LEFT);
         add(headerTitle);
 
-        var headerSub = new FlxText(38, 38, 500, "PERFORMANCE METRICS & CLEAR SUMMARY", 11);
+        var headerSub = new FlxText(38, 38, 500, LanguageManager.getString("results.summary", "PERFORMANCE METRICS & CLEAR SUMMARY"), 11);
         headerSub.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
         add(headerSub);
 
@@ -102,7 +103,7 @@ class ResultsState extends MusicBeatState {
         var cardHead = new FlxSprite(0, 0).makeGraphic(Std.int(FlxG.width * 0.52), 32, EditorTheme.PANEL_HEADER);
         leftCard.add(cardHead);
 
-        var cardHeadTxt = new FlxText(16, 8, 300, "ACCURACY & SCORE TALLY", 12);
+        var cardHeadTxt = new FlxText(16, 8, 300, LanguageManager.getString("results.accuracyScore", "ACCURACY & SCORE TALLY"), 12);
         cardHeadTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         leftCard.add(cardHeadTxt);
 
@@ -110,10 +111,14 @@ class ResultsState extends MusicBeatState {
         var accVal = stats != null ? Math.round(stats.accuracy * 100) / 100 : 0;
         var missesVal = stats != null ? stats.misses : 0;
 
+        var lblTotalScore = LanguageManager.getString("results.totalScore", "TOTAL SCORE: {0}", [scoreVal]);
+        var lblAccRating = LanguageManager.getString("results.accuracyRating", "ACCURACY RATING: {0}%", [accVal]);
+        var lblComboBreaks = LanguageManager.getString("results.comboBreaks", "COMBO BREAKS (MISSES): {0}", [missesVal]);
+
         scoreText = new FlxText(24, 52, cardBg.width - 48,
-            'TOTAL SCORE: $scoreVal\n\n' +
-            'ACCURACY RATING: $accVal%\n\n' +
-            'COMBO BREAKS (MISSES): $missesVal',
+            '$lblTotalScore\n\n' +
+            '$lblAccRating\n\n' +
+            '$lblComboBreaks',
             20
         );
         scoreText.setFormat(Paths.font("vcr"), 20, EditorTheme.TEXT_PRIMARY, LEFT);
@@ -125,8 +130,9 @@ class ResultsState extends MusicBeatState {
         var bads = stats != null ? stats.bads : 0;
         var shits = stats != null ? stats.shits : 0;
 
+        var lblBreakdown = LanguageManager.getString("results.breakdown", "JUDGMENT BREAKDOWN:");
         hitStatsText = new FlxText(24, 220, cardBg.width - 48,
-            'JUDGMENT BREAKDOWN:\n\n' +
+            '$lblBreakdown\n\n' +
             '  ★ MARVELOUS: $marvels\n' +
             '  • SICK: $sicks\n' +
             '  • GOOD: $goods\n' +
@@ -149,7 +155,7 @@ class ResultsState extends MusicBeatState {
         var rankHead = new FlxSprite(0, 0).makeGraphic(380, 32, EditorTheme.PANEL_HEADER);
         rankCard.add(rankHead);
 
-        var rankHeadTxt = new FlxText(16, 8, 300, "FINAL CLEAR RANK", 12);
+        var rankHeadTxt = new FlxText(16, 8, 300, LanguageManager.getString("results.finalRank", "FINAL CLEAR RANK"), 12);
         rankHeadTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         rankCard.add(rankHeadTxt);
 
@@ -171,7 +177,7 @@ class ResultsState extends MusicBeatState {
         var footerBorder = new FlxSprite(0, FlxG.height - 48).makeGraphic(FlxG.width, 1, EditorTheme.PANEL_BORDER);
         add(footerBorder);
 
-        var continueText = new FlxText(0, FlxG.height - 32, FlxG.width, "PRESS [ENTER] TO RETURN TO FREEPLAY MENU", 12);
+        var continueText = new FlxText(0, FlxG.height - 32, FlxG.width, LanguageManager.getString("results.continue", "PRESS [ENTER] TO RETURN TO FREEPLAY MENU"), 12);
         continueText.setFormat(Paths.font("vcr"), 12, EditorTheme.ACCENT_CYAN, CENTER);
         add(continueText);
 

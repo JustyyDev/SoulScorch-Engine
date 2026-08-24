@@ -15,6 +15,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.system.modules.workshop.HomeSoulDBModule;
 import soulscorch.scripting.ScriptManager;
@@ -88,11 +89,11 @@ class ModSwitchMenu extends MusicBeatSubstate {
         var accentTag = new FlxSprite(25, 16).makeGraphic(4, 28, EditorTheme.ACCENT_CYAN);
         add(accentTag);
 
-        var titleText = new Alphabet(36, 12, "MODS", true);
+        var titleText = new Alphabet(36, 12, LanguageManager.getString("mods.title", "MODS"), true);
         titleText.alignment = LEFT;
         add(titleText);
 
-        var workshopBanner = new FlxText(FlxG.width - 440, 20, 400, "[TAB] Open HomeSoulDB Workshop", 14);
+        var workshopBanner = new FlxText(FlxG.width - 440, 20, 400, LanguageManager.getString("mods.workshop", "[TAB] Open HomeSoulDB Workshop"), 14);
         workshopBanner.setFormat(Paths.font("vcr"), 14, EditorTheme.ACCENT_YELLOW, RIGHT);
         add(workshopBanner);
 
@@ -109,7 +110,8 @@ class ModSwitchMenu extends MusicBeatSubstate {
         var footer = new FlxSprite(0, FlxG.height - 45).makeGraphic(FlxG.width, 45, EditorTheme.PANEL_HEADER);
         add(footer);
 
-        var helpText = new FlxText(0, FlxG.height - 32, FlxG.width, "[SPACE] Toggle  |  [W/S] Shift Priority  |  [TAB] Workshop  |  [SHIFT+S] Submit  |  [ESC] Save & Apply", 12);
+        var helpStr = LanguageManager.getString("mods.help", "[SPACE] Toggle  |  [W/S] Shift Priority  |  [TAB] Workshop  |  [SHIFT+S] Submit  |  [ESC] Save & Apply");
+        var helpText = new FlxText(0, FlxG.height - 32, FlxG.width, helpStr, 12);
         helpText.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, CENTER);
         add(helpText);
 

@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.backend.utils.Logger;
 
@@ -119,7 +120,7 @@ class ModCustomState extends MusicBeatState {
                 MAGENTA: 0xFFFF00FF,
                 TRANSPARENT: 0x00000000,
                 fromRGB: function(r:Int, g:Int, b:Int, a:Int = 255):Int return FlxColor.fromRGB(r, g, b, a),
-                fromString: function(str:String):Int return FlxColor.fromString(str)
+                fromString: function(str:String):Int return ColorUtil.fromHexSafe(str, FlxColor.WHITE)
             });
 
             interp.variables.set("Paths", Paths);
@@ -176,7 +177,7 @@ class ModCustomState extends MusicBeatState {
         try {
             var xml = Xml.parse(rawXml).firstElement();
             if (xml.get("bgColor") != null) {
-                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(xml.get("bgColor")));
+                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, ColorUtil.fromHexSafe(xml.get("bgColor"), FlxColor.BLACK));
                 bg.scrollFactor.set();
                 add(bg);
             }
@@ -199,7 +200,7 @@ class ModCustomState extends MusicBeatState {
                         spr.updateHitbox();
                         spr.alpha = alphaVal;
                         spr.angle = angleVal;
-                        if (node.get("color") != null) spr.color = FlxColor.fromString(node.get("color"));
+                        if (node.get("color") != null) spr.color = ColorUtil.fromHexSafe(node.get("color"), FlxColor.WHITE);
                         if (id != null) elementsById.set(id, spr);
                         add(spr);
 
@@ -219,7 +220,7 @@ class ModCustomState extends MusicBeatState {
                     case "box":
                         var w = node.get("width") != null ? Std.parseInt(node.get("width")) : 100;
                         var h = node.get("height") != null ? Std.parseInt(node.get("height")) : 100;
-                        var colorVal = node.get("color") != null ? FlxColor.fromString(node.get("color")) : FlxColor.WHITE;
+                        var colorVal = node.get("color") != null ? ColorUtil.fromHexSafe(node.get("color"), FlxColor.WHITE) : FlxColor.WHITE;
                         var box = new FlxSprite(xPos, yPos).makeGraphic(w, h, colorVal);
                         box.alpha = alphaVal;
                         if (id != null) elementsById.set(id, box);
@@ -230,7 +231,7 @@ class ModCustomState extends MusicBeatState {
                         var size = node.get("size") != null ? Std.parseInt(node.get("size")) : 16;
                         var txt = new FlxText(xPos, yPos, node.get("width") != null ? Std.parseFloat(node.get("width")) : 0, content, size);
                         txt.setFormat(Paths.font(node.get("font") != null ? node.get("font") : "vcr"), size, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-                        if (node.get("color") != null) txt.color = FlxColor.fromString(node.get("color"));
+                        if (node.get("color") != null) txt.color = ColorUtil.fromHexSafe(node.get("color"), FlxColor.WHITE);
                         txt.alpha = alphaVal;
                         if (id != null) elementsById.set(id, txt);
                         add(txt);

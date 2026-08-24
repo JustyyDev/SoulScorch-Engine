@@ -32,6 +32,7 @@ class GameConfig {
     public var shuffleTitleScramble:Bool = true;
     public var randomDifficulty:Bool = false;
     public var randomModcharts:Bool = false;
+    public var language:String = "en";
 
     public function new() {
         load();
@@ -67,6 +68,9 @@ class GameConfig {
             shuffleTitleScramble = saveInst.getBool("shuffleTitleScramble", true);
             randomDifficulty = saveInst.getBool("randomDifficulty", false);
             randomModcharts = saveInst.getBool("randomModcharts", false);
+            language = saveInst.getString("language", "en");
+
+            soulscorch.backend.localization.LanguageManager.instance.load(language);
 
             EngineUtils.setFramerate(framerate);
             applyAudioPreferences();
@@ -107,6 +111,9 @@ class GameConfig {
             saveInst.setSetting("shuffleTitleScramble", shuffleTitleScramble, false);
             saveInst.setSetting("randomDifficulty", randomDifficulty, false);
             saveInst.setSetting("randomModcharts", randomModcharts, false);
+            saveInst.setSetting("language", language, false);
+
+            soulscorch.backend.localization.LanguageManager.instance.setLanguage(language);
 
             saveInst.persist();
 

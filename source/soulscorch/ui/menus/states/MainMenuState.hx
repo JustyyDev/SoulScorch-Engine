@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.scripting.ScriptManager;
@@ -141,7 +142,8 @@ class MainMenuState extends MusicBeatState {
 
         FlxG.camera.follow(camFollowPos, null, 1.0);
 
-        versionText = new FlxText(12, FlxG.height - 24, 0, 'SoulScorch Engine ${Version.fullVersion()} | [TAB] Mods & HomeSoulDB', 12);
+        var modsHint = LanguageManager.getString("mainMenu.modsHint", "[TAB] Mods & HomeSoulDB");
+        versionText = new FlxText(12, FlxG.height - 24, 0, 'SoulScorch Engine ${Version.fullVersion()} | $modsHint', 12);
         versionText.setFormat(Paths.font("vcr"), 12, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         versionText.scrollFactor.set();
         add(versionText);

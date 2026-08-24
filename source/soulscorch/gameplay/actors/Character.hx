@@ -9,6 +9,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.graphics.FunkinSprite;
 
@@ -112,7 +113,7 @@ class Character extends FunkinSprite {
                     loadSprite(imagePath);
 
                     healthIcon = XMSoul.getAttr(access, "icon", char);
-                    healthColor = access.has.color ? FlxColor.fromString(access.att.color) : (isPlayer ? 0xFF66FF33 : 0xFFAF66CE);
+                    healthColor = access.has.color ? ColorUtil.fromHexSafe(access.att.color, (isPlayer ? 0xFF66FF33 : 0xFFAF66CE)) : (isPlayer ? 0xFF66FF33 : 0xFFAF66CE);
                     singDuration = XMSoul.getFloatAttr(access, "singDuration", 4.0);
                     flipX = XMSoul.getBoolAttr(access, "flipX", false);
                     if (isPlayer) flipX = !flipX;
@@ -215,7 +216,7 @@ class Character extends FunkinSprite {
                         if (json.healthbar_colors != null && json.healthbar_colors.length >= 3) {
                             healthColor = FlxColor.fromRGB(json.healthbar_colors[0], json.healthbar_colors[1], json.healthbar_colors[2]);
                         } else if (json.color != null) {
-                            healthColor = FlxColor.fromString(Std.string(json.color));
+                            healthColor = ColorUtil.fromHexSafe(Std.string(json.color), healthColor);
                         }
 
                         if (json.camera_position != null) cameraOffset = [json.camera_position[0], json.camera_position[1]];

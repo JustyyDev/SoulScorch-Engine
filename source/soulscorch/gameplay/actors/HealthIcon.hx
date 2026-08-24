@@ -108,29 +108,43 @@ class HealthIcon extends FlxSprite {
             var rawHeight = graphic.height;
             var frameRatio = rawWidth / rawHeight;
 
+            var frameCount = 2;
             if (frameRatio <= 1.4) {
+                frameCount = 1;
                 isSingleFrame = true;
                 hasWinningFrame = false;
-                loadGraphic(graphic, false, rawWidth, rawHeight);
+            } else if (frameRatio >= 2.6) {
+                frameCount = 3;
+                isSingleFrame = false;
+                hasWinningFrame = true;
+            } else {
+                frameCount = 2;
+                isSingleFrame = false;
+                hasWinningFrame = false;
+            }
+
+            var frameWidth = Std.int(rawWidth / frameCount);
+            loadGraphic(graphic, frameCount > 1, frameWidth, rawHeight);
+
+            if (isSingleFrame) {
                 animation.add("normal", [0], 0, false, isPlayer);
                 animation.add("losing", [0], 0, false, isPlayer);
                 animation.add("winning", [0], 0, false, isPlayer);
-            } else if (frameRatio >= 2.6) {
-                isSingleFrame = false;
-                hasWinningFrame = true;
-                var frameWidth = Std.int(rawWidth / 3);
-                loadGraphic(graphic, true, frameWidth, rawHeight);
+            } else if (hasWinningFrame) {
                 animation.add("winning", [0], 0, false, isPlayer);
                 animation.add("normal", [1], 0, false, isPlayer);
                 animation.add("losing", [2], 0, false, isPlayer);
             } else {
-                isSingleFrame = false;
-                hasWinningFrame = false;
-                var frameWidth = Std.int(rawWidth / 2);
-                loadGraphic(graphic, true, frameWidth, rawHeight);
                 animation.add("normal", [0], 0, false, isPlayer);
                 animation.add("losing", [1], 0, false, isPlayer);
                 animation.add("winning", [0], 0, false, isPlayer);
+            }
+
+            // Support high-resolution or custom-sized icon textures by normalizing base display size
+            if (rawHeight > 150) {
+                var targetHeight = 150.0;
+                var targetWidth = (frameWidth / rawHeight) * targetHeight;
+                setGraphicSize(Std.int(targetWidth), Std.int(targetHeight));
             }
 
             animation.play("normal");

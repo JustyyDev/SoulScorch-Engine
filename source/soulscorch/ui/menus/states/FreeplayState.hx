@@ -21,6 +21,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.InputMap;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -99,7 +100,13 @@ class FreeplayState extends MusicBeatState {
         initFreeplayScripts();
 
         SongRegistry.scanAll();
-        songs = (SongRegistry.songs != null) ? SongRegistry.songs : [];
+        songs = [];
+        var scannedSongs = (SongRegistry.songs != null) ? SongRegistry.songs : [];
+        for (entry in scannedSongs) {
+            if (entry != null && entry.id != null && entry.id.trim().length > 0) {
+                songs.push(entry);
+            }
+        }
 
         bg = new FlxSprite();
         if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
@@ -133,7 +140,7 @@ class FreeplayState extends MusicBeatState {
         shuffleConfetti = new FlxTypedGroup<FlxSprite>();
         add(shuffleConfetti);
 
-        shuffleBanner = new FlxText(0, 74, FlxG.width, "SHUFFLE MODE", 28);
+        shuffleBanner = new FlxText(0, 74, FlxG.width, LanguageManager.getString("freeplay.shuffleMode", "SHUFFLE MODE"), 28);
         shuffleBanner.setFormat(Paths.font("vcr"), 28, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
         shuffleBanner.borderSize = 1.4;
         shuffleBanner.alpha = 0.0;
@@ -162,7 +169,7 @@ class FreeplayState extends MusicBeatState {
             setupScorePanel();
             changeSelection(0);
         } else {
-            var emptyText = new FlxText(0, 0, FlxG.width, "NO SONGS FOUND IN ASSETS OR MODS", 20);
+            var emptyText = new FlxText(0, 0, FlxG.width, LanguageManager.getString("freeplay.noSongs", "NO SONGS FOUND IN ASSETS OR MODS"), 20);
             emptyText.setFormat(Paths.font("vcr"), 20, EditorTheme.ACCENT_MAGENTA, CENTER, OUTLINE, FlxColor.BLACK);
             emptyText.screenCenter();
             add(emptyText);
@@ -270,7 +277,8 @@ class FreeplayState extends MusicBeatState {
 
         lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24.0)));
         if (scoreText != null) {
-            scoreText.text = 'PERSONAL BEST: $lerpScore  •  ${Math.round(intendedAccuracy * 10) / 10}% [$intendedRating]';
+            var scoreLabel = LanguageManager.getString("freeplay.score", "PERSONAL BEST: {0}", [lerpScore]);
+            scoreText.text = '$scoreLabel  •  ${Math.round(intendedAccuracy * 10) / 10}% [$intendedRating]';
         }
 
         if (!shuffleActive) {
@@ -372,6 +380,27 @@ class FreeplayState extends MusicBeatState {
         }
     }
 
+    private inline function safeSongAt(index:Int):Null<RegisteredSong> {
+        if (index < 0 || index >= songs.length) return null;
+        return songs[index];
+    }
+
+    private inline function safeSongColor(song:Null<RegisteredSong>):FlxColor {
+        return song != null ? song.color : 0xFF5B82F9;
+    }
+
+    private inline function safeSongTitle(song:Null<RegisteredSong>):String {
+        if (song == null) return "UNKNOWN SONG";
+        if (song.title != null && song.title.trim().length > 0) return song.title;
+        if (song.id != null && song.id.trim().length > 0) return song.id;
+        return "UNKNOWN SONG";
+    }
+
+    private inline function safeSongCharacter(song:Null<RegisteredSong>):String {
+        if (song != null && song.character != null && song.character.trim().length > 0) return song.character;
+        return "face";
+    }
+
     private function changeSelection(
         change:Int = 0,
         playSfx:Bool = true,
@@ -383,8 +412,10 @@ class FreeplayState extends MusicBeatState {
         curSelected = FlxMath.wrap(curSelected + change, 0, songs.length - 1);
         if (playSfx && change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.65);
 
+        var currentSong = safeSongAt(curSelected);
+
         if (bg != null) {
-            var targetColor:FlxColor = songs[curSelected].color;
+            var targetColor:FlxColor = safeSongColor(currentSong);
             if (targetColor != bg.color) {
                 if (animateBg) {
                     if (colorTween != null) colorTween.cancel();
@@ -404,6 +435,7 @@ class FreeplayState extends MusicBeatState {
             if (songIndex >= 0 && songIndex < songs.length) {
                 var alphabet = alphabetPool[slot];
                 var icon = iconPool[slot];
+                var song = safeSongAt(songIndex);
 
                 alphabet.visible = true;
                 icon.visible = true;
@@ -412,11 +444,11 @@ class FreeplayState extends MusicBeatState {
                 if (itemSlotIndices[slot] != songIndex) {
                     // Song names are navigation data and should remain immediately readable.
                     if (offset == 0 && !shuffleActive && isShuffleTitleScrambleEnabled() && change != 0) {
-                        alphabet.scrambleTo(songs[songIndex].title, 0.014);
+                        alphabet.scrambleTo(safeSongTitle(song), 0.014);
                     } else {
-                        alphabet.text = songs[songIndex].title;
+                        alphabet.text = safeSongTitle(song);
                     }
-                    icon.changeIcon(songs[songIndex].character != null ? songs[songIndex].character : "face");
+                    icon.changeIcon(safeSongCharacter(song));
                     itemSlotIndices[slot] = songIndex;
 
                     if (change == 0) {
@@ -428,7 +460,7 @@ class FreeplayState extends MusicBeatState {
                 // Track the selected (center) slot for the highlight bar
                 if (offset == 0 && selectionHighlight != null) {
                     selectionHighlight.visible = true;
-                    selectionHighlight.color = songs[songIndex].color;
+                    selectionHighlight.color = safeSongColor(song);
                     if (change == 0) {
                         selectionHighlight.y = (offset * ITEM_SPACING) + (FlxG.height * 0.48) - 30;
                     }
@@ -453,7 +485,8 @@ class FreeplayState extends MusicBeatState {
     private function refreshSelectionMeta():Void {
         if (songs.length == 0) return;
 
-        var selected = songs[curSelected];
+        var selected = safeSongAt(curSelected);
+        if (selected == null) return;
         var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
 
         var matchingIndex:Int = -1;
@@ -476,14 +509,16 @@ class FreeplayState extends MusicBeatState {
 
     private function changeDiff(change:Int = 0):Void {
         if (songs.length == 0) return;
-        var selected = songs[curSelected];
+        var selected = safeSongAt(curSelected);
+        if (selected == null) return;
         var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
         curDifficulty = FlxMath.wrap(curDifficulty + change, 0, diffs.length - 1);
         lastSelectedDifficultyName = diffs[curDifficulty].toLowerCase().trim();
 
         var diffName = diffs[curDifficulty].toUpperCase();
+        var diffDisplayName = Difficulty.getLocalizedName(diffs[curDifficulty]).toUpperCase();
         if (diffText != null) {
-            diffText.text = '< $diffName >';
+            diffText.text = '< $diffDisplayName >';
             diffText.color = Difficulty.getColor(diffs[curDifficulty]);
         }
 
@@ -491,7 +526,7 @@ class FreeplayState extends MusicBeatState {
         curBpm = meta.bpm;
         curSpeed = meta.speed;
 
-        if (bpmText != null) bpmText.text = 'TEMPO: ${Math.round(curBpm)} BPM';
+        if (bpmText != null) bpmText.text = LanguageManager.getString("freeplay.tempo", "TEMPO: {0} BPM", [Math.round(curBpm)]);
         updateSpeedHint();
 
         Conductor.changeBPM(curBpm);
@@ -513,7 +548,7 @@ class FreeplayState extends MusicBeatState {
         if (speedText == null) return;
         var shuffleKey = InputMap.getKeyLabel("freeplay_shuffle");
         var shuffleState = isShuffleEnabledByConfig() ? "ON" : "OFF";
-        speedText.text = 'SCROLL SPEED: ${curSpeed}x  |  SHUFFLE[$shuffleState:${shuffleKey}]  |  [SPACE] PREVIEW';
+        speedText.text = LanguageManager.getString("freeplay.scrollSpeed", 'SCROLL SPEED: {0}x  |  SHUFFLE[{1}:{2}]  |  [SPACE] PREVIEW', [curSpeed, shuffleState, shuffleKey]);
     }
 
     private function getShuffleEligibleIndices():Array<Int> {
@@ -601,15 +636,17 @@ class FreeplayState extends MusicBeatState {
         for (i in 0...alphabetPool.length) {
             var item = alphabetPool[i];
             if (item != null && item.visible && item.targetY == 0) {
-                item.text = songs[curSelected].title;
+                var selectedSong = safeSongAt(curSelected);
+                item.text = safeSongTitle(selectedSong);
                 var icon = iconPool[i];
-                if (icon != null) icon.changeIcon(pickShuffleIcon(songs[curSelected]));
+                if (icon != null) icon.changeIcon(pickShuffleIcon(selectedSong));
                 break;
             }
         }
     }
 
     private function pickShuffleIcon(song:RegisteredSong):String {
+        if (song == null) return "face";
         if (!isShuffleIconRandomizationEnabled()) {
             if (song != null && song.character != null && song.character.length > 0) return song.character;
             return "face";
@@ -734,7 +771,8 @@ class FreeplayState extends MusicBeatState {
         cancelPreviewTimer();
         stopPreview();
 
-        var selected = songs[curSelected];
+        var selected = safeSongAt(curSelected);
+        if (selected == null) return;
         var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
         if (isRandomDifficultyEnabled() && diffs.length > 1) {
             curDifficulty = FlxG.random.int(0, diffs.length - 1);

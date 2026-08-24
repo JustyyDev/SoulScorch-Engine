@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.modchart.ModchartTypes.ModTarget;
@@ -368,7 +369,7 @@ class LuaScript implements ScriptInstance {
 
     public function setTextColor(tag:String, colorStr:String):Void {
         var txt = luaTexts.get(tag);
-        if (txt != null) txt.color = FlxColor.fromString(colorStr);
+        if (txt != null) txt.color = ColorUtil.fromHexSafe(colorStr, txt.color);
     }
 
     public function addAnimationByPrefix(tag:String, name:String, prefix:String, framerate:Int = 24, loop:Bool = true):Void {
@@ -591,7 +592,7 @@ class LuaScript implements ScriptInstance {
         var cam:FlxCamera = (cameraName.toLowerCase() == "hud" || cameraName.toLowerCase() == "camhud") 
             ? ((PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera) 
             : FlxG.camera;
-        if (cam != null) cam.flash(FlxColor.fromString(colorStr), duration);
+        if (cam != null) cam.flash(ColorUtil.fromHexSafe(colorStr, FlxColor.WHITE), duration);
     }
 
     public function setShaderFloat(shaderName:String, uniform:String, value:Float):Void {
@@ -614,7 +615,7 @@ class LuaScript implements ScriptInstance {
             spr = new FlxSprite();
             luaSprites.set(tag, spr);
         }
-        spr.makeGraphic(width, height, FlxColor.fromString(colorStr));
+        spr.makeGraphic(width, height, ColorUtil.fromHexSafe(colorStr, FlxColor.WHITE));
     }
 
     public function addLuaText(tag:String, inFront:Bool = false):Void {
@@ -628,7 +629,7 @@ class LuaScript implements ScriptInstance {
         var txt = luaTexts.get(tag);
         if (txt != null) {
             txt.borderSize = size;
-            txt.borderColor = FlxColor.fromString(colorStr);
+            txt.borderColor = ColorUtil.fromHexSafe(colorStr, txt.borderColor);
             txt.borderStyle = OUTLINE;
         }
     }

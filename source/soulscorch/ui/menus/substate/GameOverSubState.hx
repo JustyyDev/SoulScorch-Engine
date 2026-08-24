@@ -17,6 +17,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptManager;
@@ -99,7 +100,8 @@ class GameOverSubState extends MusicBeatSubstate {
         bfDead.antialiasing = true;
         add(bfDead);
 
-        gameOverTitle = new Alphabet(0, 0, "GAME OVER", true);
+        var titleStr = LanguageManager.getString("gameover.title", "GAME OVER");
+        gameOverTitle = new Alphabet(0, 0, titleStr, true);
         gameOverTitle.alignment = CENTER;
         gameOverTitle.screenCenter(X);
         gameOverTitle.y = 30;
@@ -108,14 +110,16 @@ class GameOverSubState extends MusicBeatSubstate {
         add(gameOverTitle);
         FlxTween.tween(gameOverTitle, {alpha: 1.0}, 0.6, {startDelay: 0.4, ease: FlxEase.quadOut});
 
-        retryPrompt = new Alphabet(0, FlxG.height - 70, "Press ACCEPT to Retry", false);
+        var retryStr = LanguageManager.getString("gameover.retry", "Press ACCEPT to Retry");
+        retryPrompt = new Alphabet(0, FlxG.height - 70, retryStr, false);
         retryPrompt.alignment = CENTER;
         retryPrompt.screenCenter(X);
         for (l in retryPrompt.letters) l.color = EditorTheme.TEXT_PRIMARY;
         retryPrompt.alpha = 0.0;
         add(retryPrompt);
 
-        menuPrompt = new Alphabet(0, FlxG.height - 40, "Press BACK to Main Menu", false);
+        var menuStr = LanguageManager.getString("gameover.menu", "Press BACK to Main Menu");
+        menuPrompt = new Alphabet(0, FlxG.height - 40, menuStr, false);
         menuPrompt.alignment = CENTER;
         menuPrompt.screenCenter(X);
         for (l in menuPrompt.letters) l.color = EditorTheme.TEXT_MUTED;

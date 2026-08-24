@@ -62,6 +62,7 @@ import soulscorch.backend.system.engine.HotReloader;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.system.framerate.Framerate;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.JudgementManager;
@@ -374,7 +375,7 @@ class HScriptIris implements ScriptInstance {
                 spr = new FlxSprite();
                 customSprites.set(tag, spr);
             }
-            spr.makeGraphic(width, height, FlxColor.fromString(colorStr));
+            spr.makeGraphic(width, height, ColorUtil.fromHexSafe(colorStr, FlxColor.WHITE));
         });
 
         set("makeLuaText", function(tag:String, text:String, width:Float = 0, x:Float = 0, y:Float = 0) {
@@ -402,7 +403,7 @@ class HScriptIris implements ScriptInstance {
             var txt = customTexts.get(tag);
             if (txt != null) {
                 txt.borderSize = size;
-                txt.borderColor = FlxColor.fromString(colorStr);
+                txt.borderColor = ColorUtil.fromHexSafe(colorStr, txt.borderColor);
                 txt.borderStyle = OUTLINE;
             }
         });

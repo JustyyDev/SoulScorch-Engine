@@ -15,6 +15,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.InputMap;
 import soulscorch.backend.input.MobilePad;
+import soulscorch.backend.localization.LanguageManager;
 import soulscorch.backend.system.SaveData;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
@@ -484,6 +485,25 @@ class OptionsMenuState extends MusicBeatState {
                         InputMap.resetToDefaults();
                         updateRowValues();
                         EditorToast.show("Controls Reset to Default");
+                    }
+                }
+            ]),
+            new OptionCategory(LanguageManager.getString("optionsTree.language-name", "Language"), "options", 0xFF2A2A20, [
+                {
+                    name: LanguageManager.getString("LanguageOptions.language-name", "Language"),
+                    description: LanguageManager.getString("optionsTree.language-desc", "Change the active language used throughout the engine."),
+                    type: "enum",
+                    options: LanguageManager.instance.getAvailableLanguages(),
+                    formatValue: function(v) return LanguageManager.getLanguageDisplayName(Std.string(v)),
+                    getValue: function() return Runtime.config != null ? Runtime.config.language : LanguageManager.instance.currentLanguage,
+                    setValue: function(v) {
+                        var chosenLang = Std.string(v).toLowerCase().trim();
+                        if (Runtime.config != null) Runtime.config.language = chosenLang;
+                        LanguageManager.instance.setLanguage(chosenLang);
+                        savePreferences();
+                        initCategories();
+                        rebuildRows();
+                        EditorToast.show(LanguageManager.getString("options.languageChanged", "Language Updated: {0}", [LanguageManager.getLanguageDisplayName(chosenLang)]));
                     }
                 }
             ])

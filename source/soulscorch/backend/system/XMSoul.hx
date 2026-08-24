@@ -745,7 +745,7 @@ class XMSoul {
             antialiasing: getBoolAttr(doc, "antialiasing", true),
             cameraOffset: getFloatArrayAttr(doc, "cameraOffset"),
             positionOffset: getFloatArrayAttr(doc, "positionOffset"),
-            healthColor: getColorAttr(doc, "healthColor", FlxColor.fromString("#A1A1A1")),
+            healthColor: getColorAttr(doc, "healthColor", 0xFFA1A1A1),
             animations: []
         };
 

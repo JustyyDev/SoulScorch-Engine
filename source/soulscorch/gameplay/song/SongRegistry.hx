@@ -5,6 +5,7 @@ import haxe.Json;
 import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModManager;
 
@@ -501,22 +502,7 @@ class SongRegistry {
 
     private static function parseColorString(raw:String):Null<FlxColor> {
         if (raw == null || raw.length == 0) return null;
-        var clean = raw.trim();
-        if (clean.startsWith("#")) return FlxColor.fromString(clean);
-        if (clean.startsWith("0x") || clean.startsWith("0X")) {
-            var hex = clean.substr(2);
-            if (hex.length == 6) hex = "FF" + hex;
-            if (hex.length == 8) return FlxColor.fromString("#" + hex);
-            var parsed = Std.parseInt(clean);
-            return parsed != null ? cast parsed : null;
-        }
-        if (clean.contains(",")) {
-            var parts = clean.split(",").map(function(s) return Std.parseInt(s.trim()));
-            if (parts.length >= 3) {
-                return FlxColor.fromRGB(parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : 255);
-            }
-        }
-        return FlxColor.fromString("#" + clean);
+        return ColorUtil.fromHexSafe(raw, null);
     }
 
     private static function getDefaultIcon(song:String):String {

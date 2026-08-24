@@ -74,27 +74,83 @@ class LanguageManager {
         return loaded;
     }
 
-    public function get(key:String, ?tokens:Map<String, Dynamic>):String {
+    public function get(key:String, ?defaultTextOrTokens:Dynamic = null, ?args:Array<Dynamic> = null, ?tokens:Map<String, Dynamic> = null):String {
         var result:String = null;
+        var defaultText:String = null;
+        var actualTokens:Map<String, Dynamic> = tokens;
+
+        if (defaultTextOrTokens != null) {
+            if (Std.isOfType(defaultTextOrTokens, String)) {
+                defaultText = cast defaultTextOrTokens;
+            } else if (Std.isOfType(defaultTextOrTokens, Map)) {
+                actualTokens = cast defaultTextOrTokens;
+            }
+        }
 
         if (strings.exists(key)) {
             result = strings.get(key);
         } else if (fallbackStrings.exists(key)) {
             result = fallbackStrings.get(key);
+        } else if (defaultText != null) {
+            result = defaultText;
         } else {
             result = key;
         }
 
-        if (tokens != null) {
-            for (tokenName in tokens.keys()) {
-                result = result.replace('{$tokenName}', Std.string(tokens.get(tokenName)));
+        if (args != null && result != null) {
+            for (i in 0...args.length) {
+                result = result.replace('{$i}', Std.string(args[i]));
+            }
+        }
+
+        if (actualTokens != null && result != null) {
+            for (tokenName in actualTokens.keys()) {
+                result = result.replace('{$tokenName}', Std.string(actualTokens.get(tokenName)));
             }
         }
         return result;
     }
 
-    public static inline function getString(key:String, ?tokens:Map<String, Dynamic>):String {
-        return instance.get(key, tokens);
+    public static inline function getString(key:String, ?defaultTextOrTokens:Dynamic = null, ?args:Array<Dynamic> = null, ?tokens:Map<String, Dynamic> = null):String {
+        return instance.get(key, defaultTextOrTokens, args, tokens);
+    }
+
+    public static function getLanguageDisplayName(lang:String):String {
+        var clean = (lang == null || lang.trim().length == 0) ? "en" : lang.trim().toLowerCase();
+        
+        #if sys
+        var searchPaths = [
+            'assets/preload/languages/$clean/config.ini',
+            'languages/$clean/config.ini',
+            'assets/languages/$clean/config.ini',
+            'data/languages/$clean/config.ini'
+        ];
+        for (p in searchPaths) {
+            if (FileSystem.exists(p)) {
+                var content = File.getContent(p);
+                for (l in content.split("\n")) {
+                    var line = l.trim();
+                    if (line.startsWith("name") && line.indexOf("=") != -1) {
+                        var nameVal = line.split("=")[1].trim();
+                        if (nameVal.length > 0) return nameVal;
+                    }
+                }
+            }
+        }
+        #end
+
+        return switch (clean) {
+            case "en": "English";
+            case "es": "Español";
+            case "it": "Italiano";
+            case "pl": "Polski";
+            case "pt": "Português";
+            case "fr": "Français";
+            case "de": "Deutsch";
+            case "ru": "Русский";
+            case "ja": "日本語";
+            default: clean.toUpperCase();
+        };
     }
 
     public function has(key:String):Bool {
@@ -231,26 +287,48 @@ class LanguageManager {
         if (node == null) return;
 
         for (elem in node.elements()) {
-            var keyName = elem.get("id");
-            if (keyName == null || keyName.length == 0) keyName = elem.get("name");
-            if (keyName == null || keyName.length == 0) keyName = elem.nodeName;
+            var rawId = elem.get("id");
+            var rawName = elem.get("name");
+            var customPrefix = elem.get("prefix");
+
+            var keyName = (rawId != null && rawId.length > 0) ? rawId : ((rawName != null && rawName.length > 0) ? rawName : elem.nodeName);
+
+            var nextPrefix = prefix;
+            if (customPrefix != null && customPrefix.length > 0) {
+                nextPrefix = (prefix.length > 0 ? '$prefix.$customPrefix' : customPrefix);
+                while (nextPrefix.endsWith(".")) nextPrefix = nextPrefix.substr(0, nextPrefix.length - 1);
+            } else if (elem.nodeName.toLowerCase() != "str" && elem.nodeName.toLowerCase() != "language") {
+                nextPrefix = prefix.length > 0 ? '$prefix.$keyName' : keyName;
+            }
 
             var fullKey = prefix.length > 0 ? '$prefix.$keyName' : keyName;
 
             // Direct text inside tag
             var text = elem.firstChild() != null ? elem.firstChild().nodeValue : "";
             if (text != null && text.trim().length > 0) {
-                targetMap.set(fullKey, text.trim());
+                var cleanText = text.trim();
+                targetMap.set(fullKey, cleanText);
+                if (rawId != null && rawId.length > 0) {
+                    targetMap.set(rawId, cleanText);
+                }
             }
 
             // Or attributes like <string id="play" text="Play" />
             if (elem.exists("text")) {
-                targetMap.set(fullKey, elem.get("text"));
+                var attrText = elem.get("text");
+                targetMap.set(fullKey, attrText);
+                if (rawId != null && rawId.length > 0) {
+                    targetMap.set(rawId, attrText);
+                }
             } else if (elem.exists("value")) {
-                targetMap.set(fullKey, elem.get("value"));
+                var attrVal = elem.get("value");
+                targetMap.set(fullKey, attrVal);
+                if (rawId != null && rawId.length > 0) {
+                    targetMap.set(rawId, attrVal);
+                }
             }
 
-            parseXmlNode(elem, fullKey, targetMap);
+            parseXmlNode(elem, nextPrefix, targetMap);
         }
     }
 

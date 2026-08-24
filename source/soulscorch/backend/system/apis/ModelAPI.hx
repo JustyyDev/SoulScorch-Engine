@@ -51,6 +51,7 @@ import openfl.utils.ByteArray;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.mod.ModManager;
 
@@ -708,10 +709,7 @@ class ModelAPI {
     private static function parseColorAttr(node:Access, attrName:String, fallback:Int = 0xFFFFFF):Int {
         if (node.has.resolve(attrName)) {
             var raw = node.att.resolve(attrName);
-            if (raw.startsWith("0x") || raw.startsWith("#")) {
-                var c = FlxColor.fromString(raw);
-                return c != null ? c : fallback;
-            }
+            if (raw.startsWith("0x") || raw.startsWith("#")) return ColorUtil.fromHexSafe(raw, fallback);
             var parsed = Std.parseInt(raw);
             return parsed != null ? parsed : fallback;
         }

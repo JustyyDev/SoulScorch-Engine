@@ -10,6 +10,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.Scene;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.hud.Alphabet;
@@ -89,7 +90,7 @@ class XMLState extends Scene {
             var access = new Access(xmlData);
 
             if (access.has.bgColor) {
-                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.fromString(access.att.bgColor));
+                var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, ColorUtil.fromHexSafe(access.att.bgColor, FlxColor.BLACK));
                 bg.scrollFactor.set(0, 0);
                 add(bg);
             }
@@ -119,7 +120,7 @@ class XMLState extends Scene {
                 sprite.updateHitbox();
                 sprite.alpha = alphaVal;
                 if (node.has.antialiasing) sprite.antialiasing = (node.att.antialiasing == "true");
-                if (node.has.color) sprite.color = FlxColor.fromString(node.att.color);
+                if (node.has.color) sprite.color = ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE);
 
                 uiElements.set(id, sprite);
                 add(sprite);
@@ -150,7 +151,7 @@ class XMLState extends Scene {
             case "box":
                 var w:Int = node.has.width ? Std.parseInt(node.att.width) : 100;
                 var h:Int = node.has.height ? Std.parseInt(node.att.height) : 100;
-                var col:FlxColor = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                var col:FlxColor = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
                 var box = new FlxSprite(x, y).makeGraphic(w, h, col);
                 box.alpha = alphaVal;
                 uiElements.set(id, box);
@@ -169,7 +170,7 @@ class XMLState extends Scene {
                 var size = node.has.size ? Std.parseInt(node.att.size) : 18;
                 var fontName = node.has.font ? node.att.font : "vcr";
                 var textObj = new FlxText(x, y, node.has.width ? Std.parseFloat(node.att.width) : 0, content, size);
-                textObj.setFormat(Paths.font(fontName), size, node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE);
+                textObj.setFormat(Paths.font(fontName), size, node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE);
                 textObj.alpha = alphaVal;
                 uiElements.set(id, textObj);
                 add(textObj);
