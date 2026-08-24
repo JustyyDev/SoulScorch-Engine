@@ -39,7 +39,6 @@ class CutsceneSubState extends MusicBeatSubstate {
 
         script = new ScriptManager();
         script.loadScript(scriptPath);
-            fromString: function(str:String) return ColorUtil.fromHexSafe(str, FlxColor.WHITE),
         script.setAll("game", PlayState.instance);
         script.setAll("self", this);
         script.setAll("PlayState", PlayState);
