@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Pico" bpm="150" icon="pico" color="0xFF941653" needsVoices="true">
+    <stage name="philly" />
+    <characters player1="bf" player2="pico" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1.2" />
+        <difficulty name="hard" speed="1.6" />
+        <difficulty name="normal" speed="1.4" />
+    </difficulties>
+</songMeta>

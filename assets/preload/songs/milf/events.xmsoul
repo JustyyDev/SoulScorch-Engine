@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<events>
+    <event time="56000" name="Camera Modulo Change" val1="1" val2="1" />
+    <event time="66666.667" name="Camera Modulo Change" val1="4" val2="1" />
+</events>

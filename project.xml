@@ -67,8 +67,9 @@
 	<haxedef name="message.reporting" value="pretty" />
 	<haxedef name="hscriptPos" />
 
-	<!-- Completely Disable PCH to Avoid Stale Collisions -->
-	<set name="HXCPP_NO_PCH" value="1" />
+	<!-- PCH is enabled by default for faster incremental C++ builds.
+	     Define SOULSCORCH_DISABLE_PCH to force-disable PCH if stale cache issues reappear. -->
+	<set name="HXCPP_NO_PCH" value="1" if="SOULSCORCH_DISABLE_PCH" />
 
 	<!-- Mobile Size & Symbol Stripping Optimizations -->
 	<haxedef name="HXCPP_STRIP_SYMBOLS" if="release" />

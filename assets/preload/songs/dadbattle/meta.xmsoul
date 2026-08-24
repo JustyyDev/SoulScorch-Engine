@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Dadbattle" bpm="180" icon="dad" color="0xFF9271FD" needsVoices="true">
+    <stage name="stage" />
+    <characters player1="bf" player2="dad" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1.3" />
+        <difficulty name="hard" speed="2.3" />
+        <difficulty name="normal" speed="1.5" />
+    </difficulties>
+</songMeta>

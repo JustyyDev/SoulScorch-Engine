@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Fresh" bpm="120" icon="dad" color="0xFF9271FD" needsVoices="true">
+    <stage name="stage" />
+    <characters player1="bf" player2="dad" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1" />
+        <difficulty name="hard" speed="1.8" />
+        <difficulty name="normal" speed="1.3" />
+    </difficulties>
+</songMeta>

@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Satin Panties" bpm="110" icon="mom" color="0xFFFC96D7" needsVoices="true">
+    <stage name="limo" />
+    <characters player1="bf-car" player2="mom-car" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1.3" />
+        <difficulty name="hard" speed="1.8" />
+        <difficulty name="normal" speed="1.6" />
+    </difficulties>
+</songMeta>

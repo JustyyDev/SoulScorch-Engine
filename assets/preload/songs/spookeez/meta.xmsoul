@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Spookeez" bpm="150" icon="spooky" color="0xFF223344" needsVoices="true">
+    <stage name="spooky" />
+    <characters player1="bf" player2="spooky" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1" />
+        <difficulty name="hard" speed="2.4" />
+        <difficulty name="normal" speed="1.7" />
+    </difficulties>
+</songMeta>

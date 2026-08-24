@@ -40,12 +40,14 @@ class SongRegistry {
         #if sys
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
+                var modRoot = ModManager.getModFolderRootPath(m);
                 var candidatePaths = [
-                    'mods/$m/data/config/freeplay.xmsoul',
-                    'mods/$m/config/freeplay.xmsoul',
-                    'mods/$m/data/config/freeplayList.xmsoul',
-                    'mods/$m/data/freeplay.xmsoul',
-                    'mods/$m/data/freeplaySongList.txt'
+                    '$modRoot/$m/data/config/freeplay.xmsoul',
+                    '$modRoot/$m/config/freeplay.xmsoul',
+                    '$modRoot/$m/data/config/freeplayList.xmsoul',
+                    '$modRoot/$m/data/freeplay.xmsoul',
+                    '$modRoot/$m/freeplay.xmsoul',
+                    '$modRoot/$m/data/freeplaySongList.txt'
                 ];
                 for (p in candidatePaths) {
                     if (FileSystem.exists(p)) {
@@ -92,7 +94,17 @@ class SongRegistry {
                             }
 
                             if (explicitDiffs.length > 0) {
-                                entry.difficulties = explicitDiffs;
+                                var available = detectAvailableDifficulties(songId);
+                                var validExplicit:Array<String> = [];
+
+                                if (available.length > 0) {
+                                    for (d in explicitDiffs) {
+                                        var cleanDiff = d.toLowerCase().trim();
+                                        if (available.contains(cleanDiff)) validExplicit.push(cleanDiff);
+                                    }
+                                }
+
+                                entry.difficulties = (validExplicit.length > 0) ? validExplicit : explicitDiffs;
                             }
 
                             if (!_songMap.exists(entry.id)) {
@@ -256,9 +268,10 @@ class SongRegistry {
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
-                searchFolders.unshift('mods/$m/songs/$clean/charts');
-                searchFolders.unshift('mods/$m/songs/$clean');
-                searchFolders.unshift('mods/$m/data/$clean');
+                var modRoot = ModManager.getModFolderRootPath(m);
+                searchFolders.unshift('$modRoot/$m/songs/$clean/charts');
+                searchFolders.unshift('$modRoot/$m/songs/$clean');
+                searchFolders.unshift('$modRoot/$m/data/$clean');
             }
         }
 
@@ -325,8 +338,9 @@ class SongRegistry {
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
-                weekDirs.unshift('mods/$m/data/weeks');
-                weekDirs.unshift('mods/$m/weeks');
+                var modRoot = ModManager.getModFolderRootPath(m);
+                weekDirs.unshift('$modRoot/$m/data/weeks');
+                weekDirs.unshift('$modRoot/$m/weeks');
             }
         }
 
@@ -388,7 +402,8 @@ class SongRegistry {
 
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
-                searchRoots.unshift('mods/$m/songs');
+                var modRoot = ModManager.getModFolderRootPath(m);
+                searchRoots.unshift('$modRoot/$m/songs');
             }
         }
 
@@ -412,7 +427,13 @@ class SongRegistry {
         if (raw == null || raw.length == 0) return null;
         var clean = raw.trim();
         if (clean.startsWith("#")) return FlxColor.fromString(clean);
-        if (clean.startsWith("0x") || clean.startsWith("0X")) return Std.parseInt(clean);
+        if (clean.startsWith("0x") || clean.startsWith("0X")) {
+            var hex = clean.substr(2);
+            if (hex.length == 6) hex = "FF" + hex;
+            if (hex.length == 8) return FlxColor.fromString("#" + hex);
+            var parsed = Std.parseInt(clean);
+            return parsed != null ? cast parsed : null;
+        }
         if (clean.contains(",")) {
             var parts = clean.split(",").map(function(s) return Std.parseInt(s.trim()));
             if (parts.length >= 3) {

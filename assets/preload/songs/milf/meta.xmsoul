@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="MILF" bpm="180" icon="mom" color="0xFFFC96D7" needsVoices="true">
+    <stage name="limo" />
+    <characters player1="bf-car" player2="mom-car" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1.4" />
+        <difficulty name="hard" speed="2.6" />
+        <difficulty name="normal" speed="1.7" />
+    </difficulties>
+</songMeta>

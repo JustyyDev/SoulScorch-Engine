@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<chart speed="1.0" keyCount="4">
+    <!-- Opponent / GF Strumline -->
+    <strumLine position="girlfriend" type="opponent" characters="gf" visible="true">
+        <note time="9600" lane="0" len="0" type="normal" />
+        <note time="10800" lane="3" len="0" type="normal" />
+        <note time="12000" lane="0" len="0" type="normal" />
+        <note time="13200" lane="3" len="0" type="normal" />
+        <note time="19200" lane="2" len="0" type="normal" />
+        <note time="20400" lane="1" len="0" type="normal" />
+        <note time="21600" lane="2" len="0" type="normal" />
+        <note time="22800" lane="1" len="0" type="normal" />
+        <note time="28800" lane="0" len="0" type="normal" />
+        <note time="30000" lane="2" len="0" type="normal" />
+        <note time="31200" lane="1" len="0" type="normal" />
+        <note time="32400" lane="3" len="0" type="normal" />
+        <note time="38400" lane="1" len="0" type="normal" />
+        <note time="39000" lane="1" len="0" type="normal" />
+        <note time="39600" lane="2" len="0" type="normal" />
+        <note time="40800" lane="1" len="0" type="normal" />
+        <note time="41400" lane="1" len="0" type="normal" />
+        <note time="42000" lane="3" len="0" type="normal" />
+        <note time="48000" lane="1" len="0" type="normal" />
+        <note time="48300" lane="2" len="0" type="normal" />
+        <note time="48600" lane="3" len="0" type="normal" />
+        <note time="48900" lane="2" len="0" type="normal" />
+        <note time="49800" lane="3" len="0" type="normal" />
+    </strumLine>
+
+    <!-- Player / BF Strumline -->
+    <strumLine position="boyfriend" type="player" characters="bf" visible="true">
+        <note time="14400" lane="0" len="0" type="normal" />
+        <note time="15600" lane="3" len="0" type="normal" />
+        <note time="16800" lane="0" len="0" type="normal" />
+        <note time="18000" lane="3" len="0" type="normal" />
+        <note time="24000" lane="2" len="0" type="normal" />
+        <note time="25200" lane="1" len="0" type="normal" />
+        <note time="26400" lane="2" len="0" type="normal" />
+        <note time="27600" lane="1" len="0" type="normal" />
+        <note time="33600" lane="0" len="0" type="normal" />
+        <note time="34800" lane="2" len="0" type="normal" />
+        <note time="36000" lane="1" len="0" type="normal" />
+        <note time="37200" lane="3" len="0" type="normal" />
+        <note time="43200" lane="1" len="0" type="normal" />
+        <note time="43800" lane="1" len="0" type="normal" />
+        <note time="44400" lane="2" len="0" type="normal" />
+        <note time="45600" lane="1" len="0" type="normal" />
+        <note time="46200" lane="1" len="0" type="normal" />
+        <note time="46800" lane="3" len="0" type="normal" />
+        <note time="50400" lane="1" len="0" type="normal" />
+        <note time="50700" lane="2" len="0" type="normal" />
+        <note time="51000" lane="3" len="0" type="normal" />
+        <note time="51300" lane="2" len="0" type="normal" />
+        <note time="52200" lane="3" len="0" type="normal" />
+        <note time="52800" lane="3" len="0" type="normal" />
+        <note time="53400" lane="1" len="0" type="normal" />
+        <note time="54000" lane="0" len="0" type="normal" />
+        <note time="54600" lane="1" len="0" type="normal" />
+        <note time="55200" lane="2" len="0" type="normal" />
+        <note time="55800" lane="3" len="0" type="normal" />
+        <note time="56400" lane="0" len="0" type="normal" />
+        <note time="57000" lane="2" len="0" type="normal" />
+        <note time="57600" lane="1" len="750" type="normal" />
+    </strumLine>
+</chart>

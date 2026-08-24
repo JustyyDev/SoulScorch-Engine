@@ -74,8 +74,15 @@ class SongMetadataHelper {
         if (clean.startsWith("#")) {
             return FlxColor.fromString(clean);
         } else if (clean.startsWith("0x") || clean.startsWith("0X")) {
+            var hex = clean.substr(2);
+            if (hex.length == 6) {
+                return FlxColor.fromString("#FF" + hex);
+            }
+            if (hex.length == 8) {
+                return FlxColor.fromString("#" + hex);
+            }
             var val = Std.parseInt(clean);
-            return val != null ? val : 0xFF9900FF;
+            return val != null ? cast val : 0xFF9900FF;
         } else if (clean.contains(",")) {
             var parts = clean.split(",").map(function(s) return Std.parseInt(s.trim()));
             if (parts.length >= 3) {

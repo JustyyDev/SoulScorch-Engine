@@ -127,6 +127,8 @@ class FreeplayState extends MusicBeatState {
             for (i in 0...poolSize) {
                 var alphabet = new Alphabet(0, 0, "", true);
                 alphabet.isMenuItem = true;
+                alphabet.changeX = false;
+                alphabet.changeY = false;
                 add(alphabet);
                 alphabetPool.push(alphabet);
 
@@ -316,9 +318,10 @@ class FreeplayState extends MusicBeatState {
 
         if (bg != null) {
             var targetColor:FlxColor = songs[curSelected].color;
-            if (colorTween != null) colorTween.cancel();
-            bg.color = bg.color;
-            colorTween = FlxTween.color(bg, 0.25, bg.color, targetColor, {ease: FlxEase.quartOut});
+            if (targetColor != bg.color) {
+                if (colorTween != null) colorTween.cancel();
+                colorTween = FlxTween.color(bg, 0.25, bg.color, targetColor, {ease: FlxEase.quartOut});
+            }
         }
 
         var halfWindow = Math.floor(alphabetPool.length / 2);

@@ -24,6 +24,7 @@ enum abstract Alignment(String) from String to String {
 class AlphaCharacter extends FlxSprite {
     public static var cachedFrames:FlxAtlasFrames = null;
     public static var cachedBoldFrames:FlxAtlasFrames = null;
+    private static var glyphPrefixCache:Map<String, String> = new Map<String, String>();
 
     // Cached rendered fallback glyphs (avoids re-rendering FlxText on every character).
     private static var fallbackCache:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
@@ -191,6 +192,22 @@ class AlphaCharacter extends FlxSprite {
     private function tryAddAnimation(targetPrefixes:Array<String>):Bool {
         if (frames == null || frames.frames == null) return false;
 
+        var cacheBase = isBold ? "b:" : "n:";
+
+        for (target in targetPrefixes) {
+            var targetTrimmed = target.trim().toLowerCase();
+            var cacheKey = cacheBase + targetTrimmed;
+            var cachedPrefix = glyphPrefixCache.get(cacheKey);
+            if (cachedPrefix != null) {
+                animation.addByPrefix("idle", cachedPrefix, 24, false);
+                var anim = animation.getByName("idle");
+                if (anim != null && anim.numFrames > 0) {
+                    animation.play("idle");
+                    return true;
+                }
+            }
+        }
+
         for (target in targetPrefixes) {
             var targetTrimmed = target.trim().toLowerCase();
 
@@ -203,8 +220,10 @@ class AlphaCharacter extends FlxSprite {
                 var baseName = prefixMatch.replace(frameClean, "").trim().toLowerCase();
 
                 if (baseName == targetTrimmed) {
+                    var resolvedPrefix = prefixMatch.replace(frameClean, "").trim();
+                    glyphPrefixCache.set(cacheBase + targetTrimmed, resolvedPrefix);
                     // Fix: Set animated to FALSE so it displays as a single static character glyph
-                    animation.addByPrefix("idle", prefixMatch.replace(frameClean, "").trim(), 24, false);
+                    animation.addByPrefix("idle", resolvedPrefix, 24, false);
                     if (animation.getByName("idle") != null && animation.getByName("idle").numFrames > 0) {
                         animation.play("idle");
                         return true;

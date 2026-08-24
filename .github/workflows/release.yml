@@ -108,6 +108,27 @@ jobs:
           haxelib git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
           haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
 
+      - name: Patch Lime GPU Hint Export Syntax
+        run: |
+          python -c '
+          import subprocess, os
+          res = subprocess.run(["haxelib", "libpath", "lime"], capture_output=True, text=True)
+          lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+          lime_path = lines[-1] if lines else ""
+          system_hx = os.path.join(lime_path, "lime", "system", "System.hx")
+          if not lime_path or not os.path.exists(system_hx):
+              raise SystemExit(f"Could not find Lime System.hx at: {system_hx}")
+          with open(system_hx, "r", encoding="utf-8") as f:
+              content = f.read()
+          patched = content.replace("_declspec(dllexport)", "__declspec(dllexport)")
+          if patched != content:
+              with open(system_hx, "w", encoding="utf-8") as f:
+                  f.write(patched)
+              print("Patched Lime System.hx:", system_hx)
+          else:
+              print("No Lime export patch needed:", system_hx)
+          '
+
       - name: Rebuild Host Lime NDLL (macOS Fix)
         if: matrix.os == 'macos-14'
         run: |

@@ -13,6 +13,7 @@ if not exist "%ROOT_DIR%.build_temp" mkdir "%ROOT_DIR%.build_temp"
 set "TEMP=%ROOT_DIR%.build_temp"
 set "TMP=%ROOT_DIR%.build_temp"
 set "HXCPP_CACHE_DIR=%ROOT_DIR%.build_temp\hxcpp_cache"
+set "HXCPP_COMPILE_CACHE=1"
 
 :: 3. Local Tooling Paths
 set "HAXE_DIR=%TOOLS_DIR%\haxe"
@@ -89,22 +90,22 @@ echo ===========================================================================
 echo                      SOULSCORCH ENGINE // MASTER MATRIX                         
 echo ==============================================================================
 echo.
-echo   --- DESKTOP (WINDOWS & LINUX) ---
-echo   [1] Windows C++ (MinGW GCC 64-Bit - Portable / Patched GCC 13 Flags)
-echo   [2] Windows C++ (MSVC 64-Bit Release)
-echo   [3] Windows C++ (MSVC 64-Bit Debug Mode)
+echo   --- DESKTOP (WINDOWS ^& LINUX) ---
+echo   [1] Windows C++ (MinGW GCC 64-Bit - Build Only / Fast)
+echo   [2] Windows C++ (MSVC 64-Bit Release - Build Only / Fast)
+echo   [3] Windows C++ (MSVC 64-Bit Debug Mode - Build Only)
 echo   [4] Linux C++ (x64 Native / Release Target)
 echo.
-echo   --- CONSOLE HOMEBREW & MOBILE ---
+echo   --- CONSOLE HOMEBREW ^& MOBILE ---
 echo   [5] Nintendo Switch (Homebrew Target - devkitA64 / libnx)
 echo   [6] Android Release Package (APK / ARM64)
 echo.
-echo   --- WEB & RAPID BYTECODE VM ---
-echo   [7] WebGL / HTML5 (Browser Export ^& Local HTTP Server)
-echo   [8] Fast HashLink 64-Bit (Instant Bytecode Execution)
+echo   --- WEB ^& RAPID BYTECODE VM ---
+echo   [7] WebGL / HTML5 (Build Only)
+echo   [8] Fast HashLink 64-Bit (Build Only)
 echo   [9] Fast CPPIA Host Test (Instant Scripting Sandbox)
 echo.
-echo   --- UTILITIES & TOOLCHAINS ---
+echo   --- UTILITIES ^& TOOLCHAINS ---
 echo   [D] Download / Repair Portable MinGW GCC
 echo   [C] Deep Cache Purge ^& Workspace Clean
 echo   [S] Install / Synchronize Engine Haxelibs
@@ -163,7 +164,7 @@ echo ^</xml^>
 ) > "%USERPROFILE%\.hxcpp_config.xml"
 
 echo [*] Compiling Windows 64-Bit with MinGW (Lua + Iris Enabled)...
-"%HAXELIB_CMD%" run lime test windows -release -DHXCPP_MINGW -DHXCPP_CPP11 -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -release -DHXCPP_MINGW -DHXCPP_CPP11 -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_MSVC_RELEASE
@@ -171,7 +172,7 @@ cls
 echo [*] Compiling Windows 64-Bit Release Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime test windows -release -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -release -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_MSVC_DEBUG
@@ -179,7 +180,7 @@ cls
 echo [*] Compiling Windows 64-Bit Debug Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime test windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA
 goto BUILD_END
 
 :BUILD_LINUX
@@ -204,19 +205,19 @@ echo [*] Compiling Android Package (APK)...
 if not defined ANDROID_SDK_ROOT if not defined ANDROID_HOME (
     echo [!] Warning: ANDROID_SDK_ROOT or ANDROID_HOME not detected.
 )
-"%HAXELIB_CMD%" run lime test android -release
+"%HAXELIB_CMD%" run lime build android -release
 goto BUILD_END
 
 :BUILD_HTML5
 cls
-echo [*] Compiling HTML5 / WebGL target and launching local HTTP server...
-"%HAXELIB_CMD%" run lime test html5
+echo [*] Compiling HTML5 / WebGL target...
+"%HAXELIB_CMD%" run lime build html5
 goto BUILD_END
 
 :BUILD_HASHLINK
 cls
-echo [*] Compiling and Launching 64-Bit HashLink...
-"%HAXELIB_CMD%" run lime test hl
+echo [*] Compiling 64-Bit HashLink target...
+"%HAXELIB_CMD%" run lime build hl
 goto BUILD_END
 
 :BUILD_CPPIA

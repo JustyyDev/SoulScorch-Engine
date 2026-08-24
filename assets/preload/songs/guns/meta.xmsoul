@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<songMeta displayName="Guns" bpm="185" icon="tankman" color="0xFFF6B604" needsVoices="true">
+    <stage name="tank" />
+    <characters player1="bf" player2="tankman" gfVersion="gf" />
+    <difficulties list="easy,hard,normal" default="normal">
+        <difficulty name="easy" speed="1.4" />
+        <difficulty name="hard" speed="2.5" />
+        <difficulty name="normal" speed="2" />
+    </difficulties>
+</songMeta>
