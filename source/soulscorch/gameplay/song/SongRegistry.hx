@@ -554,7 +554,7 @@ class SongRegistry {
             case "tankman": 0xFFF6B604;
             case "monster": 0xFFF3FF6E;
             case "gf": 0xFFA5004D;
-            default: 0xFF282035;
+            default: 0xFF5B82F9;
         };
     }
 }

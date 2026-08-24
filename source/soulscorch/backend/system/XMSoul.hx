@@ -12,6 +12,7 @@ import lime.app.Application;
 import openfl.Lib;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 
 #if sys
@@ -335,11 +336,7 @@ class XMSoul {
 
     public static function getColorAttr(node:Access, name:String, defaultColor:FlxColor = FlxColor.WHITE):FlxColor {
         if (node == null || !node.has.resolve(name)) return defaultColor;
-        var colorStr = node.att.resolve(name).trim();
-        if (colorStr.startsWith("#") || colorStr.startsWith("0x")) {
-            return FlxColor.fromString(colorStr);
-        }
-        return FlxColor.fromString("#" + colorStr);
+        return ColorUtil.fromHexSafe(node.att.resolve(name), defaultColor);
     }
 
     public static function getArrayAttr(node:Access, name:String, delimiter:String = ","):Array<String> {

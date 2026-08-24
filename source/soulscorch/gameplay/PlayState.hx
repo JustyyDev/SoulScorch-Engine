@@ -36,6 +36,7 @@ import soulscorch.backend.system.engine.EngineOptimizer;
 import soulscorch.backend.system.engine.HardwareConductor;
 import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.JudgementManager;
@@ -802,12 +803,10 @@ class PlayState extends MusicBeatState {
         var activeUiSkin = ModFeatureRegistry.activeUiSkin;
         if (activeUiSkin != null) {
             if (activeUiSkin.healthP2Color != null) {
-                var parsed = FlxColor.fromString(activeUiSkin.healthP2Color);
-                if (parsed != null) p2Color = parsed;
+                p2Color = ColorUtil.fromHexSafe(activeUiSkin.healthP2Color, p2Color);
             }
             if (activeUiSkin.healthP1Color != null) {
-                var parsed = FlxColor.fromString(activeUiSkin.healthP1Color);
-                if (parsed != null) p1Color = parsed;
+                p1Color = ColorUtil.fromHexSafe(activeUiSkin.healthP1Color, p1Color);
             }
         }
 
@@ -846,8 +845,7 @@ class PlayState extends MusicBeatState {
 
         var scoreColor:FlxColor = FlxColor.WHITE;
         if (activeUiSkin != null && activeUiSkin.scoreColor != null) {
-            var parsedScore = FlxColor.fromString(activeUiSkin.scoreColor);
-            if (parsedScore != null) scoreColor = parsedScore;
+            scoreColor = ColorUtil.fromHexSafe(activeUiSkin.scoreColor, scoreColor);
         }
 
         scoreTxt = new FlxText(0, healthBarBG.y + scoreYOffset, FlxG.width, "Score: 0 | Misses: 0 | Accuracy: 0% [?]", scoreFontSize);
@@ -984,7 +982,7 @@ class PlayState extends MusicBeatState {
             YELLOW: flixel.util.FlxColor.YELLOW,
             TRANSPARENT: flixel.util.FlxColor.TRANSPARENT,
             fromRGB: function(r, g, b, ?a = 255) return flixel.util.FlxColor.fromRGB(r, g, b, a),
-            fromString: function(str) return flixel.util.FlxColor.fromString(str)
+            fromString: function(str) return ColorUtil.fromHexSafe(str, flixel.util.FlxColor.WHITE)
         });
         scripts.setAll("FlxTween", flixel.tweens.FlxTween);
         scripts.setAll("FlxEase", flixel.tweens.FlxEase);

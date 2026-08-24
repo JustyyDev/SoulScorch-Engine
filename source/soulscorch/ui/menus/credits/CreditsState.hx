@@ -17,6 +17,7 @@ import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
@@ -305,7 +306,7 @@ class CreditsState extends MusicBeatState {
         descText.text = entry.description;
 
         if (entry.color != null && entry.color.length > 0) {
-            var targetColor = FlxColor.fromString(entry.color);
+            var targetColor = ColorUtil.fromHexSafe(entry.color, bg.color);
             if (colorTween != null) colorTween.cancel();
             colorTween = FlxTween.color(bg, 0.3, bg.color, targetColor, {ease: FlxEase.quartOut});
         }

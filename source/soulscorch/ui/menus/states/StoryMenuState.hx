@@ -19,6 +19,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
@@ -372,7 +373,7 @@ class StoryMenuState extends MusicBeatState {
         tracklistText.text = trackStr;
 
         if (week.color != null && week.color.trim().length > 0) {
-            stageBanner.color = FlxColor.fromString(week.color);
+            stageBanner.color = ColorUtil.fromHexSafe(week.color, 0xFFF9CF51);
         } else {
             stageBanner.color = 0xFFF9CF51;
         }

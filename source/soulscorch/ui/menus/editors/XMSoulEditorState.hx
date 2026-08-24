@@ -16,6 +16,7 @@ import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.ui.menus.editors.editorui.*;
@@ -174,7 +175,7 @@ class XMSoulEditorState extends MusicBeatState {
         switch (node.name.toLowerCase()) {
             case "text":
                 var txt = new FlxText(x, y, XMSoul.getFloatAttr(node, "width", 280), XMSoul.getAttr(node, "text", ""), XMSoul.getIntAttr(node, "size", 12));
-                txt.setFormat(Paths.font("vcr"), XMSoul.getIntAttr(node, "size", 12), FlxColor.fromString(XMSoul.getAttr(node, "color", "0xFFFFFFFF")), LEFT);
+                txt.setFormat(Paths.font("vcr"), XMSoul.getIntAttr(node, "size", 12), ColorUtil.fromHexSafe(XMSoul.getAttr(node, "color", "0xFFFFFFFF"), FlxColor.WHITE), LEFT);
                 if (id != "") widgets.set(id, txt);
                 return txt;
 

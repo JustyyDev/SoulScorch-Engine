@@ -13,6 +13,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.scripting.ScriptedState;
 
 using StringTools;
@@ -56,12 +57,12 @@ class MusicBeatState extends Scene implements IBeatReceiver {
             var colStr = XMSoul.getAttr(access, "color", "0xFF000000");
             var sfx = XMSoul.getAttr(access, "sound", null);
 
-            var color = FlxColor.fromString(colStr);
+            var color = ColorUtil.fromHexSafe(colStr, FlxColor.BLACK);
             defaultTransition = new TransitionData(
                 TransitionData.parseType(typeStr),
                 TransitionDirection.OUT,
                 duration,
-                color != null ? color : FlxColor.BLACK,
+                color,
                 TransitionData.parseEase(easeStr),
                 sfx
             );

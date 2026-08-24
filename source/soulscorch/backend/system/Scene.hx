@@ -14,6 +14,7 @@ import soulscorch.backend.system.EventBus;
 import soulscorch.backend.system.NotificationManager;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.system.engine.Engine;
+import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.backend.utils.Scheduler;
 import soulscorch.scripting.mod.SoulGlobalScript;
@@ -97,8 +98,7 @@ class Scene extends FlxState implements IBeatReceiver {
             enableBeatTracking = XMSoul.getBoolAttr(access, "beatTracking", true);
 
             var bgColStr = XMSoul.getAttr(access, "bgColor", "0xFF000000");
-            var col = FlxColor.fromString(bgColStr);
-            if (col != null) defaultBgColor = col;
+            defaultBgColor = ColorUtil.fromHexSafe(bgColStr, defaultBgColor);
         }
     }
 
