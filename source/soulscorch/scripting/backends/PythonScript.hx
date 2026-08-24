@@ -9,6 +9,7 @@ import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
+import haxe.Timer;
 import haxe.Json;
 import openfl.display.BlendMode;
 import soulscorch.backend.MusicBeatState;
@@ -19,6 +20,7 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.mod.ModManager;
 
 #if sys
@@ -34,6 +36,7 @@ class PythonScript implements ScriptInstance {
     private var variables:Map<String, Dynamic> = new Map<String, Dynamic>();
     private var pySprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
     private var pyTexts:Map<String, FlxText> = new Map<String, FlxText>();
+    private var lastProcessCallAt:Float = 0.0;
 
     public function new(scriptPath:String) {
         this.path = (scriptPath == null) ? "" : scriptPath;
@@ -192,10 +195,16 @@ class PythonScript implements ScriptInstance {
             return null;
         }
 
+        var now = Timer.stamp();
+        if (ScriptManager.pythonProcessIntervalSeconds > 0 && (now - lastProcessCallAt) < ScriptManager.pythonProcessIntervalSeconds) {
+            return null;
+        }
+
         #if sys
         if (!active || path == null) return null;
         var fullPath = ModManager.getPath(path);
         try {
+            lastProcessCallAt = now;
             var procArgs = ["python", fullPath, func];
             if (args != null) {
                 for (a in args) procArgs.push(Std.string(a));

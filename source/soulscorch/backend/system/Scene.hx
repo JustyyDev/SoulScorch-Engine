@@ -43,6 +43,9 @@ class Scene extends FlxState implements IBeatReceiver {
     private var _lastBeat:Int = -1;
     private var _lastStep:Int = -1;
     private var _lastMeasure:Int = -1;
+    private var _elapsedArgCache:Array<Dynamic> = [0.0];
+    private var _stepArgCache:Array<Dynamic> = [0];
+    private var _beatArgCache:Array<Dynamic> = [0];
 
     public function new() {
         super();
@@ -121,7 +124,8 @@ class Scene extends FlxState implements IBeatReceiver {
     }
 
     override public function update(elapsed:Float):Void {
-        SoulGlobalScript.call("onUpdate", [elapsed]);
+        _elapsedArgCache[0] = elapsed;
+        SoulGlobalScript.call("onUpdate", _elapsedArgCache);
         super.update(elapsed);
 
         if (Scheduler.instance != null) Scheduler.instance.update(elapsed);
@@ -138,29 +142,59 @@ class Scene extends FlxState implements IBeatReceiver {
             updateConductorTrackers();
         }
 
-        SoulGlobalScript.call("onUpdatePost", [elapsed]);
+        SoulGlobalScript.call("onUpdatePost", _elapsedArgCache);
     }
 
     private function updateConductorTrackers():Void {
-        curStep = Conductor.curStep;
-        curBeat = Conductor.curBeat;
-        curMeasure = Conductor.curMeasure;
+        var newStep = Conductor.curStep;
+        var newBeat = Conductor.curBeat;
+        var newMeasure = Conductor.curMeasure;
 
-        if (curStep != _lastStep) {
-            _lastStep = curStep;
-            stepHit(curStep);
-            SoulGlobalScript.call("onStepHit", [curStep]);
+        if (newStep > _lastStep) {
+            var startStep = _lastStep + 1;
+            if (startStep < 0) startStep = 0;
+            for (step in startStep...(newStep + 1)) {
+                _lastStep = step;
+                curStep = step;
+                stepHit(step);
+                _stepArgCache[0] = step;
+                SoulGlobalScript.call("onStepHit", _stepArgCache);
+            }
+        } else if (newStep < _lastStep) {
+            _lastStep = newStep;
+            curStep = newStep;
+        } else {
+            curStep = newStep;
         }
 
-        if (curBeat != _lastBeat) {
-            _lastBeat = curBeat;
-            beatHit(curBeat);
-            SoulGlobalScript.call("onBeatHit", [curBeat]);
+        if (newBeat > _lastBeat) {
+            var startBeat = _lastBeat + 1;
+            if (startBeat < 0) startBeat = 0;
+            for (beat in startBeat...(newBeat + 1)) {
+                _lastBeat = beat;
+                curBeat = beat;
+                beatHit(beat);
+                _beatArgCache[0] = beat;
+                SoulGlobalScript.call("onBeatHit", _beatArgCache);
+            }
+        } else if (newBeat < _lastBeat) {
+            _lastBeat = newBeat;
+            curBeat = newBeat;
+        } else {
+            curBeat = newBeat;
         }
 
-        if (curMeasure != _lastMeasure) {
-            _lastMeasure = curMeasure;
-            measureHit(curMeasure);
+        if (newMeasure > _lastMeasure) {
+            var startMeasure = _lastMeasure + 1;
+            if (startMeasure < 0) startMeasure = 0;
+            for (measure in startMeasure...(newMeasure + 1)) {
+                _lastMeasure = measure;
+                curMeasure = measure;
+                measureHit(measure);
+            }
+        } else {
+            _lastMeasure = newMeasure;
+            curMeasure = newMeasure;
         }
     }
 

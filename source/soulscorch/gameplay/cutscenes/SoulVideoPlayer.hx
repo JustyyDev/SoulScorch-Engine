@@ -2,17 +2,13 @@ package soulscorch.gameplay.cutscenes;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
-import haxe.xml.Access;
-import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
 import soulscorch.graphics.JuiceManager;
-import soulscorch.scripting.ScriptManager;
 
 typedef SubtitleEntry = {
     var time:Float;
@@ -42,7 +38,10 @@ class SoulVideoPlayer extends flixel.FlxSubState {
 
     private var subtitles:Array<SubtitleEntry> = [];
     private var videoEvents:Array<VideoEventEntry> = [];
-    private var script:ScriptManager;
+    private var subtitleCursor:Int = 0;
+    private var eventCursor:Int = 0;
+    private var subtitleVisibleUntil:Float = -1.0;
+    private var lastSubtitleText:String = "";
 
     public function new(videoKey:String, ?onComplete:Void->Void) {
         super();
@@ -76,6 +75,7 @@ class SoulVideoPlayer extends flixel.FlxSubState {
 
         if (access != null) {
             frameRate = XMSoul.getFloatAttr(access, "fps", 24.0);
+            if (frameRate <= 0) frameRate = 24.0;
             var audioName = XMSoul.getAttr(access, "audio", "");
             var smoothing = XMSoul.getBoolAttr(access, "smoothing", true);
             videoSprite.antialiasing = smoothing;
@@ -101,7 +101,7 @@ class SoulVideoPlayer extends flixel.FlxSubState {
                 var atlasFrames = Paths.getSparrowAtlas(atlasPath);
                 if (atlasFrames != null) {
                     videoSprite.frames = atlasFrames;
-                    totalFrames = videoSprite.animation.numFrames;
+                    totalFrames = videoSprite.frames.frames.length;
                 }
             } else if (access.hasNode.frames) {
                 isAtlasMode = false;
@@ -116,6 +116,11 @@ class SoulVideoPlayer extends flixel.FlxSubState {
                         text: XMSoul.getAttr(subNode, "text", "")
                     });
                 }
+                subtitles.sort(function(a, b) {
+                    if (a.time < b.time) return -1;
+                    if (a.time > b.time) return 1;
+                    return 0;
+                });
             }
 
             // Load Timed Video Events
@@ -128,7 +133,17 @@ class SoulVideoPlayer extends flixel.FlxSubState {
                         val2: XMSoul.getAttr(evNode, "val2", "")
                     });
                 }
+                videoEvents.sort(function(a, b) {
+                    if (a.time < b.time) return -1;
+                    if (a.time > b.time) return 1;
+                    return 0;
+                });
             }
+
+            subtitleCursor = 0;
+            eventCursor = 0;
+            subtitleVisibleUntil = -1.0;
+            lastSubtitleText = "";
 
             isPlaying = true;
         } else {
@@ -143,7 +158,11 @@ class SoulVideoPlayer extends flixel.FlxSubState {
 
         // Synchronize frame progress with audio time if playing, otherwise use delta time
         var playbackTime = (audioTrack != null && audioTrack.playing) ? audioTrack.time : (currentFrame / frameRate) * 1000.0;
-        currentFrame += frameRate * elapsed;
+        if (audioTrack != null && audioTrack.playing) {
+            currentFrame = (playbackTime / 1000.0) * frameRate;
+        } else {
+            currentFrame += frameRate * elapsed;
+        }
         var frameInt = Std.int(currentFrame);
 
         if (isAtlasMode && videoSprite.frames != null) {
@@ -168,19 +187,22 @@ class SoulVideoPlayer extends flixel.FlxSubState {
     }
 
     private function updateSubtitles(curTime:Float):Void {
-        var activeText = "";
-        for (sub in subtitles) {
-            if (curTime >= sub.time && curTime <= sub.time + 3000) { // Display for 3 seconds
-                activeText = sub.text;
-                break;
-            }
+        while (subtitleCursor < subtitles.length && curTime >= subtitles[subtitleCursor].time) {
+            var sub = subtitles[subtitleCursor++];
+            lastSubtitleText = sub.text;
+            subtitleVisibleUntil = sub.time + 3000.0;
         }
-        subtitleText.text = activeText;
+
+        if (curTime > subtitleVisibleUntil) {
+            if (subtitleText.text.length > 0) subtitleText.text = "";
+        } else if (subtitleText.text != lastSubtitleText) {
+            subtitleText.text = lastSubtitleText;
+        }
     }
 
     private function updateVideoEvents(curTime:Float):Void {
-        while (videoEvents.length > 0 && videoEvents[0].time <= curTime) {
-            var ev = videoEvents.shift();
+        while (eventCursor < videoEvents.length && videoEvents[eventCursor].time <= curTime) {
+            var ev = videoEvents[eventCursor++];
             triggerVideoAction(ev.action, ev.val1, ev.val2);
         }
     }
@@ -204,7 +226,9 @@ class SoulVideoPlayer extends flixel.FlxSubState {
 
         close();
         if (onComplete != null) {
-            onComplete();
+            var cb = onComplete;
+            onComplete = null;
+            cb();
         }
     }
 

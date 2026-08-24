@@ -33,6 +33,14 @@ class Character extends FunkinSprite {
 
     public var animOffsets:Map<String, Array<Float>> = new Map<String, Array<Float>>();
 
+    private var _hasDancePair:Bool = false;
+    private var _idleAnimName:String = "idle";
+    private var _altSingSuffix:Array<String> = ["", "", "", ""];
+    private var _isSingingAnim:Bool = false;
+
+    private static var _xmsoulPathCache:Map<String, String> = new Map<String, String>();
+    private static var _jsonPathCache:Map<String, String> = new Map<String, String>();
+
     public function new(x:Float = 0, y:Float = 0, character:String = "bf", isPlayer:Bool = false) {
         super(x, y);
         this.curCharacter = (character != null && character.length > 0) ? character : (isPlayer ? "bf" : "dad");
@@ -53,22 +61,52 @@ class Character extends FunkinSprite {
             }
         }
 
+        refreshAnimationCaches();
         dance();
     }
 
+    private function refreshAnimationCaches():Void {
+        _hasDancePair = animation.getByName("danceLeft") != null && animation.getByName("danceRight") != null;
+        _idleAnimName = (animation.getByName("idle" + idleSuffix) != null) ? ("idle" + idleSuffix) : "idle";
+
+        var dirs = ["singLEFT", "singDOWN", "singUP", "singRIGHT"];
+        for (i in 0...4) {
+            var base = dirs[i];
+            if (animation.getByName(base + "-alt") != null) {
+                _altSingSuffix[i] = "-alt";
+            } else if (animation.getByName(base + "alt") != null) {
+                _altSingSuffix[i] = "alt";
+            } else {
+                _altSingSuffix[i] = "";
+            }
+        }
+    }
+
     private function loadCharacterXMSoul(char:String):Bool {
-        var paths = [
-            'characters/$char.xmsoul',
-            'data/characters/$char.xmsoul',
-            'characters/$char/$char.xmsoul',
-            'assets/preload/characters/$char.xmsoul',
-            'assets/preload/data/characters/$char.xmsoul'
-        ];
+        var cacheKey = char.toLowerCase().trim();
+        var cachedPath = _xmsoulPathCache.exists(cacheKey) ? _xmsoulPathCache.get(cacheKey) : null;
+
+        var paths:Array<String>;
+        if (cachedPath != null) {
+            if (cachedPath.length == 0) return false;
+            paths = [cachedPath];
+        } else {
+            paths = [
+                'characters/$char.xmsoul',
+                'data/characters/$char.xmsoul',
+                'characters/$char/$char.xmsoul',
+                'assets/preload/characters/$char.xmsoul',
+                'assets/preload/data/characters/$char.xmsoul'
+            ];
+        }
+
+        var foundPath:String = null;
 
         for (path in paths) {
             var access = XMSoul.parse(path);
             if (access != null) {
                 try {
+                    foundPath = path;
                     var imagePath = XMSoul.getAttr(access, "sprite", XMSoul.getAttr(access, "image", 'characters/$char'));
                     
                     loadSprite(imagePath);
@@ -125,26 +163,43 @@ class Character extends FunkinSprite {
                     }
 
                     updateHitbox();
+                    _xmsoulPathCache.set(cacheKey, foundPath);
                     return true;
                 } catch (e:Dynamic) {
                     Logger.warn('Failed parsing character .xmsoul for $char: $e', "character");
                 }
             }
         }
+
+        if (cachedPath == null) {
+            _xmsoulPathCache.set(cacheKey, "");
+        }
         return false;
     }
 
     private function loadCharacterJSON(char:String):Bool {
-        var jsonPaths = [
-            'characters/$char.json',
-            'data/characters/$char.json',
-            'assets/preload/characters/$char.json',
-            'assets/preload/data/characters/$char.json'
-        ];
+        var cacheKey = char.toLowerCase().trim();
+        var cachedPath = _jsonPathCache.exists(cacheKey) ? _jsonPathCache.get(cacheKey) : null;
+
+        var jsonPaths:Array<String>;
+        if (cachedPath != null) {
+            if (cachedPath.length == 0) return false;
+            jsonPaths = [cachedPath];
+        } else {
+            jsonPaths = [
+                'characters/$char.json',
+                'data/characters/$char.json',
+                'assets/preload/characters/$char.json',
+                'assets/preload/data/characters/$char.json'
+            ];
+        }
+
+        var foundPath:String = null;
 
         for (path in jsonPaths) {
             var resolved = AssetResolver.resolveFile(path, [".json", ""]);
             if (resolved != null) {
+                foundPath = path;
                 var content = AssetResolver.getText(resolved);
                 if (content != null && content.length > 0) {
                     try {
@@ -189,12 +244,17 @@ class Character extends FunkinSprite {
                             addOffset(animName, offX, offY);
                         }
                         updateHitbox();
+                        _jsonPathCache.set(cacheKey, foundPath);
                         return true;
                     } catch (e:Dynamic) {
                         Logger.warn('Failed parsing character JSON for $char: $e', "character");
                     }
                 }
             }
+        }
+
+        if (cachedPath == null) {
+            _jsonPathCache.set(cacheKey, "");
         }
         return false;
     }
@@ -226,6 +286,7 @@ class Character extends FunkinSprite {
         if (animation.getByName(animName) == null) return;
 
         animation.play(animName, force, reversed, frame);
+        _isSingingAnim = animName.startsWith("sing");
 
         var daOffset = animOffsets.get(animName);
         if (daOffset != null) {
@@ -236,7 +297,8 @@ class Character extends FunkinSprite {
     }
 
     public function playSingAnim(dir:Int, miss:Bool = false):Void {
-        var dirStr = switch (dir) {
+        var lane = (dir >= 0 && dir < 4) ? dir : 2;
+        var dirStr = switch (lane) {
             case 0: "singLEFT";
             case 1: "singDOWN";
             case 2: "singUP";
@@ -245,8 +307,7 @@ class Character extends FunkinSprite {
         };
 
         if (miss) dirStr += "miss";
-        else if (altAnim && animation.getByName(dirStr + "-alt") != null) dirStr += "-alt";
-        else if (altAnim && animation.getByName(dirStr + "alt") != null) dirStr += "alt";
+        else if (altAnim) dirStr += _altSingSuffix[lane];
 
         playAnim(dirStr, true);
         holdTimer = 0;
@@ -254,20 +315,22 @@ class Character extends FunkinSprite {
 
     public function dance(force:Bool = false):Void {
         if (stunned) return;
-        if (animation.getByName("danceLeft") != null && animation.getByName("danceRight") != null) {
+        if (_hasDancePair) {
             danced = !danced;
             playAnim(danced ? "danceRight" : "danceLeft", force);
-        } else if (animation.getByName("idle" + idleSuffix) != null) {
-            playAnim("idle" + idleSuffix, force);
-        } else if (animation.getByName("idle") != null) {
-            playAnim("idle", force);
+        } else if (animation.getByName(_idleAnimName) != null) {
+            playAnim(_idleAnimName, force);
         }
     }
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
-        if (animation.curAnim != null && animation.curAnim.name.startsWith("sing")) {
+        if (!_isSingingAnim && animation.curAnim != null) {
+            _isSingingAnim = animation.curAnim.name.startsWith("sing");
+        }
+
+        if (_isSingingAnim) {
             holdTimer += elapsed;
             if (holdTimer >= Conductor.stepCrochet * 0.0011 * singDuration) {
                 dance();

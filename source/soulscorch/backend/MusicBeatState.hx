@@ -22,6 +22,8 @@ class MusicBeatState extends Scene implements IBeatReceiver {
     public static var skipNextTransIn:Bool = false;
     public static var skipNextTransOut:Bool = false;
     public static var nextStateTarget:FlxState = null;
+    private static var _transitionsLoaded:Bool = false;
+    private static var _customStateExistsCache:Map<String, Bool> = new Map<String, Bool>();
 
     override public function create():Void {
         super.create();
@@ -42,6 +44,8 @@ class MusicBeatState extends Scene implements IBeatReceiver {
     }
 
     public static function loadCustomTransitions():Void {
+        if (_transitionsLoaded) return;
+
         var access:Access = XMSoul.parse("config/transitions");
         if (access == null) access = XMSoul.parse("data/config/transitions");
 
@@ -62,6 +66,8 @@ class MusicBeatState extends Scene implements IBeatReceiver {
                 sfx
             );
         }
+
+        _transitionsLoaded = true;
     }
 
     public static function switchState(nextState:FlxState, ?transData:TransitionData):Void {
@@ -70,7 +76,9 @@ class MusicBeatState extends Scene implements IBeatReceiver {
 
         var transition = transData != null ? transData : defaultTransition;
 
-        var stateName:String = Type.getClassName(Type.getClass(nextState)).split(".").pop();
+        var nextClass = Type.getClass(nextState);
+        var fullStateName = nextClass != null ? Type.getClassName(nextClass) : "";
+        var stateName:String = fullStateName != null ? fullStateName.split(".").pop() : "";
         var redirectTarget:Null<String> = soulscorch.scripting.mod.SoulGlobalScript.getRedirect(stateName);
 
         // Only redirect if an explicit mapping exists that differs from the base state and exists on disk
@@ -105,6 +113,11 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         if (stateName == null || stateName.trim().length == 0) return false;
 
         var clean = stateName.trim();
+        if (_customStateExistsCache.exists(clean)) {
+            return _customStateExistsCache.get(clean);
+        }
+
+        var exists = false;
         var scriptBases = [
             'states/$clean',
             'data/states/$clean',
@@ -115,23 +128,28 @@ class MusicBeatState extends Scene implements IBeatReceiver {
 
         for (base in scriptBases) {
             if (AssetResolver.resolveFile(base, [".hx", ".hscript", ".iris", ".soul", ".lua", ".py", ".js", ""]) != null) {
-                return true;
+                exists = true;
+                break;
             }
         }
 
-        var layoutBases = [
-            'states/$clean',
-            'data/states/$clean',
-            'data/ui/$clean',
-            'data/$clean'
-        ];
+        if (!exists) {
+            var layoutBases = [
+                'states/$clean',
+                'data/states/$clean',
+                'data/ui/$clean',
+                'data/$clean'
+            ];
 
-        for (base in layoutBases) {
-            if (AssetResolver.resolveFile(base, [".xmsoul", ".xml", ""]) != null) {
-                return true;
+            for (base in layoutBases) {
+                if (AssetResolver.resolveFile(base, [".xmsoul", ".xml", ""]) != null) {
+                    exists = true;
+                    break;
+                }
             }
         }
 
-        return false;
+        _customStateExistsCache.set(clean, exists);
+        return exists;
     }
 }

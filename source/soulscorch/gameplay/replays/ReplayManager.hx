@@ -42,15 +42,18 @@ typedef ReplayData = {
 class ReplayManager {
     public static var recording:Bool = false;
     public static var playing:Bool = false;
+    private static inline var REPLAY_DIR:String = "replays";
     
     private static var recordedEvents:Array<InputPressEvent> = [];
     private static var playbackIndex:Int = 0;
     private static var currentReplay:ReplayData = null;
+    private static var playbackBuffer:Array<InputPressEvent> = [];
 
     public static function startRecording(song:String, diff:String):Void {
         recording = true;
         stopPlayback();
-        recordedEvents = [];
+        if (recordedEvents == null) recordedEvents = [];
+        recordedEvents.resize(0);
         Logger.info('[REPLAY] Started recording replay for $song ($diff)', "replay");
     }
 
@@ -73,11 +76,13 @@ class ReplayManager {
         if (!recording) return null;
         recording = false;
 
+        var capturedEvents = recordedEvents.copy();
+
         var data:ReplayData = {
             songName: song,
             difficulty: diff,
             timestamp: Date.now().toString(),
-            events: recordedEvents,
+            events: capturedEvents,
             score: score,
             accuracy: acc,
             misses: misses,
@@ -86,12 +91,12 @@ class ReplayManager {
 
         var json = Json.stringify(data, "\t");
         var baseId = '${song}_${diff}_${Std.int(Date.now().getTime())}';
-        var filename = 'replays/$baseId.srpy';
-        var cardPath = 'replays/$baseId.png';
+        var filename = '$REPLAY_DIR/$baseId.srpy';
+        var cardPath = '$REPLAY_DIR/$baseId.png';
 
         #if sys
         try {
-            if (!FileSystem.exists("replays")) FileSystem.createDirectory("replays");
+            if (!FileSystem.exists(REPLAY_DIR)) FileSystem.createDirectory(REPLAY_DIR);
             File.saveContent(filename, json);
             Logger.info('[REPLAY] Saved replay file: $filename', "replay");
 
@@ -137,6 +142,13 @@ class ReplayManager {
     public static function loadReplayFromJson(jsonString:String):Bool {
         try {
             currentReplay = Json.parse(jsonString);
+            if (currentReplay == null || currentReplay.events == null) return false;
+
+            currentReplay.events.sort(function(a, b) {
+                if (a.time < b.time) return -1;
+                if (a.time > b.time) return 1;
+                return 0;
+            });
             playbackIndex = 0;
             playing = true;
             recording = false;
@@ -149,20 +161,27 @@ class ReplayManager {
     }
 
     public static function getNextPlaybackEvents():Array<InputPressEvent> {
-        var triggered:Array<InputPressEvent> = [];
-        if (!playing || currentReplay == null || currentReplay.events == null) return triggered;
+        playbackBuffer.resize(0);
+        if (!playing || currentReplay == null || currentReplay.events == null) return playbackBuffer;
 
-        while (playbackIndex < currentReplay.events.length) {
-            var ev = currentReplay.events[playbackIndex];
-            if (ev.time <= Conductor.songPosition) {
-                triggered.push(ev);
+        var eventList = currentReplay.events;
+        var songPos = Conductor.songPosition;
+
+        while (playbackIndex < eventList.length) {
+            var ev = eventList[playbackIndex];
+            if (ev.time <= songPos) {
+                playbackBuffer.push(ev);
                 playbackIndex++;
             } else {
                 break;
             }
         }
 
-        return triggered;
+        if (playbackIndex >= eventList.length) {
+            stopPlayback();
+        }
+
+        return playbackBuffer;
     }
 
     #if sys
@@ -213,12 +232,17 @@ class ReplayManager {
     public static function getAllReplays():Array<String> {
         var list:Array<String> = [];
         #if sys
-        if (FileSystem.exists("replays") && FileSystem.isDirectory("replays")) {
-            for (f in FileSystem.readDirectory("replays")) {
+        if (FileSystem.exists(REPLAY_DIR) && FileSystem.isDirectory(REPLAY_DIR)) {
+            for (f in FileSystem.readDirectory(REPLAY_DIR)) {
                 if (f.endsWith(".srpy") || f.endsWith(".soulvid")) {
-                    list.push('replays/$f');
+                    list.push('$REPLAY_DIR/$f');
                 }
             }
+            list.sort(function(a, b) {
+                if (a < b) return -1;
+                if (a > b) return 1;
+                return 0;
+            });
         }
         #end
         return list;

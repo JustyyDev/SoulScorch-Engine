@@ -71,11 +71,6 @@ class ModRegistry {
             }
         }
 
-        // If settings exist but no entry resolved (renamed/case-changed folders), auto-enable discovered mods.
-        if (rawList != null && enabledMods.length == 0 && ModManager.allMods != null && ModManager.allMods.length > 0) {
-            enabledMods = ModManager.allMods.copy();
-        }
-
         if (rawList == null && ModManager.allMods != null && ModManager.allMods.length > 0) {
             enabledMods = ModManager.allMods.copy();
         }

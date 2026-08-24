@@ -47,6 +47,57 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
     public var stageScript:ScriptManager;
 
+    private var _spriteIdCounter:Int = 0;
+    private var _elapsedArgCache:Array<Dynamic> = [0.0];
+    private var _beatArgCache:Array<Dynamic> = [0];
+    private var _stepArgCache:Array<Dynamic> = [0];
+    private var _spritePool:Array<FlxSprite> = [];
+    private var _activeStageSprites:Array<FlxSprite> = [];
+
+    private static var _xmsoulStagePathCache:Map<String, String> = new Map<String, String>();
+    private static var _xmlStagePathCache:Map<String, String> = new Map<String, String>();
+    private static var _jsonStagePathCache:Map<String, String> = new Map<String, String>();
+    private static var _stageScriptPathCache:Map<String, String> = new Map<String, String>();
+
+    private function acquireStageSprite(x:Float = 0.0, y:Float = 0.0):FlxSprite {
+        var spr:FlxSprite = (_spritePool.length > 0) ? _spritePool.pop() : new FlxSprite();
+        spr.setPosition(x, y);
+        spr.visible = true;
+        spr.exists = true;
+        spr.active = true;
+        spr.alive = true;
+        spr.alpha = 1.0;
+        spr.angle = 0.0;
+        spr.flipX = false;
+        spr.flipY = false;
+        spr.color = FlxColor.WHITE;
+        spr.shader = null;
+        spr.scale.set(1.0, 1.0);
+        spr.scrollFactor.set(1.0, 1.0);
+        spr.animation.destroyAnimations();
+        spr.offset.set(0, 0);
+        spr.origin.set(0, 0);
+        spr.frames = null;
+        spr.cameras = null;
+
+        _activeStageSprites.push(spr);
+        return spr;
+    }
+
+    private function releaseStageSprite(spr:FlxSprite):Void {
+        if (spr == null) return;
+
+        spr.visible = false;
+        spr.exists = false;
+        spr.active = false;
+        spr.alive = false;
+        spr.shader = null;
+        spr.animation.destroyAnimations();
+        spr.frames = null;
+        spr.cameras = null;
+        _spritePool.push(spr);
+    }
+
     public function new(stageId:String = "stage") {
         super();
         this.stageId = (stageId != null && stageId.trim().length > 0) ? stageId.trim() : "stage";
@@ -64,6 +115,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
     public function load():Void {
         clearStage();
+        _spriteIdCounter = 0;
 
         var xmsoulLoaded = loadXMSoulStage(stageId);
         if (!xmsoulLoaded) {
@@ -80,6 +132,15 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     }
 
     private function loadXMSoulStage(id:String):Bool {
+        var cacheKey = id.toLowerCase().trim();
+        if (_xmsoulStagePathCache.exists(cacheKey)) {
+            var cached = _xmsoulStagePathCache.get(cacheKey);
+            var cachedNode = XMSoul.parse(cached);
+            if (cachedNode != null) {
+                return parseStageNode(cachedNode, 'stages/$id/');
+            }
+        }
+
         var possiblePaths = [
             'stages/$id/$id.xmsoul',
             'stages/$id.xmsoul',
@@ -92,6 +153,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
         for (p in possiblePaths) {
             var stageNode = XMSoul.parse(p);
             if (stageNode != null) {
+                _xmsoulStagePathCache.set(cacheKey, p);
                 return parseStageNode(stageNode, 'stages/$id/');
             }
         }
@@ -99,6 +161,23 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     }
 
     private function loadCodenameXMLStage(id:String):Bool {
+        var cacheKey = id.toLowerCase().trim();
+        if (_xmlStagePathCache.exists(cacheKey)) {
+            var cached = _xmlStagePathCache.get(cacheKey);
+            var cachedResolved = AssetResolver.resolveFile(cached, [".xml", ""]);
+            if (cachedResolved != null) {
+                var cachedContent = AssetResolver.getText(cachedResolved);
+                if (cachedContent != null && cachedContent.length > 0) {
+                    try {
+                        var cachedXml = Xml.parse(cachedContent);
+                        var cachedStageNode = new Access(cachedXml.firstElement());
+                        var cachedFolder = cachedStageNode.has.folder ? cachedStageNode.att.folder : 'stages/$id/';
+                        return parseStageNode(cachedStageNode, cachedFolder);
+                    } catch (e:Dynamic) {}
+                }
+            }
+        }
+
         var possibleXmlPaths = [
             'stages/$id/$id.xml',
             'stages/$id.xml',
@@ -118,6 +197,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                         var xml = Xml.parse(content);
                         var stageNode = new Access(xml.firstElement());
                         var folder = stageNode.has.folder ? stageNode.att.folder : 'stages/$id/';
+                        _xmlStagePathCache.set(cacheKey, p);
                         return parseStageNode(stageNode, folder);
                     } catch (e:Dynamic) {
                         Logger.warn('Failed parsing Codename XML stage: $e', "stage");
@@ -188,7 +268,8 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                         var bh = node.has.height ? Std.parseInt(node.att.height) : 100;
                         var bColor = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
 
-                        var boxSpr = new FlxSprite(bx, by).makeGraphic(bw, bh, bColor);
+                        var boxSpr = acquireStageSprite(bx, by);
+                        boxSpr.makeGraphic(bw, bh, bColor, true);
                         if (node.has.name) namedSprites.set(node.att.name, boxSpr);
                         layers.get(currentLayerTarget).add(boxSpr);
                 }
@@ -201,12 +282,12 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     }
 
     private function parseSpriteElement(elem:Access, folder:String, layer:String):Void {
-        var sprName = elem.has.name ? elem.att.name : "spr_" + FlxG.random.int(0, 9999);
+        var sprName = elem.has.name ? elem.att.name : 'spr_${_spriteIdCounter++}';
         var spriteFile = elem.has.sprite ? elem.att.sprite : sprName;
         var posX = elem.has.x ? Std.parseFloat(elem.att.x) : 0.0;
         var posY = elem.has.y ? Std.parseFloat(elem.att.y) : 0.0;
 
-        var spr = new FlxSprite(posX, posY);
+        var spr = acquireStageSprite(posX, posY);
         var assetPath = folder + spriteFile;
 
         var loaded = AssetHelper.loadSparrowSafely(spr, assetPath);
@@ -254,10 +335,65 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
         spr.antialiasing = true;
         namedSprites.set(sprName, spr);
-        layers.get(layer).add(spr);
+        var targetLayer = layers.exists(layer) ? layer : "bg";
+        layers.get(targetLayer).add(spr);
     }
 
     private function loadJSONStage(id:String):Bool {
+        var cacheKey = id.toLowerCase().trim();
+        if (_jsonStagePathCache.exists(cacheKey)) {
+            var cached = _jsonStagePathCache.get(cacheKey);
+            var cachedResolved = AssetResolver.resolveFile(cached, [".json", ""]);
+            if (cachedResolved != null) {
+                var cachedContent = AssetResolver.getText(cachedResolved);
+                if (cachedContent != null && cachedContent.length > 0) {
+                    try {
+                        var cachedJson:Dynamic = Json.parse(cachedContent);
+                        if (cachedJson.defaultZoom != null) defaultZoom = cachedJson.defaultZoom;
+                        else if (cachedJson.zoom != null) defaultZoom = cachedJson.zoom;
+
+                        if (cachedJson.boyfriend != null && cachedJson.boyfriend.length >= 2) {
+                            boyfriendPosition.set(cachedJson.boyfriend[0], cachedJson.boyfriend[1]);
+                        }
+                        if (cachedJson.opponent != null && cachedJson.opponent.length >= 2) {
+                            dadPosition.set(cachedJson.opponent[0], cachedJson.opponent[1]);
+                        }
+                        if (cachedJson.girlfriend != null && cachedJson.girlfriend.length >= 2) {
+                            gfPosition.set(cachedJson.girlfriend[0], cachedJson.girlfriend[1]);
+                        }
+
+                        var cachedPieces:Array<Dynamic> = cachedJson.pieces != null ? cast cachedJson.pieces : (cachedJson.sprites != null ? cast cachedJson.sprites : []);
+                        for (p in cachedPieces) {
+                            var posX = p.position != null ? p.position[0] : (p.x != null ? p.x : 0.0);
+                            var posY = p.position != null ? p.position[1] : (p.y != null ? p.y : 0.0);
+                            var spr = acquireStageSprite(posX, posY);
+                            AssetHelper.loadGraphicSafely(spr, p.image);
+
+                            if (p.scroll != null) {
+                                spr.scrollFactor.set(p.scroll[0], p.scroll[1]);
+                            } else if (p.scrollX != null || p.scrollY != null) {
+                                spr.scrollFactor.set(p.scrollX != null ? p.scrollX : 1.0, p.scrollY != null ? p.scrollY : 1.0);
+                            }
+
+                            if (p.scale != null) {
+                                spr.scale.set(p.scale[0], p.scale[1]);
+                            } else if (p.scaleX != null || p.scaleY != null) {
+                                spr.scale.set(p.scaleX != null ? p.scaleX : 1.0, p.scaleY != null ? p.scaleY : 1.0);
+                            }
+
+                            if (p.alpha != null) spr.alpha = p.alpha;
+                            if (p.antialiasing != null) spr.antialiasing = p.antialiasing;
+
+                            var layer = p.layer != null ? (p.layer == "foreground" ? "fg" : p.layer) : "bg";
+                            if (!layers.exists(layer)) layer = "bg";
+                            layers.get(layer).add(spr);
+                        }
+                        return true;
+                    } catch (e:Dynamic) {}
+                }
+            }
+        }
+
         var possibleJsonPaths = [
             'stages/$id.json',
             'data/stages/$id.json',
@@ -289,7 +425,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                         for (p in pieces) {
                             var posX = p.position != null ? p.position[0] : (p.x != null ? p.x : 0.0);
                             var posY = p.position != null ? p.position[1] : (p.y != null ? p.y : 0.0);
-                            var spr = new FlxSprite(posX, posY);
+                            var spr = acquireStageSprite(posX, posY);
                             AssetHelper.loadGraphicSafely(spr, p.image);
 
                             if (p.scroll != null) {
@@ -311,6 +447,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                             if (!layers.exists(layer)) layer = "bg";
                             layers.get(layer).add(spr);
                         }
+                        _jsonStagePathCache.set(cacheKey, p);
                         return true;
                     } catch (e:Dynamic) {
                         Logger.warn('Failed parsing stage JSON for $id: $e', "stage");
@@ -322,21 +459,21 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     }
 
     private function loadDefaultFallbackStage():Void {
-        var bg = new FlxSprite(-600, -200);
+        var bg = acquireStageSprite(-600, -200);
         if (!AssetHelper.loadGraphicSafely(bg, "stages/default/stageback")) {
             AssetHelper.loadGraphicSafely(bg, "stageback");
         }
         bg.scrollFactor.set(0.9, 0.9);
         layers.get("bg").add(bg);
 
-        var front = new FlxSprite(-650, 600);
+        var front = acquireStageSprite(-650, 600);
         if (!AssetHelper.loadGraphicSafely(front, "stages/default/stagefront")) {
             AssetHelper.loadGraphicSafely(front, "stagefront");
         }
         front.scrollFactor.set(0.9, 0.9);
         layers.get("bg").add(front);
 
-        var curtains = new FlxSprite(-500, -300);
+        var curtains = acquireStageSprite(-500, -300);
         if (!AssetHelper.loadGraphicSafely(curtains, "stages/default/stagecurtains")) {
             AssetHelper.loadGraphicSafely(curtains, "stagecurtains");
         }
@@ -346,8 +483,16 @@ class Stage extends FlxTypedGroup<FlxBasic> {
 
     private function initStageScript():Void {
         stageScript = new ScriptManager();
-        var scriptPath = AssetResolver.resolveFile('stages/$stageId/$stageId', [".hx", ".soul", ".lua", ".py", ".js"]);
+        var cacheKey = stageId.toLowerCase().trim();
+        var scriptPath:String = null;
+        if (_stageScriptPathCache.exists(cacheKey)) {
+            var cached = _stageScriptPathCache.get(cacheKey);
+            scriptPath = AssetResolver.resolveFile(cached, [".hx", ".soul", ".lua", ".py", ".js", ""]);
+        }
+
+        if (scriptPath == null) scriptPath = AssetResolver.resolveFile('stages/$stageId/$stageId', [".hx", ".soul", ".lua", ".py", ".js"]);
         if (scriptPath == null) scriptPath = AssetResolver.resolveFile('stages/$stageId', [".hx", ".soul", ".lua", ".py", ".js"]);
+        if (scriptPath != null) _stageScriptPathCache.set(cacheKey, scriptPath);
 
         if (scriptPath != null) {
             stageScript.loadScript(scriptPath);
@@ -398,7 +543,10 @@ class Stage extends FlxTypedGroup<FlxBasic> {
     }
 
     public function updateStage(elapsed:Float):Void {
-        if (stageScript != null) stageScript.callAll("update", [elapsed]);
+        if (stageScript != null) {
+            _elapsedArgCache[0] = elapsed;
+            stageScript.callAll("update", _elapsedArgCache);
+        }
     }
 
     public function beatHit(beat:Int):Void {
@@ -407,15 +555,27 @@ class Stage extends FlxTypedGroup<FlxBasic> {
                 spr.animation.play(spr.animation.curAnim.name, true);
             }
         }
-        if (stageScript != null) stageScript.callAll("beatHit", [beat]);
+        if (stageScript != null) {
+            _beatArgCache[0] = beat;
+            stageScript.callAll("beatHit", _beatArgCache);
+        }
     }
 
     public function stepHit(step:Int):Void {
-        if (stageScript != null) stageScript.callAll("stepHit", [step]);
+        if (stageScript != null) {
+            _stepArgCache[0] = step;
+            stageScript.callAll("stepHit", _stepArgCache);
+        }
     }
 
     public function clearStage():Void {
         for (l in layers) l.clear();
+
+        for (spr in _activeStageSprites) {
+            releaseStageSprite(spr);
+        }
+        _activeStageSprites.resize(0);
+
         namedSprites.clear();
         beatSprites = [];
         loopSprites = [];
@@ -425,6 +585,7 @@ class Stage extends FlxTypedGroup<FlxBasic> {
         if (stageScript != null) {
             stageScript.callAll("onDestroy", []);
             stageScript.clear();
+            stageScript = null;
         }
         startCamPos = null;
         boyfriendPosition = null;

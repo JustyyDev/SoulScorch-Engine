@@ -209,6 +209,37 @@ class OptionsMenuState extends MusicBeatState {
                         if (SaveData.instance != null) SaveData.instance.setSetting("exportReplayMp4", v, true);
                         savePreferences();
                     }
+                },
+                {
+                    name: "Freeplay Shuffle",
+                    description: "Enables or disables Freeplay Shuffle mode activation from its keybind.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.freeplayShuffleEnabled : true,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.freeplayShuffleEnabled = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Random Difficulty",
+                    description: "When selecting a song, randomly picks from that song's available difficulties.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.randomDifficulty : false,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.randomDifficulty = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Random Modcharts",
+                    description: "Adds lightweight randomized modchart motion presets while keeping charts playable.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.randomModcharts : false,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.randomModcharts = v;
+                        GameplayFlags.set("randomModcharts", v);
+                        savePreferences();
+                    }
                 }
             ]),
             new OptionCategory("Visuals", "options", 0xFF1A2A30, [
@@ -266,6 +297,64 @@ class OptionsMenuState extends MusicBeatState {
                     type: "bool",
                     getValue: function() return GameplayFlags.getBool("cameraZoomOnBeat", true),
                     setValue: function(v) { GameplayFlags.set("cameraZoomOnBeat", v); savePreferences(); }
+                },
+                {
+                    name: "Shuffle Confetti",
+                    description: "Enables celebratory confetti burst visuals when Shuffle finalizes its pick.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.shuffleConfettiEnabled : true,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.shuffleConfettiEnabled = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Shuffle Confetti Intensity",
+                    description: "Scales amount and spread of Shuffle confetti visuals.",
+                    type: "float",
+                    min: 0.3,
+                    max: 2.5,
+                    step: 0.1,
+                    formatValue: function(v) return (Math.round(v * 10) / 10) + "x",
+                    getValue: function() return Runtime.config != null ? Runtime.config.shuffleConfettiIntensity : 1.0,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.shuffleConfettiIntensity = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Shuffle Pace",
+                    description: "Controls how quickly Shuffle cycles and finalizes song selection.",
+                    type: "float",
+                    min: 0.6,
+                    max: 1.8,
+                    step: 0.1,
+                    formatValue: function(v) return (Math.round(v * 10) / 10) + "x",
+                    getValue: function() return Runtime.config != null ? Runtime.config.shufflePaceMultiplier : 1.0,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.shufflePaceMultiplier = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Shuffle Icon Randomization",
+                    description: "Randomizes icon picks during Shuffle cycling instead of sticking to only current song icon.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.shuffleIconRandomization : true,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.shuffleIconRandomization = v;
+                        savePreferences();
+                    }
+                },
+                {
+                    name: "Shuffle Title Scramble",
+                    description: "Uses animated randomized alphabet scramble while Shuffle is rolling songs.",
+                    type: "bool",
+                    getValue: function() return Runtime.config != null ? Runtime.config.shuffleTitleScramble : true,
+                    setValue: function(v) {
+                        if (Runtime.config != null) Runtime.config.shuffleTitleScramble = v;
+                        savePreferences();
+                    }
                 }
             ]),
             new OptionCategory("Note Colors", "options", 0xFF2A1A30, [
@@ -377,6 +466,13 @@ class OptionsMenuState extends MusicBeatState {
                     description: "Rebind key assigned to the Right direction lane.",
                     type: "keybind",
                     getValue: function() return "note_right",
+                    setValue: function(v) {}
+                },
+                {
+                    name: "Freeplay Shuffle",
+                    description: "Rebind the key that starts automatic Freeplay Shuffle selection.",
+                    type: "keybind",
+                    getValue: function() return "freeplay_shuffle",
                     setValue: function(v) {}
                 },
                 {

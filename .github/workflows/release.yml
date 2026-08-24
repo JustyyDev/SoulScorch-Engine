@@ -114,10 +114,22 @@ jobs:
           import subprocess, os
           res = subprocess.run(["haxelib", "libpath", "lime"], capture_output=True, text=True)
           lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
-          lime_path = lines[-1] if lines else ""
-          system_hx = os.path.join(lime_path, "lime", "system", "System.hx")
-          if not lime_path or not os.path.exists(system_hx):
-              raise SystemExit(f"Could not find Lime System.hx at: {system_hx}")
+          lime_path = ""
+          for line in reversed(lines):
+            if os.path.isdir(line):
+              lime_path = line
+              break
+
+          if not lime_path:
+            raise SystemExit("Could not resolve lime libpath from haxelib output")
+
+          candidates = [
+            os.path.join(lime_path, "lime", "system", "System.hx"),
+            os.path.join(lime_path, "src", "lime", "system", "System.hx")
+          ]
+          system_hx = next((p for p in candidates if os.path.exists(p)), "")
+          if not system_hx:
+            raise SystemExit("Could not find Lime System.hx. Checked: " + " | ".join(candidates))
           with open(system_hx, "r", encoding="utf-8") as f:
               content = f.read()
           patched = content.replace("_declspec(dllexport)", "__declspec(dllexport)")
@@ -134,7 +146,10 @@ jobs:
         run: |
           haxelib run lime rebuild mac -release
 
-          LIME_PATH="$(haxelib libpath lime)"
+          LIME_PATH="$(haxelib libpath lime | tail -n 1)"
+          if [ ! -d "$LIME_PATH" ]; then
+            LIME_PATH="$(haxelib libpath lime | grep -E '^/' | tail -n 1)"
+          fi
           if [ "$(uname -m)" = "arm64" ]; then
             LIME_NDLL_PATH="$LIME_PATH/ndll/MacArm64"
           else

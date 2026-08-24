@@ -19,8 +19,10 @@ import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.input.Controls;
+import soulscorch.backend.input.InputMap;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.SaveData;
+import soulscorch.backend.system.engine.Runtime;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
 import soulscorch.gameplay.PlayState;
 import soulscorch.gameplay.actors.HealthIcon;
@@ -59,6 +61,7 @@ class FreeplayState extends MusicBeatState {
     private var speedText:FlxText;
     private var mobileControls:MobilePad;
     private var scripts:ScriptManager;
+    private var shuffleBanner:FlxText;
 
     private var lerpScore:Int = 0;
     private var intendedScore:Int = 0;
@@ -77,6 +80,13 @@ class FreeplayState extends MusicBeatState {
 
     private var colorTween:FlxTween;
     private var holdTimer:Float = 0.0;
+    private var shuffleActive:Bool = false;
+    private var shuffleElapsed:Float = 0.0;
+    private var shuffleSwapElapsed:Float = 0.0;
+    private var shuffleDuration:Float = 2.5;
+    private var shuffleEligibleIndices:Array<Int> = [];
+    private var shuffleLaunchTimer:FlxTimer;
+    private var shuffleConfetti:FlxTypedGroup<FlxSprite>;
 
     override public function create():Void {
         super.create();
@@ -119,6 +129,15 @@ class FreeplayState extends MusicBeatState {
         selectionHighlight.scrollFactor.set(0, 0);
         selectionHighlight.visible = false;
         add(selectionHighlight);
+
+        shuffleConfetti = new FlxTypedGroup<FlxSprite>();
+        add(shuffleConfetti);
+
+        shuffleBanner = new FlxText(0, 74, FlxG.width, "SHUFFLE MODE", 28);
+        shuffleBanner.setFormat(Paths.font("vcr"), 28, EditorTheme.ACCENT_CYAN, CENTER, OUTLINE, FlxColor.BLACK);
+        shuffleBanner.borderSize = 1.4;
+        shuffleBanner.alpha = 0.0;
+        add(shuffleBanner);
 
         if (songs.length > 0) {
             curSelected = FlxMath.wrap(curSelected, 0, songs.length - 1);
@@ -199,9 +218,39 @@ class FreeplayState extends MusicBeatState {
         bpmText.setFormat(Paths.font("vcr"), 14, EditorTheme.TEXT_MUTED, RIGHT);
         scorePanel.add(bpmText);
 
-        speedText = new FlxText(16, 98, 380, "SCROLL SPEED: 2.0x  |  [SPACE] PREVIEW", 12);
+        speedText = new FlxText(16, 98, 380, "", 12);
         speedText.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_MUTED, RIGHT);
         scorePanel.add(speedText);
+        updateSpeedHint();
+    }
+
+    private inline function isShuffleEnabledByConfig():Bool {
+        return Runtime.config == null || Runtime.config.freeplayShuffleEnabled;
+    }
+
+    private inline function isShuffleConfettiEnabled():Bool {
+        return Runtime.config == null || Runtime.config.shuffleConfettiEnabled;
+    }
+
+    private inline function getShuffleConfettiIntensity():Float {
+        return Runtime.config != null ? FlxMath.bound(Runtime.config.shuffleConfettiIntensity, 0.3, 2.5) : 1.0;
+    }
+
+    private inline function getShuffleDurationSeconds():Float {
+        var pace = Runtime.config != null ? FlxMath.bound(Runtime.config.shufflePaceMultiplier, 0.6, 1.8) : 1.0;
+        return 2.5 / pace;
+    }
+
+    private inline function isShuffleIconRandomizationEnabled():Bool {
+        return Runtime.config == null || Runtime.config.shuffleIconRandomization;
+    }
+
+    private inline function isShuffleTitleScrambleEnabled():Bool {
+        return Runtime.config == null || Runtime.config.shuffleTitleScramble;
+    }
+
+    private inline function isRandomDifficultyEnabled():Bool {
+        return Runtime.config != null && Runtime.config.randomDifficulty;
     }
 
     override public function update(elapsed:Float):Void {
@@ -224,32 +273,44 @@ class FreeplayState extends MusicBeatState {
             scoreText.text = 'PERSONAL BEST: $lerpScore  •  ${Math.round(intendedAccuracy * 10) / 10}% [$intendedRating]';
         }
 
-        handleNavigationInput(elapsed);
+        if (!shuffleActive) {
+            handleNavigationInput(elapsed);
+        }
 
-        if (FlxG.keys.justPressed.SPACE) {
+        if (!shuffleActive && isShuffleEnabledByConfig() && InputMap.justPressed("freeplay_shuffle")) {
+            startShuffleMode();
+        }
+
+        if (shuffleActive) {
+            updateShuffleMode(elapsed);
+        }
+
+        if (!shuffleActive && FlxG.keys.justPressed.SPACE) {
             scheduleSongPreview(true);
         }
 
         if (Controls.instance.BACK) {
+            cancelShuffleMode();
             cancelPreviewTimer();
             stopPreview();
             restoreMenuMusic();
             AssetHelper.playSoundSafely("cancelMenu", 0.7);
             MusicBeatState.switchState(new MainMenuState());
+            return;
         }
 
-        if (Controls.instance.ACCEPT && songs.length > 0) {
-            cancelPreviewTimer();
-            stopPreview();
-            var selected = songs[curSelected];
-            var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
-            curDifficulty = FlxMath.wrap(curDifficulty, 0, diffs.length - 1);
+        if (!shuffleActive && Controls.instance.ACCEPT && songs.length > 0) {
+            startSelectedSong();
+        }
 
-            PlayState.curSong = selected.id;
-            PlayState.curDifficulty = diffs[curDifficulty];
-            PlayState.isStoryMode = false;
-            if (scripts != null) scripts.callAll("onSelectSong", [selected]);
-            MusicBeatState.switchState(new PlayState());
+        if (shuffleBanner != null) {
+            var targetAlpha = shuffleActive ? 1.0 : 0.0;
+            shuffleBanner.alpha = FlxMath.lerp(shuffleBanner.alpha, targetAlpha, FlxMath.bound(elapsed * 10.0, 0, 1));
+            if (shuffleActive) {
+                shuffleBanner.y = 74 + Math.sin(shuffleElapsed * 8.0) * 3.5;
+            } else {
+                shuffleBanner.y = FlxMath.lerp(shuffleBanner.y, 74, FlxMath.bound(elapsed * 10.0, 0, 1));
+            }
         }
 
         for (i in 0...alphabetPool.length) {
@@ -279,8 +340,8 @@ class FreeplayState extends MusicBeatState {
 
         if (upP) changeSelection(-1);
         if (downP) changeSelection(1);
-        if (Controls.instance.UI_LEFT_P) changeDiff(-1);
-        if (Controls.instance.UI_RIGHT_P) changeDiff(1);
+        if (!shuffleActive && Controls.instance.UI_LEFT_P) changeDiff(-1);
+        if (!shuffleActive && Controls.instance.UI_RIGHT_P) changeDiff(1);
 
         var upHold = Controls.instance.UI_UP;
         var downHold = Controls.instance.UI_DOWN;
@@ -311,10 +372,10 @@ class FreeplayState extends MusicBeatState {
         }
     }
 
-    private function changeSelection(change:Int = 0):Void {
+    private function changeSelection(change:Int = 0, playSfx:Bool = true):Void {
         if (songs.length == 0) return;
         curSelected = FlxMath.wrap(curSelected + change, 0, songs.length - 1);
-        if (change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.65);
+        if (playSfx && change != 0) AssetHelper.playSoundSafely("scrollMenu", 0.65);
 
         if (bg != null) {
             var targetColor:FlxColor = songs[curSelected].color;
@@ -383,7 +444,9 @@ class FreeplayState extends MusicBeatState {
         }
 
         changeDiff(0);
-        scheduleSongPreview(false);
+        if (!shuffleActive) {
+            scheduleSongPreview(false);
+        }
         if (scripts != null) scripts.callAll("onChangeSelection", [curSelected]);
     }
 
@@ -405,7 +468,7 @@ class FreeplayState extends MusicBeatState {
         curSpeed = meta.speed;
 
         if (bpmText != null) bpmText.text = 'TEMPO: ${Math.round(curBpm)} BPM';
-        if (speedText != null) speedText.text = 'SCROLL SPEED: ${curSpeed}x  |  [SPACE] PREVIEW';
+        updateSpeedHint();
 
         Conductor.changeBPM(curBpm);
 
@@ -420,6 +483,244 @@ class FreeplayState extends MusicBeatState {
             intendedRating = "N/A";
         }
         if (scripts != null) scripts.callAll("onChangeDifficulty", [curDifficulty, diffs[curDifficulty]]);
+    }
+
+    private function updateSpeedHint():Void {
+        if (speedText == null) return;
+        var shuffleKey = InputMap.getKeyLabel("freeplay_shuffle");
+        var shuffleState = isShuffleEnabledByConfig() ? "ON" : "OFF";
+        speedText.text = 'SCROLL SPEED: ${curSpeed}x  |  SHUFFLE[$shuffleState:${shuffleKey}]  |  [SPACE] PREVIEW';
+    }
+
+    private function getShuffleEligibleIndices():Array<Int> {
+        var eligible:Array<Int> = [];
+        for (i in 0...songs.length) {
+            var s = songs[i];
+            var canShuffle = (s != null && s.shuffleEnabled != null) ? s.shuffleEnabled : true;
+            if (canShuffle) eligible.push(i);
+        }
+        if (eligible.length == 0) {
+            for (i in 0...songs.length) eligible.push(i);
+        }
+        return eligible;
+    }
+
+    private function startShuffleMode():Void {
+        if (songs.length == 0 || shuffleActive) return;
+
+        shuffleEligibleIndices = getShuffleEligibleIndices();
+        if (shuffleEligibleIndices.length == 0) return;
+
+        cancelPreviewTimer();
+        stopPreview();
+
+        if (shuffleLaunchTimer != null) {
+            shuffleLaunchTimer.cancel();
+            shuffleLaunchTimer.destroy();
+            shuffleLaunchTimer = null;
+        }
+
+        shuffleActive = true;
+        shuffleElapsed = 0.0;
+        shuffleSwapElapsed = 0.0;
+        shuffleDuration = getShuffleDurationSeconds();
+        menuTargetVolume = 0.35;
+        holdTimer = 0.0;
+
+        if (selectionHighlight != null) {
+            selectionHighlight.alpha = 0.2;
+        }
+
+        AssetHelper.playSoundSafely("scrollMenu", 0.75);
+        performShuffleStep();
+    }
+
+    private function updateShuffleMode(elapsed:Float):Void {
+        if (!shuffleActive) return;
+
+        shuffleElapsed += elapsed;
+        shuffleSwapElapsed += elapsed;
+
+        var t = FlxMath.bound(shuffleElapsed / shuffleDuration, 0, 1);
+        var interval = FlxMath.lerp(0.045, 0.16, t * t);
+
+        while (shuffleSwapElapsed >= interval) {
+            shuffleSwapElapsed -= interval;
+            performShuffleStep();
+        }
+
+        if (shuffleElapsed >= shuffleDuration) {
+            finalizeShuffleMode();
+        }
+    }
+
+    private function performShuffleStep():Void {
+        if (shuffleEligibleIndices.length == 0 || songs.length == 0) return;
+
+        var nextIndex = curSelected;
+        if (shuffleEligibleIndices.length == 1) {
+            nextIndex = shuffleEligibleIndices[0];
+        } else {
+            for (_ in 0...8) {
+                var candidate = shuffleEligibleIndices[FlxG.random.int(0, shuffleEligibleIndices.length - 1)];
+                if (candidate != curSelected) {
+                    nextIndex = candidate;
+                    break;
+                }
+            }
+        }
+
+        changeSelection(nextIndex - curSelected, false);
+
+        for (i in 0...alphabetPool.length) {
+            var item = alphabetPool[i];
+            if (item != null && item.visible && item.targetY == 0) {
+                if (isShuffleTitleScrambleEnabled()) {
+                    item.scrambleTo(songs[curSelected].title, 0.011);
+                } else {
+                    item.text = songs[curSelected].title;
+                }
+                var icon = iconPool[i];
+                if (icon != null) icon.changeIcon(pickShuffleIcon(songs[curSelected]));
+                break;
+            }
+        }
+    }
+
+    private function pickShuffleIcon(song:RegisteredSong):String {
+        if (!isShuffleIconRandomizationEnabled()) {
+            if (song != null && song.character != null && song.character.length > 0) return song.character;
+            return "face";
+        }
+
+        if (song != null && song.shuffleIconPool != null && song.shuffleIconPool.length > 0) {
+            return song.shuffleIconPool[FlxG.random.int(0, song.shuffleIconPool.length - 1)];
+        }
+
+        if (songs.length > 0 && FlxG.random.bool(35)) {
+            var randSong = songs[FlxG.random.int(0, songs.length - 1)];
+            if (randSong != null && randSong.character != null && randSong.character.length > 0) {
+                return randSong.character;
+            }
+        }
+
+        if (song != null && song.character != null && song.character.length > 0) {
+            return song.character;
+        }
+        return "face";
+    }
+
+    private function finalizeShuffleMode():Void {
+        if (!shuffleActive) return;
+        shuffleActive = false;
+
+        triggerShuffleReveal();
+        menuTargetVolume = 0.0;
+
+        if (shuffleLaunchTimer != null) {
+            shuffleLaunchTimer.cancel();
+            shuffleLaunchTimer.destroy();
+        }
+
+        shuffleLaunchTimer = new FlxTimer().start(0.7, function(_) {
+            shuffleLaunchTimer = null;
+            startSelectedSong();
+        });
+    }
+
+    private function cancelShuffleMode():Void {
+        shuffleActive = false;
+        shuffleElapsed = 0.0;
+        shuffleSwapElapsed = 0.0;
+
+        if (shuffleLaunchTimer != null) {
+            shuffleLaunchTimer.cancel();
+            shuffleLaunchTimer.destroy();
+            shuffleLaunchTimer = null;
+        }
+
+        menuTargetVolume = 0.7;
+        if (selectionHighlight != null) selectionHighlight.alpha = 0.12;
+    }
+
+    private function triggerShuffleReveal():Void {
+        if (!isShuffleConfettiEnabled()) {
+            if (selectionHighlight != null) {
+                selectionHighlight.alpha = 0.26;
+                FlxTween.tween(selectionHighlight, {alpha: 0.12}, 0.45, {ease: FlxEase.quartOut});
+            }
+            return;
+        }
+
+        if (selectionHighlight != null) {
+            selectionHighlight.alpha = 0.35;
+            FlxTween.tween(selectionHighlight, {alpha: 0.12}, 0.6, {ease: FlxEase.quartOut});
+        }
+
+        FlxG.camera.flash(FlxColor.WHITE, 0.18);
+
+        if (shuffleConfetti == null) return;
+
+        while (shuffleConfetti.members.length > 0) {
+            var oldPiece = shuffleConfetti.members.pop();
+            if (oldPiece != null) {
+                shuffleConfetti.remove(oldPiece, true);
+                oldPiece.destroy();
+            }
+        }
+
+        var confettiIntensity = getShuffleConfettiIntensity();
+        var colors = [0xFFFF4D6D, 0xFFFFC857, 0xFF4DFFB8, 0xFF5DA9FF, 0xFFFF7AF6];
+        var centerX = FlxG.width * 0.5;
+        var centerY = FlxG.height * 0.48;
+        var pieces = Std.int(Math.round(40 * confettiIntensity));
+        var spread = 1.0 + (confettiIntensity - 1.0) * 0.65;
+
+        for (i in 0...pieces) {
+            var w = FlxG.random.int(4, 9);
+            var h = FlxG.random.int(6, 16);
+            var piece = new FlxSprite(centerX + FlxG.random.float(-28, 28), centerY + FlxG.random.float(-16, 16));
+            piece.makeGraphic(w, h, colors[FlxG.random.int(0, colors.length - 1)]);
+            piece.scrollFactor.set(0, 0);
+            piece.angle = FlxG.random.float(0, 360);
+            shuffleConfetti.add(piece);
+
+            var targetX = piece.x + FlxG.random.float(-260 * spread, 260 * spread);
+            var targetY = piece.y + FlxG.random.float(-180 * spread, 210 * spread);
+            var targetAngle = piece.angle + FlxG.random.float(180, 720);
+            var life = FlxG.random.float(0.55, 0.95 + (confettiIntensity - 1.0) * 0.2);
+
+            FlxTween.tween(piece, {x: targetX, y: targetY, alpha: 0, angle: targetAngle}, life, {
+                ease: FlxEase.quadOut,
+                onComplete: function(_) {
+                    if (piece != null) {
+                        shuffleConfetti.remove(piece, true);
+                        piece.destroy();
+                    }
+                }
+            });
+        }
+    }
+
+    private function startSelectedSong():Void {
+        if (songs.length == 0) return;
+
+        cancelPreviewTimer();
+        stopPreview();
+
+        var selected = songs[curSelected];
+        var diffs = (selected.difficulties != null && selected.difficulties.length > 0) ? selected.difficulties : Difficulty.defaultList;
+        if (isRandomDifficultyEnabled() && diffs.length > 1) {
+            curDifficulty = FlxG.random.int(0, diffs.length - 1);
+        } else {
+            curDifficulty = FlxMath.wrap(curDifficulty, 0, diffs.length - 1);
+        }
+
+        PlayState.curSong = selected.id;
+        PlayState.curDifficulty = diffs[curDifficulty];
+        PlayState.isStoryMode = false;
+        if (scripts != null) scripts.callAll("onSelectSong", [selected]);
+        MusicBeatState.switchState(new PlayState());
     }
 
     private function getCachedChartMeta(songId:String, diff:String, fallbackBpm:Float, fallbackSpeed:Float):{bpm:Float, speed:Float} {
@@ -545,6 +846,7 @@ class FreeplayState extends MusicBeatState {
     }
 
     override public function destroy():Void {
+        cancelShuffleMode();
         cancelPreviewTimer();
         stopPreview();
         if (colorTween != null) colorTween.cancel();

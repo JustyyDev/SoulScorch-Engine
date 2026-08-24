@@ -4,6 +4,7 @@ import haxe.xml.Access;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.system.XMSoul;
 import soulscorch.backend.utils.Logger;
+import soulscorch.scripting.ScriptManager;
 
 #if sys
 import sys.FileSystem;
@@ -361,6 +362,19 @@ class ModFeatureRegistry {
             };
 
             judgmentProfiles.set(id, profile);
+        }
+
+        for (node in xml.nodes.resolve("scripting")) {
+            if (node.has.hscript) ScriptManager.hscriptEnabled = XMSoul.getBoolAttr(node, "hscript", ScriptManager.hscriptEnabled);
+            if (node.has.soulscript) ScriptManager.soulScriptEnabled = XMSoul.getBoolAttr(node, "soulscript", ScriptManager.soulScriptEnabled);
+            if (node.has.lua) ScriptManager.luaEnabled = XMSoul.getBoolAttr(node, "lua", ScriptManager.luaEnabled);
+            if (node.has.python) ScriptManager.pythonEnabled = XMSoul.getBoolAttr(node, "python", ScriptManager.pythonEnabled);
+            if (node.has.mobileConservative) ScriptManager.mobileConservativeMode = XMSoul.getBoolAttr(node, "mobileConservative", ScriptManager.mobileConservativeMode);
+            if (node.has.maxScripts) ScriptManager.maxScriptsPerManager = XMSoul.getIntAttr(node, "maxScripts", ScriptManager.maxScriptsPerManager);
+            if (node.has.frameWarnMs) ScriptManager.frameHookWarnMs = XMSoul.getFloatAttr(node, "frameWarnMs", ScriptManager.frameHookWarnMs);
+            if (node.has.frameThrottleMs) ScriptManager.frameHookThrottleMs = XMSoul.getFloatAttr(node, "frameThrottleMs", ScriptManager.frameHookThrottleMs);
+            if (node.has.frameThrottleSeconds) ScriptManager.frameHookThrottleSeconds = XMSoul.getFloatAttr(node, "frameThrottleSeconds", ScriptManager.frameHookThrottleSeconds);
+            if (node.has.pythonProcessInterval) ScriptManager.pythonProcessIntervalSeconds = XMSoul.getFloatAttr(node, "pythonProcessInterval", ScriptManager.pythonProcessIntervalSeconds);
         }
     }
 

@@ -27,6 +27,7 @@ class Conductor {
     public static var curDecStep:Float = 0.0;
 
     public static var bpmChangeMap:Array<BPMChangeEvent> = [];
+    private static var _lastBpmIndex:Int = 0;
 
     public static function changeBPM(newBpm:Float):Void {
         bpm = (newBpm > 0) ? newBpm : 100.0;
@@ -37,6 +38,7 @@ class Conductor {
 
     public static function mapBpmChanges(chart:Chart):Void {
         bpmChangeMap = [];
+        _lastBpmIndex = 0;
 
         var curBPM:Float = (chart != null && chart.bpm > 0) ? chart.bpm : bpm;
 
@@ -64,7 +66,11 @@ class Conductor {
             }
         }
 
-        bpmChangeMap.sort(function(a, b) return (a.songTime < b.songTime) ? -1 : 1);
+        bpmChangeMap.sort(function(a, b) {
+            if (a.songTime < b.songTime) return -1;
+            if (a.songTime > b.songTime) return 1;
+            return 0;
+        });
 
         var totalSteps:Int = 0;
         for (i in 1...bpmChangeMap.length) {
@@ -79,20 +85,42 @@ class Conductor {
     }
 
     public static function getBPMAtTime(time:Float):BPMChangeEvent {
-        var lastChange:BPMChangeEvent = {
-            stepTime: 0,
-            songTime: 0.0,
-            bpm: bpm,
-            stepCrochet: stepCrochet
-        };
+        if (bpmChangeMap.length == 0) {
+            return {
+                stepTime: 0,
+                songTime: 0.0,
+                bpm: bpm,
+                stepCrochet: stepCrochet
+            };
+        }
 
-        for (i in 0...bpmChangeMap.length) {
-            if (time >= bpmChangeMap[i].songTime) {
-                lastChange = bpmChangeMap[i];
+        if (_lastBpmIndex < 0) _lastBpmIndex = 0;
+        if (_lastBpmIndex >= bpmChangeMap.length) _lastBpmIndex = bpmChangeMap.length - 1;
+
+        var current = bpmChangeMap[_lastBpmIndex];
+        if (time >= current.songTime) {
+            while (_lastBpmIndex + 1 < bpmChangeMap.length && time >= bpmChangeMap[_lastBpmIndex + 1].songTime) {
+                _lastBpmIndex++;
+            }
+            return bpmChangeMap[_lastBpmIndex];
+        }
+
+        var low = 0;
+        var high = bpmChangeMap.length - 1;
+        var best = 0;
+        while (low <= high) {
+            var mid = low + ((high - low) >> 1);
+            var ev = bpmChangeMap[mid];
+            if (ev.songTime <= time) {
+                best = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
             }
         }
 
-        return lastChange;
+        _lastBpmIndex = best;
+        return bpmChangeMap[_lastBpmIndex];
     }
 
     public static function update(elapsed:Float):Void {
@@ -120,5 +148,6 @@ class Conductor {
         curDecBeat = 0.0;
         curDecStep = 0.0;
         bpmChangeMap = [];
+        _lastBpmIndex = 0;
     }
 }

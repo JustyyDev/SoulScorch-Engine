@@ -32,6 +32,10 @@ class EventBus {
     private var handlers:Map<String, Array<EventListener>> = new Map<String, Array<EventListener>>();
     public var debugLogging:Bool = false;
 
+    private inline function normalizeEventName(event:String):String {
+        return event != null ? event.toLowerCase().trim() : "";
+    }
+
     public function new() {
         _instance = this;
     }
@@ -43,20 +47,31 @@ class EventBus {
 
     public function on(event:String, handler:Dynamic->Void, priority:Int = 0, ?target:Dynamic):Void {
         if (event == null || handler == null) return;
-        var norm = event.toLowerCase().trim();
+        var norm = normalizeEventName(event);
+        if (norm.length == 0) return;
 
         if (!handlers.exists(norm)) {
             handlers.set(norm, []);
         }
 
         var list = handlers.get(norm);
-        list.push({fn: handler, priority: priority, target: target});
-        list.sort((a, b) -> b.priority - a.priority);
+        for (existing in list) {
+            if (existing.fn == handler && existing.target == target) {
+                return;
+            }
+        }
+
+        var listener:EventListener = {fn: handler, priority: priority, target: target};
+        var insertIndex = 0;
+        while (insertIndex < list.length && list[insertIndex].priority >= priority) {
+            insertIndex++;
+        }
+        list.insert(insertIndex, listener);
     }
 
     public function off(event:String, handler:Dynamic->Void):Void {
         if (event == null || handler == null) return;
-        var norm = event.toLowerCase().trim();
+        var norm = normalizeEventName(event);
 
         if (!handlers.exists(norm)) return;
         var list = handlers.get(norm);
@@ -88,7 +103,8 @@ class EventBus {
 
     public function once(event:String, handler:Dynamic->Void, priority:Int = 0):Void {
         if (event == null || handler == null) return;
-        var norm = event.toLowerCase().trim();
+        var norm = normalizeEventName(event);
+        if (norm.length == 0) return;
 
         var wrapper:Dynamic->Void = null;
         wrapper = function(data:Dynamic) {
@@ -100,7 +116,8 @@ class EventBus {
 
     public function emit(event:String, ?data:Dynamic):Bool {
         if (event == null) return true;
-        var norm = event.toLowerCase().trim();
+        var norm = normalizeEventName(event);
+        if (norm.length == 0) return true;
 
         if (!handlers.exists(norm)) return true;
 
@@ -122,7 +139,7 @@ class EventBus {
     }
 
     public inline function clear(event:String):Void {
-        if (event != null) handlers.remove(event.toLowerCase().trim());
+        if (event != null) handlers.remove(normalizeEventName(event));
     }
 
     public inline function clearAll():Void {

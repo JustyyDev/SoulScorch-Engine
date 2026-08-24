@@ -8,7 +8,6 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
 import haxe.xml.Access;
 import soulscorch.backend.MusicBeatSubstate;
 import soulscorch.backend.assets.AssetHelper;
@@ -45,8 +44,11 @@ class DialogueSubState extends MusicBeatSubstate {
 
     private var curDisplayString:String = "";
     private var targetString:String = "";
-    private var typingTimer:FlxTimer;
     private var isTyping:Bool = false;
+    private var typeCharIndex:Int = 0;
+    private var typeInterval:Float = 0.04;
+    private var typeAccumulator:Float = 0.0;
+    private var typeSound:String = "";
     
     private var boxDialogueAnim:String = "normal";
     private var isBoxVisible:Bool = false;
@@ -180,24 +182,10 @@ class DialogueSubState extends MusicBeatSubstate {
         curDisplayString = "";
         textDisplay.text = "";
         isTyping = true;
-
-        if (typingTimer != null) typingTimer.cancel();
-
-        var charIndex = 0;
-        typingTimer = new FlxTimer().start(curLine.speed, function(tmr:FlxTimer) {
-            if (charIndex < targetString.length) {
-                curDisplayString += targetString.charAt(charIndex);
-                textDisplay.text = curDisplayString;
-
-                if (curLine.textSound != null && curLine.textSound.length > 0 && charIndex % 2 == 0) {
-                    AssetHelper.playSoundSafely(curLine.textSound, 0.5);
-                }
-                charIndex++;
-            } else {
-                isTyping = false;
-                tmr.cancel();
-            }
-        }, targetString.length);
+        typeCharIndex = 0;
+        typeInterval = curLine.speed > 0 ? curLine.speed : 0.04;
+        typeAccumulator = 0.0;
+        typeSound = curLine.textSound != null ? curLine.textSound : "";
     }
 
     private function updatePortraits(line:DialogueLine):Void {
@@ -236,9 +224,27 @@ class DialogueSubState extends MusicBeatSubstate {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
+        if (isTyping) {
+            typeAccumulator += elapsed;
+            while (isTyping && typeAccumulator >= typeInterval) {
+                typeAccumulator -= typeInterval;
+                if (typeCharIndex < targetString.length) {
+                    curDisplayString += targetString.charAt(typeCharIndex);
+                    textDisplay.text = curDisplayString;
+
+                    if (typeSound.length > 0 && (typeCharIndex % 2 == 0)) {
+                        AssetHelper.playSoundSafely(typeSound, 0.5);
+                    }
+                    typeCharIndex++;
+                } else {
+                    isTyping = false;
+                }
+            }
+        }
+
         if (Controls.instance.ACCEPT) {
             if (isTyping) {
-                if (typingTimer != null) typingTimer.cancel();
+                typeCharIndex = targetString.length;
                 textDisplay.text = targetString;
                 isTyping = false;
             } else {
@@ -250,7 +256,6 @@ class DialogueSubState extends MusicBeatSubstate {
 
     private function endDialogue():Void {
         isTyping = false;
-        if (typingTimer != null) typingTimer.cancel();
 
         FlxTween.tween(bgShade, {alpha: 0}, 0.4, {ease: FlxEase.quadOut});
         FlxTween.tween(boxSprite, {alpha: 0}, 0.3, {ease: FlxEase.quadIn});
@@ -266,7 +271,6 @@ class DialogueSubState extends MusicBeatSubstate {
     }
 
     override public function destroy():Void {
-        if (typingTimer != null) typingTimer.cancel();
         super.destroy();
     }
 }

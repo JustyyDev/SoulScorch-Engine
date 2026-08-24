@@ -27,6 +27,8 @@ class MusicBeatTransition extends FlxSpriteGroup {
 
     private var activeData:TransitionData;
     private var onFinishCallback:Void->Void;
+    private var cachedWidth:Int = 0;
+    private var cachedHeight:Int = 0;
 
     public function new() {
         super();
@@ -37,31 +39,53 @@ class MusicBeatTransition extends FlxSpriteGroup {
         FlxG.cameras.add(overlayCam, false);
         cameras = [overlayCam];
 
-        solidBg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        cachedWidth = FlxG.width;
+        cachedHeight = FlxG.height;
+
+        solidBg = new FlxSprite().makeGraphic(cachedWidth, cachedHeight, FlxColor.BLACK);
         solidBg.scrollFactor.set(0, 0);
         add(solidBg);
 
-        gradient = new FlxSprite().makeGraphic(FlxG.width, Std.int(FlxG.height * 0.5), FlxColor.TRANSPARENT);
-        for (y in 0...Std.int(FlxG.height * 0.5)) {
-            var alphaVal = Math.floor((1.0 - (y / (FlxG.height * 0.5))) * 255);
-            gradient.pixels.fillRect(new openfl.geom.Rectangle(0, y, FlxG.width, 1), FlxColor.fromRGB(0, 0, 0, alphaVal));
-        }
-        gradient.dirty = true;
+        gradient = new FlxSprite();
+        rebuildGradient();
         gradient.scrollFactor.set(0, 0);
         add(gradient);
 
         // Curtains
-        leftCurtain = new FlxSprite().makeGraphic(Std.int(FlxG.width * 0.5), FlxG.height, FlxColor.BLACK);
+        leftCurtain = new FlxSprite().makeGraphic(Std.int(cachedWidth * 0.5), cachedHeight, FlxColor.BLACK);
         leftCurtain.scrollFactor.set(0, 0);
         leftCurtain.visible = false;
         add(leftCurtain);
 
-        rightCurtain = new FlxSprite().makeGraphic(Std.int(FlxG.width * 0.5), FlxG.height, FlxColor.BLACK);
+        rightCurtain = new FlxSprite().makeGraphic(Std.int(cachedWidth * 0.5), cachedHeight, FlxColor.BLACK);
         rightCurtain.scrollFactor.set(0, 0);
         rightCurtain.visible = false;
         add(rightCurtain);
 
         visible = false;
+    }
+
+    private function rebuildGradient():Void {
+        var gradHeight = Std.int(cachedHeight * 0.5);
+        gradient.makeGraphic(cachedWidth, gradHeight, FlxColor.TRANSPARENT, true);
+
+        for (y in 0...gradHeight) {
+            var alphaVal = Math.floor((1.0 - (y / gradHeight)) * 255);
+            gradient.pixels.fillRect(new openfl.geom.Rectangle(0, y, cachedWidth, 1), FlxColor.fromRGB(0, 0, 0, alphaVal));
+        }
+        gradient.dirty = true;
+    }
+
+    private function ensureViewportGraphics():Void {
+        if (cachedWidth == FlxG.width && cachedHeight == FlxG.height) return;
+
+        cachedWidth = FlxG.width;
+        cachedHeight = FlxG.height;
+
+        solidBg.makeGraphic(cachedWidth, cachedHeight, FlxColor.BLACK, true);
+        rebuildGradient();
+        leftCurtain.makeGraphic(Std.int(cachedWidth * 0.5), cachedHeight, FlxColor.BLACK, true);
+        rightCurtain.makeGraphic(Std.int(cachedWidth * 0.5), cachedHeight, FlxColor.BLACK, true);
     }
 
     public static function play(data:TransitionData, ?onFinish:Void->Void):Void {
@@ -77,6 +101,12 @@ class MusicBeatTransition extends FlxSpriteGroup {
     }
 
     private function startTransition(data:TransitionData, ?onFinish:Void->Void):Void {
+        ensureViewportGraphics();
+
+        if (data == null) {
+            data = new TransitionData(TransitionType.WIPE, TransitionDirection.OUT, 0.35);
+        }
+
         this.activeData = data;
         this.onFinishCallback = onFinish;
         isTransitioning = true;
@@ -101,8 +131,8 @@ class MusicBeatTransition extends FlxSpriteGroup {
             AssetHelper.playSoundSafely(data.sound, 0.7);
         }
 
-        var w = FlxG.width;
-        var h = FlxG.height;
+        var w = cachedWidth;
+        var h = cachedHeight;
 
         switch (data.type) {
             case FADE:

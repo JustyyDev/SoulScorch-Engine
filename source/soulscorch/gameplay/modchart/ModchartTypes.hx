@@ -15,4 +15,5 @@ typedef ModchartEvent = {
     var duration:Float;
     var ease:String;
     var target:ModTarget;
+    var ?lane:Int;
 }

@@ -27,15 +27,18 @@ class GameplayFlags {
     }
 
     public static function initDefaults():Void {
+        defaults.clear();
         defaults.set("ghostTapping", true);
         defaults.set("downscroll", false);
         defaults.set("middlescroll", false);
         defaults.set("allowPause", true);
         defaults.set("cameraZoomOnBeat", true);
+        defaults.set("cameraSpeed", 1.0);
         defaults.set("comboFlashOnHit", true);
         defaults.set("noteSplash", true);
         defaults.set("hudAlpha", 1.0);
         defaults.set("safeZoneOffset", 166.0);
+        defaults.set("safeFrames", 10);
         defaults.set("judgeWindow", 166.0);
         defaults.set("maxHealth", 2.0);
         defaults.set("songSpeedMultiplier", 1.0);
@@ -45,6 +48,17 @@ class GameplayFlags {
         defaults.set("flashingLights", true);
         defaults.set("botplay", false);
         defaults.set("noteOffset", 0.0);
+        defaults.set("practiceMode", false);
+        defaults.set("lowQuality", false);
+        defaults.set("cacheGlyphPrefixes", true);
+        defaults.set("lowEndMode", false);
+        defaults.set("maxNoteSplashes", 24);
+        defaults.set("splashPoolSize", 32);
+        defaults.set("scriptingMobileConservative", false);
+        defaults.set("scriptingEnableLua", true);
+        defaults.set("scriptingEnablePython", true);
+        defaults.set("scriptingEnableSoulScript", true);
+        defaults.set("scriptingEnableHScript", true);
 
         if (Runtime.config != null) {
             defaults.set("ghostTapping", Runtime.config.ghostTapping);
@@ -120,12 +134,37 @@ class GameplayFlags {
 
     public static function normalizeKey(rawKey:String):String {
         if (rawKey == null) return "";
-        var key:String = rawKey.trim();
+        var key:String = rawKey.trim().toLowerCase();
         if (key.indexOf(".") != -1) {
             var parts:Array<String> = key.split(".");
             key = parts[parts.length - 1];
         }
-        if (key.toLowerCase() == "middlescroll") return "middlescroll";
+        key = key.replace("-", "");
+        key = key.replace("_", "");
+
+        switch (key) {
+            case "middlescroll", "middlestrum", "middlenotes": return "middlescroll";
+            case "ghosttapping", "ghosttap": return "ghostTapping";
+            case "notesplash", "notesplashes": return "noteSplash";
+            case "noteoffset": return "noteOffset";
+            case "camerazoomonbeat", "beatzoom": return "cameraZoomOnBeat";
+            case "cameraspeed": return "cameraSpeed";
+            case "safeframes": return "safeFrames";
+            case "safezoneoffset": return "safeZoneOffset";
+            case "modchartenabled", "modcharts": return "modchartEnabled";
+            case "allowpause": return "allowPause";
+            case "practice", "practicemode": return "practiceMode";
+            case "lowquality": return "lowQuality";
+            case "lowend", "lowendmode": return "lowEndMode";
+            case "maxnotesplashes", "splashlimit": return "maxNoteSplashes";
+            case "splashpool", "splashpoolsize": return "splashPoolSize";
+            case "scriptingmobileconservative", "mobileconservativescripting": return "scriptingMobileConservative";
+            case "scriptingenablelua": return "scriptingEnableLua";
+            case "scriptingenablepython": return "scriptingEnablePython";
+            case "scriptingenablesoulscript", "scriptingenablesoul": return "scriptingEnableSoulScript";
+            case "scriptingenablehscript", "scriptingenablehx": return "scriptingEnableHScript";
+        }
+
         return key;
     }
 

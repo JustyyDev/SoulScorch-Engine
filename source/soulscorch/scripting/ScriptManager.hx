@@ -28,6 +28,57 @@ class ScriptManager {
     public static var instance:ScriptManager;
     public var scripts:Array<ScriptInstance> = [];
     public var scriptPath:String = "";
+
+    public static var hscriptEnabled:Bool = true;
+    public static var soulScriptEnabled:Bool = true;
+    public static var luaEnabled:Bool = true;
+    public static var pythonEnabled:Bool = true;
+    public static var maxScriptsPerManager:Int = 96;
+    public static var frameHookWarnMs:Float = 5.0;
+    public static var frameHookThrottleMs:Float = 16.0;
+    public static var frameHookThrottleSeconds:Float = 0.25;
+    public static var frameHookWarnCooldownSeconds:Float = 1.0;
+    public static var pythonProcessIntervalSeconds:Float = 0.0;
+
+    public static var mobileConservativeMode:Bool =
+        #if (android || ios)
+        true
+        #else
+        false
+        #end
+    ;
+
+    public static function setBackendEnabled(backend:String, enabled:Bool):Void {
+        if (backend == null) return;
+        switch (backend.toLowerCase().trim()) {
+            case "hscript", "hx", "iris": hscriptEnabled = enabled;
+            case "soul", "soulscript": soulScriptEnabled = enabled;
+            case "lua": luaEnabled = enabled;
+            case "python", "py": pythonEnabled = enabled;
+            default:
+        }
+    }
+
+    public static function isBackendEnabled(type:ScriptBackendType):Bool {
+        return switch (type) {
+            case HSCRIPT: hscriptEnabled;
+            case SOULSCRIPT: soulScriptEnabled;
+            case LUA: luaEnabled;
+            case PYTHON: pythonEnabled;
+            default: true;
+        };
+    }
+
+    public static function isBackendEnabledForPath(path:String):Bool {
+        var type = ScriptBackendType.fromPath(path);
+        if (!isBackendEnabled(type)) return false;
+
+        if (mobileConservativeMode) {
+            if (type == PYTHON) return false;
+        }
+
+        return true;
+    }
     
     // Cached global variable dictionary to inject into any new script
     public var presetVariables:Map<String, Dynamic> = new Map<String, Dynamic>();
@@ -39,11 +90,6 @@ class ScriptManager {
     private var syncedCrochet:Float = Math.NaN;
     private var perfThrottleUntil:Map<String, Float> = new Map<String, Float>();
     private var perfWarnCooldownUntil:Map<String, Float> = new Map<String, Float>();
-
-    private static inline var FRAME_HOOK_WARN_MS:Float = 5.0;
-    private static inline var FRAME_HOOK_THROTTLE_MS:Float = 16.0;
-    private static inline var FRAME_HOOK_THROTTLE_SECONDS:Float = 0.25;
-    private static inline var WARN_COOLDOWN_SECONDS:Float = 1.0;
 
     public var isValid(get, never):Bool;
     public var active(get, never):Bool;
@@ -61,11 +107,21 @@ class ScriptManager {
     }
 
     public function loadScript(path:String):Bool {
+        if (scripts.length >= maxScriptsPerManager) {
+            Logger.warn('Script limit reached ($maxScriptsPerManager). Skipping script load for: $path', "script");
+            return false;
+        }
+
         this.scriptPath = path;
         var resolved = AssetResolver.resolveFile(path, [".soul", ".hx", ".hscript", ".lua", ".py", ".js", ""]);
         var finalPath = (resolved != null) ? resolved : path;
 
         var backendType = ScriptBackendType.fromPath(finalPath);
+
+        if (!isBackendEnabledForPath(finalPath)) {
+            Logger.warn('Script backend disabled by policy for: $finalPath', "script");
+            return false;
+        }
 
         // If it is explicitly a Lua script, load it via LuaScript backend only
         if (backendType == ScriptBackendType.LUA) {
@@ -80,6 +136,11 @@ class ScriptManager {
                 Logger.error('Failed to activate Lua script backend for: $finalPath', "script");
                 return false;
             }
+        }
+
+        if (backendType == ScriptBackendType.PYTHON && mobileConservativeMode) {
+            Logger.warn('Python scripts are disabled in mobile conservative mode: $finalPath', "script");
+            return false;
         }
 
         // Standard HScript / SoulScript fallback path for non-Lua files
@@ -108,6 +169,18 @@ class ScriptManager {
     }
 
     private function addActiveScript(script:ScriptInstance):Void {
+        script.set("scriptPath", script.path);
+        script.set("scriptBackend", Std.string(ScriptBackendType.fromPath(script.path)));
+        script.set("scriptingMobileConservative", mobileConservativeMode);
+        script.set("scriptingPolicy", {
+            hscript: hscriptEnabled,
+            soulscript: soulScriptEnabled,
+            lua: luaEnabled,
+            python: pythonEnabled,
+            mobileConservative: mobileConservativeMode,
+            frameHookWarnMs: frameHookWarnMs,
+            frameHookThrottleMs: frameHookThrottleMs
+        });
         scripts.push(script);
         script.call("create", []);
         script.call("onCreate", []);
@@ -164,14 +237,14 @@ class ScriptManager {
 
                 if (isFrameHook) {
                     var elapsedMs = (Timer.stamp() - started) * 1000.0;
-                    if (elapsedMs >= FRAME_HOOK_THROTTLE_MS) {
-                        perfThrottleUntil.set(key, now + FRAME_HOOK_THROTTLE_SECONDS);
+                    if (elapsedMs >= frameHookThrottleMs) {
+                        perfThrottleUntil.set(key, now + frameHookThrottleSeconds);
                     }
-                    if (elapsedMs >= FRAME_HOOK_WARN_MS) {
+                    if (elapsedMs >= frameHookWarnMs) {
                         var warnUntil = perfWarnCooldownUntil.exists(key) ? perfWarnCooldownUntil.get(key) : 0.0;
                         if (now >= warnUntil) {
                             Logger.warn('Slow script callback "$func" took ${Std.int(elapsedMs * 100) / 100}ms (script index: $idx).', "script");
-                            perfWarnCooldownUntil.set(key, now + WARN_COOLDOWN_SECONDS);
+                            perfWarnCooldownUntil.set(key, now + frameHookWarnCooldownSeconds);
                         }
                     }
                 }
@@ -202,14 +275,14 @@ class ScriptManager {
 
                 if (isFrameHook) {
                     var elapsedMs = (Timer.stamp() - started) * 1000.0;
-                    if (elapsedMs >= FRAME_HOOK_THROTTLE_MS) {
-                        perfThrottleUntil.set(key, now + FRAME_HOOK_THROTTLE_SECONDS);
+                    if (elapsedMs >= frameHookThrottleMs) {
+                        perfThrottleUntil.set(key, now + frameHookThrottleSeconds);
                     }
-                    if (elapsedMs >= FRAME_HOOK_WARN_MS) {
+                    if (elapsedMs >= frameHookWarnMs) {
                         var warnUntil = perfWarnCooldownUntil.exists(key) ? perfWarnCooldownUntil.get(key) : 0.0;
                         if (now >= warnUntil) {
                             Logger.warn('Slow script callback "$func" took ${Std.int(elapsedMs * 100) / 100}ms (script index: $idx).', "script");
-                            perfWarnCooldownUntil.set(key, now + WARN_COOLDOWN_SECONDS);
+                            perfWarnCooldownUntil.set(key, now + frameHookWarnCooldownSeconds);
                         }
                     }
                 }

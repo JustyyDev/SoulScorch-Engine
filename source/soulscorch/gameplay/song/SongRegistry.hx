@@ -26,6 +26,8 @@ typedef RegisteredSong = {
     var ?charter:String;
     var ?difficulties:Array<String>;
     var ?folder:String;
+    var ?shuffleEnabled:Bool;
+    var ?shuffleIconPool:Array<String>;
 }
 
 class SongRegistry {
@@ -36,11 +38,25 @@ class SongRegistry {
         songs = [];
         _songMap.clear();
 
-        var freeplayPath:String = null;
+        var baseFreeplayPath:String = null;
+        var probes = ["config/freeplay", "data/config/freeplay", "data/config/freeplayList", "data/freeplaySongList"];
+        for (pr in probes) {
+            var res = AssetResolver.resolveFile(pr, [".xmsoul", ".xml", ".txt", ""]);
+            if (res != null) {
+                baseFreeplayPath = res;
+                break;
+            }
+        }
+
+        if (baseFreeplayPath != null) {
+            applyFreeplayConfig(baseFreeplayPath, false, false);
+        }
+
         #if sys
         if (ModManager.activeMods != null) {
             for (m in ModManager.activeMods) {
                 var modRoot = ModManager.getModFolderRootPath(m);
+                var modFreeplayPath:String = null;
                 var candidatePaths = [
                     '$modRoot/$m/data/config/freeplay.xmsoul',
                     '$modRoot/$m/config/freeplay.xmsoul',
@@ -49,74 +65,26 @@ class SongRegistry {
                     '$modRoot/$m/freeplay.xmsoul',
                     '$modRoot/$m/data/freeplaySongList.txt'
                 ];
+
                 for (p in candidatePaths) {
                     if (FileSystem.exists(p)) {
-                        freeplayPath = p;
+                        modFreeplayPath = p;
                         break;
                     }
                 }
-                if (freeplayPath != null) break;
+
+                if (modFreeplayPath != null) {
+                    if (isOverrideFreeplayMode(modFreeplayPath)) {
+                        _songMap.clear();
+                        songs = [];
+                    }
+                    applyFreeplayConfig(modFreeplayPath, true, true);
+                }
             }
         }
         #end
 
-        if (freeplayPath == null) {
-            var probes = ["config/freeplay", "data/config/freeplay", "data/config/freeplayList", "data/freeplaySongList"];
-            for (pr in probes) {
-                var res = AssetResolver.resolveFile(pr, [".xmsoul", ".xml", ".txt", ""]);
-                if (res != null) {
-                    freeplayPath = res;
-                    break;
-                }
-            }
-        }
-
-        if (freeplayPath != null) {
-            if (freeplayPath.endsWith(".txt")) {
-                parseLegacyTextList(freeplayPath);
-            } else {
-                var freeplayXml:Access = XMSoul.parse(freeplayPath, false);
-                if (freeplayXml != null) {
-                    for (songNode in freeplayXml.elements) {
-                        if (songNode.name.toLowerCase() == "song") {
-                            var songId = XMSoul.getAttr(songNode, "id", XMSoul.getAttr(songNode, "name", "")).toLowerCase().trim();
-                            if (songId.length == 0) continue;
-
-                            var explicitTitle = XMSoul.getAttr(songNode, "name", formatSongTitle(songId));
-                            var explicitIcon = XMSoul.getAttr(songNode, "icon", "");
-                            var explicitDiffs = XMSoul.getArrayAttr(songNode, "difficulties", ",");
-
-                            var entry = buildSongEntryWithMeta(songId, explicitTitle, explicitIcon.length > 0 ? explicitIcon : null);
-
-                            if (songNode.has.color) {
-                                var parsedCol:Null<FlxColor> = parseColorString(songNode.att.color);
-                                if (parsedCol != null) entry.color = parsedCol;
-                            }
-
-                            if (explicitDiffs.length > 0) {
-                                var available = detectAvailableDifficulties(songId);
-                                var validExplicit:Array<String> = [];
-
-                                if (available.length > 0) {
-                                    for (d in explicitDiffs) {
-                                        var cleanDiff = d.toLowerCase().trim();
-                                        if (available.contains(cleanDiff)) validExplicit.push(cleanDiff);
-                                    }
-                                }
-
-                                entry.difficulties = (validExplicit.length > 0) ? validExplicit : explicitDiffs;
-                            }
-
-                            if (!_songMap.exists(entry.id)) {
-                                _songMap.set(entry.id, entry);
-                                songs.push(entry);
-                            }
-                        }
-                    }
-                }
-            }
-            if (songs.length > 0) return;
-        }
+        if (songs.length > 0) return;
 
         var rawDiscovered:Map<String, RegisteredSong> = new Map<String, RegisteredSong>();
         gatherWeeks(rawDiscovered);
@@ -134,7 +102,7 @@ class SongRegistry {
         }
     }
 
-    private static function parseLegacyTextList(path:String):Void {
+    private static function parseLegacyTextList(path:String, replaceExisting:Bool = false, shuffleDefault:Bool = true):Void {
         #if sys
         var lines = File.getContent(path).split("\n");
         for (line in lines) {
@@ -143,13 +111,120 @@ class SongRegistry {
                 var sId = parts[0].trim().toLowerCase();
                 var sIcon = parts.length > 1 ? parts[1].trim() : getDefaultIcon(sId);
                 var entry = buildSongEntryWithMeta(sId, formatSongTitle(sId), sIcon);
-                if (!_songMap.exists(entry.id)) {
-                    _songMap.set(entry.id, entry);
-                    songs.push(entry);
-                }
+                entry.shuffleEnabled = shuffleDefault;
+                upsertSongEntry(entry, replaceExisting);
             }
         }
         #end
+    }
+
+    private static function applyFreeplayConfig(path:String, isModSource:Bool, replaceExisting:Bool):Void {
+        if (path == null || path.length == 0) return;
+
+        if (path.endsWith(".txt")) {
+            parseLegacyTextList(path, replaceExisting, true);
+            return;
+        }
+
+        var freeplayXml:Access = XMSoul.parse(path, false);
+        if (freeplayXml == null) return;
+
+        var defaultShuffle = XMSoul.getBoolAttr(freeplayXml, "shuffleDefault", true);
+        var songNodes:Array<Access> = [];
+        for (node in freeplayXml.elements) {
+            var nodeName = node.name.toLowerCase();
+            if (nodeName == "song") {
+                songNodes.push(node);
+            } else if (nodeName == "songs") {
+                for (s in node.nodes.song) {
+                    songNodes.push(s);
+                }
+            }
+        }
+
+        for (songNode in songNodes) {
+            var songId = XMSoul.getAttr(songNode, "id", XMSoul.getAttr(songNode, "name", "")).toLowerCase().trim();
+            if (songId.length == 0) continue;
+
+            var explicitTitle = XMSoul.getAttr(songNode, "name", formatSongTitle(songId));
+            var explicitIcon = XMSoul.getAttr(songNode, "icon", "");
+            var explicitDiffs = XMSoul.getArrayAttr(songNode, "difficulties", ",");
+
+            var entry = buildSongEntryWithMeta(songId, explicitTitle, explicitIcon.length > 0 ? explicitIcon : null);
+
+            if (songNode.has.color) {
+                var parsedCol:Null<FlxColor> = parseColorString(songNode.att.color);
+                if (parsedCol != null) entry.color = parsedCol;
+            }
+
+            if (explicitDiffs.length > 0) {
+                var available = detectAvailableDifficulties(songId);
+                var validExplicit:Array<String> = [];
+
+                if (available.length > 0) {
+                    for (d in explicitDiffs) {
+                        var cleanDiff = d.toLowerCase().trim();
+                        if (available.contains(cleanDiff)) validExplicit.push(cleanDiff);
+                    }
+                }
+
+                entry.difficulties = (validExplicit.length > 0) ? validExplicit : explicitDiffs;
+            }
+
+            var shuffleEnabled = defaultShuffle;
+            if (songNode.has.shuffle) shuffleEnabled = XMSoul.getBoolAttr(songNode, "shuffle", defaultShuffle);
+            else if (songNode.has.shuffleEnabled) shuffleEnabled = XMSoul.getBoolAttr(songNode, "shuffleEnabled", defaultShuffle);
+            entry.shuffleEnabled = shuffleEnabled;
+
+            var shuffleIcons:Array<String> = [];
+            if (songNode.has.shuffleIcons) shuffleIcons = XMSoul.getArrayAttr(songNode, "shuffleIcons", ",");
+            else if (songNode.has.iconPool) shuffleIcons = XMSoul.getArrayAttr(songNode, "iconPool", ",");
+            if (shuffleIcons != null && shuffleIcons.length > 0) {
+                entry.shuffleIconPool = [];
+                for (icon in shuffleIcons) {
+                    var cleanIcon = icon.toLowerCase().trim();
+                    if (cleanIcon.length > 0 && !entry.shuffleIconPool.contains(cleanIcon)) {
+                        entry.shuffleIconPool.push(cleanIcon);
+                    }
+                }
+            }
+
+            upsertSongEntry(entry, replaceExisting || isModSource);
+        }
+    }
+
+    private static function isOverrideFreeplayMode(path:String):Bool {
+        if (path == null || path.length == 0) return false;
+        if (path.endsWith(".txt")) return false;
+
+        var freeplayXml:Access = XMSoul.parse(path, false);
+        if (freeplayXml == null) return false;
+
+        var retainBase = XMSoul.getBoolAttr(freeplayXml, "retainBase", true);
+        if (!retainBase) return true;
+
+        var mode = XMSoul.getAttr(freeplayXml, "mergeMode", XMSoul.getAttr(freeplayXml, "mode", "merge")).toLowerCase().trim();
+        return (mode == "override" || mode == "replace" || mode == "mod-only");
+    }
+
+    private static function upsertSongEntry(entry:RegisteredSong, replaceExisting:Bool):Void {
+        if (entry == null || entry.id == null || entry.id.length == 0) return;
+
+        if (!_songMap.exists(entry.id)) {
+            _songMap.set(entry.id, entry);
+            songs.push(entry);
+            return;
+        }
+
+        if (!replaceExisting) return;
+
+        _songMap.set(entry.id, entry);
+        for (i in 0...songs.length) {
+            if (songs[i] != null && songs[i].id == entry.id) {
+                songs[i] = entry;
+                break;
+            }
+        }
     }
 
     public static function buildSongEntryWithMeta(id:String, ?defaultTitle:String, ?defaultIcon:String):RegisteredSong {
@@ -249,7 +324,8 @@ class SongRegistry {
             color: songColor,
             artist: artistName,
             charter: charterName,
-            difficulties: detectedDiffs
+            difficulties: detectedDiffs,
+            shuffleEnabled: true
         };
     }
 

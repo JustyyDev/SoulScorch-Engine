@@ -24,6 +24,14 @@ class GameConfig {
     public var botplay:Bool = false;
     public var noteSplash:Bool = true;
     public var exportReplayMp4:Bool = false;
+    public var freeplayShuffleEnabled:Bool = true;
+    public var shuffleConfettiEnabled:Bool = true;
+    public var shuffleConfettiIntensity:Float = 1.0;
+    public var shufflePaceMultiplier:Float = 1.0;
+    public var shuffleIconRandomization:Bool = true;
+    public var shuffleTitleScramble:Bool = true;
+    public var randomDifficulty:Bool = false;
+    public var randomModcharts:Bool = false;
 
     public function new() {
         load();
@@ -51,6 +59,14 @@ class GameConfig {
             botplay = saveInst.getBool("botplay", false);
             noteSplash = saveInst.getBool("noteSplash", true);
             exportReplayMp4 = saveInst.getBool("exportReplayMp4", false);
+            freeplayShuffleEnabled = saveInst.getBool("freeplayShuffleEnabled", true);
+            shuffleConfettiEnabled = saveInst.getBool("shuffleConfettiEnabled", true);
+            shuffleConfettiIntensity = saveInst.getFloat("shuffleConfettiIntensity", 1.0);
+            shufflePaceMultiplier = saveInst.getFloat("shufflePaceMultiplier", 1.0);
+            shuffleIconRandomization = saveInst.getBool("shuffleIconRandomization", true);
+            shuffleTitleScramble = saveInst.getBool("shuffleTitleScramble", true);
+            randomDifficulty = saveInst.getBool("randomDifficulty", false);
+            randomModcharts = saveInst.getBool("randomModcharts", false);
 
             EngineUtils.setFramerate(framerate);
             applyAudioPreferences();
@@ -83,6 +99,14 @@ class GameConfig {
             saveInst.setSetting("botplay", botplay, false);
             saveInst.setSetting("noteSplash", noteSplash, false);
             saveInst.setSetting("exportReplayMp4", exportReplayMp4, false);
+            saveInst.setSetting("freeplayShuffleEnabled", freeplayShuffleEnabled, false);
+            saveInst.setSetting("shuffleConfettiEnabled", shuffleConfettiEnabled, false);
+            saveInst.setSetting("shuffleConfettiIntensity", shuffleConfettiIntensity, false);
+            saveInst.setSetting("shufflePaceMultiplier", shufflePaceMultiplier, false);
+            saveInst.setSetting("shuffleIconRandomization", shuffleIconRandomization, false);
+            saveInst.setSetting("shuffleTitleScramble", shuffleTitleScramble, false);
+            saveInst.setSetting("randomDifficulty", randomDifficulty, false);
+            saveInst.setSetting("randomModcharts", randomModcharts, false);
 
             saveInst.persist();
 
@@ -114,6 +138,14 @@ class GameConfig {
         botplay = false;
         noteSplash = true;
         exportReplayMp4 = false;
+        freeplayShuffleEnabled = true;
+        shuffleConfettiEnabled = true;
+        shuffleConfettiIntensity = 1.0;
+        shufflePaceMultiplier = 1.0;
+        shuffleIconRandomization = true;
+        shuffleTitleScramble = true;
+        randomDifficulty = false;
+        randomModcharts = false;
         save();
     }
 

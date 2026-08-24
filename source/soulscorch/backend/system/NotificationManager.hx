@@ -83,6 +83,14 @@ class ToastNotification extends FlxSpriteGroup {
             }
         });
     }
+
+    override public function destroy():Void {
+        if (dismissTween != null) {
+            dismissTween.cancel();
+            dismissTween = null;
+        }
+        super.destroy();
+    }
 }
 
 class NotificationManager extends FlxGroup {
@@ -91,6 +99,7 @@ class NotificationManager extends FlxGroup {
 
     private var stack:Array<ToastNotification> = [];
     private static inline var MARGIN_Y:Float = 24;
+    private static inline var MAX_TOASTS:Int = 6;
 
     public function new() {
         super();
@@ -103,6 +112,14 @@ class NotificationManager extends FlxGroup {
     }
 
     public function notify(title:String, ?message:String, type:NotificationType = INFO):Void {
+        if (stack.length >= MAX_TOASTS) {
+            var oldest = stack.shift();
+            if (oldest != null) {
+                remove(oldest, true);
+                oldest.destroy();
+            }
+        }
+
         var toast = new ToastNotification(title, message, type, function(t:ToastNotification) {
             remove(t, true);
             stack.remove(t);

@@ -23,6 +23,10 @@ class AudioManager {
     public var isLoaded:Bool = false;
     public var onSongComplete:Void->Void;
 
+    private var _vocalSyncAccumulator:Float = 0.0;
+    private static inline var VOCAL_SYNC_INTERVAL:Float = 0.035;
+    private static inline var VOCAL_SYNC_THRESHOLD_MS:Float = 20.0;
+
     public function new() {}
 
     #if SOULSCORCH_FMOD
@@ -73,6 +77,7 @@ class AudioManager {
         }
 
         isLoaded = true;
+        _vocalSyncAccumulator = 0.0;
         return true;
         #end
     }
@@ -178,37 +183,51 @@ class AudioManager {
     public function muteVocal(isPlayer:Bool, mute:Bool):Void {
         if (isPlayer) {
             if (vocals != null) {
-                FlxTween.cancelTweensOf(vocals);
-                vocals.volume = mute ? 0.0 : 1.0;
+                var target = mute ? 0.0 : 1.0;
+                if (vocals.volume != target) {
+                    FlxTween.cancelTweensOf(vocals);
+                    vocals.volume = target;
+                }
             }
         } else {
             if (opponentVocals != null) {
-                FlxTween.cancelTweensOf(opponentVocals);
-                opponentVocals.volume = mute ? 0.0 : 1.0;
+                var targetOpp = mute ? 0.0 : 1.0;
+                if (opponentVocals.volume != targetOpp) {
+                    FlxTween.cancelTweensOf(opponentVocals);
+                    opponentVocals.volume = targetOpp;
+                }
             } else if (vocals != null) {
-                FlxTween.cancelTweensOf(vocals);
-                vocals.volume = mute ? 0.0 : 1.0;
+                var targetFallback = mute ? 0.0 : 1.0;
+                if (vocals.volume != targetFallback) {
+                    FlxTween.cancelTweensOf(vocals);
+                    vocals.volume = targetFallback;
+                }
             }
         }
     }
 
     public function syncVocals():Void {
-        if (inst != null && inst.playing) {
-            if (vocals != null && vocals.playing) {
-                if (Math.abs(inst.time - vocals.time) > 20.0) {
-                    vocals.time = inst.time;
-                }
+        if (inst == null || !inst.playing) return;
+
+        var instTime = inst.time;
+        if (vocals != null && vocals.playing) {
+            if (Math.abs(instTime - vocals.time) > VOCAL_SYNC_THRESHOLD_MS) {
+                vocals.time = instTime;
             }
-            if (opponentVocals != null && opponentVocals.playing) {
-                if (Math.abs(inst.time - opponentVocals.time) > 20.0) {
-                    opponentVocals.time = inst.time;
-                }
+        }
+        if (opponentVocals != null && opponentVocals.playing) {
+            if (Math.abs(instTime - opponentVocals.time) > VOCAL_SYNC_THRESHOLD_MS) {
+                opponentVocals.time = instTime;
             }
         }
     }
 
     public function update(elapsed:Float):Void {
-        syncVocals();
+        _vocalSyncAccumulator += elapsed;
+        if (_vocalSyncAccumulator >= VOCAL_SYNC_INTERVAL) {
+            _vocalSyncAccumulator = 0.0;
+            syncVocals();
+        }
     }
     #end
 
@@ -243,5 +262,6 @@ class AudioManager {
             opponentVocals = null;
         }
         isLoaded = false;
+        _vocalSyncAccumulator = 0.0;
     }
 }

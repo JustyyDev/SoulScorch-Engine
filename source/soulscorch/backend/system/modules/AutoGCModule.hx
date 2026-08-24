@@ -12,8 +12,11 @@ import cpp.vm.Gc;
 
 class AutoGCModule extends ModuleBase {
     public var memoryThresholdMB:Float = 1200.0;
+    public var criticalThresholdMB:Float = 1600.0;
     public var checkInterval:Float = 15.0;
     public var cooldownTime:Float = 30.0;
+    public var stateSwitchCooldownTime:Float = 20.0;
+    public var gcOnStateSwitch:Bool = true;
 
     private var timer:Float = 0.0;
     private var timeSinceLastGC:Float = 0.0;
@@ -34,14 +37,18 @@ class AutoGCModule extends ModuleBase {
     }
 
     override public function onStateSwitch():Void {
-        if (timeSinceLastGC >= 5.0) {
+        if (!gcOnStateSwitch) return;
+
+        var currentMemory = SystemInfo.memoryMegabytes;
+        if (timeSinceLastGC >= stateSwitchCooldownTime && currentMemory >= (memoryThresholdMB * 0.8)) {
             collectGarbage("State Switch");
         }
     }
 
     private function checkMemory():Void {
         var currentMemory = SystemInfo.memoryMegabytes;
-        if (currentMemory >= memoryThresholdMB && timeSinceLastGC >= cooldownTime) {
+        var requiredCooldown = (currentMemory >= criticalThresholdMB) ? Math.max(5.0, cooldownTime * 0.5) : cooldownTime;
+        if (currentMemory >= memoryThresholdMB && timeSinceLastGC >= requiredCooldown) {
             collectGarbage('Threshold Exceeded (${Math.round(currentMemory)}MB / ${Math.round(memoryThresholdMB)}MB)');
         }
     }

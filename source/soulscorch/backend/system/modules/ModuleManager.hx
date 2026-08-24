@@ -12,6 +12,22 @@ class ModuleManager {
     private var pendingRegistrations:Array<Module> = [];
     private var pendingRemovals:Array<String> = [];
 
+    private inline function hasPendingRegistration(name:String):Bool {
+        if (name == null) return false;
+        for (m in pendingRegistrations) {
+            if (m != null && m.name == name) return true;
+        }
+        return false;
+    }
+
+    private inline function hasPendingRemoval(name:String):Bool {
+        if (name == null) return false;
+        for (n in pendingRemovals) {
+            if (n == name) return true;
+        }
+        return false;
+    }
+
     public function new() {
         _instance = this;
     }
@@ -28,7 +44,9 @@ class ModuleManager {
 
         // Defer registration if we are currently iterating through the loop
         if (isUpdating) {
-            pendingRegistrations.push(module);
+            if (!hasPendingRegistration(module.name)) {
+                pendingRegistrations.push(module);
+            }
             return;
         }
 
@@ -47,7 +65,9 @@ class ModuleManager {
 
         // Defer removal if we are currently iterating through the loop
         if (isUpdating) {
-            pendingRemovals.push(name);
+            if (!hasPendingRemoval(name)) {
+                pendingRemovals.push(name);
+            }
             return;
         }
 
@@ -131,6 +151,8 @@ class ModuleManager {
             var regQueue = pendingRegistrations;
             pendingRegistrations = [];
             for (mod in regQueue) {
+                if (mod == null) continue;
+                if (hasPendingRemoval(mod.name)) continue;
                 register(mod);
             }
         }

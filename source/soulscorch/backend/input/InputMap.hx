@@ -33,6 +33,7 @@ class InputMap {
         "accept"      => [ENTER, SPACE, Z],
         "back"        => [ESCAPE, BACKSPACE, X],
         "pause"       => [ENTER, ESCAPE],
+        "freeplay_shuffle" => [TAB],
         "reset"       => [R],
         "debug"       => [SEVEN, EIGHT],
         "volume_mute" => [ZERO, NUMPADZERO],

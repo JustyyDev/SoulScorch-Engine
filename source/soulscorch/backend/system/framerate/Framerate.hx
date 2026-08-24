@@ -19,7 +19,10 @@ class Framerate extends TextField {
     public var showEngineVersion(default, set):Bool = true;
     public var customTextColor(default, set):Int = 0xFFFFFF;
 
-    private var times:Array<Float> = [];
+    private var timeBuckets:Array<Int> = [];
+    private var bucketTime:Float = 0.0;
+    private var currentBucket:Int = 0;
+    private var fpsWindowTotal:Int = 0;
     private var lastTime:Float = 0.0;
     private var updateInterval:Float = 0.12;
 
@@ -35,6 +38,9 @@ class Framerate extends TextField {
 
         defaultTextFormat = new TextFormat("_sans", 13, color, true);
         text = "FPS: 0\nRAM: 0 MB";
+
+        for (_ in 0...10) timeBuckets.push(0);
+        bucketTime = Timer.stamp();
 
         addEventListener(Event.ENTER_FRAME, onEnterFrame);
     }
@@ -68,13 +74,25 @@ class Framerate extends TextField {
         if (!visible) return;
 
         var now:Float = Timer.stamp();
-        times.push(now);
+        var delta = now - bucketTime;
 
-        while (times.length > 0 && times[0] < now - 1.0) {
-            times.shift();
+        if (delta >= 0.1) {
+            var shifts = Std.int(delta / 0.1);
+            if (shifts > 10) shifts = 10;
+
+            for (_ in 0...shifts) {
+                currentBucket = (currentBucket + 1) % 10;
+                fpsWindowTotal -= timeBuckets[currentBucket];
+                timeBuckets[currentBucket] = 0;
+            }
+
+            bucketTime += shifts * 0.1;
+            if (bucketTime < now - 1.0) bucketTime = now - 1.0;
         }
 
-        currentFPS = times.length;
+        timeBuckets[currentBucket]++;
+        fpsWindowTotal++;
+        currentFPS = fpsWindowTotal;
 
         if (currentFPS > 0) {
             if (currentFPS < minFPS) minFPS = currentFPS;
@@ -122,6 +140,9 @@ class Framerate extends TextField {
         minFPS = 999;
         maxFPS = 0;
         peakMemoryMegabytes = memoryMegabytes;
-        times = [];
+        for (i in 0...timeBuckets.length) timeBuckets[i] = 0;
+        fpsWindowTotal = 0;
+        currentBucket = 0;
+        bucketTime = Timer.stamp();
     }
 }

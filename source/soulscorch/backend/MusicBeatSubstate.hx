@@ -21,8 +21,10 @@ class MusicBeatSubstate extends FlxSubState implements IBeatReceiver {
         updateCurStep();
         updateBeat();
 
-        if (oldStep != curStep && curStep > 0) {
-            stepHit(curStep);
+        if (curStep > oldStep && curStep > 0) {
+            for (step in (oldStep + 1)...(curStep + 1)) {
+                stepHit(step);
+            }
         }
 
         super.update(elapsed);

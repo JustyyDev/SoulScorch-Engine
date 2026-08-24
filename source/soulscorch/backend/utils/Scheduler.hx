@@ -24,6 +24,7 @@ class Scheduler {
     private static var _instance:Scheduler;
 
     private var tasks:Array<ScheduledTask> = [];
+    private static inline var MAX_REPEAT_CATCHUP_PER_FRAME:Int = 8;
 
     public function new() {
         _instance = this;
@@ -55,21 +56,38 @@ class Scheduler {
     public function update(elapsed:Float):Void {
         if (tasks.length == 0) return;
 
-        var currentTasks = tasks.copy();
-        for (task in currentTasks) {
-            if (!task.alive) continue;
+        var writeIndex:Int = 0;
+        for (readIndex in 0...tasks.length) {
+            var task = tasks[readIndex];
+            if (task == null || !task.alive) continue;
+
             task.remaining -= elapsed;
             if (task.remaining <= 0) {
-                if (task.callback != null) task.callback();
-                if (task.repeat && task.alive) {
-                    task.remaining += task.interval;
+                if (task.repeat) {
+                    var triggerCount:Int = 0;
+                    while (task.alive && task.remaining <= 0 && triggerCount < MAX_REPEAT_CATCHUP_PER_FRAME) {
+                        if (task.callback != null) task.callback();
+                        triggerCount++;
+                        task.remaining += task.interval;
+                    }
+
+                    if (task.interval <= 0) {
+                        task.alive = false;
+                    }
                 } else {
+                    if (task.callback != null) task.callback();
                     task.alive = false;
                 }
             }
+
+            if (task.alive) {
+                tasks[writeIndex++] = task;
+            }
         }
 
-        tasks = tasks.filter(function(t) return t.alive);
+        if (writeIndex < tasks.length) {
+            tasks.resize(writeIndex);
+        }
     }
 
     public function clear():Void {

@@ -17,6 +17,9 @@ class GlobalScriptManager {
 
     public var activeScripts:Array<ScriptInstance> = [];
     private var _loadedPaths:Array<String> = [];
+    private var _elapsedArgCache:Array<Dynamic> = [0.0];
+    private var _stepArgCache:Array<Dynamic> = [0];
+    private var _beatArgCache:Array<Dynamic> = [0];
 
     public function new() {
         _instance = this;
@@ -52,6 +55,7 @@ class GlobalScriptManager {
                     if (lower.endsWith(".hx") || lower.endsWith(".hscript") || lower.endsWith(".soul") || lower.endsWith(".lua") || lower.endsWith(".py")) {
                         var fullPath = '$path/$file';
                         if (_loadedPaths.contains(fullPath)) continue;
+                        if (!ScriptManager.isBackendEnabledForPath(fullPath)) continue;
 
                         var script:ScriptInstance = ScriptBackendType.createInstance(fullPath);
                         if (script != null && script.active) {
@@ -90,9 +94,10 @@ class GlobalScriptManager {
     }
 
     public function update(elapsed:Float):Void {
-        call("onGlobalUpdate", [elapsed]);
-        call("onUpdate", [elapsed]);
-        call("update", [elapsed]);
+        _elapsedArgCache[0] = elapsed;
+        call("onGlobalUpdate", _elapsedArgCache);
+        call("onUpdate", _elapsedArgCache);
+        call("update", _elapsedArgCache);
     }
 
     public function onStateSwitch():Void {
@@ -101,13 +106,15 @@ class GlobalScriptManager {
     }
 
     public function stepHit(step:Int):Void {
-        call("onStepHit", [step]);
-        call("stepHit", [step]);
+        _stepArgCache[0] = step;
+        call("onStepHit", _stepArgCache);
+        call("stepHit", _stepArgCache);
     }
 
     public function beatHit(beat:Int):Void {
-        call("onBeatHit", [beat]);
-        call("beatHit", [beat]);
+        _beatArgCache[0] = beat;
+        call("onBeatHit", _beatArgCache);
+        call("beatHit", _beatArgCache);
     }
 
     public function reload():Void {

@@ -7,7 +7,9 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
+import haxe.Timer;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.gameplay.GameplayFlags;
 import soulscorch.gameplay.modchart.ModchartEase;
 import soulscorch.gameplay.modchart.ModchartTypes;
 import soulscorch.gameplay.modchart.Modifiers;
@@ -23,8 +25,23 @@ class ModchartManager {
     public var opponentStrumline:Dynamic;
 
     public var modifierObjects:Map<String, Modifier> = new Map<String, Modifier>();
+    private var modifierList:Array<Modifier> = [];
     public var events:Array<ModchartEvent> = [];
+    private var eventCursor:Int = 0;
     public var totalTime:Float = 0.0;
+    public var lastUpdateMs(default, null):Float = 0.0;
+    public var averageUpdateMs(default, null):Float = 0.0;
+    public var peakUpdateMs(default, null):Float = 0.0;
+    private var _updateSampleCount:Int = 0;
+    private var _playerReceptorsCache:Array<Dynamic> = [];
+    private var _opponentReceptorsCache:Array<Dynamic> = [];
+    private var _playerHasBaseField:Array<Bool> = [];
+    private var _opponentHasBaseField:Array<Bool> = [];
+    private var _lastLowEndState:Bool = false;
+    private var _lowEndMultiplier:Float = 1.0;
+    private var _lastPolicyCheckTime:Float = -1.0;
+
+    private static inline var EVENT_COMPACT_THRESHOLD:Int = 256;
 
     public function new(playerStrums:Dynamic, opponentStrums:Dynamic) {
         instance = this;
@@ -57,7 +74,11 @@ class ModchartManager {
 
     public function registerModifier(mod:Modifier):Void {
         if (mod != null && mod.name != null) {
-            modifierObjects.set(mod.name.toLowerCase().trim(), mod);
+            var key = mod.name.toLowerCase().trim();
+            if (!modifierObjects.exists(key)) {
+                modifierList.push(mod);
+            }
+            modifierObjects.set(key, mod);
         }
     }
 
@@ -74,69 +95,92 @@ class ModchartManager {
     }
 
     public function queueEvent(step:Float, name:String, value:Float, duration:Float = 0, ease:String = "linear", target:ModTarget = BOTH, lane:Int = -1):Void {
-        events.push({
+        var ev:ModchartEvent = {
             step: step,
             name: name,
             value: value,
             duration: duration,
             ease: ease,
-            target: target
-        });
+            target: target,
+            lane: lane
+        };
 
-        events.sort(function(a:ModchartEvent, b:ModchartEvent):Int {
-            return (a.step < b.step) ? -1 : ((a.step > b.step) ? 1 : 0);
-        });
+        var low = eventCursor;
+        var high = events.length;
+        while (low < high) {
+            var mid = low + ((high - low) >> 1);
+            if (events[mid].step <= step) low = mid + 1; else high = mid;
+        }
+        events.insert(low, ev);
     }
 
     public function update(elapsed:Float):Void {
+        var updateStart = Timer.stamp();
         totalTime += elapsed;
+        applyLowEndPolicy();
 
-        for (mod in modifierObjects) {
+        for (mod in modifierList) {
             if (mod.active) mod.update(elapsed);
         }
 
         var stepCrochet = Conductor.stepCrochet > 0 ? Conductor.stepCrochet : 150.0;
         var curStepFloat = Conductor.songPosition / stepCrochet;
 
-        while (events.length > 0 && events[0].step <= curStepFloat) {
-            var ev = events.shift();
+        while (eventCursor < events.length && events[eventCursor].step <= curStepFloat) {
+            var ev = events[eventCursor++];
             if (ev.duration <= 0) {
-                set(ev.name, ev.value, ev.target);
+                set(ev.name, ev.value, ev.target, ev.lane);
             } else {
-                tweenModifier(ev.name, ev.value, ev.duration * stepCrochet * 0.001, ev.ease, ev.target);
+                tweenModifier(ev.name, ev.value, ev.duration * stepCrochet * 0.001, ev.ease, ev.target, ev.lane);
             }
+        }
+
+        if (eventCursor >= EVENT_COMPACT_THRESHOLD && eventCursor >= Std.int(events.length * 0.5)) {
+            events = events.slice(eventCursor);
+            eventCursor = 0;
         }
 
         updateReceptors(PLAYER);
         updateReceptors(OPPONENT);
+
+        lastUpdateMs = (Timer.stamp() - updateStart) * 1000.0;
+        _updateSampleCount++;
+        averageUpdateMs += (lastUpdateMs - averageUpdateMs) / _updateSampleCount;
+        if (lastUpdateMs > peakUpdateMs) peakUpdateMs = lastUpdateMs;
     }
 
-    private function tweenModifier(name:String, targetVal:Float, duration:Float, easeName:String, target:ModTarget):Void {
-        var startVal = get(name, target);
+    private function tweenModifier(name:String, targetVal:Float, duration:Float, easeName:String, target:ModTarget, lane:Int = -1):Void {
+        if (_lowEndMultiplier < 1.0) {
+            targetVal *= _lowEndMultiplier;
+        }
+        var startVal = get(name, target, lane >= 0 ? lane : 0);
         var easeFn = ModchartEase.getEase(easeName);
 
         FlxTween.num(startVal, targetVal, Math.max(0.001, duration), {ease: easeFn}, function(v:Float) {
-            set(name, v, target);
+            set(name, v, target, lane);
         });
     }
 
     private function updateReceptors(target:ModTarget):Void {
-        var receptors = getReceptorList(target);
+        var receptors = getReceptorListCached(target);
         if (receptors == null) return;
+
+        var hasBaseList = (target == OPPONENT) ? _opponentHasBaseField : _playerHasBaseField;
 
         for (i in 0...receptors.length) {
             var receptor:FlxSprite = receptors[i];
             if (receptor == null) continue;
 
-            var baseX:Float = Reflect.hasField(receptor, "baseX") ? Reflect.field(receptor, "baseX") : receptor.x;
-            var baseY:Float = Reflect.hasField(receptor, "baseY") ? Reflect.field(receptor, "baseY") : receptor.y;
+            var hasBase = (i < hasBaseList.length) ? hasBaseList[i] : false;
+            var baseX:Float = hasBase ? Reflect.field(receptor, "baseX") : receptor.x;
+            var baseY:Float = hasBase ? Reflect.field(receptor, "baseY") : receptor.y;
 
             receptor.x = baseX;
             receptor.y = baseY;
             receptor.angle = 0;
             receptor.alpha = 1.0;
 
-            for (mod in modifierObjects) {
+            for (mod in modifierList) {
                 if (mod.active) {
                     mod.modifyReceptor(receptor, i, target);
                 }
@@ -147,7 +191,7 @@ class ModchartManager {
     public function modifyNote(note:Note, dir:Int, target:ModTarget, strumTime:Float):Void {
         if (note == null) return;
 
-        for (mod in modifierObjects) {
+        for (mod in modifierList) {
             if (mod.active) {
                 mod.modifyNote(note, dir, target, strumTime);
             }
@@ -171,10 +215,82 @@ class ModchartManager {
         return [];
     }
 
+    private function refreshReceptorCache(target:ModTarget):Array<Dynamic> {
+        var list = getReceptorList(target);
+        if (list == null) list = [];
+
+        var targetCache = (target == OPPONENT) ? _opponentReceptorsCache : _playerReceptorsCache;
+        targetCache.resize(0);
+        for (i in 0...list.length) {
+            targetCache.push(list[i]);
+        }
+
+        var hasBaseList = (target == OPPONENT) ? _opponentHasBaseField : _playerHasBaseField;
+        hasBaseList.resize(0);
+        for (i in 0...targetCache.length) {
+            var receptor:Dynamic = targetCache[i];
+            hasBaseList.push(receptor != null && Reflect.hasField(receptor, "baseX") && Reflect.hasField(receptor, "baseY"));
+        }
+
+        return targetCache;
+    }
+
+    private function getReceptorListCached(target:ModTarget):Array<Dynamic> {
+        var cache = (target == OPPONENT) ? _opponentReceptorsCache : _playerReceptorsCache;
+        if (cache == null || cache.length == 0) {
+            return refreshReceptorCache(target);
+        }
+
+        // Detect basic receptor count changes and refresh when needed.
+        var targetLine = (target == OPPONENT) ? opponentStrumline : playerStrumline;
+        if (targetLine != null && Reflect.hasField(targetLine, "receptors")) {
+            var live:Array<Dynamic> = Reflect.field(targetLine, "receptors");
+            if (live != null && live.length != cache.length) {
+                return refreshReceptorCache(target);
+            }
+        }
+
+        return cache;
+    }
+
     public function clear():Void {
         events = [];
-        for (mod in modifierObjects) {
+        eventCursor = 0;
+        _playerReceptorsCache = [];
+        _opponentReceptorsCache = [];
+        _playerHasBaseField = [];
+        _opponentHasBaseField = [];
+        for (mod in modifierList) {
             mod.setValue(0.0, BOTH);
+        }
+
+        lastUpdateMs = 0.0;
+        averageUpdateMs = 0.0;
+        peakUpdateMs = 0.0;
+        _updateSampleCount = 0;
+    }
+
+    private function applyLowEndPolicy():Void {
+        if (Conductor.songPosition - _lastPolicyCheckTime < 250.0) return;
+        _lastPolicyCheckTime = Conductor.songPosition;
+
+        var lowEnd = GameplayFlags.getBool("lowEndMode", false) || GameplayFlags.getBool("lowQuality", false);
+        var targetMultiplier = lowEnd ? 0.75 : 1.0;
+
+        if (lowEnd == _lastLowEndState && targetMultiplier == _lowEndMultiplier) return;
+
+        _lastLowEndState = lowEnd;
+        _lowEndMultiplier = targetMultiplier;
+
+        // Disable the heaviest visual modifiers in low-end mode.
+        for (mod in modifierList) {
+            if (mod == null || mod.name == null) continue;
+            var modName = mod.name.toLowerCase().trim();
+            if (lowEnd) {
+                mod.active = !(modName == "drunk" || modName == "tipsy" || modName == "tornado" || modName == "square" || modName == "wave");
+            } else {
+                mod.active = true;
+            }
         }
     }
 }
