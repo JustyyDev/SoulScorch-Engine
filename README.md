@@ -1,79 +1,89 @@
-﻿# SoulScorch Engine
+# SoulScorch Engine
 
-Welcome to SoulScorch Engine. This is a free rhythm game engine that you can change and play with. Think of it like a big toy box. You can add your own songs, characters, and even small programs that make the game do cool things.
+SoulScorch Engine is a free rhythm game engine.
 
-## What is SoulScorch Engine
+Think of it like a giant game toolbox.
+You can add songs, characters, stages, and scripts.
+You can also change menus, effects, and gameplay rules.
 
-SoulScorch is a game engine. A game engine is like the frame of a car. It gives you the wheels, the motor, and the steering. You add the paint and the music.
+This guide is written to be easy for beginners around age 10 or 11.
 
-With SoulScorch you can:
-- Play rhythm games with notes that fall down the screen.
-- Add your own songs and charts.
-- Change how the game looks.
-- Write small programs called scripts that change how the game acts.
+## What is a game engine?
 
-## Meet the four script friends
+A game engine is the base that helps games work.
+It handles:
+- Graphics
+- Audio
+- Input
+- Saving data
+- Loading files
 
-A script is a small set of instructions for the game. SoulScorch understands four kinds of scripts. We call them the four script friends.
+SoulScorch gives you that base so you can focus on making cool content.
 
-1. SoulScript (.soul and .hx files)
-   This is the engine's own language. It is easy to read. You can also use plain Haxe code in .hx files.
+## What you can do in SoulScorch
 
-2. HScript and Iris (.hscript and .iris files)
-   These are simple script languages that run fast inside the game.
+- Play rhythm game charts
+- Add custom songs and difficulties
+- Make mods with your own assets
+- Write scripts to change game behavior
+- Build the game for desktop and more targets
 
-3. Lua (.lua files)
-   Lua is a tiny and famous script language. SoulScorch uses a special helper called linc_luajit to talk to Lua. We made linc_luajit better and moved it to a new home. You can find it here: https://github.com/JustyyDev/linc_luajit
+## The 4 script friends
 
-4. Python (.py files)
-   Yes, you can even use Python. That is the language many schools teach.
+SoulScorch supports 4 script types:
 
-You can mix and match. One mod can use a SoulScript file and a Lua file at the same time.
+1. SoulScript and Haxe (`.soul`, `.hx`)
+2. HScript and Iris (`.hscript`, `.iris`)
+3. Lua (`.lua`)
+4. Python (`.py`)
 
-## How the engine runs your script
+You can use one type, or mix them.
 
-When the game loads your script, it calls a few special functions in order. We call these the lifecycle. It is like the morning routine of the game.
+## Script lifecycle in simple words
 
-- create: This runs first. Set up your things here.
-- onCreate: This runs right after create. Build your objects here.
-- update: This runs every single frame. Use it to move things or check keys.
-- onBeatHit: This runs when the music hits a beat. Use it to make things bounce to the song.
+When the engine loads a script, it calls functions in this order:
 
-You do not need to write all of them. Write only the ones you need. The engine now calls create and onCreate for you in one clean step, so your script never runs them twice.
+- `create`: set up data
+- `onCreate`: create objects
+- `update(elapsed)`: runs every frame
+- `onBeatHit(beat)`: runs on music beats
 
-## Global scripts run everywhere
+You only need to write the functions you want.
 
-Some scripts are special. They are called global scripts. They keep running even when you move from one screen to another.
+## Global scripts
 
-SoulScorch now finds global scripts by itself. It looks for .soul, .hx, .hscript, .iris, .lua, and .py files in your mod folder and in the base game folder. You do not need to list them by hand anymore.
+Global scripts are scripts that run across many states.
+They are useful for things like:
+- Global hotkeys
+- Custom overlays
+- Shared helpers
 
-A global script can do things like change the window title or watch for a key press.
+SoulScorch can auto-find global scripts in mod folders and base folders.
 
-## The folder map
+## Folder map
 
-Here is a simple map of the engine. You do not need to understand all of it. Just know where your mods go.
-
-```
+```text
 SoulScorch-Engine/
-â”œâ”€â”€ assets/        # Pictures, music, and game data
-â”œâ”€â”€ mods/          # Your mods go here (this is the fun folder)
-â”œâ”€â”€ source/        # The engine code (you rarely touch this)
-â””â”€â”€ build.bat      # A button that builds the game
+|- assets/         # Game assets (images, sounds, data)
+|- mods/           # Your mods go here
+|- source/         # Engine source code
+|- tools/          # Build and helper scripts
+|- build.bat       # Build menu for Windows
 ```
 
-Your mod lives inside the mods folder. Make a new folder there with your mod name.
+## Super quick mod tutorial
 
-## Modding guide (very easy)
+### 1) Make your mod folder
 
-Let us make a mod together. Follow these steps.
+Inside `mods`, create:
 
-### Step 1: Make a mod folder
+```text
+mods/myfirstmod/
+```
 
-Go to the mods folder. Make a new folder called myfirstmod.
+### 2) Add mod info file
 
-### Step 2: Tell the game about your mod
-
-Inside myfirstmod, make a file called soulmod.json. Write this inside:
+Create `mods/myfirstmod/soulmod.json`:
 
 ```json
 {
@@ -83,7 +93,7 @@ Inside myfirstmod, make a file called soulmod.json. Write this inside:
   "api_version": "1.0.0",
   "author": "Your Name",
   "description": "A fun little mod",
-  "color": "#9d5ebd",
+  "color": "#5BA2FF",
   "icon": "windowicon.png",
   "global_scripts": [],
   "dependencies": [],
@@ -91,22 +101,20 @@ Inside myfirstmod, make a file called soulmod.json. Write this inside:
 }
 ```
 
-### Step 3: Write a script
+### 3) Add a script
 
-Make a folder called scripts inside myfirstmod. Now write a script. Pick any of the four friends.
+Create `mods/myfirstmod/scripts/hello.soul`:
 
-SoulScript example (file: scripts/hello.soul):
-
-```
+```text
 on create:
     print("Hello from my mod")
 
 on update(elapsed):
     if FlxG.keys.justPressed.SPACE:
-        print("Space was pressed")
+        print("You pressed SPACE")
 ```
 
-Lua example (file: scripts/hello.lua):
+Lua example:
 
 ```lua
 function create()
@@ -114,20 +122,11 @@ function create()
 end
 
 function update(elapsed)
-    -- your code here
+    -- frame update
 end
 ```
 
-To talk to the game from Lua, use add_callback. This lets Lua call a Haxe function by name. The new linc_luajit keeps each Lua world's callbacks separate, so mods never mix up.
-
-```lua
--- register a callback the engine can call
-add_callback("myCoolThing", function(arg)
-    print("The engine called me with " .. tostring(arg))
-end)
-```
-
-Python example (file: scripts/hello.py):
+Python example:
 
 ```python
 def create():
@@ -137,54 +136,100 @@ def update(elapsed):
     pass
 ```
 
-HScript example (file: scripts/hello.hscript):
+HScript example:
 
-```
+```haxe
 function create() {
     trace("Hello from HScript");
 }
 
 function update(elapsed) {
-    // your code here
 }
 ```
 
-### Step 4: Run the game
+### 4) Run the game
 
-Start the engine. Your mod shows up in the mod list. Turn it on and play. That is it. You made a mod.
+- Start the engine
+- Open the mod menu
+- Enable your mod
+- Play
 
-## The linc_luajit library
+Done. You made a mod.
 
-Lua support in SoulScorch uses a helper library called linc_luajit. We fixed it and made it better. It now has state scoped callbacks. That means each Lua world keeps its own list of callbacks. This stops bugs where one mod's callbacks leak into another.
+## Lua helper library
 
-The new home for the library is here: https://github.com/JustyyDev/linc_luajit
+SoulScorch uses `linc_luajit` for Lua support.
 
-If you build the engine, it will grab the library from that new home by itself.
+Project link:
+- https://github.com/JustyyDev/linc_luajit
 
-## Building the game
+This helps Lua scripts talk to engine functions.
 
-You can build the game on Windows with the build button.
+## Build the game on Windows
+
+Run:
 
 ```cmd
 build.bat
 ```
 
-This opens a menu. Pick option 1 for a quick build with no admin rights. Pick option 2 for a faster test build.
+Then choose a menu option.
 
-## Where to get help and more
+Common picks:
+- `1` MinGW Windows build
+- `2` MSVC Windows release build
+- `3` MSVC Windows debug build
 
-Here are the three homes for this project:
+## Troubleshooting
 
-- SoulScorch Engine (the game): https://github.com/JustyyDev/SoulScorch-Engine
-- linc_luajit (the Lua helper): https://github.com/JustyyDev/linc_luajit
-- HomeSoulDB (mods and extras): https://github.com/JustyyDev/HomeSoulDB
+### Build fails with missing libraries
+
+Use option `S` in `build.bat` to install libraries.
+
+### Build is slow
+
+- Keep your haxelib cache
+- Avoid deep clean unless needed
+- Use release builds only when ready
+
+### Mod does not show up
+
+Check:
+- Folder is inside `mods/`
+- `soulmod.json` is valid JSON
+- Mod name and files are not empty
+
+### Script does not run
+
+Check:
+- File extension is supported
+- Function names are correct (`create`, `update`, etc.)
+- Script path is in the correct mod folder
+
+## Roadmap idea: Soul3D helper lib
+
+We plan to make an easier 3D helper library called `soul3d`.
+
+Goal:
+- Easy model spawn
+- Easy camera setup
+- Easy light presets
+- Easy 3D animation helpers
+
+Planned first version:
+- `Soul3D.spawnModel(path, x, y, z)`
+- `Soul3D.makeOrbitCamera(radius)`
+- `Soul3D.setSunLight(color, intensity)`
+
+This is planned work and can be built step by step.
+
+## Project links
+
+- SoulScorch Engine: https://github.com/JustyyDev/SoulScorch-Engine
+- linc_luajit: https://github.com/JustyyDev/linc_luajit
+- HomeSoulDB: https://github.com/JustyyDev/HomeSoulDB
 
 ## Credits
 
-SoulScorch Engine is made by the SoulScorch Team and its modders.
-
-Special thanks to everyone who builds mods and shares them on HomeSoulDB.
-
-The Lua power comes from linc_luajit, now kept at JustyyDev/linc_luajit.
-
-Have fun and make something cool.
+SoulScorch Engine is made by the SoulScorch Team and community modders.
+Thanks to everyone who tests, reports bugs, and makes mods.

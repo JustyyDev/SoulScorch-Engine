@@ -139,7 +139,7 @@ jobs:
       - name: Patch Lime GPU Hint Export Syntax
         run: |
           python -c '
-          import subprocess, os
+          import subprocess, os, re
           res = subprocess.run(["haxelib", "libpath", "lime"], capture_output=True, text=True)
           lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
           lime_path = ""
@@ -160,7 +160,15 @@ jobs:
             raise SystemExit("Could not find Lime System.hx. Checked: " + " | ".join(candidates))
           with open(system_hx, "r", encoding="utf-8") as f:
               content = f.read()
-          patched = content.replace("_declspec(dllexport)", "__declspec(dllexport)")
+
+          patched = content
+          patched = patched.replace("_declspec(dllexport)", "__declspec(dllexport)")
+          patched = patched.replace("___declspec(dllexport)", "__declspec(dllexport)")
+          patched = re.sub(r"\b_+declspec\(dllexport\)", "__declspec(dllexport)", patched)
+
+          if "_declspec(dllexport)" in patched or "___declspec(dllexport)" in patched:
+            raise SystemExit("Lime System.hx still contains malformed declspec tokens after patch")
+
           if patched != content:
               with open(system_hx, "w", encoding="utf-8") as f:
                   f.write(patched)
@@ -178,10 +186,17 @@ jobs:
 
           resolve_ndll_dir() {
             local lp="$1"
-            if [ "$(uname -m)" = "arm64" ] && [ -f "$lp/ndll/MacArm64/lime.ndll" ]; then
-              echo "$lp/ndll/MacArm64"
-              return 0
+            local host_arch
+            host_arch="$(uname -m)"
+
+            if [ "$host_arch" = "arm64" ]; then
+              if [ -f "$lp/ndll/MacArm64/lime.ndll" ] && file "$lp/ndll/MacArm64/lime.ndll" | grep -Eq 'arm64|arm64e'; then
+                echo "$lp/ndll/MacArm64"
+                return 0
+              fi
+              return 1
             fi
+
             if [ -f "$lp/ndll/Mac64/lime.ndll" ]; then
               echo "$lp/ndll/Mac64"
               return 0
@@ -204,6 +219,7 @@ jobs:
           if ! LIME_NDLL_PATH="$(resolve_ndll_dir "$LIME_PATH")"; then
             echo "Host lime.ndll missing. Reinstalling lime and rebuilding host NDLL..."
             haxelib install lime 8.1.3 --quiet --skip-dependencies || true
+            haxelib run lime rebuild mac -release -arm64 || true
             haxelib run lime rebuild mac -release || true
             LIME_PATH="$(resolve_lime_path)"
           fi
