@@ -19,6 +19,8 @@ import soulscorch.gameplay.notes.Note;
 import soulscorch.gameplay.scoring.Judgment;
 import soulscorch.scripting.mod.ModFeatureRegistry;
 
+using StringTools;
+
 class JudgementManager extends FlxTypedGroup<FlxSprite> {
     public static var MARVELOUS_WINDOW:Float = 22.5;
     public static var SICK_WINDOW:Float = 45.0;
