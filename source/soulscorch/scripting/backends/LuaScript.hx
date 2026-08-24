@@ -26,7 +26,6 @@ import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptedState;
 import soulscorch.scripting.ScriptTools;
-import soulscorch.scripting.mod.ModCustomState;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
 import soulscorch.scripting.mod.SoulGlobalScript;
@@ -329,7 +328,7 @@ class LuaScript implements ScriptInstance {
         var clean = target.trim();
         var redirect = SoulGlobalScript.getRedirect(clean);
         if (redirect != null && redirect != clean) {
-            MusicBeatState.switchState(new ModCustomState(redirect));
+            MusicBeatState.switchState(new ScriptedState(redirect));
         } else {
             MusicBeatState.switchState(new ScriptedState(clean));
         }

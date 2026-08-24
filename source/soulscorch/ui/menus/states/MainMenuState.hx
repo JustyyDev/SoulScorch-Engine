@@ -285,7 +285,7 @@ class MainMenuState extends MusicBeatState {
         var clean = choice != null ? choice.trim().toLowerCase() : "";
         var redirect = SoulGlobalScript.getRedirect(clean);
         if (redirect != null && redirect != clean) {
-            MusicBeatState.switchState(new soulscorch.scripting.mod.ModCustomState(redirect));
+            MusicBeatState.switchState(new soulscorch.scripting.ScriptedState(redirect));
             return;
         }
 

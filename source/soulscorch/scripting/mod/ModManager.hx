@@ -8,6 +8,7 @@ import soulscorch.scripting.mod.SoulGlobalScript;
 
 #if sys
 import sys.FileSystem;
+import haxe.io.Path;
 #end
 
 using StringTools;
@@ -16,22 +17,65 @@ class ModManager {
     public static var allMods:Array<String> = [];
     public static var activeMods:Array<String> = [];
     public static var modConfigs:Map<String, SoulModData> = new Map<String, SoulModData>();
+    public static var modRoots:Array<String> = [];
+    public static var modFolderRoots:Map<String, String> = new Map<String, String>();
+
+    #if sys
+    private static function detectModRoots():Array<String> {
+        var roots:Array<String> = [];
+
+        var pushRoot = function(root:String) {
+            if (root == null || root.trim().length == 0) return;
+            var clean = root.replace("\\", "/");
+            while (clean.endsWith("/")) clean = clean.substr(0, clean.length - 1);
+            if (clean.length == 0 || roots.contains(clean)) return;
+            if (FileSystem.exists(clean) && FileSystem.isDirectory(clean)) {
+                roots.push(clean);
+            }
+        };
+
+        pushRoot("mods");
+        pushRoot("bin/hl/bin/mods");
+        pushRoot("bin/windows/bin/mods");
+        pushRoot("bin/linux/bin/mods");
+        pushRoot("bin/macos/bin/mods");
+
+        var exePath = Sys.programPath();
+        if (exePath != null && exePath.length > 0) {
+            var exeDir = Path.directory(exePath).replace("\\", "/");
+            pushRoot(exeDir + "/mods");
+            pushRoot(exeDir + "/../mods");
+        }
+
+        return roots;
+    }
+    #end
+
+    private static function getModFolderRoot(mod:String):String {
+        if (mod != null && modFolderRoots.exists(mod)) return modFolderRoots.get(mod);
+        return modRoots.length > 0 ? modRoots[0] : "mods";
+    }
 
     public static function reloadMods():Void {
         allMods = [];
         activeMods = [];
         modConfigs.clear();
+        modRoots = [];
+        modFolderRoots.clear();
 
         #if sys
-        var modsDir = "mods";
-        if (FileSystem.exists(modsDir) && FileSystem.isDirectory(modsDir)) {
+        modRoots = detectModRoots();
+        for (modsDir in modRoots) {
             var folders = FileSystem.readDirectory(modsDir);
             for (folder in folders) {
                 var fullDir = '$modsDir/$folder';
                 if (FileSystem.isDirectory(fullDir) && !folder.startsWith(".") && !folder.startsWith("_")) {
-                    allMods.push(folder);
-                    var data = SoulModParser.parseFolder(fullDir, folder);
-                    modConfigs.set(folder, data);
+                    if (!allMods.contains(folder)) {
+                        allMods.push(folder);
+                        var data = SoulModParser.parseFolder(fullDir, folder);
+                        modConfigs.set(folder, data);
+                        modFolderRoots.set(folder, modsDir);
+                    }
                 }
             }
         }
@@ -59,16 +103,16 @@ class ModManager {
 
         #if sys
         for (mod in activeMods) {
-            var modPath = 'mods/$mod/$clean';
+            var modPath = getModFolderRoot(mod) + '/$mod/$clean';
             if (FileSystem.exists(modPath)) return modPath;
 
             if (clean.startsWith("assets/preload/")) {
                 var sub = clean.substr(15);
-                var subPath = 'mods/$mod/$sub';
+                var subPath = getModFolderRoot(mod) + '/$mod/$sub';
                 if (FileSystem.exists(subPath)) return subPath;
             } else if (clean.startsWith("assets/")) {
                 var sub = clean.substr(7);
-                var subPath = 'mods/$mod/$sub';
+                var subPath = getModFolderRoot(mod) + '/$mod/$sub';
                 if (FileSystem.exists(subPath)) return subPath;
             }
         }
@@ -86,7 +130,7 @@ class ModManager {
 
         #if sys
         for (mod in activeMods) {
-            var modPath = 'mods/$mod/$clean';
+            var modPath = getModFolderRoot(mod) + '/$mod/$clean';
             if (FileSystem.exists(modPath) && !FileSystem.isDirectory(modPath)) return modPath;
 
             if (extensions != null) {
@@ -98,7 +142,7 @@ class ModManager {
 
             if (clean.startsWith("assets/preload/")) {
                 var stripped = clean.substr(15);
-                var sPath = 'mods/$mod/$stripped';
+                var sPath = getModFolderRoot(mod) + '/$mod/$stripped';
                 if (FileSystem.exists(sPath) && !FileSystem.isDirectory(sPath)) return sPath;
             }
         }

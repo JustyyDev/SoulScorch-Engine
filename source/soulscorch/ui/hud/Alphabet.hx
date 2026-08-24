@@ -340,7 +340,6 @@ class Alphabet extends FlxSpriteGroup {
         // because the visible glyphs may still contain temporary characters.
         if (newText == text && !wasTyping) return text;
         text = newText;
-        clearLetters();
         createAlphabet(text);
         return text;
     }
@@ -358,7 +357,6 @@ class Alphabet extends FlxSpriteGroup {
         fullTextBuffer = newText;
         visibleCharCount = 0;
         text = newText;
-        clearLetters();
         createAlphabet(newText);
 
         if (newText.length == 0) {
@@ -415,11 +413,14 @@ class Alphabet extends FlxSpriteGroup {
     }
 
     private function createAlphabet(targetText:String):Void {
-        if (targetText == null || targetText.length == 0) return;
+        if (targetText == null) targetText = "";
 
         var curX:Float = 0;
         var curY:Float = 0;
         var rowLetters:Array<Array<AlphaCharacter>> = [[]];
+        var nextIndices:Array<Int> = [];
+        var usedLetters:Int = 0;
+        rows = 0;
 
         for (i in 0...targetText.length) {
             var char = targetText.charAt(i);
@@ -437,18 +438,38 @@ class Alphabet extends FlxSpriteGroup {
                 continue;
             }
 
-            var letter = new AlphaCharacter(curX, curY, char, bold);
+            var letter:AlphaCharacter = null;
+            if (usedLetters < letters.length) {
+                letter = letters[usedLetters];
+                if (letter.character != char || letter.isBold != bold) {
+                    letter.setCharacter(char, bold);
+                }
+                letter.visible = true;
+            } else {
+                letter = new AlphaCharacter(curX, curY, char, bold);
+                letters.push(letter);
+                add(letter);
+            }
+
+            letter.setPosition(curX, curY);
             letter.row = rows;
             letter.alpha = this.alpha;
             letter.color = this.color;
             letter.letterOffset.x = curX;
-            letters.push(letter);
-            letterTextIndices.push(i);
             rowLetters[rows].push(letter);
-            add(letter);
+            nextIndices.push(i);
+            usedLetters++;
 
             curX += letter.width + X_SPACING;
         }
+
+        while (letters.length > usedLetters) {
+            var extra = letters.pop();
+            remove(extra, true);
+            extra.destroy();
+        }
+
+        letterTextIndices = nextIndices;
 
         _rowLetters = rowLetters;
         applyAlignment(rowLetters);

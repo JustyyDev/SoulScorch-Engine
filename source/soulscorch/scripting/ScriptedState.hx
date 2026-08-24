@@ -17,6 +17,7 @@ import soulscorch.backend.system.Scene;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.backends.ScriptBackendType;
 import soulscorch.scripting.mod.ModLoader;
+import soulscorch.scripting.mod.SoulGlobalScript;
 
 using StringTools;
 
@@ -26,11 +27,11 @@ class ScriptedState extends Scene {
     public var uiElements:Map<String, Dynamic> = new Map();
 
     private static final SUPPORTED_EXTENSIONS:Array<String> = [
-        "hx", "soul", "lua", "py", "hscript", "js"
+        "hx", "soul", "lua", "py", "hscript", "iris", "js"
     ];
 
     private static final SEARCH_DIRECTORIES:Array<String> = [
-        "data/ui/", "data/states/", "scripts/states/", "data/"
+        "states/", "data/ui/", "data/states/", "scripts/states/", "data/"
     ];
 
     public function new(scriptName:String) {
@@ -42,8 +43,13 @@ class ScriptedState extends Scene {
         super.create();
 
         var possibleXmlPaths = [
+            'states/$scriptName.xmsoul',
+            'states/$scriptName.xml',
+            'data/ui/$scriptName.xmsoul',
             'data/ui/$scriptName.xml',
+            'data/states/$scriptName.xmsoul',
             'data/states/$scriptName.xml',
+            'data/$scriptName.xmsoul',
             'data/$scriptName.xml'
         ];
 
@@ -89,7 +95,10 @@ class ScriptedState extends Scene {
 
                 script.set("switchState", function(nextState:Dynamic) {
                     if (Std.isOfType(nextState, String)) {
-                        MusicBeatState.switchState(new ScriptedState(cast nextState));
+                        var requested:String = cast nextState;
+                        var redirected = SoulGlobalScript.getRedirect(requested);
+                        var targetName = (redirected != null && redirected.trim().length > 0) ? redirected : requested;
+                        MusicBeatState.switchState(new ScriptedState(targetName));
                     } else {
                         MusicBeatState.switchState(nextState);
                     }
@@ -146,7 +155,7 @@ class ScriptedState extends Scene {
                         uiElements.set(id, spr);
 
                     case "text":
-                        var content = node.has.content ? node.att.content : "";
+                        var content = node.has.content ? node.att.content : (node.has.text ? node.att.text : "");
                         var size = node.has.size ? Std.parseInt(node.att.size) : 16;
                         var width = node.has.width ? Std.parseFloat(node.att.width) : 0;
                         var txt = new FlxText(x, y, width, content, size);
@@ -155,6 +164,17 @@ class ScriptedState extends Scene {
                         txt.alpha = alpha;
                         add(txt);
                         uiElements.set(id, txt);
+
+                    case "label":
+                        var labelText = node.has.content ? node.att.content : (node.has.text ? node.att.text : "");
+                        var labelSize = node.has.size ? Std.parseInt(node.att.size) : 16;
+                        var labelWidth = node.has.width ? Std.parseFloat(node.att.width) : 0;
+                        var label = new FlxText(x, y, labelWidth, labelText, labelSize);
+                        var labelCol = node.has.color ? FlxColor.fromString(node.att.color) : FlxColor.WHITE;
+                        label.setFormat(Paths.font("vcr"), labelSize, labelCol, LEFT);
+                        label.alpha = alpha;
+                        add(label);
+                        uiElements.set(id, label);
 
                     case "button":
                         var width = node.has.width ? Std.parseInt(node.att.width) : 100;

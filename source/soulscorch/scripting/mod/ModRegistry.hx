@@ -30,6 +30,13 @@ class ModRegistry {
     public function loadConfig():Void {
         enabledMods = [];
 
+        var knownByLower:Map<String, String> = new Map<String, String>();
+        if (ModManager.allMods != null) {
+            for (m in ModManager.allMods) {
+                if (m != null) knownByLower.set(m.toLowerCase(), m);
+            }
+        }
+
         var rawList:Dynamic = null;
         if (SaveData.instance != null) {
             rawList = SaveData.instance.getSetting("enabledMods", null);
@@ -44,13 +51,29 @@ class ModRegistry {
                 var list:Array<Dynamic> = cast rawList;
                 for (item in list) {
                     var str = Std.string(item);
+                    if (str == null) continue;
+
                     if (ModManager.allMods.contains(str) && !enabledMods.contains(str)) {
                         enabledMods.push(str);
+                        continue;
+                    }
+
+                    var lower = str.toLowerCase();
+                    if (knownByLower.exists(lower)) {
+                        var resolved = knownByLower.get(lower);
+                        if (!enabledMods.contains(resolved)) {
+                            enabledMods.push(resolved);
+                        }
                     }
                 }
             } catch (e:Dynamic) {
                 Logger.warn('Failed restoring enabled mods list: $e', "mods");
             }
+        }
+
+        // If settings exist but no entry resolved (renamed/case-changed folders), auto-enable discovered mods.
+        if (rawList != null && enabledMods.length == 0 && ModManager.allMods != null && ModManager.allMods.length > 0) {
+            enabledMods = ModManager.allMods.copy();
         }
 
         if (rawList == null && ModManager.allMods != null && ModManager.allMods.length > 0) {

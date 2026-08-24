@@ -1118,7 +1118,7 @@ class PlayState extends MusicBeatState {
             var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
 
             if (targetStrum != null) {
-                daNote.updatePosition(targetStrum.x, targetStrum.y, songSpeed, downscroll);
+                daNote.updatePosition(targetStrum.x, targetStrum.y, songSpeed, downscroll, targetStrum.width);
                 daNote.angle = targetStrum.angle;
 
                 if (modcharts != null) {

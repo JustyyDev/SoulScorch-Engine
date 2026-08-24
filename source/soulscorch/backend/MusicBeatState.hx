@@ -13,6 +13,9 @@ import soulscorch.backend.audio.Conductor;
 import soulscorch.backend.interfaces.IBeatReceiver;
 import soulscorch.backend.system.Scene;
 import soulscorch.backend.system.XMSoul;
+import soulscorch.scripting.ScriptedState;
+
+using StringTools;
 
 class MusicBeatState extends Scene implements IBeatReceiver {
     public static var defaultTransition:TransitionData = new TransitionData(TransitionType.WIPE, TransitionDirection.OUT, 0.35);
@@ -73,9 +76,8 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         // Only redirect if an explicit mapping exists that differs from the base state and exists on disk
         var finalTarget:FlxState = nextState;
         if (redirectTarget != null && redirectTarget != stateName) {
-            var customProbe = AssetResolver.resolveFile('states/$redirectTarget', [".xmsoul", ".soul", ".hx", ""]);
-            if (customProbe != null) {
-                finalTarget = new soulscorch.scripting.mod.ModCustomState(redirectTarget);
+            if (hasCustomStateDefinition(redirectTarget)) {
+                finalTarget = new ScriptedState(redirectTarget);
             }
         }
 
@@ -97,5 +99,39 @@ class MusicBeatState extends Scene implements IBeatReceiver {
         if (FlxG.state == null) return;
         var curClass = Type.getClass(FlxG.state);
         switchState(Type.createInstance(curClass, []), transData);
+    }
+
+    private static function hasCustomStateDefinition(stateName:String):Bool {
+        if (stateName == null || stateName.trim().length == 0) return false;
+
+        var clean = stateName.trim();
+        var scriptBases = [
+            'states/$clean',
+            'data/states/$clean',
+            'scripts/states/$clean',
+            'data/ui/$clean',
+            'data/$clean'
+        ];
+
+        for (base in scriptBases) {
+            if (AssetResolver.resolveFile(base, [".hx", ".hscript", ".iris", ".soul", ".lua", ".py", ".js", ""]) != null) {
+                return true;
+            }
+        }
+
+        var layoutBases = [
+            'states/$clean',
+            'data/states/$clean',
+            'data/ui/$clean',
+            'data/$clean'
+        ];
+
+        for (base in layoutBases) {
+            if (AssetResolver.resolveFile(base, [".xmsoul", ".xml", ""]) != null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

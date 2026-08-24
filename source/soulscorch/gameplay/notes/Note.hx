@@ -231,15 +231,16 @@ class Note extends FlxSprite {
         lastSustainSpeed = songSpeed * multSpeed;
     }
 
-    public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool):Void {
+    public function updatePosition(strumX:Float, strumY:Float, songSpeed:Float, downscroll:Bool, ?strumWidth:Float):Void {
         var currentSpeed:Float = songSpeed * multSpeed;
         var distance:Float = (strumTime - Conductor.songPosition) * (0.45 * currentSpeed);
+        var laneWidth:Float = (strumWidth != null && strumWidth > 0) ? strumWidth : StrumArrow.STRUM_SIZE;
 
         if (isSustainNote && lastSustainSpeed != currentSpeed) {
             if (isSustainEnd) resizeSustainEnd(songSpeed); else resizeSustainBody(songSpeed);
         }
 
-        x = strumX + ((StrumArrow.STRUM_SIZE - width) * 0.5) + offsetX;
+        x = strumX + ((laneWidth - width) * 0.5) + offsetX;
 
         if (isSustainNote) {
             flipY = downscroll;
