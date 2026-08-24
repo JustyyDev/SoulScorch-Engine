@@ -82,7 +82,7 @@ class LanguageManager {
         if (defaultTextOrTokens != null) {
             if (Std.isOfType(defaultTextOrTokens, String)) {
                 defaultText = cast defaultTextOrTokens;
-            } else if (Std.isOfType(defaultTextOrTokens, Map)) {
+            } else if (Std.isOfType(defaultTextOrTokens, haxe.ds.StringMap) || Std.isOfType(defaultTextOrTokens, haxe.ds.ObjectMap) || Std.isOfType(defaultTextOrTokens, haxe.ds.IntMap) || Std.isOfType(defaultTextOrTokens, haxe.ds.EnumValueMap)) {
                 actualTokens = cast defaultTextOrTokens;
             }
         }
