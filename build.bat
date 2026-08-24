@@ -171,7 +171,7 @@ goto BUILD_END
 cls
 echo [*] Compiling Windows 64-Bit Release Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
-if defined VCVARS_PATH call "%VCVARS_PATH%"
+if not defined VSCMD_VER if defined VCVARS_PATH call "%VCVARS_PATH%"
 "%HAXELIB_CMD%" run lime build windows -release -DSOULSCORCH_LUA
 goto BUILD_END
 
@@ -179,7 +179,7 @@ goto BUILD_END
 cls
 echo [*] Compiling Windows 64-Bit Debug Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
-if defined VCVARS_PATH call "%VCVARS_PATH%"
+if not defined VSCMD_VER if defined VCVARS_PATH call "%VCVARS_PATH%"
 "%HAXELIB_CMD%" run lime build windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA
 goto BUILD_END
 
@@ -273,29 +273,29 @@ cls
 echo [*] Installing and syncing required libraries...
 if not exist "%HAXELIB_DIR%" mkdir "%HAXELIB_DIR%"
 "%HAXELIB_CMD%" setup "%HAXELIB_DIR%"
-"%HAXELIB_CMD%" install lime 8.1.3 --always --skip-dependencies
-"%HAXELIB_CMD%" install openfl 9.3.3 --always --skip-dependencies
-"%HAXELIB_CMD%" install flixel 5.6.2 --always --skip-dependencies
-"%HAXELIB_CMD%" install flixel-addons 3.2.3 --always --skip-dependencies
-"%HAXELIB_CMD%" install flixel-ui 2.6.1 --always --skip-dependencies
-"%HAXELIB_CMD%" install hscript 2.4.0 --always
+"%HAXELIB_CMD%" install lime 8.1.3 --skip-dependencies
+"%HAXELIB_CMD%" install openfl 9.3.3 --skip-dependencies
+"%HAXELIB_CMD%" install flixel 5.6.2 --skip-dependencies
+"%HAXELIB_CMD%" install flixel-addons 3.2.3 --skip-dependencies
+"%HAXELIB_CMD%" install flixel-ui 2.6.1 --skip-dependencies
+"%HAXELIB_CMD%" install hscript 2.4.0
 "%HAXELIB_CMD%" set hscript 2.4.0
-"%HAXELIB_CMD%" install hscript-iris 1.1.0 --always
-"%HAXELIB_CMD%" install away3d --always
-"%HAXELIB_CMD%" install hxcpp 4.3.2 --always
-"%HAXELIB_CMD%" install hashlink --always
+"%HAXELIB_CMD%" install hscript-iris 1.1.0
+"%HAXELIB_CMD%" install away3d
+"%HAXELIB_CMD%" install hxcpp 4.3.2
+"%HAXELIB_CMD%" install hashlink
 rem Install linc_fmod only if FMOD_SDK is present or ENABLE_FMOD=1
 if defined FMOD_SDK (
     echo [*] FMOD_SDK detected, installing linc_fmod haxelib
-    "%HAXELIB_CMD%" install linc_fmod --always
+    "%HAXELIB_CMD%" install linc_fmod
 ) else if "%ENABLE_FMOD%"=="1" (
     echo [*] ENABLE_FMOD=1 set, installing linc_fmod haxelib (you must set FMOD_SDK at build time)
-    "%HAXELIB_CMD%" install linc_fmod --always
+    "%HAXELIB_CMD%" install linc_fmod
 ) else (
     echo [*] Skipping linc_fmod install (FMOD disabled)
 )
-"%HAXELIB_CMD%" git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always
-"%HAXELIB_CMD%" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc --always
+"%HAXELIB_CMD%" git linc_luajit https://github.com/JustyyDev/linc_luajit.git
+"%HAXELIB_CMD%" git hxdiscord_rpc https://github.com/MAJigsaw77/hxdiscord_rpc
 "%HAXELIB_CMD%" run lime setup -y
 goto BUILD_END
 

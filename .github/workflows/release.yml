@@ -172,43 +172,57 @@ jobs:
       - name: Rebuild Host Lime NDLL (macOS Fix)
         if: matrix.os == 'macos-14'
         run: |
-          LIME_PATH="$(haxelib libpath lime | tail -n 1)"
-          if [ ! -d "$LIME_PATH" ]; then
-            LIME_PATH="$(haxelib libpath lime | grep -E '^/' | tail -n 1)"
-          fi
+          resolve_lime_path() {
+            haxelib libpath lime | awk 'NF{last=$0} END{print last}'
+          }
 
-          if [ -z "$LIME_PATH" ] || [ ! -d "$LIME_PATH" ]; then
-            echo "Warning: Could not resolve Lime library path for host NDLL setup."
-            exit 0
-          fi
-
-          if [ "$(uname -m)" = "arm64" ]; then
-            LIME_NDLL_PATH="$LIME_PATH/ndll/MacArm64"
-          else
-            LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
-          fi
-
-          if [ ! -f "$LIME_NDLL_PATH/lime.ndll" ]; then
-            echo "Host lime.ndll not found, rebuilding Lime host NDLL..."
-            set +e
-            haxelib run lime rebuild mac -release
-            REBUILD_EXIT=$?
-            if [ $REBUILD_EXIT -ne 0 ]; then
-              echo "Warning: lime host NDLL rebuild failed (exit $REBUILD_EXIT). Continuing with existing Lime host binaries."
+          resolve_ndll_dir() {
+            local lp="$1"
+            if [ "$(uname -m)" = "arm64" ] && [ -f "$lp/ndll/MacArm64/lime.ndll" ]; then
+              echo "$lp/ndll/MacArm64"
+              return 0
             fi
-            set -e
-          else
-            echo "Host lime.ndll already present, skipping rebuild."
+            if [ -f "$lp/ndll/Mac64/lime.ndll" ]; then
+              echo "$lp/ndll/Mac64"
+              return 0
+            fi
+            local found
+            found="$(find "$lp/ndll" -name lime.ndll -print 2>/dev/null | head -n 1)"
+            if [ -n "$found" ]; then
+              dirname "$found"
+              return 0
+            fi
+            return 1
+          }
+
+          LIME_PATH="$(resolve_lime_path)"
+          if [ -z "$LIME_PATH" ] || [ ! -d "$LIME_PATH" ]; then
+            echo "Error: Could not resolve Lime library path."
+            exit 1
           fi
 
-          if [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
-            export NEKOPATH="$LIME_NDLL_PATH:$NEKOPATH"
-            export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:$DYLD_FALLBACK_LIBRARY_PATH"
-            echo "NEKOPATH=$NEKOPATH" >> "$GITHUB_ENV"
-            echo "DYLD_FALLBACK_LIBRARY_PATH=$DYLD_FALLBACK_LIBRARY_PATH" >> "$GITHUB_ENV"
-            echo "Configured host NDLL path: $LIME_NDLL_PATH"
-          else
-            echo "Warning: lime.ndll not found at $LIME_NDLL_PATH. Continuing without explicit host NDLL overrides."
+          if ! LIME_NDLL_PATH="$(resolve_ndll_dir "$LIME_PATH")"; then
+            echo "Host lime.ndll missing. Reinstalling lime and rebuilding host NDLL..."
+            haxelib install lime 8.1.3 --quiet --skip-dependencies || true
+            haxelib run lime rebuild mac -release || true
+            LIME_PATH="$(resolve_lime_path)"
+          fi
+
+          if ! LIME_NDLL_PATH="$(resolve_ndll_dir "$LIME_PATH")"; then
+            echo "Error: lime.ndll is still missing after recovery attempts."
+            exit 1
+          fi
+
+          export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
+          export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+          echo "NEKOPATH=$NEKOPATH" >> "$GITHUB_ENV"
+          echo "DYLD_FALLBACK_LIBRARY_PATH=$DYLD_FALLBACK_LIBRARY_PATH" >> "$GITHUB_ENV"
+          echo "Configured host NDLL path: $LIME_NDLL_PATH"
+
+          NEKO_BIN="$(command -v neko || true)"
+          if [ -n "$NEKO_BIN" ]; then
+            NEKO_DIR="$(dirname "$NEKO_BIN")"
+            cp -f "$LIME_NDLL_PATH/lime.ndll" "$NEKO_DIR/lime.ndll" || true
           fi
 
           haxelib run lime config MAC_USE_CURRENT_SDK 1

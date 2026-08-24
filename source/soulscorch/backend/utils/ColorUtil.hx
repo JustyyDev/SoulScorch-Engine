@@ -35,11 +35,15 @@ class ColorUtil {
                 var b = Std.parseInt(parts[2].trim());
                 var a = (parts.length > 3) ? Std.parseInt(parts[3].trim()) : 255;
                 if (r != null && g != null && b != null) {
+                    var rr:Int = Std.int(FlxMath.bound(r, 0, 255));
+                    var gg:Int = Std.int(FlxMath.bound(g, 0, 255));
+                    var bb:Int = Std.int(FlxMath.bound(b, 0, 255));
+                    var aa:Int = Std.int(a != null ? FlxMath.bound(a, 0, 255) : 255);
                     return FlxColor.fromRGB(
-                        FlxMath.bound(r, 0, 255),
-                        FlxMath.bound(g, 0, 255),
-                        FlxMath.bound(b, 0, 255),
-                        a != null ? FlxMath.bound(a, 0, 255) : 255
+                        rr,
+                        gg,
+                        bb,
+                        aa
                     );
                 }
             }
@@ -78,9 +82,9 @@ class ColorUtil {
     }
 
     public static function adjustBrightness(color:FlxColor, factor:Float):FlxColor {
-        var r = FlxMath.bound(Math.round(color.red * factor), 0, 255);
-        var g = FlxMath.bound(Math.round(color.green * factor), 0, 255);
-        var b = FlxMath.bound(Math.round(color.blue * factor), 0, 255);
+        var r:Int = Std.int(FlxMath.bound(Math.round(color.red * factor), 0, 255));
+        var g:Int = Std.int(FlxMath.bound(Math.round(color.green * factor), 0, 255));
+        var b:Int = Std.int(FlxMath.bound(Math.round(color.blue * factor), 0, 255));
         return FlxColor.fromRGB(r, g, b, color.alpha);
     }
 }
