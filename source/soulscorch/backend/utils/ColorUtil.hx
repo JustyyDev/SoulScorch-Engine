@@ -22,10 +22,15 @@ class ColorUtil {
     }
 
     public static function fromHexSafe(hexString:String, fallback:FlxColor = FlxColor.WHITE):FlxColor {
-        if (hexString == null || hexString.length == 0) return fallback;
+        var parsed = tryFromHex(hexString);
+        return parsed != null ? parsed : fallback;
+    }
+
+    public static function tryFromHex(hexString:String):Null<FlxColor> {
+        if (hexString == null || hexString.length == 0) return null;
 
         var clean = hexString.trim();
-        if (clean.length == 0) return fallback;
+        if (clean.length == 0) return null;
 
         if (clean.indexOf(",") != -1) {
             var parts = clean.split(",");
@@ -78,7 +83,7 @@ class ColorUtil {
             }
         }
 
-        return fallback;
+        return null;
     }
 
     public static function adjustBrightness(color:FlxColor, factor:Float):FlxColor {

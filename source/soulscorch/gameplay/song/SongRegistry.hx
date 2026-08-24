@@ -502,7 +502,7 @@ class SongRegistry {
 
     private static function parseColorString(raw:String):Null<FlxColor> {
         if (raw == null || raw.length == 0) return null;
-        return ColorUtil.fromHexSafe(raw, null);
+        return ColorUtil.tryFromHex(raw);
     }
 
     private static function getDefaultIcon(song:String):String {
