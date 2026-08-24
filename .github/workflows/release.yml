@@ -166,7 +166,7 @@ jobs:
           patched = patched.replace("___declspec(dllexport)", "__declspec(dllexport)")
           patched = re.sub(r"\b_+declspec\(dllexport\)", "__declspec(dllexport)", patched)
 
-          if "_declspec(dllexport)" in patched or "___declspec(dllexport)" in patched:
+          if re.search(r"(?<!_)_declspec\(dllexport\)|_{3,}declspec\(dllexport\)", patched):
             raise SystemExit("Lime System.hx still contains malformed declspec tokens after patch")
 
           if patched != content:

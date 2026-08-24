@@ -3,6 +3,10 @@
     <category name="Engine Developers" color="0xFF00FFCC">
         <dev name="JustyyDev" role="Main Programmer &amp; Engine Architect" icon="dev_justy" color="0xFF9900FF" link="https://github.com/JustyyDev" />
     </category>
+    <category name="Contributors" color="0xFF00FFCC">
+        <dev name="Cryoptera" role="Programmer &amp; Playtester" icon="con_cryo" color="0xFF9900FF" link="https://github.com/Cryoptera" />
+        <dev name="Kilnec" role="Idea for the Freeplay Shuffle &amp; Playtester" icon="con_kilnec" color="0xFFB1BCA0" link="https://www.twitch.tv/kilnec" />
+    </category>
     <category name="Special Thanks" color="0xFFFFD700">
         <dev name="FNF Community" role="Inspiration &amp; Assets" icon="face" color="0xFFFFFFFF" link="" />
     </category>
