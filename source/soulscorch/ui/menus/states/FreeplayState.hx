@@ -442,12 +442,8 @@ class FreeplayState extends MusicBeatState {
                 alphabet.targetY = offset;
 
                 if (itemSlotIndices[slot] != songIndex) {
-                    // Song names are navigation data and should remain immediately readable.
-                    if (offset == 0 && !shuffleActive && isShuffleTitleScrambleEnabled() && change != 0) {
-                        alphabet.scrambleTo(safeSongTitle(song), 0.014);
-                    } else {
-                        alphabet.text = safeSongTitle(song);
-                    }
+                    // Song names should update directly here; shuffle owns the animated reveal path.
+                    alphabet.text = safeSongTitle(song);
                     icon.changeIcon(safeSongCharacter(song));
                     itemSlotIndices[slot] = songIndex;
 

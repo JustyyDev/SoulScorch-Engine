@@ -199,14 +199,24 @@ class XMSoul {
         }
 
         var rawText:String = null;
+        var isAbsolutePath:Bool = clean.indexOf(":") != -1 || StringTools.startsWith(clean, "/");
+
+        if (!isAbsolutePath) {
+            var resolved = AssetResolver.resolveFile(clean, [".xmsoul", ".xml", ""]);
+            if (resolved != null) {
+                try {
+                    rawText = AssetResolver.getText(resolved);
+                } catch (e:Dynamic) {}
+            }
+        }
 
         #if sys
-        if (FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) {
+        if (rawText == null && FileSystem.exists(clean) && !FileSystem.isDirectory(clean)) {
             try { rawText = File.getContent(clean); } catch (e:Dynamic) {}
         }
         #end
 
-        if (rawText == null) {
+        if (rawText == null && isAbsolutePath) {
             var resolved = AssetResolver.resolveFile(clean, [".xmsoul", ".xml", ""]);
             if (resolved != null) {
                 rawText = AssetResolver.getText(resolved);

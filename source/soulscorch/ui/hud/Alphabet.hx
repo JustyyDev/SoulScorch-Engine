@@ -354,6 +354,8 @@ class Alphabet extends FlxSpriteGroup {
         isTyping = false;
         fullTextBuffer = "";
         visibleCharCount = 0;
+        letterTextIndices = [];
+        _rowLetters = [[]];
 
         // Rebuild even when the string is unchanged if a scramble was active,
         // because the visible glyphs may still contain temporary characters.
@@ -401,6 +403,9 @@ class Alphabet extends FlxSpriteGroup {
 
     private function updateScramble():Void {
         for (i in 0...letters.length) {
+            if (i >= letterTextIndices.length) {
+                break;
+            }
             var letter = letters[i];
             var textIndex = letterTextIndices[i];
             if (textIndex < visibleCharCount) {
@@ -416,7 +421,7 @@ class Alphabet extends FlxSpriteGroup {
             }
         }
         // Re-align once the reveal completes so centered/right text settles cleanly.
-        if (visibleCharCount >= fullTextBuffer.length) {
+        if (visibleCharCount >= fullTextBuffer.length && _rowLetters != null) {
             applyAlignment(_rowLetters);
         }
     }
@@ -433,6 +438,13 @@ class Alphabet extends FlxSpriteGroup {
 
     private function createAlphabet(targetText:String):Void {
         if (targetText == null) targetText = "";
+
+        // Rebuild from a clean slate so pooled menu titles cannot retain stale
+        // letter sprites, rows, or timer state from a previous string.
+        clearLetters();
+        _rowLetters = [[]];
+        fullTextBuffer = targetText;
+        visibleCharCount = 0;
 
         var curX:Float = 0;
         var curY:Float = 0;
