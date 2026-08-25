@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<noteSkin name="default" type="sparrow" sprite="NOTE_assets" scale="0.7" antialiasing="true">
+<noteSkin name="default" type="sparrow" sprite="ui/game/notes/default" scale="0.5" antialiasing="true">
     <strums>
         <strum lane="0" static="arrowLEFT" press="left press" confirm="left confirm" />
         <strum lane="1" static="arrowDOWN" press="down press" confirm="down confirm" />

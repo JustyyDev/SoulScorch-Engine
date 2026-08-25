@@ -259,10 +259,7 @@ class Note extends FlxSprite {
     }
 
     private function resizeSustainEnd(songSpeed:Float):Void {
-        var stepHeight:Float = Conductor.stepCrochet * 0.45 * songSpeed * multSpeed;
-        var baseHeight:Float = (frameHeight > 0) ? frameHeight : 44.0;
-        var endScaleY:Float = Math.max(skinScale, (stepHeight + SUSTAIN_OVERLAP) / baseHeight);
-        scale.set(skinScale, endScaleY);
+        scale.set(skinScale, skinScale);
         updateHitbox();
         lastSustainSpeed = songSpeed * multSpeed;
     }
