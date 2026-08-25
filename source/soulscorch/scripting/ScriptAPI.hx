@@ -8,7 +8,7 @@ import soulscorch.gameplay.PlayState;
 import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.backend.system.modules.github.GitHubModule;
+import soulscorch.backend.system.modules.github.GithubModule.GitHubModule;
 import soulscorch.backend.system.modules.discord.DiscordRichPresenceExtensions;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
