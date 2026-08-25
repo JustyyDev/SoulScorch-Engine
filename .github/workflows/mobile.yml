@@ -323,14 +323,11 @@ jobs:
               print("Patched ConsoleUtil:", console_util)
           '
 
-      - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DSOULSCORCH_LUA -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS -DNO_SIGNING -DCODE_SIGNING_ALLOWED=NO -DCODE_SIGNING_REQUIRED=NO ${{ env.SOULSCORCH_EXTRA_DEFS }}
+      - name: Generate Unsigned iOS Xcode Project
+        run: haxelib run lime update ios -release -DNO_PRELOAD_ALL -DSOULSCORCH_LUA -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           HXCPP_COMPILE_THREADS: 8
           HXCPP_CXXFLAGS: -Wno-unused-command-line-argument
-          CODE_SIGNING_ALLOWED: NO
-          CODE_SIGNING_REQUIRED: NO
-          DEVELOPMENT_TEAM: ""
 
       - name: Locate Xcode Project Output
         id: stage_xcode

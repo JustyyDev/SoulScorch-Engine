@@ -4,13 +4,6 @@ import soulscorch.backend.system.modules.Module.ModuleBase;
 import soulscorch.backend.system.engine.Version;
 import soulscorch.backend.utils.Logger;
 
-#if (cpp && !neko)
-import hxdiscord_rpc.Discord;
-import hxdiscord_rpc.Types;
-import sys.thread.Mutex;
-import sys.thread.Thread;
-#end
-
 class DiscordRichPresenceExtensions extends ModuleBase {
     public static var instance:DiscordRichPresenceExtensions;
 
