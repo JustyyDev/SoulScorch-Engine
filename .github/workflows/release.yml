@@ -197,8 +197,7 @@ jobs:
           for candidate in \
             "$LIME_PATH/ndll/MacArm64/lime.ndll" \
             "$LIME_PATH/ndll/macarm64/lime.ndll" \
-            "$LIME_PATH/ndll/arm64/lime.ndll" \
-            "$LIME_PATH/ndll/Mac64/lime.ndll"; do
+            "$LIME_PATH/ndll/arm64/lime.ndll"; do
             if [ -f "$candidate" ]; then
               case "$candidate" in
                 *MacArm64/*|*macarm64/*|*arm64/*)
@@ -289,21 +288,15 @@ jobs:
                   elif target == "mac" and (any(d.endswith(".app") for d in dirs) or any(f.endswith(".app") for f in files) or "mac" in root.lower()):
                       candidates.append(root)
                   elif target == "linux" and any(f == "SoulScorch" and os.access(os.path.join(root, f), os.X_OK) for f in files):
-                      candidates.append(root)
-
-          for c in candidates:
-              if target in c.lower() or (target == "mac" and "macos" in c.lower()):
-                  found_dir = c
-                  break
-
-          if not found_dir and candidates:
+                            if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
               found_dir = candidates[0]
 
           if not found_dir:
               for s_root in search_roots:
                   if not os.path.exists(s_root): continue
                   for root, dirs, files in os.walk(s_root):
-                      if os.path.basename(root) == "bin" and "obj" not in root and "haxe" not in root:
+                              echo "Error: arm64 lime.ndll could not be located."
+                              exit 1
                           found_dir = root
                           break
 

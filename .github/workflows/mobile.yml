@@ -286,8 +286,7 @@ jobs:
           for candidate in \
             "$LIME_PATH/ndll/MacArm64/lime.ndll" \
             "$LIME_PATH/ndll/macarm64/lime.ndll" \
-            "$LIME_PATH/ndll/arm64/lime.ndll" \
-            "$LIME_PATH/ndll/Mac64/lime.ndll"; do
+            "$LIME_PATH/ndll/arm64/lime.ndll"; do
             if [ -f "$candidate" ]; then
               case "$candidate" in
                 *MacArm64/*|*macarm64/*|*arm64/*)
@@ -373,21 +372,15 @@ jobs:
                 break
             if found_dir:
               break
-
-          if not found_dir:
-              print("Error: Could not locate Xcode project directory.")
-              sys.exit(1)
-
-          print(f"Staging iOS build from: {found_dir} -> {staging_dir}")
-          if os.path.exists(staging_dir):
-              shutil.rmtree(staging_dir)
+                        if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
           os.makedirs(staging_dir, exist_ok=True)
 
           for item in os.listdir(found_dir):
               s = os.path.join(found_dir, item)
               d = os.path.join(staging_dir, item)
               if os.path.isdir(s):
-                  shutil.copytree(s, d, dirs_exist_ok=True)
+                          echo "Error: arm64 lime.ndll could not be located."
+                          exit 1
               else:
                   shutil.copy2(s, d)
 
