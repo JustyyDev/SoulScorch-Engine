@@ -194,16 +194,20 @@ jobs:
 
           # 2. Resolve an arm64 Lime NDLL and ignore any x86_64 host copy.
           LIME_NDLL_PATH=""
-          if [ -f "$LIME_PATH/ndll/MacArm64/lime.ndll" ] && file "$LIME_PATH/ndll/MacArm64/lime.ndll" | grep -Eq 'arm64|arm64e'; then
-            LIME_NDLL_PATH="$LIME_PATH/ndll/MacArm64"
-          elif [ -f "$LIME_PATH/ndll/Mac64/lime.ndll" ] && file "$LIME_PATH/ndll/Mac64/lime.ndll" | grep -Eq 'arm64|arm64e'; then
-            LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
-          else
-            FOUND_ARM64_NDLL="$(find "$LIME_PATH/ndll" -name 'lime.ndll' -type f 2>/dev/null | while read -r candidate; do file "$candidate" | grep -Eq 'arm64|arm64e' && dirname "$candidate" && break; done)"
-            if [ -n "$FOUND_ARM64_NDLL" ]; then
-              LIME_NDLL_PATH="$FOUND_ARM64_NDLL"
+          for candidate in \
+            "$LIME_PATH/ndll/MacArm64/lime.ndll" \
+            "$LIME_PATH/ndll/macarm64/lime.ndll" \
+            "$LIME_PATH/ndll/arm64/lime.ndll" \
+            "$LIME_PATH/ndll/Mac64/lime.ndll"; do
+            if [ -f "$candidate" ]; then
+              case "$candidate" in
+                *MacArm64/*|*macarm64/*|*arm64/*)
+                  LIME_NDLL_PATH="$(dirname "$candidate")"
+                  break
+                  ;;
+              esac
             fi
-          fi
+          done
 
           if [ -z "$LIME_NDLL_PATH" ]; then
             echo "Host arm64 lime.ndll missing or invalid architecture. Building lime NDLL from source for mac arm64..."
