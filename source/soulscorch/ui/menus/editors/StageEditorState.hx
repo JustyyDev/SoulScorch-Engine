@@ -115,6 +115,9 @@ class StageEditorState extends MusicBeatState {
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 50;
+    private static inline var AUTOSAVE_INTERVAL:Float = 45.0;
+    private var autosaveTimer:Float = 0.0;
+    private var dirtySinceAutosave:Bool = false;
 
     public function new(?stageName:String = "stage") {
         super();
@@ -135,7 +138,12 @@ class StageEditorState extends MusicBeatState {
         dragStartMouse = FlxPoint.get(0, 0);
         boxStartPoint = FlxPoint.get(0, 0);
 
-        var bgGrid = new FlxSprite().makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
+        var bgGrid = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bgGrid, "ui/menubgs/menuEditors")) {
+            bgGrid.makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
+        }
+        bgGrid.setGraphicSize(Std.int(bgGrid.width * 1.2));
+        bgGrid.updateHitbox();
         bgGrid.screenCenter();
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
@@ -395,7 +403,7 @@ class StageEditorState extends MusicBeatState {
         topBar.addAction("Exit (Esc)", function() MusicBeatState.switchState(new MainMenuState()));
         add(topBar);
 
-        hierarchyWindow = new EditorWindow(15, 45, 290, 420, "Stage Tree & Props");
+        hierarchyWindow = new EditorWindow(15, 56, 290, 420, "Stage Tree & Props");
         hierarchyWindow.cameras = [camUI];
         add(hierarchyWindow);
 
@@ -422,7 +430,7 @@ class StageEditorState extends MusicBeatState {
         var btnDup = new EditorButton(10, 380, 270, 26, "Duplicate Prop (Ctrl+D)", duplicateCurrentProp);
         hierarchyWindow.addElement(btnDup);
 
-        transformWindow = new EditorWindow(FlxG.width - 305, 45, 290, 240, "Transform & Parallax");
+        transformWindow = new EditorWindow(FlxG.width - 305, 56, 290, 240, "Transform & Parallax");
         transformWindow.cameras = [camUI];
         add(transformWindow);
 
@@ -627,6 +635,8 @@ class StageEditorState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+
+        updateAutosave(elapsed);
 
         if (isParallaxTesting) {
             parallaxTimer += elapsed * 1.5;
@@ -1050,6 +1060,27 @@ class StageEditorState extends MusicBeatState {
         undoStack.push(Json.stringify(stageData));
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
         redoStack = [];
+        dirtySinceAutosave = true;
+    }
+
+    private function updateAutosave(elapsed:Float):Void {
+        #if sys
+        if (!dirtySinceAutosave || stageData == null) return;
+        autosaveTimer += elapsed;
+        if (autosaveTimer < AUTOSAVE_INTERVAL) return;
+        autosaveTimer = 0.0;
+        dirtySinceAutosave = false;
+
+        try {
+            var dir = "autosaves/stages";
+            if (!FileSystem.exists("autosaves")) FileSystem.createDirectory("autosaves");
+            if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+            File.saveContent('$dir/${curStage}_autosave.json', Json.stringify(stageData, "\t"));
+            EditorToast.show("Stage autosaved.");
+        } catch (e:Dynamic) {
+            Logger.warn('Stage autosave failed: $e', "editor");
+        }
+        #end
     }
 
     private function undo():Void {

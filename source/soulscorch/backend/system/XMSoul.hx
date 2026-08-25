@@ -186,6 +186,24 @@ typedef XMSoulSongModifiers = {
     var maxHealth:Float;
 }
 
+typedef XMSoulIconConfig = {
+    var frameCount:Int;
+    var normalFrame:Int;
+    var losingFrame:Int;
+    var winningFrame:Int;
+    var targetSize:Float;
+    var minScale:Float;
+    var maxScale:Float;
+    var antialiasing:Bool;
+    var bopIntensity:Float;
+    var bopSpeed:Float;
+    var rotationBop:Float;
+    var offsetX:Float;
+    var offsetY:Float;
+    var pulseOnLowHealth:Bool;
+    var scale:Float;
+}
+
 class XMSoul {
     private static var cache:Map<String, Access> = new Map<String, Access>();
 
@@ -368,6 +386,33 @@ class XMSoul {
             if (!Math.isNaN(v)) floatArr.push(v);
         }
         return floatArr;
+    }
+
+    public static function loadIconConfig(path:String):Null<XMSoulIconConfig> {
+        var doc = parse(path, true, false);
+        if (doc == null) return null;
+        var iconNode = doc.hasNode.resolve("icon") ? doc.node.resolve("icon") : doc;
+
+        var frames = getIntAttr(iconNode, "frames", getIntAttr(iconNode, "frameCount", 0));
+        var defaultNormal = frames >= 3 ? 1 : 0;
+        var defaultLosing = frames >= 3 ? 2 : (frames == 2 ? 1 : 0);
+        return {
+            frameCount: frames,
+            normalFrame: getIntAttr(iconNode, "normalFrame", getIntAttr(iconNode, "normal", defaultNormal)),
+            losingFrame: getIntAttr(iconNode, "losingFrame", getIntAttr(iconNode, "losing", defaultLosing)),
+            winningFrame: getIntAttr(iconNode, "winningFrame", getIntAttr(iconNode, "winning", 0)),
+            targetSize: getFloatAttr(iconNode, "targetSize", 150.0),
+            minScale: getFloatAttr(iconNode, "minScale", 0.5),
+            maxScale: getFloatAttr(iconNode, "maxScale", 2.0),
+            antialiasing: getBoolAttr(iconNode, "antialiasing", true),
+            bopIntensity: getFloatAttr(iconNode, "bopIntensity", 1.2),
+            bopSpeed: getFloatAttr(iconNode, "bopSpeed", 12.0),
+            rotationBop: getFloatAttr(iconNode, "rotationBop", 4.0),
+            offsetX: getFloatAttr(iconNode, "offsetX", 0.0),
+            offsetY: getFloatAttr(iconNode, "offsetY", 0.0),
+            pulseOnLowHealth: getBoolAttr(iconNode, "pulseOnLowHealth", true),
+            scale: getFloatAttr(iconNode, "scale", 1.0)
+        };
     }
 
     // ==========================================

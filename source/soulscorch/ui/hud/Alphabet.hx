@@ -308,6 +308,12 @@ class Alphabet extends FlxSpriteGroup {
     public var changeY:Bool = true;
     public var alignment:Alignment = LEFT;
     public var bold:Bool = false;
+    public var textEffect:String = "none";
+    public var effectSpeed:Float = 90.0;
+    public var effectSaturation:Float = 0.85;
+    public var effectLightness:Float = 0.62;
+    private var effectTime:Float = 0.0;
+    private var textColor:FlxColor = FlxColor.WHITE;
 
     public var xAdd:Float = 0;
     public var yAdd:Float = 0;
@@ -363,6 +369,27 @@ class Alphabet extends FlxSpriteGroup {
         text = newText;
         createAlphabet(text);
         return text;
+    }
+
+    public function setTextColor(newColor:FlxColor):Void {
+        textColor = newColor;
+        color = newColor;
+        for (letter in letters) letter.color = newColor;
+    }
+
+    public function setEffect(effect:String, speed:Float = 90.0):Void {
+        textEffect = effect != null ? effect.toLowerCase().trim() : "none";
+        effectSpeed = Math.max(0.0, speed);
+        updateTextEffect(0.0);
+    }
+
+    public function clearEffect():Void {
+        textEffect = "none";
+        updateTextEffect(0.0);
+    }
+
+    public function setGlyphShader(shader:Dynamic):Void {
+        for (letter in letters) letter.shader = shader;
     }
 
     // The "cool" randomized character intro. Reuses the existing letter sprites and only
@@ -439,9 +466,8 @@ class Alphabet extends FlxSpriteGroup {
     private function createAlphabet(targetText:String):Void {
         if (targetText == null) targetText = "";
 
-        // Rebuild from a clean slate so pooled menu titles cannot retain stale
-        // letter sprites, rows, or timer state from a previous string.
-        clearLetters();
+        // Rebuild layout while keeping existing glyph sprites alive. Menus and
+        // scramble effects can update text often, so this avoids needless churn.
         _rowLetters = [[]];
         fullTextBuffer = targetText;
         visibleCharCount = 0;
@@ -530,6 +556,9 @@ class Alphabet extends FlxSpriteGroup {
     }
 
     override public function update(elapsed:Float):Void {
+        effectTime += elapsed;
+        updateTextEffect(elapsed);
+
         if (isMenuItem && changeX && changeY && tracker == null) {
             // If FreeplayState is already controlling x, y and targetY lerp directly,
             // skip the redundant duplicate lerp calculation here.
@@ -557,6 +586,38 @@ class Alphabet extends FlxSpriteGroup {
         }
 
         super.update(elapsed);
+    }
+
+    private function updateTextEffect(elapsed:Float):Void {
+        if (letters == null || letters.length == 0) return;
+
+        switch (textEffect) {
+            case "rainbow" | "spectrum":
+                for (i in 0...letters.length) {
+                    var hue = (effectTime * effectSpeed + i * 22.0) % 360.0;
+                    letters[i].color = FlxColor.fromHSL(hue, effectSaturation, effectLightness);
+                }
+            case "pulse" | "glow":
+                var pulse = 0.82 + Math.sin(effectTime * Math.max(1.0, effectSpeed * 0.04)) * 0.18;
+                for (letter in letters) letter.color = FlxColor.fromRGB(
+                    Std.int(textColor.red * pulse),
+                    Std.int(textColor.green * pulse),
+                    Std.int(textColor.blue * pulse),
+                    textColor.alpha
+                );
+            case "warm":
+                for (i in 0...letters.length) {
+                    var warm = 0.5 + Math.sin(effectTime * 3.0 + i * 0.5) * 0.25;
+                    letters[i].color = FlxColor.fromRGB(255, Std.int(120 + warm * 100), 45, textColor.alpha);
+                }
+            case "cool":
+                for (i in 0...letters.length) {
+                    var cool = 0.5 + Math.sin(effectTime * 3.0 + i * 0.5) * 0.25;
+                    letters[i].color = FlxColor.fromRGB(55, Std.int(160 + cool * 80), 255, textColor.alpha);
+                }
+            default:
+                for (letter in letters) letter.color = textColor;
+        }
     }
 
     override public function destroy():Void {

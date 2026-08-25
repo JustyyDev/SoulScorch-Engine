@@ -127,6 +127,18 @@ class Main {
 					"",
 					"-O | --no-old : No Old file will be created.",
 				].join("\n")
+			},
+			{
+				names: ["validate-mods", "validate-mod"],
+				doc: "Checks mod folders for missing config, icons, scripts, and dependencies.",
+				func: ValidateMods.main,
+				dDoc: [
+					"Usage: validate-mods <optional mods folder>",
+					"",
+					"Examples:",
+					"validate-mods",
+					"validate-mods mods"
+				].join("\n")
 			}
 		];
 	}

@@ -82,7 +82,13 @@ class StoryMenuState extends MusicBeatState {
 
         loadWeeks();
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        var bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuBGBlue")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
         bg.scrollFactor.set(0, 0);
         add(bg);
 
@@ -118,9 +124,9 @@ class StoryMenuState extends MusicBeatState {
             var weekSpriteKey = (week.sprite != null && week.sprite.length > 0) ? week.sprite : week.id;
 
             var sprTitle = new FlxSprite(0, (i * 105) + 420);
-            var loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/$weekSpriteKey');
+            var loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/weeks/$weekSpriteKey');
+            if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/$weekSpriteKey');
             if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, 'storymenu/$weekSpriteKey');
-            if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, 'ui/storymenu/weeks/$weekSpriteKey');
             if (!loaded) loaded = AssetHelper.loadGraphicSafely(sprTitle, weekSpriteKey);
 
             if (loaded) {

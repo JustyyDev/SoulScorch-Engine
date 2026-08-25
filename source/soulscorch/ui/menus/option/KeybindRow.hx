@@ -39,6 +39,10 @@ class KeybindRow extends FlxSpriteGroup {
         activeIndicator.alpha = 0.0;
         add(activeIndicator);
 
+        var keyRail = new FlxSprite(width * 0.45, 43).makeGraphic(Std.int((width * 0.55) - 20), 2, EditorTheme.PANEL_BORDER);
+        keyRail.alpha = 0.55;
+        add(keyRail);
+
         // FNF-style Alphabet label
         label = new Alphabet(22, 0, displayName, false);
         label.targetY = 0;

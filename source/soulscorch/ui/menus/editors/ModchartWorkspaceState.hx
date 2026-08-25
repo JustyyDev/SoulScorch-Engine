@@ -143,6 +143,10 @@ class ModchartWorkspaceState extends MusicBeatState {
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 50;
+    private static inline var AUTOSAVE_INTERVAL:Float = 45.0;
+    private static inline var MAX_PREVIEW_NOTES:Int = 96;
+    private var autosaveTimer:Float = 0.0;
+    private var dirtySinceAutosave:Bool = false;
 
     override public function create():Void {
         super.create();
@@ -153,7 +157,14 @@ class ModchartWorkspaceState extends MusicBeatState {
 
         setupCameras();
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        var bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuEditors")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuContrast")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = 0xFF202635;
         bg.scrollFactor.set(0, 0);
         add(bg);
 
@@ -223,7 +234,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         add(topBar);
 
         // --- 1. Parameter Matrix Panel (Left Top) ---
-        matrixWindow = new EditorWindow(15, 45, 290, 390, "Matrix Parameters (W/S/Arrows)");
+        matrixWindow = new EditorWindow(15, 56, 290, 390, "Matrix Parameters (W/S/Arrows)");
         matrixWindow.cameras = [camUI];
         add(matrixWindow);
 
@@ -253,7 +264,7 @@ class ModchartWorkspaceState extends MusicBeatState {
         graphOscilloscopeWindow.addElement(formulaTxt);
 
         // --- 3. Keyframe Sequencer & Timeline (Right Top) ---
-        timelineWindow = new EditorWindow(FlxG.width - 325, 45, 310, 310, "Keyframe Sequencer");
+        timelineWindow = new EditorWindow(FlxG.width - 325, 56, 310, 310, "Keyframe Sequencer");
         timelineWindow.cameras = [camUI];
         add(timelineWindow);
 
@@ -345,6 +356,8 @@ class ModchartWorkspaceState extends MusicBeatState {
 
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
+
+        updateAutosave(elapsed);
 
         simSongTime += elapsed * 1000.0 * (scrollSpeed * 0.5);
 
@@ -691,7 +704,7 @@ class ModchartWorkspaceState extends MusicBeatState {
 
     private function spawnContinuousTestNotes(elapsed:Float):Void {
         spawnTimer += elapsed;
-        if (spawnTimer >= (0.35 / scrollSpeed)) {
+        if (spawnTimer >= (0.35 / scrollSpeed) && fallingNotesGroup.length < MAX_PREVIEW_NOTES) {
             spawnTimer = 0.0;
             var lane = FlxG.random.int(0, 3);
             var def = playerDefaultPositions[lane];
@@ -777,6 +790,27 @@ class ModchartWorkspaceState extends MusicBeatState {
         undoStack.push(Json.stringify(data));
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
         redoStack = [];
+        dirtySinceAutosave = true;
+    }
+
+    private function updateAutosave(elapsed:Float):Void {
+        #if sys
+        if (!dirtySinceAutosave) return;
+        autosaveTimer += elapsed;
+        if (autosaveTimer < AUTOSAVE_INTERVAL) return;
+        autosaveTimer = 0.0;
+        dirtySinceAutosave = false;
+
+        try {
+            var dir = "autosaves/modcharts";
+            if (!FileSystem.exists("autosaves")) FileSystem.createDirectory("autosaves");
+            if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+            File.saveContent('$dir/modchart_workspace_autosave.json', Json.stringify({keyframes: keyframes}, "\t"));
+            EditorToast.show("Modchart autosaved.");
+        } catch (e:Dynamic) {
+            EditorToast.show("Modchart autosave failed.", true);
+        }
+        #end
     }
 
     private function undo():Void {

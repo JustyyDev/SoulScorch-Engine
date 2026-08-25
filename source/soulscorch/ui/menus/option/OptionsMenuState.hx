@@ -63,7 +63,14 @@ class OptionsMenuState extends MusicBeatState {
 
         initCategories();
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuBGBlue")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = 0xFF5B82F9;
         bg.scrollFactor.set(0, 0);
         add(bg);
 

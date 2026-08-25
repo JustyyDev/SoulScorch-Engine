@@ -7,10 +7,11 @@ import openfl.display.BitmapData;
 
 class EditorTheme {
     // --- Core surfaces ---
-    public static inline var BG_DARK:FlxColor = 0xFF101417;
-    public static inline var PANEL_BG:FlxColor = 0xF21A2024;
-    public static inline var PANEL_HEADER:FlxColor = 0xFF222A2F;
-    public static inline var PANEL_BORDER:FlxColor = 0xFF3A474E;
+    public static inline var BG_DARK:FlxColor = 0xFF0D1113;
+    public static inline var PANEL_BG:FlxColor = 0xF2192024;
+    public static inline var PANEL_HEADER:FlxColor = 0xFF20292E;
+    public static inline var PANEL_BORDER:FlxColor = 0xFF405059;
+    public static inline var PANEL_INSET:FlxColor = 0xFF12181B;
 
     // --- Accents ---
     public static inline var ACCENT_CYAN:FlxColor = 0xFF35D0BA;
@@ -18,10 +19,11 @@ class EditorTheme {
     public static inline var ACCENT_PURPLE:FlxColor = 0xFF9B8AFB;
     public static inline var ACCENT_YELLOW:FlxColor = 0xFFF4C95D;
     public static inline var ACCENT_BLUE:FlxColor = 0xFF64A8FF;
+    public static inline var ACCENT_GREEN:FlxColor = 0xFF84E06D;
 
     // --- Buttons ---
-    public static inline var BTN_IDLE:FlxColor = 0xFF252D32;
-    public static inline var BTN_HOVER:FlxColor = 0xFF303B41;
+    public static inline var BTN_IDLE:FlxColor = 0xFF222A2F;
+    public static inline var BTN_HOVER:FlxColor = 0xFF2D3940;
     public static inline var BTN_ACTIVE:FlxColor = 0xFF35D0BA;
 
     // --- Text ---
@@ -39,6 +41,16 @@ class EditorTheme {
     public static inline var CORNER_SM:Int = 6;
     public static inline var CORNER_MD:Int = 8;
     public static inline var CORNER_LG:Int = 8;
+    public static inline var TOP_BAR_HEIGHT:Int = 48;
+    public static inline var WINDOW_HEADER_HEIGHT:Int = 34;
+    public static inline var CONTENT_PAD:Int = 10;
+
+    public static function clampLabel(text:String, maxChars:Int):String {
+        if (text == null) return "";
+        if (text.length <= maxChars) return text;
+        if (maxChars <= 3) return text.substr(0, maxChars);
+        return text.substr(0, maxChars - 3) + "...";
+    }
 
     /**
      * Creates a FlxSprite containing a rounded-rectangle filled with `color`.
@@ -86,6 +98,19 @@ class EditorTheme {
         shape.graphics.drawCircle(size * 0.5, size * 0.5, size * 0.5);
         shape.graphics.endFill();
         bmd.draw(shape);
+        spr.loadGraphic(bmd);
+        return spr;
+    }
+
+    public static function makePanelGrid(width:Int, height:Int, spacing:Int = 24):FlxSprite {
+        var spr = new FlxSprite();
+        var bmd = new BitmapData(width, height, true, 0x00000000);
+        for (x in 0...Std.int(width / spacing) + 1) {
+            for (y in 0...height) bmd.setPixel32(x * spacing, y, 0x08FFFFFF);
+        }
+        for (y in 0...Std.int(height / spacing) + 1) {
+            for (x in 0...width) bmd.setPixel32(x, y * spacing, 0x06FFFFFF);
+        }
         spr.loadGraphic(bmd);
         return spr;
     }

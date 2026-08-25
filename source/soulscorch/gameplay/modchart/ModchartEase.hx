@@ -12,8 +12,10 @@ class ModchartEase {
     public static function getEase(name:String):EaseFunction {
         if (name == null || name.length == 0) return FlxEase.linear;
 
-        return switch (name.toLowerCase().trim()) {
+        var clean = name.toLowerCase().trim().replace("_", "").replace("-", "").replace(" ", "");
+        return switch (clean) {
             case "linear": FlxEase.linear;
+            case "smooth" | "smoothstep": FlxEase.smoothStepInOut;
             case "sinein": FlxEase.sineIn;
             case "sineout": FlxEase.sineOut;
             case "sineinout": FlxEase.sineInOut;
@@ -41,6 +43,12 @@ class ModchartEase {
             case "bouncein": FlxEase.bounceIn;
             case "bounceout": FlxEase.bounceOut;
             case "bounceinout": FlxEase.bounceInOut;
+            case "quadraticin": FlxEase.quadIn;
+            case "quadraticout": FlxEase.quadOut;
+            case "quadraticinout": FlxEase.quadInOut;
+            case "cubicin": FlxEase.cubeIn;
+            case "cubicout": FlxEase.cubeOut;
+            case "cubicinout": FlxEase.cubeInOut;
             default: FlxEase.linear;
         };
     }

@@ -69,6 +69,10 @@ class UILayout extends FlxGroup {
                 }
 
                 if (node.has.alpha) spr.alpha = Std.parseFloat(node.att.alpha);
+                if (node.has.width && node.has.height) {
+                    spr.setGraphicSize(Std.parseInt(node.att.width), Std.parseInt(node.att.height));
+                    spr.updateHitbox();
+                }
                 if (node.has.antialiasing) spr.antialiasing = (node.att.antialiasing == "true");
 
                 sprites.set(id, spr);
@@ -87,8 +91,23 @@ class UILayout extends FlxGroup {
                 var isBold = node.has.bold ? (node.att.bold == "true") : false;
 
                 var alpha = new Alphabet(x, y, text, isBold);
+                if (node.has.scale) {
+                    var s = Std.parseFloat(node.att.scale);
+                    alpha.scale.set(s, s);
+                }
+                if (node.has.align) alpha.alignment = cast node.att.align;
                 alphabets.set(id, alpha);
                 add(alpha);
+
+            case "text":
+                var content = node.has.text ? node.att.text : "";
+                var size = node.has.size ? Std.parseInt(node.att.size) : 16;
+                var width = node.has.width ? Std.parseFloat(node.att.width) : 0;
+                var color = node.has.color ? ColorUtil.fromHexSafe(node.att.color, FlxColor.WHITE) : FlxColor.WHITE;
+                var txt = new FlxText(x, y, width, content, size);
+                txt.setFormat(Paths.font(node.has.font ? node.att.font : "vcr"), size, color);
+                sprites.set(id, cast txt);
+                add(txt);
         }
     }
 

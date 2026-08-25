@@ -18,11 +18,25 @@ using StringTools;
 
 class AssetResolver {
     public static var trackedSounds:Map<String, Sound> = new Map<String, Sound>();
+    public static var missingAssets:Map<String, Int> = new Map<String, Int>();
 
     public static function exists(path:String):Bool {
         if (path == null || path.trim().length == 0) return false;
         var resolved = resolveFile(path);
         return resolved != null;
+    }
+
+    public static function getMissingAssetReport():Array<String> {
+        var report:Array<String> = [];
+        for (path in missingAssets.keys()) {
+            report.push('$path (${missingAssets.get(path)}x)');
+        }
+        report.sort(function(a, b) return Reflect.compare(a, b));
+        return report;
+    }
+
+    public static function clearMissingAssetReport():Void {
+        missingAssets.clear();
     }
 
     public static function resolveFile(basePath:String, ?extensions:Array<String>):Null<String> {
@@ -155,6 +169,8 @@ class AssetResolver {
             return clean;
         }
 
+        var misses = missingAssets.exists(clean) ? missingAssets.get(clean) : 0;
+        missingAssets.set(clean, misses + 1);
         return null;
     }
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<icon name="senpai"
+      frames="3"
+      normalFrame="0"
+      losingFrame="1"
+      winningFrame="2"
+      targetSize="150"
+      scale="1.0"
+      minScale="0.5"
+      maxScale="2.0"
+      antialiasing="false"
+      bopIntensity="1.2"
+      bopSpeed="12"
+      rotationBop="4"
+      offsetX="0"
+      offsetY="0"
+      pulseOnLowHealth="true" />

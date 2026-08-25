@@ -32,6 +32,7 @@ class ModchartManager {
     public var lastUpdateMs(default, null):Float = 0.0;
     public var averageUpdateMs(default, null):Float = 0.0;
     public var peakUpdateMs(default, null):Float = 0.0;
+    private var modifierTweens:Array<FlxTween> = [];
     private var _updateSampleCount:Int = 0;
     private var _playerReceptorsCache:Array<Dynamic> = [];
     private var _opponentReceptorsCache:Array<Dynamic> = [];
@@ -156,9 +157,10 @@ class ModchartManager {
         var startVal = get(name, target, lane >= 0 ? lane : 0);
         var easeFn = ModchartEase.getEase(easeName);
 
-        FlxTween.num(startVal, targetVal, Math.max(0.001, duration), {ease: easeFn}, function(v:Float) {
+        var tween = FlxTween.num(startVal, targetVal, Math.max(0.001, duration), {ease: easeFn}, function(v:Float) {
             set(name, v, target, lane);
         });
+        modifierTweens.push(tween);
     }
 
     private function updateReceptors(target:ModTarget):Void {
@@ -179,6 +181,7 @@ class ModchartManager {
             receptor.y = baseY;
             receptor.angle = 0;
             receptor.alpha = 1.0;
+            receptor.scale.set(1.0, 1.0);
 
             for (mod in modifierList) {
                 if (mod.active) {
@@ -254,6 +257,10 @@ class ModchartManager {
     }
 
     public function clear():Void {
+        for (tween in modifierTweens) {
+            if (tween != null) tween.cancel();
+        }
+        modifierTweens = [];
         events = [];
         eventCursor = 0;
         _playerReceptorsCache = [];

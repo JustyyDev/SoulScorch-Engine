@@ -51,8 +51,13 @@ class NoteSkinManager {
         0xFFF9393F
     ];
 
+    public static inline function normalizeLane(lane:Int):Int {
+        var clean = lane % 4;
+        return clean < 0 ? clean + 4 : clean;
+    }
+
     public static inline function getLaneColor(lane:Int):FlxColor {
-        return defaultLaneColors[lane % 4];
+        return defaultLaneColors[normalizeLane(lane)];
     }
 
     public static function getSkinConfig(?skinName:String):NoteSkinConfig {
@@ -65,8 +70,8 @@ class NoteSkinManager {
         var config:NoteSkinConfig = {
             name: cleanSkin,
             type: "sparrow",
-            atlasPath: "NOTE_assets",
-            sustainPath: "NOTE_assets",
+            atlasPath: cleanSkin == "default" ? "ui/game/notes/default" : cleanSkin,
+            sustainPath: cleanSkin == "default" ? "ui/game/notes/default" : cleanSkin,
             scale: 0.7,
             antialiasing: true,
             sustainAlpha: 0.6,
@@ -107,7 +112,7 @@ class NoteSkinManager {
         if (access != null) {
             config.scale = XMSoul.getFloatAttr(access, "scale", 0.7);
             config.antialiasing = XMSoul.getBoolAttr(access, "antialiasing", true);
-            config.atlasPath = XMSoul.getAttr(access, "sprite", "NOTE_assets");
+            config.atlasPath = XMSoul.getAttr(access, "sprite", cleanSkin == "default" ? "ui/game/notes/default" : "NOTE_assets");
 
             if (access.hasNode.resolve("strums")) {
                 for (stNode in access.node.resolve("strums").nodes.resolve("strum")) {
@@ -155,6 +160,9 @@ class NoteSkinManager {
         }
 
         var atlas = Paths.getSparrowAtlas(targetSprite);
+        if (atlas == null && conf.name == "default") atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/default");
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
         if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
 
         if (atlas != null) {

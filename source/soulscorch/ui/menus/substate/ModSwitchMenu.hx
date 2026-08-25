@@ -70,7 +70,14 @@ class ModSwitchMenu extends MusicBeatSubstate {
         scripts = new ScriptManager();
         initModManagerScripts();
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuTransparent")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = FlxColor.BLACK;
         bg.alpha = 0.0;
         add(bg);
         FlxTween.tween(bg, {alpha: 0.85}, 0.35, {ease: FlxEase.quadOut});
@@ -98,7 +105,8 @@ class ModSwitchMenu extends MusicBeatSubstate {
         add(workshopBanner);
 
         selectorArrow = new FlxSprite(0, 0);
-        AssetHelper.loadGraphicSafely(selectorArrow, 'ui/campaign/arrow');
+        AssetHelper.loadGraphicSafely(selectorArrow, 'ui/storymenu/assets');
+        if (selectorArrow.width <= 1) AssetHelper.loadGraphicSafely(selectorArrow, 'ui/campaign/arrow');
         if (selectorArrow.width <= 1) {
             selectorArrow.makeGraphic(20, 20, EditorTheme.ACCENT_CYAN);
         }
@@ -204,6 +212,9 @@ class ModSwitchMenu extends MusicBeatSubstate {
             rowGroup.add(rBorder);
 
             var pill = new FlxSprite(14, 18).makeGraphic(6, 22, isEnabled ? EditorTheme.ACCENT_CYAN : EditorTheme.ACCENT_MAGENTA);
+            if (ModManager.validationWarnings.exists(modFolder)) {
+                pill.color = EditorTheme.ACCENT_YELLOW;
+            }
             rowGroup.add(pill);
             statusPills.push(pill);
 
@@ -359,12 +370,16 @@ class ModSwitchMenu extends MusicBeatSubstate {
         var curMod = modList[curSelected];
         var config:SoulModData = ModManager.modConfigs.get(curMod);
         var isEnabled = ModRegistry.instance.isEnabled(curMod);
+        var warnings = ModManager.validationWarnings.exists(curMod) ? ModManager.validationWarnings.get(curMod) : [];
 
         modTitleText.text = (config != null && config.name != null) ? config.name : curMod;
         versionBadge.text = 'VERSION: ' + ((config != null && config.version != null) ? config.version : "1.0.0");
         authorText.text = 'AUTHOR: ' + ((config != null && config.author != null) ? config.author : "Community Developer");
-        priorityText.text = 'LOAD PRIORITY: #${curSelected + 1}  •  STATUS: ${isEnabled ? "ENABLED" : "DISABLED"}';
+        priorityText.text = 'LOAD PRIORITY: #${curSelected + 1}  •  STATUS: ${isEnabled ? "ENABLED" : "DISABLED"}' + (warnings.length > 0 ? '  •  WARNINGS: ${warnings.length}' : "");
         descText.text = (config != null && config.description != null) ? config.description : "Standard SoulScorch module package.";
+        if (warnings.length > 0) {
+            descText.text += "\n\nVALIDATION WARNINGS:\n- " + warnings.join("\n- ");
+        }
         pathText.text = 'Path: mods/$curMod/';
 
         if (scripts != null) scripts.callAll("onChangeModSelection", [curSelected, curMod]);

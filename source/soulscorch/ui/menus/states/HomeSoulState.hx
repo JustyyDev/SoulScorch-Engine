@@ -64,7 +64,14 @@ class HomeSoulState extends MusicBeatState {
         DiscordRPC.changePresence("HomeSoulDB Workshop", "Browsing Community Packages");
         #end
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuEditors")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuContrast")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = 0xFF1F2932;
         bg.scrollFactor.set(0, 0);
         add(bg);
 

@@ -136,6 +136,7 @@ class Strumline extends FlxTypedGroup<StrumArrow> {
 
     public inline function getReceptor(direction:Int):Null<StrumArrow> {
         var cleanDir = direction % keyCount;
+        if (cleanDir < 0) cleanDir += keyCount;
         if (cleanDir >= 0 && cleanDir < receptors.length) {
             return receptors[cleanDir];
         }

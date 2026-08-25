@@ -9,7 +9,8 @@ class ComboNumber extends FlxSprite {
     public function new(x:Float, y:Float, digit:Int) {
         super(x, y);
 
-        var loaded = AssetHelper.loadGraphicSafely(this, 'ui/ratings/num$digit');
+        var loaded = AssetHelper.loadGraphicSafely(this, 'ui/game/score/num$digit');
+        if (!loaded) loaded = AssetHelper.loadGraphicSafely(this, 'ui/ratings/num$digit');
         if (!loaded) loaded = AssetHelper.loadGraphicSafely(this, 'ui/game/ratings/num$digit');
         if (!loaded) loaded = AssetHelper.loadGraphicSafely(this, 'ui/num$digit');
         if (!loaded) makeGraphic(24, 30, 0xFFFFFFFF);
@@ -26,5 +27,10 @@ class ComboNumber extends FlxSprite {
                 destroy();
             }
         });
+    }
+
+    override public function destroy():Void {
+        FlxTween.cancelTweensOf(this);
+        super.destroy();
     }
 }

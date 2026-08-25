@@ -29,7 +29,7 @@ class EditorButton extends FlxSpriteGroup {
 
     private static inline var COLOR_NORMAL:Int = EditorTheme.BTN_IDLE;
     private static inline var COLOR_HOVER:Int = EditorTheme.BTN_HOVER;
-    private static inline var COLOR_PRESS:Int = 0xFF171C1F;
+    private static inline var COLOR_PRESS:Int = 0xFF151B1E;
     private static inline var COLOR_DISABLED:Int = 0xFF171B1E;
 
     private var hoverTween:FlxTween;
@@ -58,11 +58,11 @@ class EditorButton extends FlxSpriteGroup {
         bg.setPosition(1, 1);
         add(bg);
 
-        // Accent bottom line indicator
-        accentLine = new FlxSprite(1, height - 2).makeGraphic(Std.int(width - 2), 1, EditorTheme.ACCENT_CYAN);
+        // Accent left rail indicator
+        accentLine = new FlxSprite(1, 1).makeGraphic(3, Std.int(height - 2), EditorTheme.ACCENT_CYAN);
         add(accentLine);
 
-        label = new FlxText(4, (height - 16) * 0.5 - 1, width - 8, labelText, 13);
+        label = new FlxText(9, (height - 16) * 0.5 - 1, width - 14, EditorTheme.clampLabel(labelText, Std.int(Math.max(8, width / 7))), 13);
         label.setFormat(Paths.font("vcr"), 13, EditorTheme.TEXT_PRIMARY, CENTER);
         add(label);
 
@@ -106,7 +106,7 @@ class EditorButton extends FlxSpriteGroup {
             if (FlxG.mouse.pressed) {
                 isPressed = true;
                 bg.color = COLOR_PRESS;
-                accentLine.color = 0xFF009977;
+                accentLine.color = EditorTheme.ACCENT_YELLOW;
                 border.color = 0xFF00FFCC;
             } else {
                 if (isPressed && FlxG.mouse.justReleased) {
@@ -115,7 +115,7 @@ class EditorButton extends FlxSpriteGroup {
                     if (onClick != null) onClick();
                 }
                 bg.color = COLOR_HOVER;
-                accentLine.color = 0xFF00FFFF;
+                accentLine.color = EditorTheme.ACCENT_CYAN;
                 border.color = 0xFF00FFCC;
             }
         } else {

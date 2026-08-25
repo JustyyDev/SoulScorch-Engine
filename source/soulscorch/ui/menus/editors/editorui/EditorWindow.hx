@@ -17,6 +17,8 @@ class EditorWindow extends FlxSpriteGroup {
     private var header:FlxSprite;
     private var border:FlxSprite;
     private var shadow:FlxSprite;
+    private var accentBar:FlxSprite;
+    private var dragHint:FlxText;
     private var titleTxt:FlxText;
     private var contentGroup:FlxSpriteGroup;
 
@@ -31,9 +33,9 @@ class EditorWindow extends FlxSpriteGroup {
         var w = Std.int(width);
         var h = Std.int(height);
 
-        shadow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 8);
+        shadow = EditorTheme.makeShadow(w, h, EditorTheme.CORNER_MD, 10);
         shadow.setPosition(2, 3);
-        shadow.alpha = 0.35;
+        shadow.alpha = 0.42;
         add(shadow);
 
         border = EditorTheme.makeRoundedRect(w + 2, h + 2, EditorTheme.PANEL_BORDER, EditorTheme.CORNER_MD);
@@ -43,17 +45,24 @@ class EditorWindow extends FlxSpriteGroup {
         bg = EditorTheme.makeRoundedRect(w, h, EditorTheme.PANEL_BG, EditorTheme.CORNER_MD);
         add(bg);
 
-        header = new FlxSprite(0, 0).makeGraphic(w, 32, EditorTheme.PANEL_HEADER);
+        header = new FlxSprite(0, 0).makeGraphic(w, EditorTheme.WINDOW_HEADER_HEIGHT, EditorTheme.PANEL_HEADER);
         add(header);
 
-        var accentLine = new FlxSprite(0, 31).makeGraphic(Std.int(width), 1, EditorTheme.PANEL_BORDER);
+        accentBar = new FlxSprite(0, 0).makeGraphic(4, EditorTheme.WINDOW_HEADER_HEIGHT, EditorTheme.ACCENT_CYAN);
+        add(accentBar);
+
+        var accentLine = new FlxSprite(0, EditorTheme.WINDOW_HEADER_HEIGHT - 1).makeGraphic(Std.int(width), 1, EditorTheme.PANEL_BORDER);
         add(accentLine);
 
-        titleTxt = new FlxText(12, 8, width - 24, title.toUpperCase(), 12);
+        titleTxt = new FlxText(12, 8, width - 72, EditorTheme.clampLabel(title.toUpperCase(), 42), 12);
         titleTxt.setFormat(Paths.font("vcr"), 12, EditorTheme.TEXT_PRIMARY, LEFT);
         add(titleTxt);
 
-        contentGroup = new FlxSpriteGroup(0, 34);
+        dragHint = new FlxText(width - 58, 9, 48, "DRAG", 9);
+        dragHint.setFormat(Paths.font("vcr"), 9, EditorTheme.TEXT_MUTED, RIGHT);
+        add(dragHint);
+
+        contentGroup = new FlxSpriteGroup(EditorTheme.CONTENT_PAD, EditorTheme.WINDOW_HEADER_HEIGHT + EditorTheme.CONTENT_PAD);
         add(contentGroup);
 
         dragOffset = FlxPoint.get(0, 0);
@@ -72,7 +81,7 @@ class EditorWindow extends FlxSpriteGroup {
         var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : FlxG.camera;
         var mousePos:FlxPoint = FlxG.mouse.getPositionInCameraView(cam);
 
-        if (FlxG.mouse.justPressed && mousePos.x >= x && mousePos.x <= x + windowWidth && mousePos.y >= y && mousePos.y <= y + 28) {
+        if (FlxG.mouse.justPressed && mousePos.x >= x && mousePos.x <= x + windowWidth && mousePos.y >= y && mousePos.y <= y + EditorTheme.WINDOW_HEADER_HEIGHT) {
             isDragging = true;
             dragOffset.set(mousePos.x - x, mousePos.y - y);
         }
@@ -91,7 +100,7 @@ class EditorWindow extends FlxSpriteGroup {
 
     private function set_title(val:String):String {
         title = val;
-        if (titleTxt != null) titleTxt.text = val.toUpperCase();
+        if (titleTxt != null) titleTxt.text = EditorTheme.clampLabel(val.toUpperCase(), 42);
         return val;
     }
 

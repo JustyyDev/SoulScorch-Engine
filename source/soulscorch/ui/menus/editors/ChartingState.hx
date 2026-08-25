@@ -73,6 +73,7 @@ class ChartingState extends MusicBeatState {
     private var inst:FlxSound;
     private var vocals:FlxSound;
     private var isPlaying:Bool = false;
+    private var playbackRate:Float = 1.0;
     private var hitsoundsEnabled:Bool = true;
     private var playedHitsounds:Map<Int, Bool> = new Map<Int, Bool>();
 
@@ -92,6 +93,8 @@ class ChartingState extends MusicBeatState {
     private var renderedNotesGroup:FlxTypedGroup<FlxSprite>;
     private var sustainNotesGroup:FlxTypedGroup<FlxSprite>;
     private var renderedEventsGroup:FlxTypedGroup<FlxSprite>;
+    private var laneHeaderGroup:FlxTypedGroup<FlxText>;
+    private var beatLabelGroup:FlxTypedGroup<FlxText>;
     private var receptorGroup:FlxSpriteGroup;
     private var gridCursor:FlxSprite;
     private var sectionIndicator:FlxSprite;
@@ -112,6 +115,9 @@ class ChartingState extends MusicBeatState {
     private var sectionClipboardNotes:Array<ChartEditorNote> = [];
     private var sectionClipboardEvents:Array<ChartEditorEvent> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 50;
+    private static inline var AUTOSAVE_INTERVAL:Float = 45.0;
+    private var autosaveTimer:Float = 0.0;
+    private var dirtySinceAutosave:Bool = false;
 
     // --- UI Modals & Panels ---
     private var topBar:EditorTopBar;
@@ -127,7 +133,9 @@ class ChartingState extends MusicBeatState {
     private var checkHitsounds:EditorCheckbox;
     private var infoText:FlxText;
     private var statsText:FlxText;
+    private var sectionOverviewText:FlxText;
     private var btnQuantization:EditorButton;
+    private var btnPlaybackRate:EditorButton;
 
     // Metadata Fields
     private var inputPlayer1:EditorInputText;
@@ -278,6 +286,11 @@ class ChartingState extends MusicBeatState {
             remove(gridGroup, true);
             gridGroup.destroy();
         }
+        if (beatLabelGroup != null) {
+            remove(beatLabelGroup, true);
+            beatLabelGroup.destroy();
+            beatLabelGroup = null;
+        }
 
         var totalCols = currentTotalLanes + 1;
         var totalGridW = totalCols * GRID_SIZE;
@@ -321,6 +334,17 @@ class ChartingState extends MusicBeatState {
         gridBG.loadGraphic(_cachedGridBitmap);
         gridGroup.add(gridBG);
 
+        beatLabelGroup = new FlxTypedGroup<FlxText>();
+        add(beatLabelGroup);
+        for (row in 0...STEPS_PER_SECTION) {
+            if (row % 4 == 0) {
+                var beat = Std.int(row / 4);
+                var label = new FlxText(gridGroup.x - 54, gridGroup.y + (row * GRID_SIZE) + 11, 48, 'B$beat', 10);
+                label.setFormat(Paths.font("vcr"), 10, row == 0 ? EditorTheme.ACCENT_YELLOW : EditorTheme.TEXT_MUTED, RIGHT);
+                beatLabelGroup.add(label);
+            }
+        }
+
         if (sustainNotesGroup == null) {
             sustainNotesGroup = new FlxTypedGroup<FlxSprite>();
             add(sustainNotesGroup);
@@ -348,9 +372,21 @@ class ChartingState extends MusicBeatState {
             remove(sectionIndicator, true);
             sectionIndicator.destroy();
         }
+        if (laneHeaderGroup != null) {
+            remove(laneHeaderGroup, true);
+            laneHeaderGroup.destroy();
+            laneHeaderGroup = null;
+        }
 
         receptorGroup = new FlxSpriteGroup(gridGroup.x + GRID_SIZE, gridGroup.y - GRID_SIZE - 10);
         add(receptorGroup);
+
+        laneHeaderGroup = new FlxTypedGroup<FlxText>();
+        add(laneHeaderGroup);
+
+        var eventLabel = new FlxText(gridGroup.x, gridGroup.y - GRID_SIZE - 30, GRID_SIZE, "EV", 10);
+        eventLabel.setFormat(Paths.font("vcr"), 10, EditorTheme.ACCENT_YELLOW, CENTER);
+        laneHeaderGroup.add(eventLabel);
 
         for (i in 0...currentTotalLanes) {
             var rec = new StrumArrow(i * GRID_SIZE, 0, i % 4, (i >= 4), false, NoteSkinManager.defaultSkin);
@@ -361,6 +397,17 @@ class ChartingState extends MusicBeatState {
             rec.updateHitbox();
             rec.alpha = 0.45;
             receptorGroup.add(rec);
+
+            var side = i < 4 ? "O" : "P";
+            var dir = switch (i % 4) {
+                case 0: "L";
+                case 1: "D";
+                case 2: "U";
+                default: "R";
+            };
+            var laneLabel = new FlxText(gridGroup.x + GRID_SIZE + (i * GRID_SIZE), gridGroup.y - GRID_SIZE - 30, GRID_SIZE, '$side$dir', 10);
+            laneLabel.setFormat(Paths.font("vcr"), 10, i < 4 ? EditorTheme.TEXT_MUTED : EditorTheme.ACCENT_CYAN, CENTER);
+            laneHeaderGroup.add(laneLabel);
         }
 
         var totalGridW = (currentTotalLanes + 1) * GRID_SIZE;
@@ -394,6 +441,7 @@ class ChartingState extends MusicBeatState {
         topBar = new EditorTopBar("CHART EDITOR");
         topBar.cameras = [camUI];
         topBar.addAction("Play", togglePlayback);
+        topBar.addAction("Rate", cyclePlaybackRate);
         topBar.addAction("Songs", function() toggleAuxiliaryWindow(songPickerModal));
         topBar.addAction("Meta", function() toggleAuxiliaryWindow(metadataWindow));
         topBar.addAction("Events", function() toggleAuxiliaryWindow(eventConfigWindow));
@@ -404,7 +452,7 @@ class ChartingState extends MusicBeatState {
         add(topBar);
 
         // --- Left Panel ---
-        songPropertiesWindow = new EditorWindow(15, 45, 260, 440, "Chart Setup");
+        songPropertiesWindow = new EditorWindow(15, 56, 260, 440, "Chart Setup");
         songPropertiesWindow.cameras = [camUI];
         add(songPropertiesWindow);
 
@@ -412,7 +460,7 @@ class ChartingState extends MusicBeatState {
         songPropertiesWindow.addElement(propertiesLayout);
 
         // --- Right Panel ---
-        sectionWindow = new EditorWindow(FlxG.width - 275, 45, 260, 380, "Section & Note Details");
+        sectionWindow = new EditorWindow(FlxG.width - 275, 56, 260, 380, "Section & Note Details");
         sectionWindow.cameras = [camUI];
         add(sectionWindow);
 
@@ -428,6 +476,12 @@ class ChartingState extends MusicBeatState {
         statsText = new FlxText(0, 0, 240, "", 11);
         statsText.setFormat(Paths.font("vcr"), 11, EditorTheme.ACCENT_CYAN, LEFT);
         sectionLayout.addItem(statsText, 42);
+
+        sectionLayout.addSection("Section Overview");
+
+        sectionOverviewText = new FlxText(0, 0, 240, "", 11);
+        sectionOverviewText.setFormat(Paths.font("vcr"), 11, EditorTheme.TEXT_MUTED, LEFT);
+        sectionLayout.addItem(sectionOverviewText, 68);
 
         sectionLayout.addSection("Selected Note");
 
@@ -465,6 +519,9 @@ class ChartingState extends MusicBeatState {
 
         btnQuantization = new EditorButton(0, 0, 240, 26, getQuantizationLabel(), cycleQuantization);
         propertiesLayout.addItem(btnQuantization, 26);
+
+        btnPlaybackRate = new EditorButton(0, 0, 240, 26, getPlaybackRateLabel(), cyclePlaybackRate);
+        propertiesLayout.addItem(btnPlaybackRate, 26);
 
         propertiesLayout.addSection("Section Tools");
 
@@ -658,6 +715,8 @@ class ChartingState extends MusicBeatState {
         var textInputWasFocused = isTextInputFocused();
         super.update(elapsed);
 
+        updateAutosave(elapsed);
+
         if (!textInputWasFocused) handleKeyboardShortcuts();
         handleMouseGridInput();
 
@@ -668,7 +727,7 @@ class ChartingState extends MusicBeatState {
                     vocals.time = inst.time;
                 }
             } else {
-                Conductor.songPosition += elapsed * 1000.0;
+                Conductor.songPosition += elapsed * 1000.0 * playbackRate;
             }
 
             var calculatedStep = Math.floor(Conductor.songPosition / Conductor.stepCrochet);
@@ -854,9 +913,9 @@ class ChartingState extends MusicBeatState {
     }
 
     private function updateSectionView():Void {
-        renderedNotesGroup.clear();
-        sustainNotesGroup.clear();
-        renderedEventsGroup.clear();
+        clearSpriteGroup(renderedNotesGroup);
+        clearSpriteGroup(sustainNotesGroup);
+        clearSpriteGroup(renderedEventsGroup);
 
         var sectionStartTime = curSection * STEPS_PER_SECTION * Conductor.stepCrochet;
         var sectionEndTime = (curSection + 1) * STEPS_PER_SECTION * Conductor.stepCrochet;
@@ -878,43 +937,36 @@ class ChartingState extends MusicBeatState {
             }
         }
 
-        // Render Notes in Columns 1..N using real note graphics (heads, holds, hold-ends)
+        // Render Notes in Columns 1..N using real gameplay note graphics, section-scoped for editor performance.
         for (n in chartNotes) {
-            if (n.time >= (sectionStartTime - 20) && n.time < (sectionEndTime - 10)) {
+            if (n.lane >= 0 && n.lane < currentTotalLanes && n.time >= (sectionStartTime - 20) && n.time < (sectionEndTime - 10)) {
                 var stepOffset = (n.time - sectionStartTime) / Conductor.stepCrochet;
                 var noteY = gridGroup.y + (stepOffset * GRID_SIZE);
                 var noteX = gridGroup.x + GRID_SIZE + (n.lane * GRID_SIZE);
                 var isSel = (n == curSelectedNote);
 
-                // --- Sustain trail (body + end cap) drawn behind the head ---
                 if (n.sustainLength > 0) {
                     var holdSteps = n.sustainLength / Conductor.stepCrochet;
-                    var holdHeight = holdSteps * GRID_SIZE;
+                    var holdHeight = Math.max(GRID_SIZE, holdSteps * GRID_SIZE);
 
-                    // End cap is sized to one grid cell and sits at the very bottom of the hold
+                    var holdBody = new Note(n.time, n.lane % 4, n.sustainLength, null, true, false, n.mustPress, n.type, NoteSkinManager.defaultSkin);
+                    holdBody.scrollFactor.set(1, 1);
+                    holdBody.scale.set(GRID_SIZE / holdBody.frameWidth, holdHeight / holdBody.frameHeight);
+                    holdBody.updateHitbox();
+                    holdBody.x = noteX + (GRID_SIZE - holdBody.width) * 0.5;
+                    holdBody.y = noteY + GRID_SIZE * 0.5;
+                    holdBody.alpha = 0.55;
+                    sustainNotesGroup.add(holdBody);
+
                     var holdEnd = new Note(n.time + n.sustainLength, n.lane % 4, 0, null, true, true, n.mustPress, n.type, NoteSkinManager.defaultSkin);
                     holdEnd.scrollFactor.set(1, 1);
                     holdEnd.scale.set(GRID_SIZE / holdEnd.frameWidth, GRID_SIZE / holdEnd.frameHeight);
                     holdEnd.updateHitbox();
                     holdEnd.x = noteX + (GRID_SIZE - holdEnd.width) * 0.5;
-                    holdEnd.y = noteY + holdHeight - holdEnd.height;
+                    holdEnd.y = noteY + holdHeight;
                     sustainNotesGroup.add(holdEnd);
-
-                    // Body fills the space ABOVE the end cap so they meet flush (no overlap)
-                    var bodyHeight = holdHeight - holdEnd.height;
-                    if (bodyHeight > 1) {
-                        var holdBody = new Note(n.time, n.lane % 4, n.sustainLength, null, true, false, n.mustPress, n.type, NoteSkinManager.defaultSkin);
-                        holdBody.scrollFactor.set(1, 1);
-                        holdBody.scale.set(GRID_SIZE / holdBody.frameWidth, bodyHeight / holdBody.frameHeight);
-                        holdBody.updateHitbox();
-                        holdBody.x = noteX + (GRID_SIZE - holdBody.width) * 0.5;
-                        holdBody.y = noteY;
-                        holdBody.alpha = 0.6;
-                        sustainNotesGroup.add(holdBody);
-                    }
                 }
 
-                // --- Note head ---
                 var sprNote = new Note(n.time, n.lane % 4, 0, null, false, false, n.mustPress, n.type, NoteSkinManager.defaultSkin);
                 sprNote.scrollFactor.set(1, 1);
                 sprNote.scale.set(GRID_SIZE / sprNote.frameWidth, GRID_SIZE / sprNote.frameHeight);
@@ -923,22 +975,30 @@ class ChartingState extends MusicBeatState {
                 sprNote.y = noteY + (GRID_SIZE - sprNote.height) * 0.5;
 
                 if (isSel) {
-                    var glow = EditorTheme.makeRoundedRect(GRID_SIZE + 12, GRID_SIZE + 12, 0xFFFFFFFF, EditorTheme.CORNER_SM, 0.22);
-                    glow.x = sprNote.x - 6;
-                    glow.y = sprNote.y - 6;
+                    var glow = EditorTheme.makeRoundedRect(GRID_SIZE + 8, GRID_SIZE + 8, 0xFFFFFFFF, EditorTheme.CORNER_SM, 0.24);
+                    glow.x = noteX - 4;
+                    glow.y = noteY - 4;
                     renderedNotesGroup.add(glow);
 
-                    var border = new FlxSprite(sprNote.x, sprNote.y).makeGraphic(Std.int(sprNote.width), Std.int(sprNote.height), FlxColor.TRANSPARENT);
-                    border.pixels.fillRect(new Rectangle(0, 0, sprNote.width, 3), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(0, sprNote.height - 3, sprNote.width, 3), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(0, 0, 3, sprNote.height), 0xFFFFFFFF);
-                    border.pixels.fillRect(new Rectangle(sprNote.width - 3, 0, 3, sprNote.height), 0xFFFFFFFF);
+                    var border = new FlxSprite(noteX + 2, noteY + 2).makeGraphic(GRID_SIZE - 4, GRID_SIZE - 4, FlxColor.TRANSPARENT);
+                    border.pixels.fillRect(new Rectangle(0, 0, GRID_SIZE - 4, 2), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(0, GRID_SIZE - 6, GRID_SIZE - 4, 2), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(0, 0, 2, GRID_SIZE - 4), 0xFFFFFFFF);
+                    border.pixels.fillRect(new Rectangle(GRID_SIZE - 6, 0, 2, GRID_SIZE - 4), 0xFFFFFFFF);
                     border.dirty = true;
                     renderedNotesGroup.add(border);
                 }
                 renderedNotesGroup.add(sprNote);
             }
         }
+    }
+
+    private function clearSpriteGroup(group:FlxTypedGroup<FlxSprite>):Void {
+        if (group == null || group.members == null) return;
+        for (member in group.members) {
+            if (member != null) member.destroy();
+        }
+        group.clear();
     }
 
     private function deleteSelectedElement():Void {
@@ -1012,6 +1072,30 @@ class ChartingState extends MusicBeatState {
         if (statsText != null) {
             statsText.text = 'Song: $curSongName\nDiff: $curDifficultyName\nLanes: $currentTotalLanes';
         }
+
+        if (sectionOverviewText != null) {
+            var sectionStartTime = curSection * STEPS_PER_SECTION * Conductor.stepCrochet;
+            var sectionEndTime = (curSection + 1) * STEPS_PER_SECTION * Conductor.stepCrochet;
+            var noteCount = 0;
+            var holdCount = 0;
+            var eventCount = 0;
+            var playerCount = 0;
+            var opponentCount = 0;
+
+            for (note in chartNotes) {
+                if (note.time >= sectionStartTime && note.time < sectionEndTime) {
+                    noteCount++;
+                    if (note.sustainLength > 0) holdCount++;
+                    if (note.mustPress) playerCount++; else opponentCount++;
+                }
+            }
+
+            for (event in chartEvents) {
+                if (event.time >= sectionStartTime && event.time < sectionEndTime) eventCount++;
+            }
+
+            sectionOverviewText.text = 'Notes: $noteCount  Holds: $holdCount\nEvents: $eventCount\nPlayer: $playerCount  Opponent: $opponentCount';
+        }
     }
 
     private function swapCurrentSectionNotes():Void {
@@ -1068,6 +1152,18 @@ class ChartingState extends MusicBeatState {
 
     private function getQuantizationLabel():String {
         return 'Snap: 1/$activeQuantization (Q)';
+    }
+
+    private function getPlaybackRateLabel():String {
+        return 'Playback Rate: ${Math.round(playbackRate * 100)}%';
+    }
+
+    private function cyclePlaybackRate():Void {
+        var rates = [0.5, 0.75, 1.0, 1.25, 1.5];
+        var idx = rates.indexOf(playbackRate);
+        playbackRate = rates[(idx + 1) % rates.length];
+        if (btnPlaybackRate != null) btnPlaybackRate.label.text = getPlaybackRateLabel();
+        EditorToast.show(getPlaybackRateLabel());
     }
 
     private function cycleQuantization():Void {
@@ -1148,6 +1244,28 @@ class ChartingState extends MusicBeatState {
         undoStack.push(snap);
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
         redoStack = [];
+        dirtySinceAutosave = true;
+    }
+
+    private function updateAutosave(elapsed:Float):Void {
+        #if sys
+        if (!dirtySinceAutosave) return;
+        autosaveTimer += elapsed;
+        if (autosaveTimer < AUTOSAVE_INTERVAL) return;
+        autosaveTimer = 0.0;
+        dirtySinceAutosave = false;
+
+        try {
+            var dir = 'autosaves/charts/${curSongName.toLowerCase()}';
+            if (!FileSystem.exists("autosaves")) FileSystem.createDirectory("autosaves");
+            if (!FileSystem.exists("autosaves/charts")) FileSystem.createDirectory("autosaves/charts");
+            if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+            File.saveContent('$dir/${curDifficultyName.toLowerCase()}_autosave.json', serializeChartToJson());
+            EditorToast.show("Chart autosaved.");
+        } catch (e:Dynamic) {
+            Logger.warn('Chart autosave failed: $e', "editor");
+        }
+        #end
     }
 
     private function undo():Void {

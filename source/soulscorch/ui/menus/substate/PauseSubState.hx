@@ -74,7 +74,14 @@ class PauseSubState extends MusicBeatSubstate {
         scripts = new ScriptManager();
         initPauseScripts();
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuTransparent")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = FlxColor.BLACK;
         bg.alpha = 0.0;
         bg.scrollFactor.set(0, 0);
         add(bg);

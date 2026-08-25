@@ -57,7 +57,14 @@ class ResultsState extends MusicBeatState {
             }
         }
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuContrast")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = 0xFF2A3136;
         bg.scrollFactor.set(0, 0);
         add(bg);
 

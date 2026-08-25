@@ -32,6 +32,8 @@ class SoulVideoPlayer extends flixel.FlxSubState {
     private var frameRate:Float = 24.0;
     private var isPlaying:Bool = false;
     private var isAtlasMode:Bool = false;
+    private var shouldLoop:Bool = false;
+    private var skipWithAccept:Bool = true;
     
     private var audioTrack:FlxSound;
     private var onComplete:Void->Void;
@@ -79,7 +81,14 @@ class SoulVideoPlayer extends flixel.FlxSubState {
             if (frameRate <= 0) frameRate = 24.0;
             var audioName = XMSoul.getAttr(access, "audio", "");
             var smoothing = XMSoul.getBoolAttr(access, "smoothing", true);
+            shouldLoop = XMSoul.getBoolAttr(access, "loop", false);
+            skipWithAccept = XMSoul.getBoolAttr(access, "skipWithAccept", true);
             videoSprite.antialiasing = smoothing;
+            var videoScale = XMSoul.getFloatAttr(access, "scale", 1.0);
+            videoSprite.scale.set(videoScale, videoScale);
+            videoSprite.updateHitbox();
+            videoSprite.x += XMSoul.getFloatAttr(access, "x", 0.0);
+            videoSprite.y += XMSoul.getFloatAttr(access, "y", 0.0);
 
             if (access.has.bgColor) {
                     var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, ColorUtil.fromHexSafe(access.att.bgColor, FlxColor.BLACK));
@@ -92,6 +101,7 @@ class SoulVideoPlayer extends flixel.FlxSubState {
             if (audioName != "") {
                 audioTrack = FlxG.sound.play(Paths.sound(audioName));
                 if (audioTrack == null) audioTrack = FlxG.sound.play(Paths.music(audioName));
+                if (audioTrack != null) audioTrack.volume = XMSoul.getFloatAttr(access, "volume", 1.0);
             }
 
             // Atlas Mode vs Loose Frames Mode
@@ -170,8 +180,16 @@ class SoulVideoPlayer extends flixel.FlxSubState {
             if (frameInt < totalFrames) {
                 videoSprite.animation.frameIndex = frameInt;
             } else {
-                finishVideo();
-                return;
+                if (shouldLoop) {
+                    currentFrame = 0;
+                    subtitleCursor = 0;
+                    eventCursor = 0;
+                    lastSubtitleText = "";
+                    subtitleText.text = "";
+                } else {
+                    finishVideo();
+                    return;
+                }
             }
         }
 
@@ -182,7 +200,7 @@ class SoulVideoPlayer extends flixel.FlxSubState {
         updateVideoEvents(playbackTime);
 
         // Skip hotkey (Escape or Accept)
-        if (FlxG.keys.justPressed.ESCAPE || FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.SPACE) {
+        if (skipWithAccept && (FlxG.keys.justPressed.ESCAPE || FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.SPACE)) {
             finishVideo();
         }
     }

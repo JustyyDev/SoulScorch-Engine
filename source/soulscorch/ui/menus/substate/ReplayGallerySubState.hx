@@ -51,7 +51,13 @@ class ReplayGallerySubState extends MusicBeatSubstate {
 
         replays = scanReplayFiles();
 
-        var bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xDD0A0B10);
+        var bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuEditors")) {
+            bg.makeGraphic(FlxG.width, FlxG.height, 0xDD0A0B10);
+        }
+        bg.screenCenter();
+        bg.color = 0xFF0A0B10;
+        bg.alpha = 0.92;
         add(bg);
 
         var topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 60, EditorTheme.PANEL_HEADER);

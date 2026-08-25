@@ -64,6 +64,11 @@ class DialogueSubState extends MusicBeatSubstate {
 
     private function parseDialogueData(content:String):Void {
         try {
+            if (content == null || content.trim().length == 0) return;
+            if (!content.trim().startsWith("<")) {
+                var resolved = AssetResolver.getText(content);
+                if (resolved != null && resolved.trim().length > 0) content = resolved;
+            }
             // Check if it's structured XMSoul or standard XML
             var xml = Xml.parse(content);
             var root = new Access(xml.firstElement());
@@ -81,7 +86,8 @@ class DialogueSubState extends MusicBeatSubstate {
                     var pSnd = XMSoul.getAttr(lineNode, "playSound", "");
                     var tSnd = XMSoul.getAttr(lineNode, "textSound", XMSoul.getAttr(lineNode, "talkSound", ""));
                     var bubbleType = XMSoul.getAttr(lineNode, "bubble", "normal");
-                    var textContent = lineNode.innerData != null ? lineNode.innerData.trim() : "";
+                    var textContent = XMSoul.getAttr(lineNode, "text", "");
+                    if (textContent.length == 0 && lineNode.innerData != null) textContent = lineNode.innerData.trim();
 
                     lines.push({
                         char: charName,

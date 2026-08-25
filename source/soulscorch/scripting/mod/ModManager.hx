@@ -3,9 +3,12 @@ package soulscorch.scripting.mod;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.utils.Logger;
 import soulscorch.scripting.mod.ModFeatureRegistry;
+import soulscorch.scripting.mod.ModValidator;
 import soulscorch.scripting.mod.SoulModData;
 import soulscorch.scripting.mod.SoulModParser;
 import soulscorch.scripting.mod.SoulGlobalScript;
+import soulscorch.backend.system.XMSoul;
+import soulscorch.gameplay.actors.HealthIcon;
 
 #if sys
 import sys.FileSystem;
@@ -20,6 +23,7 @@ class ModManager {
     public static var modConfigs:Map<String, SoulModData> = new Map<String, SoulModData>();
     public static var modRoots:Array<String> = [];
     public static var modFolderRoots:Map<String, String> = new Map<String, String>();
+    public static var validationWarnings:Map<String, Array<String>> = new Map<String, Array<String>>();
 
     #if sys
     private static function detectModRoots():Array<String> {
@@ -62,11 +66,14 @@ class ModManager {
     }
 
     public static function reloadMods():Void {
+        XMSoul.clearCache();
+        HealthIcon.clearCache();
         allMods = [];
         activeMods = [];
         modConfigs.clear();
         modRoots = [];
         modFolderRoots.clear();
+        validationWarnings.clear();
 
         #if sys
         modRoots = detectModRoots();
@@ -82,6 +89,17 @@ class ModManager {
                         modFolderRoots.set(folder, modsDir);
                     }
                 }
+            }
+        }
+        #end
+
+        #if sys
+        for (mod in allMods) {
+            var modPath = getModFolderRoot(mod) + '/$mod';
+            var warnings = ModValidator.validateFolder(modPath, mod, modConfigs.get(mod), allMods);
+            if (warnings.length > 0) {
+                validationWarnings.set(mod, warnings);
+                for (warning in warnings) Logger.warn('[$mod] $warning', "mod-validator");
             }
         }
         #end

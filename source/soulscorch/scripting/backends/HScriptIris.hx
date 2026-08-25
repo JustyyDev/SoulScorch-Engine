@@ -81,6 +81,7 @@ import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.graphics.threed.Away3DManager;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.ScriptAPI;
 import soulscorch.scripting.ScriptManager;
 import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.ScriptedState;
@@ -293,6 +294,15 @@ class HScriptIris implements ScriptInstance {
         set("JuiceManager", JuiceManager);
         set("SoulShader", SoulShader);
         set("ShaderManager", ShaderManager.instance);
+        set("ScriptAPI", ScriptAPI);
+        set("createShader", ScriptAPI.createShader);
+        set("addShaderToCam", ScriptAPI.addShaderToCamera);
+        set("removeShaderFromCam", ScriptAPI.removeShaderFromCamera);
+        set("setShaderFloat", ScriptAPI.setShaderFloat);
+        set("setShaderFloatArray", ScriptAPI.setShaderFloatArray);
+        set("setShaderInt", ScriptAPI.setShaderInt);
+        set("setShaderBool", ScriptAPI.setShaderBool);
+        set("clearCameraShaders", ScriptAPI.clearCameraShaders);
 
         set("Character", Character);
         set("HealthIcon", HealthIcon);

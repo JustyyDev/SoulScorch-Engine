@@ -33,13 +33,17 @@ class EditorVStack extends FlxSpriteGroup {
     }
 
     public function addSection(title:String):Void {
-        var accent = new FlxSprite(0, cursorY + 5).makeGraphic(3, 10, EditorTheme.ACCENT_CYAN);
+        var rule = new FlxSprite(0, cursorY + 16).makeGraphic(Std.int(contentWidth), 1, EditorTheme.PANEL_BORDER);
+        rule.alpha = 0.75;
+        add(rule);
+
+        var accent = new FlxSprite(0, cursorY + 4).makeGraphic(4, 14, EditorTheme.ACCENT_CYAN);
         add(accent);
 
-        var label = new FlxText(10, cursorY + 2, contentWidth - 10, title.toUpperCase(), 10);
+        var label = new FlxText(12, cursorY + 2, contentWidth - 12, EditorTheme.clampLabel(title.toUpperCase(), 32), 10);
         label.setFormat(Paths.font("vcr"), 10, EditorTheme.TEXT_MUTED, LEFT);
         add(label);
 
-        cursorY += 18 + defaultGap;
+        cursorY += 22 + defaultGap;
     }
 }

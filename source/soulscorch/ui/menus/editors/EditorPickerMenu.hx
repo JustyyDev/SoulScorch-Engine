@@ -11,10 +11,12 @@ import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import soulscorch.backend.MusicBeatState;
 import soulscorch.backend.assets.AssetHelper;
+import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.input.Controls;
 import soulscorch.backend.input.MobilePad;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
+import soulscorch.scripting.mod.ModManager;
 import soulscorch.ui.hud.Alphabet;
 import soulscorch.ui.menus.editors.CharacterEditorState;
 import soulscorch.ui.menus.editors.ChartingState;
@@ -69,7 +71,14 @@ class EditorPickerMenu extends MusicBeatState {
 
         buildEditorList();
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+        bg = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuEditors")) {
+            if (!AssetHelper.loadGraphicSafely(bg, "ui/menubgs/menuDesat")) {
+                bg.makeGraphic(FlxG.width, FlxG.height, EditorTheme.BG_DARK);
+            }
+        }
+        bg.screenCenter();
+        bg.color = 0xFF1E2A30;
         bg.scrollFactor.set(0, 0);
         add(bg);
 
@@ -268,6 +277,17 @@ class EditorPickerMenu extends MusicBeatState {
                     "• SoulScript, Lua & HScript Exporter"
                 ],
                 onLaunch: function() MusicBeatState.switchState(new ModchartWorkspaceState())
+            },
+            {
+                title: "Engine Diagnostics",
+                tag: "SYSTEM / HEALTH",
+                shortcut: "[5]",
+                desc: "Inspect missing assets, mod validation warnings, and runtime health signals.",
+                color: 0xFF64A8FF,
+                details: getDiagnosticsDetails(),
+                onLaunch: function() {
+                    detailsListText.text = getDiagnosticsDetails().join("\n\n");
+                }
             }
         ];
 
@@ -331,6 +351,7 @@ class EditorPickerMenu extends MusicBeatState {
         if (FlxG.keys.justPressed.TWO && options.length > 1) launchEditor(1);
         if (FlxG.keys.justPressed.THREE && options.length > 2) launchEditor(2);
         if (FlxG.keys.justPressed.FOUR && options.length > 3) launchEditor(3);
+        if (FlxG.keys.justPressed.FIVE && options.length > 4) launchEditor(4);
 
         if (Controls.instance.BACK) {
             AssetHelper.playSoundSafely("cancelMenu", 0.7);
@@ -390,6 +411,33 @@ class EditorPickerMenu extends MusicBeatState {
         } else if (targetOpt.layoutPath != null && targetOpt.layoutPath.length > 0) {
             MusicBeatState.switchState(new XMSoulEditorState(targetOpt.layoutPath));
         }
+    }
+
+    private function getDiagnosticsDetails():Array<String> {
+        var missingAssets = AssetResolver.getMissingAssetReport();
+        var modWarningCount = 0;
+        for (warnings in ModManager.validationWarnings) modWarningCount += warnings.length;
+
+        var details = [
+            '• Missing Asset Lookups: ${missingAssets.length}',
+            '• Mod Validation Warnings: $modWarningCount',
+            '• Active Mods: ${ModManager.activeMods.length}',
+            '• Installed Mods: ${ModManager.allMods.length}'
+        ];
+
+        if (missingAssets.length > 0) {
+            details.push("RECENT MISSING ASSETS:");
+            for (i in 0...Std.int(Math.min(missingAssets.length, 8))) details.push('• ${missingAssets[i]}');
+        }
+
+        if (modWarningCount > 0) {
+            details.push("MOD WARNINGS:");
+            for (mod in ModManager.validationWarnings.keys()) {
+                details.push('• $mod: ${ModManager.validationWarnings.get(mod).length} warning(s)');
+            }
+        }
+
+        return details;
     }
 
     override public function destroy():Void {

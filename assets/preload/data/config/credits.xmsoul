@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <credits>
     <category name="Engine Developers" color="0xFF00FFCC">
-        <dev name="JustyyDev" role="Main Programmer &amp; Engine Architect" icon="dev_justy" color="0xFF9900FF" link="https://github.com/JustyyDev" />
+        <dev name="JustyyDev" role="Main Programmer &amp; Engine Architect" description="Creator and architectural designer of SoulScorch Engine, silly goober ok??" icon="dev_justy" color="0xFF9900FF" link="https://github.com/JustyyDev" effect="rainbow" />
     </category>
     <category name="Contributors" color="0xFF00FFCC">
-        <dev name="Cryoptera" role="Programmer &amp; Playtester" icon="con_cryo" color="0xFF9900FF" link="https://github.com/Cryoptera" />
-        <dev name="Kilnec" role="Idea for the Freeplay Shuffle &amp; Playtester" icon="con_kilnec" color="0xFFB1BCA0" link="https://www.twitch.tv/kilnec" />
+        <dev name="Cryoptera" role="Programmer &amp; Playtester" description="Programming help and some ideas! Mainly for lua support! Thank you Cryo :D" icon="con_cryo" color="0xFF9900FF" link="https://github.com/Cryoptera" />
+        <dev name="Kilnec" role="Idea for the Freeplay Shuffle &amp; Playtester" description="Kilnec is so talented, they also gave the idea for the freeplay shuffle feature!" icon="con_kilnec" color="0xFFB1BCA0" link="https://www.twitch.tv/kilnec" effect="confetti" shader="chromaticAberration" />
+        <dev name="CookieCreator" role="Contributor, Main Idea Writer and Artist" description="Main idea writer and artist for the SoulScorch Engine. We love you Cookie!" icon="con_cookiecrumbs" color="0xFFFFB6C1" link="https://x.com/_CookieCreator_" />
+        <dev name="PatoPatongas" role="Contributor, Ideas &amp; Programmer" description="Amazing coder, helped a bunch and had some amazing ideas for this engine aswell!" icon="con_pato" color="0xFF00FF00" link="https://github.com/PatoPatongas" />
+        <dev name="L0F1" role="Contributor in Ideas" description="Gave the idea of adding FMOD support to the engine, which can be used now (hardcoded in project.xml at source)!" icon="con_l0f1" color="0xFF808080" link="https://x.com/L0F1_musict2" />
+        <dev name="DripPro" role="Contributor, Bug Fixes, Ideas &amp; Playtester" description="DripPro is a talented contributor who helped with bug fixes and provided valuable ideas!" icon="con_drippro" color="0xFFFF0000" link="https://www.youtube.com/channel/UCAD4SwUyHknYRwV9iOGvEiw" />
+        <dev name="mohammad.whb" role="Contributor, Ideas &amp; Playtester" description="mohammad.whb is a talented contributor who provided valuable ideas, like the note colors!" icon="con_mohammad" color="0xFF00FFFF" link="" />
+        <dev name="Alucardseibie" role="Contributor, Lua Ideas" description="Alu provided ideas and feedback on the lua side of the modding system. :D" icon="con_alucardseibie" color="0xFFB1BCA0" effect="confetti" link="" />
+        <dev name="DaisyBun" role="Art Contributor &amp; Ideas" description="DaisyBun is a talented artist who made the Senpai Winning Icon!" icon="con_daisybun" color="0xFFFFC4E3" effect="glow" link="https://x.com/Daisy_Bun07" />
     </category>
     <category name="Special Thanks" color="0xFFFFD700">
-        <dev name="FNF Community" role="Inspiration &amp; Assets" icon="face" color="0xFFFFFFFF" link="" />
+        <dev name="FNF Community" role="Inspiration &amp; Assets" description="The community that inspired this engine and its creative direction." icon="face" color="0xFFFFFFFF" link="" />
+        <dev name="Codename Engine" role="Inspiration" description="For being a big inspiration! Definitely check this engine out too!" icon="con_codenameengine" color="0xFF800080" link="https://codename-engine.com/" />
+        <dev name="Psych Engine" role="Inspiration" description="For being yet another big inspiration! Definitely check this engine out too!" icon="con_psychengine" color="0xFFD8BFD8" link="https://github.com/ShadowMario/psych-engine" />
+        <dev name="HaxeFlixel Team" role="Engine Framework" description="The underlying 2D game engine power." icon="flixel" color="0xFF00BFFF" link="https://haxeflixel.com" />
+        <dev name="OpenFL Team" role="Multimedia Core" description="Cross-platform hardware rendering backend." icon="openfl" color="0xFFEA1E24" link="https://www.openfl.org" />
+        <dev name="All of You!" role="Motivation &amp; Support" description="Thank you for playing and supporting SoulScorch Engine! You are the reason this engine exists and continues to grow! Discord Link if you press Enter!" icon="con_allofyou" color="0xFFFF0000" link="https://discord.gg/9FZXq7e9pQ" />
     </category>
 </credits>

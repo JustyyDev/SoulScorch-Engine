@@ -26,7 +26,7 @@ class StrumArrow extends FlxSprite {
 
     public function new(x:Float, y:Float, direction:Int, isPlayer:Bool = false, downscroll:Bool = false, ?skin:String = "default") {
         super(x, y);
-        this.direction = direction % 4;
+        this.direction = NoteSkinManager.normalizeLane(direction);
         this.isPlayer = isPlayer;
         this.downscroll = downscroll;
         this.baseX = x;
@@ -48,6 +48,7 @@ class StrumArrow extends FlxSprite {
         antialiasing = (skinConf != null) ? skinConf.antialiasing : true;
 
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(this.currentSkin);
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/default");
         if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
         if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
 

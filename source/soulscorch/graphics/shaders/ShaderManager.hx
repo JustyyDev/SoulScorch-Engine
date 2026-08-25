@@ -47,21 +47,25 @@ class ShaderManager {
     }
 
     public function addShader(shader:SoulShader, ?camera:FlxCamera):Void {
-        if (shader == null || shaders.contains(shader)) return;
+        if (shader == null) return;
 
-        shaders.push(shader);
-        if (shader.shaderName != null) {
-            shaderMap.set(shader.shaderName, shader);
+        if (!shaders.contains(shader)) {
+            shaders.push(shader);
+            if (shader.shaderName != null) {
+                shaderMap.set(shader.shaderName, shader);
+            }
         }
 
         var filter = shader.filter;
-        filters.push(filter);
+        if (!filters.contains(filter)) filters.push(filter);
 
         var cam = (camera != null) ? camera : FlxG.camera;
         if (cam != null) {
             var currentFilters:Array<BitmapFilter> = (cam.filters != null) ? cam.filters : [];
-            currentFilters.push(filter);
-            cam.setFilters(currentFilters);
+            if (!currentFilters.contains(filter)) {
+                currentFilters.push(filter);
+                cam.setFilters(currentFilters);
+            }
         }
 
         EventBus.publish("shader/added", {name: shader.shaderName});
@@ -70,17 +74,20 @@ class ShaderManager {
 
     public function removeShader(shader:SoulShader, ?camera:FlxCamera):Void {
         if (shader == null) return;
-        shaders.remove(shader);
-        if (shader.shaderName != null) {
-            shaderMap.remove(shader.shaderName);
-        }
-        filters.remove(shader.filter);
 
         var cam = (camera != null) ? camera : FlxG.camera;
         if (cam != null) {
             var currentFilters:Array<BitmapFilter> = (cam.filters != null) ? cam.filters : [];
             currentFilters.remove(shader.filter);
             cam.setFilters(currentFilters);
+        }
+
+        if (camera == null) {
+            shaders.remove(shader);
+            if (shader.shaderName != null) {
+                shaderMap.remove(shader.shaderName);
+            }
+            filters.remove(shader.filter);
         }
 
         EventBus.publish("shader/removed", {name: shader.shaderName});

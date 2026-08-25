@@ -102,6 +102,7 @@ class NoteSplash extends FlxSprite {
 
     private function loadDefaultSplashAtlas(skin:String):Void {
         var loaded = AssetHelper.loadSparrowSafely(this, 'ui/game/splashes/$skin');
+        if (!loaded && skin == "default") loaded = AssetHelper.loadSparrowSafely(this, 'ui/game/splashes/default');
         if (!loaded) loaded = AssetHelper.loadSparrowSafely(this, 'ui/game/splashes/noteSplashes');
         if (!loaded) loaded = AssetHelper.loadSparrowSafely(this, 'noteSplashes');
 

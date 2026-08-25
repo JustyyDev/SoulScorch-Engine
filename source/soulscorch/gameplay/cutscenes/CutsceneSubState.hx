@@ -24,6 +24,7 @@ class CutsceneSubState extends MusicBeatSubstate {
     public var script:ScriptManager;
     public var onFinish:Void->Void;
     private var scriptPath:String;
+    private var finished:Bool = false;
 
     public function new(scriptPath:String, onFinish:Void->Void) {
         super();
@@ -43,6 +44,8 @@ class CutsceneSubState extends MusicBeatSubstate {
         script.setAll("self", this);
         script.setAll("PlayState", PlayState);
         script.setAll("close", function() closeCutscene());
+        script.setAll("finish", function() closeCutscene());
+        script.setAll("isFinished", function() return finished);
         script.setAll("focusOn", function(char:Dynamic) {
             if (char != null && PlayState.instance != null) {
                 if (Reflect.hasField(char, "getCameraPosition")) {
@@ -110,6 +113,8 @@ class CutsceneSubState extends MusicBeatSubstate {
     }
 
     public function closeCutscene():Void {
+        if (finished) return;
+        finished = true;
         if (script != null) {
             script.callAll("destroy", []);
             script.clear();
@@ -119,7 +124,8 @@ class CutsceneSubState extends MusicBeatSubstate {
     }
 
     override public function destroy():Void {
-        if (script != null) {
+        if (!finished && script != null) {
+            finished = true;
             script.callAll("destroy", []);
             script.clear();
         }

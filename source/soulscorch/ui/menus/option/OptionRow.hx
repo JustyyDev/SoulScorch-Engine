@@ -43,6 +43,10 @@ class OptionRow extends FlxSpriteGroup {
         statusCapsule.alpha = 0.0;
         add(statusCapsule);
 
+        var sliderRail = new FlxSprite(width * 0.48, 43).makeGraphic(Std.int((width * 0.48) - 24), 2, EditorTheme.PANEL_BORDER);
+        sliderRail.alpha = 0.55;
+        add(sliderRail);
+
         // FNF-style Alphabet label
         label = new Alphabet(22, 0, labelText, false);
         label.targetY = 0;

@@ -26,6 +26,7 @@ import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.scripting.ScriptInstance;
 import soulscorch.scripting.ScriptedState;
+import soulscorch.scripting.ScriptAPI;
 import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
@@ -282,39 +283,12 @@ class LuaScript implements ScriptInstance {
         });
 
         // --- Shader API ---
-        setLuaCallback("createShader", function(name:String):Dynamic {
-            return ShaderManager.instance.getShader(name);
-        });
-        setLuaCallback("setShaderFloatArray", function(shaderName:String, uniform:String, value:Array<Float>):Void {
-            var s = ShaderManager.instance.getShader(shaderName);
-            if (s != null) s.setFloatArray(uniform, value);
-        });
-        setLuaCallback("setShaderInt", function(shaderName:String, uniform:String, value:Int):Void {
-            var s = ShaderManager.instance.getShader(shaderName);
-            if (s != null) s.setInt(uniform, value);
-        });
-        setLuaCallback("addShaderToCam", function(shaderName:String, cameraName:String):Void {
-            var s = ShaderManager.instance.getShader(shaderName);
-            if (s == null) return;
-            var cam:FlxCamera = switch (cameraName.toLowerCase()) {
-                case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
-                case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
-                case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
-                default: FlxG.camera;
-            };
-            if (cam != null) ShaderManager.instance.addShader(s, cam);
-        });
-        setLuaCallback("removeShaderFromCam", function(shaderName:String, cameraName:String):Void {
-            var s = ShaderManager.instance.getShader(shaderName);
-            if (s == null) return;
-            var cam:FlxCamera = switch (cameraName.toLowerCase()) {
-                case "hud" | "camhud": (PlayState.instance != null) ? PlayState.instance.camHUD : FlxG.camera;
-                case "other" | "camother": (PlayState.instance != null) ? PlayState.instance.camOther : FlxG.camera;
-                case "controls" | "camcontrols": (PlayState.instance != null) ? PlayState.instance.camControls : FlxG.camera;
-                default: FlxG.camera;
-            };
-            if (cam != null) ShaderManager.instance.removeShader(s, cam);
-        });
+        setLuaCallback("createShader", ScriptAPI.createShader);
+        setLuaCallback("setShaderFloatArray", ScriptAPI.setShaderFloatArray);
+        setLuaCallback("setShaderInt", ScriptAPI.setShaderInt);
+        setLuaCallback("addShaderToCam", ScriptAPI.addShaderToCamera);
+        setLuaCallback("removeShaderFromCam", ScriptAPI.removeShaderFromCamera);
+        setLuaCallback("clearCameraShaders", ScriptAPI.clearCameraShaders);
     }
 
     private function setLuaCallback(name:String, func:Dynamic):Void {
@@ -596,13 +570,11 @@ class LuaScript implements ScriptInstance {
     }
 
     public function setShaderFloat(shaderName:String, uniform:String, value:Float):Void {
-        var s = ShaderManager.instance.getShader(shaderName);
-        if (s != null) s.setFloat(uniform, value);
+        ScriptAPI.setShaderFloat(shaderName, uniform, value);
     }
 
     public function setShaderBool(shaderName:String, uniform:String, value:Bool):Void {
-        var s = ShaderManager.instance.getShader(shaderName);
-        if (s != null) s.setBool(uniform, value);
+        ScriptAPI.setShaderBool(shaderName, uniform, value);
     }
 
     public function playSound(soundPath:String, volume:Float = 1.0):Void {

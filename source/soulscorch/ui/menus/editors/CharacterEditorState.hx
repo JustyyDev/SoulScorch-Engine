@@ -105,6 +105,9 @@ class CharacterEditorState extends MusicBeatState {
     private var undoStack:Array<String> = [];
     private var redoStack:Array<String> = [];
     private static inline var MAX_UNDO_DEPTH:Int = 50;
+    private static inline var AUTOSAVE_INTERVAL:Float = 45.0;
+    private var autosaveTimer:Float = 0.0;
+    private var dirtySinceAutosave:Bool = false;
 
     public function new(?char:String = "dad", ?isPlayer:Bool = false) {
         super();
@@ -148,7 +151,12 @@ class CharacterEditorState extends MusicBeatState {
     }
 
     private function createEnvironment():Void {
-        var bgGrid = new FlxSprite().makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
+        var bgGrid = new FlxSprite();
+        if (!AssetHelper.loadGraphicSafely(bgGrid, "ui/menubgs/menuEditors")) {
+            bgGrid.makeGraphic(Std.int(FlxG.width * 4), Std.int(FlxG.height * 4), EditorTheme.BG_DARK);
+        }
+        bgGrid.setGraphicSize(Std.int(bgGrid.width * 1.2));
+        bgGrid.updateHitbox();
         bgGrid.screenCenter();
         bgGrid.scrollFactor.set(0, 0);
         add(bgGrid);
@@ -276,7 +284,7 @@ class CharacterEditorState extends MusicBeatState {
         add(topBar);
 
         // --- 1. Animation Matrix Panel (Left Top) ---
-        animMatrixWindow = new EditorWindow(15, 45, 290, 420, "Animation Matrix");
+        animMatrixWindow = new EditorWindow(15, 56, 290, 420, "Animation Matrix");
         animMatrixWindow.cameras = [camUI];
         add(animMatrixWindow);
 
@@ -308,7 +316,7 @@ class CharacterEditorState extends MusicBeatState {
         animMatrixWindow.addElement(btnAlignIdle);
 
         // --- 2. Actor Settings Window (Right Top) ---
-        propertiesWindow = new EditorWindow(FlxG.width - 305, 45, 290, 310, "Actor Settings");
+        propertiesWindow = new EditorWindow(FlxG.width - 305, 56, 290, 310, "Actor Settings");
         propertiesWindow.cameras = [camUI];
         add(propertiesWindow);
 
@@ -536,6 +544,8 @@ class CharacterEditorState extends MusicBeatState {
     override public function update(elapsed:Float):Void {
         super.update(elapsed);
 
+        updateAutosave(elapsed);
+
         handleCameraControls(elapsed);
         handleAnimationControls();
         handleOffsetControls();
@@ -739,6 +749,27 @@ class CharacterEditorState extends MusicBeatState {
         undoStack.push(Json.stringify(charJson));
         if (undoStack.length > MAX_UNDO_DEPTH) undoStack.shift();
         redoStack = [];
+        dirtySinceAutosave = true;
+    }
+
+    private function updateAutosave(elapsed:Float):Void {
+        #if sys
+        if (!dirtySinceAutosave) return;
+        autosaveTimer += elapsed;
+        if (autosaveTimer < AUTOSAVE_INTERVAL) return;
+        autosaveTimer = 0.0;
+        dirtySinceAutosave = false;
+
+        try {
+            var dir = "autosaves/characters";
+            if (!FileSystem.exists("autosaves")) FileSystem.createDirectory("autosaves");
+            if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+            File.saveContent('$dir/${curCharacter}_autosave.json', Json.stringify(buildCharacterJsonObject(), "\t"));
+            EditorToast.show("Character autosaved.");
+        } catch (e:Dynamic) {
+            Logger.warn('Character autosave failed: $e', "editor");
+        }
+        #end
     }
 
     private function undo():Void {

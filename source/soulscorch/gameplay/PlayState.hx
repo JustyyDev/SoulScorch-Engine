@@ -210,6 +210,10 @@ class PlayState extends MusicBeatState {
 
     private static inline var QUEUE_COMPACT_THRESHOLD:Int = 512;
 
+    private inline function isValidLane(lane:Int):Bool {
+        return lane >= 0 && lane < 4;
+    }
+
     public function new(?songId:String, ?difficulty:String) {
         super();
         if (songId != null && songId != "") curSong = songId;
@@ -1343,19 +1347,30 @@ class PlayState extends MusicBeatState {
     public function queueScriptNote(time:Float, direction:Int, mustPress:Bool = true, type:String = "normal", sustainLength:Float = 0.0):Note {
         if (unspawnCursor > 0) compactUnspawnQueue();
 
+        direction = Std.int(FlxMath.bound(direction, 0, 3));
+        sustainLength = Math.max(0.0, sustainLength);
+
         var noteSkin = getActiveNoteSkin();
         var mainNote = new Note(time, direction, sustainLength, null, false, false, mustPress, type, noteSkin);
-        unspawnNotes.push(mainNote);
+        insertNoteSorted(mainNote);
 
         if (sustainLength > 0) {
             appendSustainTail(mainNote, time, direction, sustainLength, mustPress, type, noteSkin);
         }
 
-        unspawnNotes.sort(function(a:Note, b:Note):Int {
-            return FlxSort.byValues(FlxSort.ASCENDING, a.strumTime, b.strumTime);
-        });
         unspawnCursor = 0;
         return mainNote;
+    }
+
+    private function insertNoteSorted(note:Note):Void {
+        if (note == null) return;
+        var low = unspawnCursor;
+        var high = unspawnNotes.length;
+        while (low < high) {
+            var mid = low + ((high - low) >> 1);
+            if (unspawnNotes[mid].strumTime <= note.strumTime) low = mid + 1; else high = mid;
+        }
+        unspawnNotes.insert(low, note);
     }
 
     private function appendSustainTail(parent:Note, startTime:Float, direction:Int, length:Float, mustPress:Bool, type:String, skin:String):Void {
@@ -1365,12 +1380,12 @@ class PlayState extends MusicBeatState {
         for (index in 1...fullSteps) {
             var body = new Note(startTime + (step * index), direction, length, parent, true, false, mustPress, type, skin);
             parent.tail.push(body);
-            unspawnNotes.push(body);
+            insertNoteSorted(body);
         }
 
         var end = new Note(startTime + length, direction, length, parent, true, true, mustPress, type, skin);
         parent.tail.push(end);
-        unspawnNotes.push(end);
+        insertNoteSorted(end);
     }
 
     public function queueScriptEvent(time:Float, name:String, val1:Dynamic = "", val2:Dynamic = ""):Void {
@@ -1400,6 +1415,7 @@ class PlayState extends MusicBeatState {
     }
 
     private inline function updateSingleNotePosition(daNote:Note):Void {
+        if (daNote == null || !isValidLane(daNote.noteData)) return;
         var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
         if (targetStrum == null) return;
 
@@ -1437,6 +1453,10 @@ class PlayState extends MusicBeatState {
     }
 
     private inline function resolveSingleNote(daNote:Note, songPos:Float, safeZone:Float):Void {
+        if (daNote == null || !isValidLane(daNote.noteData)) {
+            removeResolvedNote(daNote);
+            return;
+        }
         var targetStrum = daNote.mustPress ? playerStrumline.receptors[daNote.noteData] : opponentStrumline.receptors[daNote.noteData];
         if (targetStrum == null) return;
 
@@ -1591,6 +1611,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function pressStrum(dir:Int):Void {
+        if (!isValidLane(dir)) return;
         _intArgCache[0] = dir;
         scripts.callAll("onKeyPress", _intArgCache);
 
@@ -1627,6 +1648,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function releaseStrum(dir:Int):Void {
+        if (!isValidLane(dir)) return;
         _intArgCache[0] = dir;
         scripts.callAll("onKeyRelease", _intArgCache);
 
@@ -1635,6 +1657,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function goodNoteHit(note:Note, ?forcedJudgment:Judgment):Void {
+        if (note == null || !isValidLane(note.noteData)) return;
         if (!scripts.callAllCancelable("onBeforeNoteHit", [note])) {
             note.wasGoodHit = true;
             note.kill();
@@ -1714,6 +1737,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function noteMiss(dir:Int, ?note:Note):Void {
+        if (!isValidLane(dir)) return;
         _intArgCache[0] = dir;
         if (!scripts.callAllCancelable("onBeforePlayerMiss", _intArgCache)) return;
 
@@ -1745,6 +1769,7 @@ class PlayState extends MusicBeatState {
     }
 
     private function removeResolvedNote(note:Note):Void {
+        if (note == null) return;
         note.kill();
         if (note.isSustainNote) sustainsGroup.remove(note, false); else notes.remove(note, false);
         note.destroy();

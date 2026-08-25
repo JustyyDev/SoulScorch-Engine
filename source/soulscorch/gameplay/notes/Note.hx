@@ -14,6 +14,17 @@ import soulscorch.gameplay.notes.NoteSkinManager;
 
 using StringTools;
 
+typedef NoteTypeConfig = {
+    var hitHealth:Float;
+    var missHealth:Float;
+    var playSingAnim:Bool;
+    var causesMiss:Bool;
+    var ignoreNote:Bool;
+    var noteSplashes:Bool;
+    var color:FlxColor;
+    var ?texture:String;
+}
+
 class Note extends FlxSprite {
     private static inline var SUSTAIN_OVERLAP:Float = 2.0;
 
@@ -49,6 +60,7 @@ class Note extends FlxSprite {
 
     private var sustainClipRect:FlxRect = new FlxRect();
     private var lastSustainSpeed:Float = -1.0;
+    private static var _noteTypeCache:Map<String, NoteTypeConfig> = new Map<String, NoteTypeConfig>();
 
     public static inline var DEFAULT_SCALE:Float = 0.7;
     public static inline var STRUM_WIDTH:Float = 112.0 * DEFAULT_SCALE;
@@ -67,8 +79,8 @@ class Note extends FlxSprite {
         super();
 
         this.strumTime = strumTime;
-        this.noteData = noteData % 4;
-        this.sustainLength = sustainLength;
+        this.noteData = NoteSkinManager.normalizeLane(noteData);
+        this.sustainLength = Math.max(0, sustainLength);
         this.parent = parent;
         this.isSustainNote = isSustainNote;
         this.isSustainEnd = isSustainEnd;
@@ -101,6 +113,7 @@ class Note extends FlxSprite {
     public function loadNoteSkin(skin:String = "default"):Void {
         var skinConf = NoteSkinManager.getSkinConfig(skin);
         var atlas:FlxAtlasFrames = NoteSkinManager.getSkinAtlas(skin);
+        if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/default");
         if (atlas == null) atlas = Paths.getSparrowAtlas("ui/game/notes/NOTE_assets");
         if (atlas == null) atlas = Paths.getSparrowAtlas("NOTE_assets");
 
@@ -114,53 +127,72 @@ class Note extends FlxSprite {
 
     public function applyNoteTypeConfig(typeId:String):Void {
         var cleanType = (typeId == null || typeId.trim().length == 0) ? "normal" : typeId.trim();
+        var cacheKey = cleanType.toLowerCase();
 
+        if (!_noteTypeCache.exists(cacheKey)) {
+            _noteTypeCache.set(cacheKey, loadNoteTypeConfig(cleanType));
+        }
+
+        var conf = _noteTypeCache.get(cacheKey);
+        hitHealth = conf.hitHealth;
+        missHealth = conf.missHealth;
+        playSingAnim = conf.playSingAnim;
+        causesMiss = conf.causesMiss;
+        ignoreNote = conf.ignoreNote;
+        noteSplashes = conf.noteSplashes;
+        color = conf.color;
+
+        if (conf.texture != null && conf.texture.length > 0 && conf.texture != skinName) {
+            this.skinName = conf.texture;
+            loadNoteSkin(conf.texture);
+        }
+    }
+
+    private static function loadNoteTypeConfig(cleanType:String):NoteTypeConfig {
         var access:Access = XMSoul.parse('data/notes/$cleanType', true, false);
         if (access == null) access = XMSoul.parse('notes/$cleanType', true, false);
 
         if (access != null) {
-            hitHealth = XMSoul.getFloatAttr(access, "hitHealth", 0.023);
-            missHealth = XMSoul.getFloatAttr(access, "missDamage", XMSoul.getFloatAttr(access, "missHealth", 0.0475));
-            playSingAnim = XMSoul.getBoolAttr(access, "playSingAnim", true);
-            causesMiss = XMSoul.getBoolAttr(access, "causesMiss", false);
-            noteSplashes = XMSoul.getBoolAttr(access, "noteSplashes", true);
-
             var customTexture = XMSoul.getAttr(access, "texture", "NOTE_assets");
-            if (customTexture != "NOTE_assets" && customTexture != "default") {
-                this.skinName = customTexture;
-                loadNoteSkin(customTexture);
-            }
-            return;
+            return {
+                hitHealth: XMSoul.getFloatAttr(access, "hitHealth", 0.023),
+                missHealth: XMSoul.getFloatAttr(access, "missDamage", XMSoul.getFloatAttr(access, "missHealth", 0.0475)),
+                playSingAnim: XMSoul.getBoolAttr(access, "playSingAnim", true),
+                causesMiss: XMSoul.getBoolAttr(access, "causesMiss", false),
+                ignoreNote: XMSoul.getBoolAttr(access, "ignore", XMSoul.getBoolAttr(access, "ignoreNote", false)),
+                noteSplashes: XMSoul.getBoolAttr(access, "noteSplashes", true),
+                color: FlxColor.WHITE,
+                texture: (customTexture != "NOTE_assets" && customTexture != "default") ? customTexture : null
+            };
         }
 
-        switch (cleanType.toLowerCase()) {
+        return switch (cleanType.toLowerCase()) {
             case "hurt note", "hurt":
-                color = 0xFF444444;
-                missHealth = 0.2;
-                hitHealth = -0.15;
-                causesMiss = true;
+                {hitHealth: -0.15, missHealth: 0.2, playSingAnim: true, causesMiss: true, ignoreNote: false, noteSplashes: true, color: 0xFF444444};
             case "mine":
-                color = 0xFFFF0055;
-                ignoreNote = true;
-                missHealth = 0.0;
-                hitHealth = -0.35;
+                {hitHealth: -0.35, missHealth: 0.0, playSingAnim: true, causesMiss: false, ignoreNote: true, noteSplashes: false, color: 0xFFFF0055};
             case "instakill":
-                color = 0xFFFF0000;
-                missHealth = 2.0;
+                {hitHealth: 0.023, missHealth: 2.0, playSingAnim: true, causesMiss: false, ignoreNote: false, noteSplashes: true, color: 0xFFFF0000};
             case "noanim":
-                playSingAnim = false;
-        }
+                {hitHealth: 0.023, missHealth: 0.0475, playSingAnim: false, causesMiss: false, ignoreNote: false, noteSplashes: true, color: FlxColor.WHITE};
+            default:
+                {hitHealth: 0.023, missHealth: 0.0475, playSingAnim: true, causesMiss: false, ignoreNote: false, noteSplashes: true, color: FlxColor.WHITE};
+        };
     }
 
     private function setupAnimation(?conf:NoteSkinConfig):Void {
         if (frames == null || frames.frames == null || frames.frames.length == 0) return;
 
         animation.destroyAnimations();
-        var colorName = NoteSkinManager.noteColors[noteData % 4];
+        var lane = NoteSkinManager.normalizeLane(noteData);
+        var colorName = NoteSkinManager.noteColors[lane];
 
         if (isSustainNote) {
             if (isSustainEnd) {
+                var holdConf = conf != null ? conf.holdAnims.get(lane) : null;
                 var endPrefixes = [
+                    holdConf != null ? holdConf.endAnim : "",
+                    (noteData == 0 ? "purple hold end" : colorName + " hold end"),
                     (noteData == 0 ? "pruple end hold" : colorName + " hold end"),
                     colorName + " hold end",
                     colorName + " tail",
@@ -171,7 +203,9 @@ class Note extends FlxSprite {
                     if (animation.getByName("holdend") != null) break;
                 }
             } else {
+                var holdConf = conf != null ? conf.holdAnims.get(lane) : null;
                 var bodyPrefixes = [
+                    holdConf != null ? holdConf.bodyAnim : "",
                     colorName + " hold piece",
                     colorName + " hold",
                     colorName + " piece"
@@ -182,7 +216,9 @@ class Note extends FlxSprite {
                 }
             }
         } else {
+            var tapAnim = conf != null ? conf.tapAnims.get(lane) : null;
             var tapPrefixes = [
+                tapAnim != null ? tapAnim : "",
                 colorName + "0",
                 colorName,
                 colorName + " note",
