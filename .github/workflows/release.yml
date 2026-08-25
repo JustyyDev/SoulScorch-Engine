@@ -264,38 +264,38 @@ jobs:
           search_roots = ["bin", "export"]
           found_dir = None
 
-            candidates = []
-            for s_root in search_roots:
+          candidates = []
+          for s_root in search_roots:
               if not os.path.exists(s_root):
-                continue
-              for root, dirs, files in os.walk(s_root):
-                if "obj" in root or "haxe" in root:
                   continue
-                if target == "windows" and any(f.endswith(".exe") for f in files):
-                  candidates.append(root)
-                elif target == "mac" and (any(d.endswith(".app") for d in dirs) or any(f.endswith(".app") for f in files) or "mac" in root.lower()):
-                  candidates.append(root)
-                elif target == "linux" and any(f == "SoulScorch" and os.access(os.path.join(root, f), os.X_OK) for f in files):
-                  candidates.append(root)
+              for root, dirs, files in os.walk(s_root):
+                  if "obj" in root or "haxe" in root:
+                      continue
+                  if target == "windows" and any(f.endswith(".exe") for f in files):
+                      candidates.append(root)
+                  elif target == "mac" and (any(d.endswith(".app") for d in dirs) or any(f.endswith(".app") for f in files) or "mac" in root.lower()):
+                      candidates.append(root)
+                  elif target == "linux" and any(f == "SoulScorch" and os.access(os.path.join(root, f), os.X_OK) for f in files):
+                      candidates.append(root)
 
-            for c in candidates:
+          for c in candidates:
               if target in c.lower() or (target == "mac" and "macos" in c.lower()):
-                found_dir = c
-                break
+                  found_dir = c
+                  break
 
-            if not found_dir and candidates:
+          if not found_dir and candidates:
               found_dir = candidates[0]
 
-            if not found_dir:
+          if not found_dir:
               for s_root in search_roots:
-                if not os.path.exists(s_root):
-                  continue
-                for root, dirs, files in os.walk(s_root):
-                  if os.path.basename(root) == "bin" and "obj" not in root and "haxe" not in root:
-                    found_dir = root
-                    break
-                if found_dir:
-                  break
+                  if not os.path.exists(s_root):
+                      continue
+                  for root, dirs, files in os.walk(s_root):
+                      if os.path.basename(root) == "bin" and "obj" not in root and "haxe" not in root:
+                          found_dir = root
+                          break
+                  if found_dir:
+                      break
 
           if not found_dir:
               print("Error: Could not locate build directory. Workspace contents:")
