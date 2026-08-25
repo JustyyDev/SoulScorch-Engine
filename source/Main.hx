@@ -96,9 +96,11 @@ class Main extends Sprite {
                 addChild(devConsole);
             }
 
+            #if !mobile
             fpsCounter = new Framerate(10, 10, 0xFFFFFF);
             fpsCounter.visible = true;
             addChild(fpsCounter);
+            #end
 
             // Apply framerate directly to FlxG now that game is instantiated
             SaveData.instance.applyFramerate(framerate);
@@ -109,7 +111,7 @@ class Main extends Sprite {
             Runtime.bootstrap(config);
 
             EngineOptimizer.init(framerate);
-            ModManager.reloadMods();
+            // Engine.init already loads mods once. Avoid duplicate filesystem scans.
             SongRegistry.scanAll();
 
             applyWindowConfiguration();
@@ -125,11 +127,15 @@ class Main extends Sprite {
             }
             #end
 
+            #if !mobile
             fileWatcher = new FileWatcher();
+            #end
 
             setupStateSwitchOptimization();
 
+            #if !mobile
             Lib.current.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+            #end
             addEventListener(Event.ENTER_FRAME, onEnterFrame);
 
             Logger.info('Engine boot complete [${Version.fullVersion()}]', "main");
@@ -139,7 +145,9 @@ class Main extends Sprite {
     }
 
     private function applyWindowConfiguration():Void {
+        #if !mobile
         XMSoul.applyWindowSettings("config/window");
+        #end
 
         #if windows
         var access = XMSoul.parse("config/window", true, false);
@@ -214,6 +222,7 @@ class Main extends Sprite {
     private function onEnterFrame(event:Event):Void {
         var safeElapsed:Float = (FlxG.elapsed > 0) ? Math.min(FlxG.elapsed, 0.1) : (1.0 / framerate);
 
+        #if !mobile
         fileWatchTimer += safeElapsed;
         if (fileWatchTimer >= FILE_WATCH_INTERVAL) {
             fileWatchTimer = 0.0;
@@ -223,6 +232,7 @@ class Main extends Sprite {
         }
 
         HotReloader.update();
+        #end
         EngineOptimizer.update(safeElapsed);
 
         #if (cpp && !mobile && !neko)

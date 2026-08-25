@@ -508,11 +508,12 @@ class Alphabet extends FlxSpriteGroup {
                 add(letter);
             }
 
-            letter.setPosition(curX, curY);
+            letter.setPosition(this.x + curX, this.y + curY);
             letter.row = rows;
             letter.alpha = this.alpha;
             letter.color = this.color;
             letter.letterOffset.x = curX;
+            letter.letterOffset.y = curY;
             rowLetters[rows].push(letter);
             nextIndices.push(i);
             usedLetters++;
@@ -542,7 +543,8 @@ class Alphabet extends FlxSpriteGroup {
             var offset:Float = (alignment == CENTER) ? -(rowWidth * 0.5) : -rowWidth;
 
             for (letter in row) {
-                letter.x = letter.letterOffset.x + offset;
+                letter.x = this.x + letter.letterOffset.x + offset;
+                letter.y = this.y + letter.letterOffset.y;
             }
         }
     }

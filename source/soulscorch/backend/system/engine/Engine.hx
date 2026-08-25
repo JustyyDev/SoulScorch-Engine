@@ -67,8 +67,13 @@ class Engine {
         }
 
         register("mods", ModRegistry.instance);
+        #if !mobile
         ModManager.reloadMods();
         SoulGlobalScript.init();
+        #else
+        ModManager.allMods = [];
+        ModManager.activeMods = [];
+        #end
 
         register("save", SaveData.instance);
         register("achievements", Achievements.instance);
