@@ -26,11 +26,10 @@ jobs:
             target: linux
             artifact_name: SoulScorch-Linux
             archive_name: SoulScorch-Linux.zip
-          - os: macos-14
+          - os: macos-13
             target: mac
             artifact_name: SoulScorch-macOS
             archive_name: SoulScorch-macOS.zip
-
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -87,7 +86,6 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-hxcpp-4.3.2-
 
       - name: Cache Haxelib Repository (Unix)
-        if: matrix.os != 'windows-latest'
         id: cache-haxelib-unix
         uses: actions/cache@v4
         with:
@@ -177,57 +175,17 @@ jobs:
               print("No Lime export patch needed:", system_hx)
           '
 
-      - name: Setup Host Lime NDLL (macOS Fix)
-        if: matrix.os == 'macos-14'
+      - name: Verify Host Lime NDLL (Intel macOS)
+        if: matrix.os == 'macos-13'
         run: |
-          # 1. Ensure lime is installed and set up
           haxelib run lime setup -y || true
-
           LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
-          if [ -z "$LIME_PATH" ] || [ ! -d "$LIME_PATH" ]; then
-            echo "Lime path not found, reinstalling lime..."
-            haxelib install lime 8.1.3 --quiet --skip-dependencies || true
-            LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
-          fi
-
-          echo "Using Lime at: $LIME_PATH"
-
-          # 2. Repair the hardcoded Mac64 lime.ndll slot with an arm64 build when needed.
           LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
           LIME_NDLL_FILE="$LIME_NDLL_PATH/lime.ndll"
-
-          if [ ! -f "$LIME_NDLL_FILE" ] || ! file "$LIME_NDLL_FILE" | grep -Eq 'arm64|arm64e'; then
-            echo "Mac64 lime.ndll is missing or not arm64; rebuilding from Lime source..."
-            if [ -d "$LIME_PATH/project" ]; then
-              pushd "$LIME_PATH/project"
-              haxelib run hxcpp Build.xml -Dmac -DHXCPP_ARM64 -DHXCPP_M64 || haxelib run hxcpp Build.xml -Dmac || true
-              popd
-            fi
-
-            for candidate in \
-              "$LIME_PATH/ndll/MacArm64/lime.ndll" \
-              "$LIME_PATH/ndll/macarm64/lime.ndll" \
-              "$LIME_PATH/ndll/arm64/lime.ndll"; do
-              if [ -f "$candidate" ] && file "$candidate" | grep -Eq 'arm64|arm64e'; then
-                mkdir -p "$LIME_NDLL_PATH"
-                cp -f "$candidate" "$LIME_NDLL_FILE"
-                break
-              fi
-            done
-          fi
-
-          if [ -f "$LIME_NDLL_FILE" ]; then
-            echo "Using lime.ndll at: $LIME_NDLL_FILE"
-            export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
-            export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
-            echo "NEKOPATH=$LIME_NDLL_PATH:${NEKOPATH:-}" >> "$GITHUB_ENV"
-            echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-          else
-            echo "Error: unable to provision an arm64 lime.ndll in the Mac64 slot."
-            exit 1
-          fi
-
-          haxelib run lime config MAC_USE_CURRENT_SDK 1 || true
+          test -f "$LIME_NDLL_FILE"
+          file "$LIME_NDLL_FILE"
+          file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
+          echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
@@ -246,7 +204,7 @@ jobs:
           '
 
       - name: Compile SoulScorch Engine
-        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS
+        run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS
         env:
           HXCPP_COMPILE_THREADS: 8
 

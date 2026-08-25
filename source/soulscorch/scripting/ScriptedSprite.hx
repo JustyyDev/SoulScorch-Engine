@@ -17,6 +17,7 @@ class ScriptedSprite extends FlxSprite {
 
         this.script = ScriptBackendType.createInstance(finalPath);
         if (script != null && script.active) {
+            ScriptAPI.install(script);
             script.set("this", this);
             script.set("sprite", this);
             script.call("onReady", []);

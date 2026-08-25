@@ -20,6 +20,10 @@ class SoulScriptParser {
 
             var currentIndent = getIndentLevel(rawClean);
 
+            if ((trimmed == "else:" || trimmed.startsWith("else if ")) && indentStack.length > 1) {
+                indentStack.pop();
+            }
+
             while (indentStack.length > 1 && currentIndent < indentStack[indentStack.length - 1]) {
                 indentStack.pop();
                 output.push(getIndentation(indentStack.length - 1) + "}");
@@ -80,17 +84,17 @@ class SoulScriptParser {
     private static function translateHeader(line:String):String {
         var clean = line.trim();
 
-        var atBeat = ~/^at beat (-?\d+(?:\.\d+)?)\s*:/i;
-        if (atBeat.match(clean)) return "if (curBeat == " + atBeat.matched(1) + ") {";
+        var atBeat = ~/^(?:at|on) beat (-?\d+(?:\.\d+)?)\s*:/i;
+        if (atBeat.match(clean)) return "if (curBeat == " + atBeat.matched(1) + " && lastBeat != curBeat) {";
 
-        var everyBeat = ~/^every (\d+(?:\.\d+)?) beats\s*:/i;
-        if (everyBeat.match(clean)) return "if (curBeat % " + everyBeat.matched(1) + " == 0) {";
+        var everyBeat = ~/^(?:every|each) (\d+(?:\.\d+)?) beats?\s*:/i;
+        if (everyBeat.match(clean)) return "if (curBeat != lastBeat && curBeat % " + everyBeat.matched(1) + " == 0) {";
 
-        var atStep = ~/^at step (-?\d+(?:\.\d+)?)\s*:/i;
-        if (atStep.match(clean)) return "if (curStep == " + atStep.matched(1) + ") {";
+        var atStep = ~/^(?:at|on) step (-?\d+(?:\.\d+)?)\s*:/i;
+        if (atStep.match(clean)) return "if (curStep == " + atStep.matched(1) + " && lastStep != curStep) {";
 
-        var everyStep = ~/^every (\d+(?:\.\d+)?) steps\s*:/i;
-        if (everyStep.match(clean)) return "if (curStep % " + everyStep.matched(1) + " == 0) {";
+        var everyStep = ~/^(?:every|each) (\d+(?:\.\d+)?) steps?\s*:/i;
+        if (everyStep.match(clean)) return "if (curStep != lastStep && curStep % " + everyStep.matched(1) + " == 0) {";
 
         var sEvent = ~/^on songEvent\("([^"]+)"(?:,\s*([A-Za-z0-9_]+))?(?:,\s*([A-Za-z0-9_]+))?\)\s*:/i;
         if (sEvent.match(clean)) {
@@ -109,6 +113,10 @@ class SoulScriptParser {
         if (~/^on (preStateSwitch|onPreStateSwitch)\s*:/i.match(clean)) return "function onPreStateSwitch() {";
         if (~/^on (postStateSwitch|onPostStateSwitch|stateSwitch|onStateSwitch)\s*:/i.match(clean)) return "function onStateSwitch() {";
         if (~/^on (destroy|onDestroy)\s*:/i.match(clean)) return "function onDestroy() {";
+
+        if (clean == "else:") return "} else {";
+        var elseIf = ~/^else if (.+)\s*:/i;
+        if (elseIf.match(clean)) return "} else if (" + elseIf.matched(1) + ") {";
 
         var evt = ~/^on event\("([^"]+)"\)\s*:/i;
         if (evt.match(clean)) return 'if (eventName == "' + evt.matched(1) + '") {';
@@ -208,6 +216,36 @@ class SoulScriptParser {
             var vol = music.matched(2) != null ? music.matched(2) : "1.0";
             var loop = music.matched(3) != null ? music.matched(3) : "true";
             return 'FlxG.sound.playMusic(Paths.music("' + music.matched(1) + '"), ' + vol + ', ' + loop + ');';
+        }
+
+        var plainSound = ~/^play sound "([^"]+)"(?: at ([0-9.]+))?$/i;
+        if (plainSound.match(clean)) {
+            var soundVolume = plainSound.matched(2) != null ? plainSound.matched(2) : "1.0";
+            return 'playSound("' + plainSound.matched(1) + '", ' + soundVolume + ');';
+        }
+
+        var plainMusic = ~/^play music "([^"]+)"(?: at ([0-9.]+))?$/i;
+        if (plainMusic.match(clean)) {
+            var musicVolume = plainMusic.matched(2) != null ? plainMusic.matched(2) : "1.0";
+            return 'playMusic("' + plainMusic.matched(1) + '", ' + musicVolume + ', true);';
+        }
+
+        var plainShake = ~/^camera shake ([0-9.]+)(?: for ([0-9.]+)s?)?$/i;
+        if (plainShake.match(clean)) {
+            var shakeDuration = plainShake.matched(2) != null ? plainShake.matched(2) : "0.2";
+            return 'FlxG.camera.shake(' + plainShake.matched(1) + ', ' + shakeDuration + ');';
+        }
+
+        var plainFlash = ~/^camera flash(?: ([^ ]+))?(?: for ([0-9.]+)s?)?$/i;
+        if (plainFlash.match(clean)) {
+            var flashColor = plainFlash.matched(1) != null ? plainFlash.matched(1) : "FlxColor.WHITE";
+            var flashDuration = plainFlash.matched(2) != null ? plainFlash.matched(2) : "0.4";
+            return 'FlxG.camera.flash($flashColor, $flashDuration);';
+        }
+
+        var plainFlag = ~/^set flag "([^"]+)" to (.+)$/i;
+        if (plainFlag.match(clean)) {
+            return 'setFlag("' + plainFlag.matched(1) + '", ' + plainFlag.matched(2) + ');';
         }
 
         return null;

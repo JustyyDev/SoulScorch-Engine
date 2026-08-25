@@ -18,6 +18,8 @@ using StringTools;
 class GPUTextureManager {
     public static var cachedGraphics:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
     public static var gpuTextures:Map<String, Texture> = new Map<String, Texture>();
+    public static var maxTextureBytes:Float = 256.0 * 1024.0 * 1024.0;
+    public static var cachedTextureBytes(default, null):Float = 0.0;
 
     /**
      * Loads a texture directly into Stage3D GPU VRAM and disposes the RAM CPU copy.
@@ -40,6 +42,9 @@ class GPUTextureManager {
 
         var rawBitmap:BitmapData = AssetResolver.getBitmapData(resolved);
         if (rawBitmap == null) return null;
+
+        var estimatedBytes = rawBitmap.width * rawBitmap.height * 4.0;
+        if (cachedTextureBytes + estimatedBytes > maxTextureBytes) clearUnused();
 
         var graphic:FlxGraphic = null;
 
@@ -64,6 +69,7 @@ class GPUTextureManager {
 
                 graphic = FlxGraphic.fromBitmapData(gpuBitmap, false, resolved);
                 gpuTextures.set(resolved, texture);
+                cachedTextureBytes += estimatedBytes;
             } else {
                 graphic = FlxGraphic.fromBitmapData(rawBitmap, false, resolved);
             }
@@ -90,6 +96,7 @@ class GPUTextureManager {
                     var tex = gpuTextures.get(k);
                     if (tex != null) tex.dispose();
                     gpuTextures.remove(k);
+                    cachedTextureBytes = Math.max(0.0, cachedTextureBytes - (gr.bitmap.width * gr.bitmap.height * 4.0));
                 }
                 FlxG.bitmap.remove(gr);
                 cachedGraphics.remove(k);
@@ -107,6 +114,7 @@ class GPUTextureManager {
             if (tex != null) tex.dispose();
         }
         gpuTextures.clear();
+        cachedTextureBytes = 0.0;
 
         for (gr in cachedGraphics) {
             if (gr != null) {

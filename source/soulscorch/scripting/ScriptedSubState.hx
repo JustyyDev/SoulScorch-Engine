@@ -42,6 +42,7 @@ class ScriptedSubState extends FlxSubState {
         if (finalScriptPath != null) {
             this.script = ScriptBackendType.createInstance(finalScriptPath);
             if (script != null && script.active) {
+                ScriptAPI.install(script);
                 script.set("substate", this);
                 script.set("add", add);
                 script.set("remove", remove);

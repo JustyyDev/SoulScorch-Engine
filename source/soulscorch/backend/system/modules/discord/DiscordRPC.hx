@@ -76,6 +76,10 @@ class DiscordRPC extends ModuleBase {
     }
 
     public static function loadConfigFromXMSoul():Void {
+        isEnabled = true;
+        clientID = DEFAULT_CLIENT_ID;
+        currentLargeKey = "icon";
+        currentLargeText = 'SoulScorch ${Version.versionString()}';
         var access:Access = XMSoul.parse("config/discord");
         if (access == null) access = XMSoul.parse("data/config/discord");
         if (access == null) access = XMSoul.parse("data/discord.xmsoul");
@@ -301,7 +305,7 @@ class DiscordRPC extends ModuleBase {
         currentSmallText = (smallImageKey != null) ? smallImageKey : "";
 
         // No-op guard: if nothing actually changed, skip building/sending the presence entirely.
-        var signature:String = '$currentDetails|$currentState|$currentLargeKey|$currentLargeText|$currentSmallKey|$hasStartTimestamp|$endTimestamp|$partyId';
+        var signature:String = '$currentDetails|$currentState|$currentLargeKey|$currentLargeText|$currentSmallKey|$currentSmallText|$hasStartTimestamp|$endTimestamp|$partyId|$partySize|$partyMax';
         if (!forced && signature == lastPresenceSignature) return;
         lastPresenceSignature = signature;
 
@@ -411,6 +415,21 @@ class DiscordRPC extends ModuleBase {
     public static function setMenuPresence(menuName:String, ?modIcon:String = "icon"):Void {
         currentElapsedSeconds = 0;
         changePresence("Main Menus", menuName, null, true, 0, modIcon);
+    }
+
+    public static function reloadConfig():Void {
+        var wasInitialized = isInitialized;
+        if (wasInitialized) shutdown();
+        loadConfigFromXMSoul();
+        lastPresenceSignature = "";
+        lastUpdateTime = 0.0;
+        if (wasInitialized && isEnabled) initialize();
+    }
+
+    public static function setEnabled(enabled:Bool):Void {
+        isEnabled = enabled;
+        if (!enabled) shutdown();
+        else if (!isInitialized) initialize();
     }
 
     public static function shutdown():Void {

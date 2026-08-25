@@ -169,6 +169,7 @@ class ScriptManager {
     }
 
     private function addActiveScript(script:ScriptInstance):Void {
+        ScriptAPI.install(script);
         script.set("scriptPath", script.path);
         script.set("scriptBackend", Std.string(ScriptBackendType.fromPath(script.path)));
         script.set("scriptingMobileConservative", mobileConservativeMode);

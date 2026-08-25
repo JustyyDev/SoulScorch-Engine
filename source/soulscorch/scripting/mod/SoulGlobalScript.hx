@@ -81,6 +81,7 @@ class SoulGlobalScript {
 
             var instance:ScriptInstance = ScriptBackendType.createInstance(path);
             if (instance != null && instance.active) {
+                ScriptAPI.install(instance);
                 _loadedPaths.push(path);
                 registerScriptGlobals(instance);
                 instance.call("create", []);

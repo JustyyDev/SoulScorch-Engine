@@ -303,6 +303,15 @@ class HScriptIris implements ScriptInstance {
         set("setShaderInt", ScriptAPI.setShaderInt);
         set("setShaderBool", ScriptAPI.setShaderBool);
         set("clearCameraShaders", ScriptAPI.clearCameraShaders);
+        set("setDiscordPresence", ScriptAPI.setDiscordPresence);
+        set("setDiscordEnabled", ScriptAPI.setDiscordEnabled);
+        set("reloadDiscordConfig", ScriptAPI.reloadDiscordConfig);
+        set("checkGitHubUpdates", ScriptAPI.checkGitHubUpdates);
+        set("setChartEditorPresence", ScriptAPI.setChartEditorPresence);
+        set("setScriptDebuggingPresence", ScriptAPI.setScriptDebuggingPresence);
+        set("setLobbyPresence", ScriptAPI.setLobbyPresence);
+        set("setAchievementsPresence", ScriptAPI.setAchievementsPresence);
+        set("setMusicPlayerPresence", ScriptAPI.setMusicPlayerPresence);
 
         set("Character", Character);
         set("HealthIcon", HealthIcon);

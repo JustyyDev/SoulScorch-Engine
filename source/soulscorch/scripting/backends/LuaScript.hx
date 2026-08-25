@@ -289,6 +289,15 @@ class LuaScript implements ScriptInstance {
         setLuaCallback("addShaderToCam", ScriptAPI.addShaderToCamera);
         setLuaCallback("removeShaderFromCam", ScriptAPI.removeShaderFromCamera);
         setLuaCallback("clearCameraShaders", ScriptAPI.clearCameraShaders);
+        setLuaCallback("setDiscordPresence", ScriptAPI.setDiscordPresence);
+        setLuaCallback("setDiscordEnabled", ScriptAPI.setDiscordEnabled);
+        setLuaCallback("reloadDiscordConfig", ScriptAPI.reloadDiscordConfig);
+        setLuaCallback("checkGitHubUpdates", ScriptAPI.checkGitHubUpdates);
+        setLuaCallback("setChartEditorPresence", ScriptAPI.setChartEditorPresence);
+        setLuaCallback("setScriptDebuggingPresence", ScriptAPI.setScriptDebuggingPresence);
+        setLuaCallback("setLobbyPresence", ScriptAPI.setLobbyPresence);
+        setLuaCallback("setAchievementsPresence", ScriptAPI.setAchievementsPresence);
+        setLuaCallback("setMusicPlayerPresence", ScriptAPI.setMusicPlayerPresence);
     }
 
     private function setLuaCallback(name:String, func:Dynamic):Void {

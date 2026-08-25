@@ -59,6 +59,7 @@ class GlobalScriptManager {
 
                         var script:ScriptInstance = ScriptBackendType.createInstance(fullPath);
                         if (script != null && script.active) {
+                            ScriptAPI.install(script);
                             _loadedPaths.push(fullPath);
                             activeScripts.push(script);
                             script.set("isGlobal", true);

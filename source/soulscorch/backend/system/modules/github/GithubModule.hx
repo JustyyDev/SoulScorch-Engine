@@ -49,6 +49,8 @@ class GitHubModule extends ModuleBase {
     }
 
     public static function loadConfigFromXMSoul():Void {
+        repoOwner = "JustyyDev";
+        repoName = "SoulScorch-Engine";
         var access:Access = XMSoul.parse("config/github");
         if (access == null) access = XMSoul.parse("data/config/github");
 

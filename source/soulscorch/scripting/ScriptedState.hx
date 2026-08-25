@@ -78,6 +78,7 @@ class ScriptedState extends Scene {
             this.script = ScriptBackendType.createInstance(finalScriptPath);
 
             if (this.script != null && this.script.active) {
+                ScriptAPI.install(script);
                 script.set("state", this);
                 script.set("game", this);
                 script.set("camera", FlxG.camera);

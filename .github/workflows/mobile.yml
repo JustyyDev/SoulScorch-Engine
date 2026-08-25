@@ -80,8 +80,12 @@ jobs:
           haxelib install openfl 9.3.3 --quiet --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --skip-dependencies
           haxelib install flixel-addons 3.2.3 --quiet --skip-dependencies
+                  test -f "$LIME_NDLL_FILE"
+                  file "$LIME_NDLL_FILE"
+                  file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
+                  echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
           haxelib install flixel-ui 2.6.1 --quiet --skip-dependencies
-          haxelib install hscript 2.4.0 --quiet
+                run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
           haxelib set hscript 2.4.0
           haxelib install hscript-iris 1.1.0 --quiet
           haxelib install away3d --quiet
@@ -155,7 +159,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -175,7 +179,7 @@ jobs:
 
   build-ios:
     name: Build iOS Xcode Project
-    runs-on: macos-14
+    runs-on: macos-13
     timeout-minutes: 60
 
     env:
@@ -267,56 +271,16 @@ jobs:
               print("No Lime export patch needed:", system_hx)
           '
 
-      - name: Setup Host Lime NDLL (macOS arm64 Fix)
+      - name: Verify Host Lime NDLL (Intel macOS)
         run: |
-          # 1. Ensure lime is installed and set up
           haxelib run lime setup -y || true
-
           LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
-          if [ -z "$LIME_PATH" ] || [ ! -d "$LIME_PATH" ]; then
-            echo "Lime path not found, reinstalling lime..."
-            haxelib install lime 8.1.3 --quiet --skip-dependencies || true
-            LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"
-          fi
-
-          echo "Using Lime at: $LIME_PATH"
-
-          # 2. Repair the hardcoded Mac64 lime.ndll slot with an arm64 build when needed.
           LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
           LIME_NDLL_FILE="$LIME_NDLL_PATH/lime.ndll"
-
-          if [ ! -f "$LIME_NDLL_FILE" ] || ! file "$LIME_NDLL_FILE" | grep -Eq 'arm64|arm64e'; then
-            echo "Mac64 lime.ndll is missing or not arm64; rebuilding from Lime source..."
-            if [ -d "$LIME_PATH/project" ]; then
-              pushd "$LIME_PATH/project"
-              haxelib run hxcpp Build.xml -Dmac -DHXCPP_ARM64 -DHXCPP_M64 || haxelib run hxcpp Build.xml -Dmac || true
-              popd
-            fi
-
-            for candidate in \
-              "$LIME_PATH/ndll/MacArm64/lime.ndll" \
-              "$LIME_PATH/ndll/macarm64/lime.ndll" \
-              "$LIME_PATH/ndll/arm64/lime.ndll"; do
-              if [ -f "$candidate" ] && file "$candidate" | grep -Eq 'arm64|arm64e'; then
-                mkdir -p "$LIME_NDLL_PATH"
-                cp -f "$candidate" "$LIME_NDLL_FILE"
-                break
-              fi
-            done
-          fi
-
-          if [ -f "$LIME_NDLL_FILE" ]; then
-            echo "Using lime.ndll at: $LIME_NDLL_FILE"
-            export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
-            export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
-            echo "NEKOPATH=$LIME_NDLL_PATH:${NEKOPATH:-}" >> "$GITHUB_ENV"
-            echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-          else
-            echo "Error: unable to provision an arm64 lime.ndll in the Mac64 slot."
-            exit 1
-          fi
-
-          haxelib run lime config MAC_USE_CURRENT_SDK 1 || true
+          test -f "$LIME_NDLL_FILE"
+          file "$LIME_NDLL_FILE"
+          file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
+          echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
 
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
@@ -335,7 +299,7 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_NO_PCH -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           HXCPP_COMPILE_THREADS: 8
 

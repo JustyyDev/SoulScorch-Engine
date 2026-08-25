@@ -35,6 +35,7 @@ import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
 import soulscorch.backend.assets.Paths;
 import soulscorch.backend.audio.Conductor;
+import soulscorch.backend.system.SaveData;
 import soulscorch.backend.utils.ColorUtil;
 import soulscorch.backend.utils.Logger;
 import soulscorch.gameplay.PlayState;
@@ -45,6 +46,7 @@ import soulscorch.gameplay.notes.StrumArrow;
 import soulscorch.gameplay.notes.Strumline;
 import soulscorch.graphics.JuiceManager;
 import soulscorch.scripting.ScriptInstance;
+import soulscorch.scripting.ScriptAPI;
 import soulscorch.scripting.ScriptTools;
 import soulscorch.scripting.mod.ModManager;
 import soulscorch.scripting.mod.ModRegistry;
@@ -57,6 +59,8 @@ class SoulScript implements ScriptInstance {
     public var path(default, null):String;
 
     private var interp:Interp;
+    private var lastBeat:Int = -1;
+    private var lastStep:Int = -1;
 
     public var customSprites:Map<String, FlxSprite> = new Map<String, FlxSprite>();
     public var customTexts:Map<String, FlxText> = new Map<String, FlxText>();
@@ -100,6 +104,10 @@ class SoulScript implements ScriptInstance {
         for (i in 0...2000) {
             interp.variables.set(Std.string(i), i);
         }
+
+        ScriptAPI.install(this);
+        set("lastBeat", lastBeat);
+        set("lastStep", lastStep);
 
         set("Std", Std);
         set("Math", Math);
@@ -355,6 +363,24 @@ class SoulScript implements ScriptInstance {
         set("playSound", function(soundPath:String, volume:Float = 1.0) {
             AssetHelper.playSoundSafely(soundPath, volume);
         });
+        set("playMusic", function(musicPath:String, volume:Float = 1.0, loop:Bool = true) {
+            if (musicPath == null || musicPath.trim().length == 0) return;
+            var sound = Paths.music(musicPath);
+            if (FlxG.sound.music != null && !loop) {
+                FlxG.sound.play(sound, volume);
+            } else {
+                FlxG.sound.playMusic(sound, volume, loop);
+            }
+        });
+        set("wait", function(seconds:Float, callback:Void->Void) {
+            new FlxTimer().start(Math.max(0.0, seconds), function(_) if (callback != null) callback());
+        });
+        set("getFlag", function(name:String, fallback:Dynamic = null):Dynamic {
+            return SaveData.instance.getFlag(name, fallback);
+        });
+        set("setFlag", function(name:String, value:Dynamic):Void {
+            SaveData.instance.setFlag(name, value);
+        });
 
         syncStateVariables();
         interp.execute(program);
@@ -392,7 +418,14 @@ class SoulScript implements ScriptInstance {
             var fn = interp.variables.get(func);
             if (fn != null && Reflect.isFunction(fn)) {
                 try {
-                    return Reflect.callMethod(null, fn, (args != null) ? args : []);
+                    var result = Reflect.callMethod(null, fn, (args != null) ? args : []);
+                    if (func == "update" || func == "onUpdate") {
+                        lastBeat = Conductor.curBeat;
+                        lastStep = Conductor.curStep;
+                        set("lastBeat", lastBeat);
+                        set("lastStep", lastStep);
+                    }
+                    return result;
                 } catch (e:Dynamic) {
                     Logger.warn('SoulScript call warning in $func ($path): $e', "soulscript");
                 }

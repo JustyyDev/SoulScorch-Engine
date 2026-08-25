@@ -3,6 +3,7 @@ package soulscorch.scripting.mod;
 import flixel.FlxG;
 import soulscorch.backend.system.Scene;
 import soulscorch.scripting.backends.HScriptIris;
+import soulscorch.scripting.ScriptAPI;
 
 class ModState extends Scene {
     public var script:HScriptIris;
@@ -19,6 +20,7 @@ class ModState extends Scene {
         super.create();
 
         if (script != null) {
+            ScriptAPI.install(script);
             script.set("state", this);
             script.set("game", this);
             script.set("add", this.add);
