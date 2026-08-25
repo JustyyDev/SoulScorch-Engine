@@ -2,19 +2,30 @@ package commands;
 
 class Compiler {
 	public static function test(args:Array<String>) {
+		ensureLimeReady();
 		__runLime(args, ["test", getBuildTarget(), "-DTEST_BUILD"]);
 	}
 	public static function build(args:Array<String>) {
+		ensureLimeReady();
 		__runLime(args, ["build", getBuildTarget(), "-DTEST_BUILD"]);
 	}
 	public static function release(args:Array<String>) {
+		ensureLimeReady();
 		__runLime(args, ["build", getBuildTarget()]);
 	}
 	public static function testRelease(args:Array<String>) {
+		ensureLimeReady();
 		__runLime(args, ["test", getBuildTarget()]);
 	}
 	public static function run(args:Array<String>) {
+		ensureLimeReady();
 		__runLime(args, ["run", getBuildTarget()]);
+	}
+
+	private static function ensureLimeReady():Void {
+		#if mac
+		Sys.command("haxelib", ["run", "lime", "setup", "-y"]);
+		#end
 	}
 
 	private static function __runLime(args:Array<String>, arg:Array<String>) {

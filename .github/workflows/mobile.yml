@@ -288,12 +288,8 @@ jobs:
             "$LIME_PATH/ndll/macarm64/lime.ndll" \
             "$LIME_PATH/ndll/arm64/lime.ndll"; do
             if [ -f "$candidate" ]; then
-              case "$candidate" in
-                *MacArm64/*|*macarm64/*|*arm64/*)
-                  LIME_NDLL_PATH="$(dirname "$candidate")"
-                  break
-                  ;;
-              esac
+              LIME_NDLL_PATH="$(dirname "$candidate")"
+              break
             fi
           done
 
@@ -312,20 +308,14 @@ jobs:
           fi
 
           if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
-            mkdir -p "$LIME_PATH/ndll/Mac64"
-            rm -f "$LIME_PATH/ndll/Mac64/lime.ndll"
-            cp -f "$LIME_NDLL_PATH/lime.ndll" "$LIME_PATH/ndll/Mac64/lime.ndll"
-            echo "Synced Mac64 lime.ndll to arm64 build at: $LIME_NDLL_PATH"
-          fi
-
-          if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
             echo "Found lime.ndll at: $LIME_NDLL_PATH"
             export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
             export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
             echo "NEKOPATH=$LIME_NDLL_PATH:${NEKOPATH:-}" >> "$GITHUB_ENV"
             echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
           else
-            echo "Warning: lime.ndll could not be located, continuing build..."
+            echo "Error: arm64 lime.ndll could not be located."
+            exit 1
           fi
 
           haxelib run lime config MAC_USE_CURRENT_SDK 1 || true
@@ -372,15 +362,20 @@ jobs:
                 break
             if found_dir:
               break
-                        if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
+          if not found_dir:
+              print("Error: Could not locate Xcode project directory.")
+              sys.exit(1)
+
+          print(f"Staging iOS build from: {found_dir} -> {staging_dir}")
+          if os.path.exists(staging_dir):
+              shutil.rmtree(staging_dir)
           os.makedirs(staging_dir, exist_ok=True)
 
           for item in os.listdir(found_dir):
               s = os.path.join(found_dir, item)
               d = os.path.join(staging_dir, item)
               if os.path.isdir(s):
-                          echo "Error: arm64 lime.ndll could not be located."
-                          exit 1
+                  shutil.copytree(s, d, dirs_exist_ok=True)
               else:
                   shutil.copy2(s, d)
 
