@@ -590,6 +590,7 @@ class Alphabet extends FlxSpriteGroup {
 
     private function updateTextEffect(elapsed:Float):Void {
         if (letters == null || letters.length == 0) return;
+        if (textEffect == "none" || textEffect.length == 0) return;
 
         switch (textEffect) {
             case "rainbow" | "spectrum":

@@ -33,6 +33,7 @@ class ScriptManager {
     public static var soulScriptEnabled:Bool = true;
     public static var luaEnabled:Bool = true;
     public static var pythonEnabled:Bool = true;
+    public static var javascriptEnabled:Bool = true;
     public static var maxScriptsPerManager:Int = 96;
     public static var frameHookWarnMs:Float = 5.0;
     public static var frameHookThrottleMs:Float = 16.0;
@@ -55,6 +56,7 @@ class ScriptManager {
             case "soul", "soulscript": soulScriptEnabled = enabled;
             case "lua": luaEnabled = enabled;
             case "python", "py": pythonEnabled = enabled;
+            case "javascript", "js", "node": javascriptEnabled = enabled;
             default:
         }
     }
@@ -65,6 +67,7 @@ class ScriptManager {
             case SOULSCRIPT: soulScriptEnabled;
             case LUA: luaEnabled;
             case PYTHON: pythonEnabled;
+            case JAVASCRIPT: javascriptEnabled;
             default: true;
         };
     }
@@ -74,7 +77,7 @@ class ScriptManager {
         if (!isBackendEnabled(type)) return false;
 
         if (mobileConservativeMode) {
-            if (type == PYTHON) return false;
+            if (type == PYTHON || type == JAVASCRIPT) return false;
         }
 
         return true;

@@ -14,6 +14,8 @@ set "TEMP=%ROOT_DIR%.build_temp"
 set "TMP=%ROOT_DIR%.build_temp"
 set "HXCPP_CACHE_DIR=%ROOT_DIR%.build_temp\hxcpp_cache"
 set "HXCPP_COMPILE_CACHE=1"
+set "FMOD_BUILD_FLAG="
+if defined FMOD_SDK set "FMOD_BUILD_FLAG=-DSOULSCORCH_FMOD"
 
 :: 3. Local Tooling Paths
 set "HAXE_DIR=%TOOLS_DIR%\haxe"
@@ -164,7 +166,7 @@ echo ^</xml^>
 ) > "%USERPROFILE%\.hxcpp_config.xml"
 
 echo [*] Compiling Windows 64-Bit with MinGW (Lua + Iris Enabled)...
-"%HAXELIB_CMD%" run lime build windows -release -DHXCPP_MINGW -DHXCPP_CPP11 -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -release -DHXCPP_MINGW -DHXCPP_CPP11 -DSOULSCORCH_LUA %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :BUILD_MSVC_RELEASE
@@ -172,7 +174,7 @@ cls
 echo [*] Compiling Windows 64-Bit Release Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if not defined VSCMD_VER if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime build windows -release -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -release -DSOULSCORCH_LUA %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :BUILD_MSVC_DEBUG
@@ -180,13 +182,13 @@ cls
 echo [*] Compiling Windows 64-Bit Debug Build (MSVC - Lua + Iris Enabled)...
 if exist "%USERPROFILE%\.hxcpp_config.xml" del /f /q "%USERPROFILE%\.hxcpp_config.xml" >nul 2>&1
 if not defined VSCMD_VER if defined VCVARS_PATH call "%VCVARS_PATH%"
-"%HAXELIB_CMD%" run lime build windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build windows -debug -DHXCPP_STACK_LINE -DHXCPP_CHECK_POINTER -DSOULSCORCH_LUA %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :BUILD_LINUX
 cls
 echo [*] Compiling Linux 64-Bit C++ Target (Lua + Iris Enabled)...
-"%HAXELIB_CMD%" run lime build linux -release -DSOULSCORCH_LUA
+"%HAXELIB_CMD%" run lime build linux -release -DSOULSCORCH_LUA %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :BUILD_SWITCH
@@ -205,7 +207,7 @@ echo [*] Compiling Android Package (APK)...
 if not defined ANDROID_SDK_ROOT if not defined ANDROID_HOME (
     echo [!] Warning: ANDROID_SDK_ROOT or ANDROID_HOME not detected.
 )
-"%HAXELIB_CMD%" run lime build android -release
+"%HAXELIB_CMD%" run lime build android -release %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :BUILD_HTML5
@@ -223,7 +225,7 @@ goto BUILD_END
 :BUILD_CPPIA
 cls
 echo [*] Running CPPIA Bytecode Test Host...
-"%HAXELIB_CMD%" run lime test windows -cppia
+"%HAXELIB_CMD%" run lime test windows -cppia %FMOD_BUILD_FLAG%
 goto BUILD_END
 
 :DOWNLOAD_MINGW

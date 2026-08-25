@@ -187,6 +187,34 @@ jobs:
           file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
           echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
 
+      - name: Patch hxcpp zlib for Apple SDK
+        if: matrix.os == 'macos-15-intel'
+        run: |
+          python -c '
+          import os, subprocess
+          raw = subprocess.run(["haxelib", "libpath", "hxcpp"], capture_output=True, text=True).stdout
+          roots = [line.strip() for line in raw.splitlines() if os.path.isdir(line.strip())]
+          header = ""
+          for root in reversed(roots):
+              candidate = os.path.join(root, "project", "thirdparty", "zlib-1.2.11", "zutil.h")
+              if os.path.exists(candidate):
+                  header = candidate
+                  break
+          if not header:
+              raise SystemExit("Could not locate hxcpp zlib zutil.h")
+          with open(header, "r", encoding="utf-8") as f:
+              content = f.read()
+          old = "#        define fdopen(fd,mode) NULL /* No fdopen() */"
+          new = "#        undef fdopen /* fdopen is provided by Apple libc */"
+          if old in content:
+              content = content.replace(old, new)
+              with open(header, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("Patched hxcpp zlib:", header)
+          else:
+              print("hxcpp zlib already patched or uses a different guard:", header)
+          '
+
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
           python -c '
@@ -207,6 +235,7 @@ jobs:
         run: haxelib run lime build ${{ matrix.target }} -release -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS
         env:
           HXCPP_COMPILE_THREADS: 8
+          HXCPP_CXXFLAGS: -Wno-unused-command-line-argument
 
       - name: Locate and Stage Build Output (Universal Finder)
         id: stage_build

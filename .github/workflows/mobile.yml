@@ -80,16 +80,13 @@ jobs:
           haxelib install openfl 9.3.3 --quiet --skip-dependencies
           haxelib install flixel 5.6.2 --quiet --skip-dependencies
           haxelib install flixel-addons 3.2.3 --quiet --skip-dependencies
-                  test -f "$LIME_NDLL_FILE"
-                  file "$LIME_NDLL_FILE"
-                  file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
-                  echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
           haxelib install flixel-ui 2.6.1 --quiet --skip-dependencies
-                run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+          haxelib install hscript 2.4.0 --quiet
           haxelib set hscript 2.4.0
           haxelib install hscript-iris 1.1.0 --quiet
           haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
+          haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git
 
       - name: Ensure HScript Version
         run: haxelib set hscript 2.4.0
@@ -159,7 +156,7 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Build Android Release APK
-        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build android -release -DNO_PRELOAD_ALL -DSOULSCORCH_LUA -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
@@ -226,6 +223,7 @@ jobs:
           haxelib install hscript-iris 1.1.0 --quiet
           haxelib install away3d --quiet
           haxelib install hxcpp 4.3.2 --quiet
+          haxelib git linc_luajit https://github.com/JustyyDev/linc_luajit.git
 
       - name: Ensure HScript Version
         run: haxelib set hscript 2.4.0
@@ -282,6 +280,33 @@ jobs:
           file "$LIME_NDLL_FILE" | grep -Eq 'x86_64|x86-64'
           echo "Verified Intel Lime host binary: $LIME_NDLL_FILE"
 
+      - name: Patch hxcpp zlib for Apple SDK
+        run: |
+          python3 -c '
+          import os, subprocess
+          raw = subprocess.run(["haxelib", "libpath", "hxcpp"], capture_output=True, text=True).stdout
+          roots = [line.strip() for line in raw.splitlines() if os.path.isdir(line.strip())]
+          header = ""
+          for root in reversed(roots):
+              candidate = os.path.join(root, "project", "thirdparty", "zlib-1.2.11", "zutil.h")
+              if os.path.exists(candidate):
+                  header = candidate
+                  break
+          if not header:
+              raise SystemExit("Could not locate hxcpp zlib zutil.h")
+          with open(header, "r", encoding="utf-8") as f:
+              content = f.read()
+          old = "#        define fdopen(fd,mode) NULL /* No fdopen() */"
+          new = "#        undef fdopen /* fdopen is provided by Apple libc */"
+          if old in content:
+              content = content.replace(old, new)
+              with open(header, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("Patched hxcpp zlib:", header)
+          else:
+              print("hxcpp zlib already patched or uses a different guard:", header)
+          '
+
       - name: Patch Flixel ConsoleUtil for Haxe 4.3+
         run: |
           python3 -c '
@@ -299,9 +324,13 @@ jobs:
           '
 
       - name: Generate iOS C++ & Xcode Project
-        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS ${{ env.SOULSCORCH_EXTRA_DEFS }}
+        run: haxelib run lime build ios -release -nosign -DNO_PRELOAD_ALL -DSOULSCORCH_LUA -DHXCPP_STRIP_SYMBOLS -DHXCPP_GC_GENERATIONAL -DHXCPP_GC_BIG_BLOCKS -DNO_SIGNING -DCODE_SIGNING_ALLOWED=NO -DCODE_SIGNING_REQUIRED=NO ${{ env.SOULSCORCH_EXTRA_DEFS }}
         env:
           HXCPP_COMPILE_THREADS: 8
+          HXCPP_CXXFLAGS: -Wno-unused-command-line-argument
+          CODE_SIGNING_ALLOWED: NO
+          CODE_SIGNING_REQUIRED: NO
+          DEVELOPMENT_TEAM: ""
 
       - name: Locate Xcode Project Output
         id: stage_xcode

@@ -1206,8 +1206,8 @@ class PlayState extends MusicBeatState {
             return;
         }
 
-        if (countdownEnded && audio != null && audio.inst != null && audio.inst.playing) {
-            HardwareConductor.update(audio.inst.time, elapsed);
+        if (countdownEnded && audio != null && audio.isPlaying()) {
+            HardwareConductor.update(audio.getPosition(), elapsed);
         } else {
             Conductor.songPosition += elapsed * 1000.0;
         }

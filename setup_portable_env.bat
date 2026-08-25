@@ -60,11 +60,12 @@ echo.
 "%HAXE_DIR%\haxelib.exe" set hscript 2.4.0
 "%HAXE_DIR%\haxelib.exe" install hscript-iris 1.1.0 --always --quiet
 "%HAXE_DIR%\haxelib.exe" install away3d --always --quiet
-"%HAXE_DIR%\haxelib.exe" install linc_fmod --always --quiet
+if defined FMOD_SDK "%HAXE_DIR%\haxelib.exe" install linc_fmod --always --quiet
 
 :: Optional C++ / native dependencies if Git is available
 echo [*] Checking optional git dependencies...
 "%HAXE_DIR%\haxelib.exe" git linc_luajit https://github.com/JustyyDev/linc_luajit.git --always --quiet >nul 2>&1
+if defined FMOD_SDK "%HAXE_DIR%\haxelib.exe" git linc_fmod https://github.com/SoulScorchEngine/linc_fmod.git --always --quiet >nul 2>&1
 "%HAXE_DIR%\haxelib.exe" git hxdiscord_rpc https://github.com/MAJESTFormat/hxdiscord_rpc.git --always --quiet >nul 2>&1
 
 echo.

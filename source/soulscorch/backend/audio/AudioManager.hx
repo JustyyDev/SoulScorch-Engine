@@ -22,12 +22,42 @@ class AudioManager {
 
     public var isLoaded:Bool = false;
     public var onSongComplete:Void->Void;
+    public var analysisEnabled(default, null):Bool = false;
+    public var analyzer(default, null):AudioAnalyzer;
 
     private var _vocalSyncAccumulator:Float = 0.0;
     private static inline var VOCAL_SYNC_INTERVAL:Float = 0.035;
     private static inline var VOCAL_SYNC_THRESHOLD_MS:Float = 20.0;
 
     public function new() {}
+
+    public function setAnalysisEnabled(enabled:Bool):Void {
+        analysisEnabled = enabled;
+        if (enabled && analyzer == null) analyzer = new AudioAnalyzer();
+        if (!enabled) AudioSpectrum.reset();
+    }
+
+    private function updateAnalysis(elapsed:Float):Void {
+        if (!analysisEnabled || analyzer == null) return;
+        analyzer.update(elapsed);
+        AudioSpectrum.setLevels(analyzer.bass, analyzer.mid, analyzer.treble, elapsed);
+    }
+
+    public function isPlaying():Bool {
+        #if SOULSCORCH_FMOD
+        return fmod().isPlaying();
+        #else
+        return inst != null && inst.playing;
+        #end
+    }
+
+    public function getPosition():Float {
+        #if SOULSCORCH_FMOD
+        return fmod().getPosition();
+        #else
+        return inst != null ? inst.time : 0.0;
+        #end
+    }
 
     #if SOULSCORCH_FMOD
     private inline function fmod():FmodAudioBackend {
@@ -103,12 +133,12 @@ class AudioManager {
 
         if (soundObj != null) {
             if (isPlayer) {
-                if (vocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(vocals, true);
+                destroyChannel(vocals);
                 vocals = new FlxSound().loadEmbedded(soundObj);
                 vocals.volume = 1.0;
                 FlxG.sound.list.add(vocals);
             } else {
-                if (opponentVocals != null && FlxG.sound.list != null) FlxG.sound.list.remove(opponentVocals, true);
+                destroyChannel(opponentVocals);
                 opponentVocals = new FlxSound().loadEmbedded(soundObj);
                 opponentVocals.volume = 1.0;
                 FlxG.sound.list.add(opponentVocals);
@@ -124,7 +154,10 @@ class AudioManager {
     public function stop():Void { fmod().stop(); }
     public function fadeOut(duration:Float = 0.5, ?onComplete:Void->Void):Void { fmod().fadeOut(duration, onComplete); }
     public function muteVocal(isPlayer:Bool, mute:Bool):Void { fmod().muteVocal(isPlayer, mute); }
-    public function update(elapsed:Float):Void { fmod().update(elapsed); }
+    public function update(elapsed:Float):Void {
+        fmod().update(elapsed);
+        updateAnalysis(elapsed);
+    }
     #else
     public function play():Void {
         if (inst != null) {
@@ -228,6 +261,7 @@ class AudioManager {
             _vocalSyncAccumulator = 0.0;
             syncVocals();
         }
+        updateAnalysis(elapsed);
     }
     #end
 
@@ -235,6 +269,13 @@ class AudioManager {
         if (inst != null) FlxTween.cancelTweensOf(inst);
         if (vocals != null) FlxTween.cancelTweensOf(vocals);
         if (opponentVocals != null) FlxTween.cancelTweensOf(opponentVocals);
+    }
+
+    private function destroyChannel(channel:FlxSound):Void {
+        if (channel == null) return;
+        channel.stop();
+        if (FlxG.sound.list != null) FlxG.sound.list.remove(channel, true);
+        channel.destroy();
     }
 
     public function clear():Void {

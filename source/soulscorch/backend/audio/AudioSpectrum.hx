@@ -33,6 +33,18 @@ class AudioSpectrum {
         }
     }
 
+    public static function setLevels(bassLevel:Float, midLevel:Float, trebleLevel:Float, elapsed:Float):Void {
+        var lerp = Math.min(1.0, Math.max(0.0, elapsed * 18.0));
+        for (i in 0...bands.length) {
+            var target = i < 5 ? bassLevel : (i < 11 ? midLevel : trebleLevel);
+            bands[i] += (Math.min(1.0, Math.max(0.0, target)) - bands[i]) * lerp;
+        }
+    }
+
+    public static function reset():Void {
+        for (i in 0...bands.length) bands[i] = 0.0;
+    }
+
     static inline function get_bass():Float {
         return (bands[0] + bands[1] + bands[2]) / 3.0;
     }

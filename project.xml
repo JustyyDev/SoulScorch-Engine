@@ -15,15 +15,13 @@
 	<!-- Flixel 5.6.2 ConsoleUtil Private Access Fix for hscript 2.5.0+ -->
 	<haxeflag name="--macro" value="addGlobalMetadata('flixel.system.debug.console.ConsoleUtil', '@:access(hscript.Interp)')" />
 
-	<!-- Scripting Backends (Iris + Desktop Native LuaJIT Support) -->
+	<!-- Scripting Backends (Iris + Native LuaJIT on every C++ target) -->
     <haxelib name="hscript-iris" />
     <haxedef name="SOULSCORCH_IRIS" />
 
-	<section if="desktop" unless="mobile">
-		<haxelib name="linc_luajit" if="cpp" />
-		<haxedef name="LUA_ALLOWED" if="cpp" />
-		<haxedef name="SOULSCORCH_LUA" if="cpp" />
-	</section>
+	<haxelib name="linc_luajit" if="cpp" />
+	<haxedef name="LUA_ALLOWED" if="cpp" />
+	<haxedef name="SOULSCORCH_LUA" if="cpp" />
 	
 	<!-- Optional Video Codecs -->
 	<haxelib name="hxvlc" if="SOULSCORCH_VIDEO_HXVLC" />
@@ -80,11 +78,9 @@
 	<haxedef name="SOULSCORCH_EXPERIMENTAL_SHADERS" if="desktop" />
 	<haxedef name="SOULSCORCH_SOFTCODED_UI" />
 
-	<!-- Optional FMOD Audio Backend (requires `haxelib install linc_fmod`) -->
-	<!-- FMOD support disabled by default. To enable, uncomment the lines below
-	     and ensure the FMOD SDK is available at the FMOD_SDK environment variable. -->
-	<!-- <haxedef name="SOULSCORCH_FMOD" if="cpp" /> -->
-	<!-- <haxelib name="linc_fmod" if="SOULSCORCH_FMOD" /> -->
+	<!-- Optional FMOD Audio Backend. Build scripts enable this automatically when FMOD_SDK exists. -->
+	<haxedef name="SOULSCORCH_FMOD" if="FMOD_SDK" />
+	<haxelib name="linc_fmod" if="SOULSCORCH_FMOD" />
 
 	<!-- Physics: NAPE (note-hit particles, soft-body UI, debris VFX) -->
 	<!-- The NAPE_RELEASE_BUILD define below is only meaningful once nape is enabled. -->

@@ -12,7 +12,15 @@ class StemMixer {
 
     public function addStem(name:String, sound:FlxSound):Void {
         if (name == null || sound == null) return;
-        stems.set(name.toLowerCase().trim(), sound);
+        var key = name.toLowerCase().trim();
+        if (key.length == 0) return;
+        var old = stems.get(key);
+        if (old != null && old != sound) {
+            old.stop();
+            if (FlxG.sound.list != null) FlxG.sound.list.remove(old, true);
+            old.destroy();
+        }
+        stems.set(key, sound);
     }
 
     public function getStem(name:String):Null<FlxSound> {
@@ -24,7 +32,7 @@ class StemMixer {
         if (name == null) return;
         var stem = stems.get(name.toLowerCase().trim());
         if (stem != null) {
-            stem.volume = volume;
+            stem.volume = Math.max(0.0, Math.min(1.0, volume));
         }
     }
 

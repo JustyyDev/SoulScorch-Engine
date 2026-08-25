@@ -1,7 +1,7 @@
 SoulScorch scripting
 ====================
 
-Song scripts may use .hx, .hscript, .soul, .lua, or .py. HScript, Iris, and SoulScript run in-process. Lua is available for desktop C++ builds with LUA_ALLOWED. Python callbacks run as external processes and should be reserved for infrequent hooks.
+Song scripts may use .hx, .hscript, .soul, .lua, .py, or .js. HScript, Iris, SoulScript, and desktop/mobile C++ Lua run in-process. Python and JavaScript callbacks run as external processes and should be reserved for infrequent hooks. JavaScript uses the `node` executable and receives `{callback, args, context}` as its third argument JSON payload.
 
 Core lifecycle callbacks
 ------------------------

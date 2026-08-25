@@ -43,6 +43,8 @@ class FmodAudioBackend {
     private var vocalSound:Dynamic;
     private var oppSound:Dynamic;
     private var fmodReady:Bool = false;
+    private var playbackStarted:Bool = false;
+    private var completionDispatched:Bool = false;
     #end
 
     public function new() {
@@ -81,15 +83,59 @@ class FmodAudioBackend {
         }
     }
 
-    private function playSoundOn(sound:Dynamic):Dynamic {
+    private function playSoundOn(sound:Dynamic, paused:Bool = true):Dynamic {
         if (fmodSystem == null || sound == null) return null;
         try {
-            return Reflect.callMethod(fmodSystem, Reflect.field(fmodSystem, "playSound"), [sound, null, false]);
+            return Reflect.callMethod(fmodSystem, Reflect.field(fmodSystem, "playSound"), [sound, null, paused]);
         } catch (e:Dynamic) {
             return null;
         }
     }
+
+    private function getChannelPosition(channel:Dynamic):Float {
+        if (channel == null) return 0.0;
+        var method = Reflect.field(channel, "getPosition");
+        if (method == null) return 0.0;
+        try return Reflect.callMethod(channel, method, []) catch (_:Dynamic) return 0.0;
+    }
+
+    private function setChannelPosition(channel:Dynamic, position:Float):Void {
+        if (channel == null) return;
+        var method = Reflect.field(channel, "setPosition");
+        if (method != null) {
+            try Reflect.callMethod(channel, method, [Std.int(Math.max(0.0, position))]) catch (_:Dynamic) {}
+        }
+    }
+
+    private function isChannelPlaying(channel:Dynamic):Bool {
+        if (channel == null) return false;
+        var method = Reflect.field(channel, "isPlaying");
+        if (method == null) return false;
+        try return Reflect.callMethod(channel, method, []) == true catch (_:Dynamic) return false;
+    }
+
+    private function releaseSound(sound:Dynamic):Void {
+        if (sound == null) return;
+        var method = Reflect.field(sound, "release");
+        if (method != null) {
+            try Reflect.callMethod(sound, method, []) catch (_:Dynamic) {}
+        }
+    }
     #end
+
+    public function isPlaying():Bool {
+        #if SOULSCORCH_FMOD
+        if (fmodReady) return isChannelPlaying(instChannel);
+        #end
+        return inst != null && inst.playing;
+    }
+
+    public function getPosition():Float {
+        #if SOULSCORCH_FMOD
+        if (fmodReady) return getChannelPosition(instChannel);
+        #end
+        return inst != null ? inst.time : 0.0;
+    }
 
     public function loadSong(songId:String):Bool {
         #if SOULSCORCH_FMOD
@@ -114,6 +160,8 @@ class FmodAudioBackend {
                 oppChannel = playSoundOn(oppSound);
             }
             isLoaded = true;
+            playbackStarted = false;
+            completionDispatched = false;
             return true;
         }
         #end
@@ -163,9 +211,11 @@ class FmodAudioBackend {
             if (isPlayer) {
                 vocalSound = s;
                 vocalChannel = playSoundOn(s);
+                if (playbackStarted && vocalChannel != null) Reflect.callMethod(vocalChannel, Reflect.field(vocalChannel, "start"), []);
             } else {
                 oppSound = s;
                 oppChannel = playSoundOn(s);
+                if (playbackStarted && oppChannel != null) Reflect.callMethod(oppChannel, Reflect.field(oppChannel, "start"), []);
             }
             return;
         }
@@ -202,6 +252,8 @@ class FmodAudioBackend {
             if (instChannel != null) Reflect.callMethod(instChannel, Reflect.field(instChannel, "start"), []);
             if (vocalChannel != null) Reflect.callMethod(vocalChannel, Reflect.field(vocalChannel, "start"), []);
             if (oppChannel != null) Reflect.callMethod(oppChannel, Reflect.field(oppChannel, "start"), []);
+            playbackStarted = true;
+            completionDispatched = false;
             return;
         }
         #end
@@ -246,6 +298,7 @@ class FmodAudioBackend {
             if (instChannel != null) Reflect.callMethod(instChannel, Reflect.field(instChannel, "stop"), []);
             if (vocalChannel != null) Reflect.callMethod(vocalChannel, Reflect.field(vocalChannel, "stop"), []);
             if (oppChannel != null) Reflect.callMethod(oppChannel, Reflect.field(oppChannel, "stop"), []);
+            playbackStarted = false;
             return;
         }
         #end
@@ -291,6 +344,9 @@ class FmodAudioBackend {
     public function syncVocals():Void {
         #if SOULSCORCH_FMOD
         if (fmodReady) {
+            var position = getChannelPosition(instChannel);
+            if (vocalChannel != null && Math.abs(position - getChannelPosition(vocalChannel)) > 20.0) setChannelPosition(vocalChannel, position);
+            if (oppChannel != null && Math.abs(position - getChannelPosition(oppChannel)) > 20.0) setChannelPosition(oppChannel, position);
             return;
         }
         #end
@@ -304,6 +360,12 @@ class FmodAudioBackend {
         #if SOULSCORCH_FMOD
         if (fmodReady && fmodSystem != null) {
             Reflect.callMethod(fmodSystem, Reflect.field(fmodSystem, "update"), []);
+            syncVocals();
+            if (playbackStarted && !completionDispatched && instChannel != null && !isChannelPlaying(instChannel)) {
+                completionDispatched = true;
+                playbackStarted = false;
+                if (onSongComplete != null) onSongComplete();
+            }
             return;
         }
         #end
@@ -322,8 +384,13 @@ class FmodAudioBackend {
             if (instChannel != null) Reflect.callMethod(instChannel, Reflect.field(instChannel, "stop"), []);
             if (vocalChannel != null) Reflect.callMethod(vocalChannel, Reflect.field(vocalChannel, "stop"), []);
             if (oppChannel != null) Reflect.callMethod(oppChannel, Reflect.field(oppChannel, "stop"), []);
+            releaseSound(instSound);
+            releaseSound(vocalSound);
+            releaseSound(oppSound);
             instChannel = vocalChannel = oppChannel = null;
             instSound = vocalSound = oppSound = null;
+            playbackStarted = false;
+            completionDispatched = false;
             isLoaded = false;
             return;
         }

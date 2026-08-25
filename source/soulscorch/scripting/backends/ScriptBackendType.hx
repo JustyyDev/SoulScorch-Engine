@@ -9,6 +9,7 @@ enum abstract ScriptBackendType(String) from String to String {
     var LUA = "lua";
     var SOULSCRIPT = "soulscript";
     var PYTHON = "python";
+    var JAVASCRIPT = "javascript";
     var UNKNOWN = "unknown";
 
     public static function fromPath(path:String):ScriptBackendType {
@@ -21,6 +22,8 @@ enum abstract ScriptBackendType(String) from String to String {
             return LUA;
         } else if (clean.endsWith(".py")) {
             return PYTHON;
+        } else if (clean.endsWith(".js")) {
+            return JAVASCRIPT;
         } else if (clean.endsWith(".hx") || clean.endsWith(".hscript") || clean.endsWith(".iris")) {
             return HSCRIPT;
         }
@@ -32,6 +35,7 @@ enum abstract ScriptBackendType(String) from String to String {
             case SOULSCRIPT: new SoulScript(path);
             case LUA: new LuaScript(path);
             case PYTHON: new PythonScript(path);
+            case JAVASCRIPT: new JavaScriptScript(path);
             case HSCRIPT: new HScriptIris(path);
             default: new HScriptIris(path);
         };
