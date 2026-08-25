@@ -3,11 +3,12 @@ package soulscorch.scripting;
 import flixel.FlxCamera;
 import flixel.FlxG;
 import flixel.FlxSprite;
+import flixel.util.FlxColor;
 import soulscorch.gameplay.PlayState;
 import soulscorch.graphics.shaders.ShaderManager;
 import soulscorch.graphics.shaders.SoulShader;
 import soulscorch.backend.system.modules.discord.DiscordRPC;
-import soulscorch.backend.system.modules.github.GithubModule;
+import soulscorch.backend.system.modules.github.GitHubModule;
 import soulscorch.backend.system.modules.discord.DiscordRichPresenceExtensions;
 import soulscorch.backend.assets.AssetHelper;
 import soulscorch.backend.assets.AssetResolver;
@@ -151,7 +152,7 @@ class ScriptAPI {
     }
 
     public static function checkGitHubUpdates():Void {
-        if (GithubModule.instance != null) GithubModule.instance.checkLatestRelease();
+        if (GitHubModule.instance != null) GitHubModule.instance.checkLatestRelease();
     }
 
     public static function setChartEditorPresence(songName:String, currentStep:Int, bpm:Float):Void {

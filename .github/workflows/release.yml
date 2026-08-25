@@ -26,7 +26,7 @@ jobs:
             target: linux
             artifact_name: SoulScorch-Linux
             archive_name: SoulScorch-Linux.zip
-          - os: macos-13
+          - os: macos-15-intel
             target: mac
             artifact_name: SoulScorch-macOS
             archive_name: SoulScorch-macOS.zip
@@ -176,7 +176,7 @@ jobs:
           '
 
       - name: Verify Host Lime NDLL (Intel macOS)
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-15-intel'
         run: |
           haxelib run lime setup -y || true
           LIME_PATH="$(haxelib libpath lime | awk 'NF{last=$0} END{print last}')"

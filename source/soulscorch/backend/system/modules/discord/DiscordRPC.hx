@@ -423,13 +423,13 @@ class DiscordRPC extends ModuleBase {
         loadConfigFromXMSoul();
         lastPresenceSignature = "";
         lastUpdateTime = 0.0;
-        if (wasInitialized && isEnabled) initialize();
+        if (wasInitialized && isEnabled && instance != null) instance.initialize();
     }
 
     public static function setEnabled(enabled:Bool):Void {
         isEnabled = enabled;
         if (!enabled) shutdown();
-        else if (!isInitialized) initialize();
+        else if (!isInitialized && instance != null) instance.initialize();
     }
 
     public static function shutdown():Void {
