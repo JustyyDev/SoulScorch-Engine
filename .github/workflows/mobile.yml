@@ -281,48 +281,39 @@ jobs:
 
           echo "Using Lime at: $LIME_PATH"
 
-          # 2. Resolve an arm64 Lime NDLL and ignore any x86_64 host copy.
-            LIME_NDLL_PATH=""
-            for candidate in \
-              "$LIME_PATH/ndll/MacArm64/lime.ndll" \
-              "$LIME_PATH/ndll/macarm64/lime.ndll" \
-              "$LIME_PATH/ndll/arm64/lime.ndll" \
-              "$LIME_PATH/ndll/Mac64/lime.ndll" \
-              "$LIME_PATH/ndll/Mac/lime.ndll"; do
-              if [ -f "$candidate" ]; then
-                LIME_NDLL_PATH="$(dirname "$candidate")"
-                break
-              fi
-            done
+          # 2. Repair the hardcoded Mac64 lime.ndll slot with an arm64 build when needed.
+          LIME_NDLL_PATH="$LIME_PATH/ndll/Mac64"
+          LIME_NDLL_FILE="$LIME_NDLL_PATH/lime.ndll"
 
-            if [ -z "$LIME_NDLL_PATH" ] && [ -d "$LIME_PATH/project" ]; then
-              echo "Lime package did not provide a native ndll. Building from source..."
+          if [ ! -f "$LIME_NDLL_FILE" ] || ! file "$LIME_NDLL_FILE" | grep -Eq 'arm64|arm64e'; then
+            echo "Mac64 lime.ndll is missing or not arm64; rebuilding from Lime source..."
+            if [ -d "$LIME_PATH/project" ]; then
               pushd "$LIME_PATH/project"
               haxelib run hxcpp Build.xml -Dmac -DHXCPP_ARM64 -DHXCPP_M64 || haxelib run hxcpp Build.xml -Dmac || true
               popd
-
-              for candidate in \
-                "$LIME_PATH/ndll/MacArm64/lime.ndll" \
-                "$LIME_PATH/ndll/macarm64/lime.ndll" \
-                "$LIME_PATH/ndll/arm64/lime.ndll" \
-                "$LIME_PATH/ndll/Mac64/lime.ndll" \
-                "$LIME_PATH/ndll/Mac/lime.ndll"; do
-                if [ -f "$candidate" ]; then
-                  LIME_NDLL_PATH="$(dirname "$candidate")"
-                  break
-                fi
-              done
             fi
 
-          if [ -n "$LIME_NDLL_PATH" ] && [ -f "$LIME_NDLL_PATH/lime.ndll" ]; then
-            echo "Found lime.ndll at: $LIME_NDLL_PATH"
+            for candidate in \
+              "$LIME_PATH/ndll/MacArm64/lime.ndll" \
+              "$LIME_PATH/ndll/macarm64/lime.ndll" \
+              "$LIME_PATH/ndll/arm64/lime.ndll"; do
+              if [ -f "$candidate" ] && file "$candidate" | grep -Eq 'arm64|arm64e'; then
+                mkdir -p "$LIME_NDLL_PATH"
+                cp -f "$candidate" "$LIME_NDLL_FILE"
+                break
+              fi
+            done
+          fi
+
+          if [ -f "$LIME_NDLL_FILE" ]; then
+            echo "Using lime.ndll at: $LIME_NDLL_FILE"
             export NEKOPATH="$LIME_NDLL_PATH:${NEKOPATH:-}"
             export DYLD_FALLBACK_LIBRARY_PATH="$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}"
             echo "NEKOPATH=$LIME_NDLL_PATH:${NEKOPATH:-}" >> "$GITHUB_ENV"
             echo "DYLD_FALLBACK_LIBRARY_PATH=$LIME_NDLL_PATH:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
           else
-              echo "Error: lime.ndll could not be located after setup/build fallback."
-              exit 1
+            echo "Error: unable to provision an arm64 lime.ndll in the Mac64 slot."
+            exit 1
           fi
 
           haxelib run lime config MAC_USE_CURRENT_SDK 1 || true
